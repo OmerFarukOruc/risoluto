@@ -104,6 +104,43 @@ Then open the dashboard at **[http://127.0.0.1:4000/](http://127.0.0.1:4000/)** 
 curl -s http://127.0.0.1:4000/api/v1/state
 ```
 
+### ✅ First Live Smoke Issue
+
+For the first end-to-end proving run, use an issue that does not depend on repository files being present in the workspace.
+
+Create a Linear issue in an active state such as `In Progress` with this title:
+
+```text
+SMOKE: create workspace proof file
+```
+
+And this description:
+
+```md
+Goal: prove Symphony can pick up a live issue, launch Codex, write a file in the issue workspace, and archive the attempt.
+
+Steps:
+1. Create `SYMPHONY_SMOKE_RESULT.md` in the workspace for this issue.
+2. Include:
+   - the issue identifier
+   - the current UTC timestamp
+   - the current working directory
+   - the output of `pwd`
+   - the output of `ls -la`
+   - one line saying whether the workspace looks empty or repo-backed
+3. Do not modify files outside the issue workspace.
+4. Stop after the file exists and the summary is written.
+```
+
+Verification:
+
+- Watch `GET /api/v1/state` for the issue to appear under `running`.
+- Check `GET /api/v1/<ISSUE>` or `GET /api/v1/<ISSUE>/attempts` for a recorded attempt.
+- Inspect the workspace under `$TMPDIR/symphony_workspaces/<ISSUE>` for `SYMPHONY_SMOKE_RESULT.md`.
+- After the first successful attempt lands, move the Linear issue to `Done` or another terminal state so Symphony stops scheduling follow-up turns.
+
+The checked-in workflows now also tell the agent to finish with `SYMPHONY_STATUS: DONE` when the issue is complete, or `SYMPHONY_STATUS: BLOCKED` when progress is no longer possible. Symphony uses that signal to stop local continuation turns for one-shot issues.
+
 ---
 
 ## 📄 Workflow Files

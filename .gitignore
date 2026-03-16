@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.symphony/
+.symphony-codex-home/
+.sisyphus/
+
+# Logs and local runtime output
+*.log
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+
+# Temp coverage or generated artifacts
+coverage/

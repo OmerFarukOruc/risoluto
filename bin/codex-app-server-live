@@ -3,12 +3,19 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 fixture_home="$repo_root/tests/fixtures/codex-home-custom-provider"
-runtime_home="$repo_root/.symphony-codex-home"
+runtime_home="${CODEX_HOME:-$repo_root/.symphony-codex-home}"
 source_auth_home="${CODEX_AUTH_SOURCE_HOME:-$HOME/.codex}"
 
 mkdir -p "$runtime_home"
 
 cp "$fixture_home/config.toml" "$runtime_home/config.toml"
+
+# Inside Docker, rewrite localhost URLs to host.docker.internal so the
+# container can reach host-bound services (e.g. CLIProxyAPI).
+if [ -f /.dockerenv ]; then
+  sed -i 's|://127\.0\.0\.1|://host.docker.internal|g; s|://localhost|://host.docker.internal|g' \
+    "$runtime_home/config.toml"
+fi
 
 if [ -d "$fixture_home/skills" ] && [ ! -d "$runtime_home/skills" ]; then
   cp -R "$fixture_home/skills" "$runtime_home/skills"
@@ -21,19 +28,7 @@ fi
 
 cp "$source_auth_home/auth.json" "$runtime_home/auth.json"
 
-openai_api_key="$(
-  SOURCE_AUTH_HOME="$source_auth_home" python - <<'PY'
-import json
-import os
-from pathlib import Path
-
-auth = json.loads(Path(os.environ["SOURCE_AUTH_HOME"]).joinpath("auth.json").read_text())
-value = auth.get("OPENAI_API_KEY", "")
-if not isinstance(value, str):
-    value = ""
-print(value, end="")
-PY
-)"
+openai_api_key="$(jq -r '.OPENAI_API_KEY // empty' "$source_auth_home/auth.json" 2>/dev/null || true)"
 
 if [ -z "$openai_api_key" ]; then
   echo "OPENAI_API_KEY is missing in $source_auth_home/auth.json; cannot authenticate to CLIProxyAPI" >&2

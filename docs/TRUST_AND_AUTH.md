@@ -50,13 +50,20 @@ The workflow example uses an isolated `CODEX_HOME` so the daemon avoids inheriti
 
 ## 🌐 Provider Boundary
 
-Symphony launches the exact `codex.command` from `WORKFLOW.md`. If that Codex runtime is already configured to use a provider or proxy, Symphony inherits that behavior. This keeps account routing **below** Symphony instead of duplicating it inside.
+Symphony launches the exact `codex.command` from `WORKFLOW.md`. The default setup uses [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as the provider proxy — it runs on the **host** (listening on `127.0.0.1:8317`) and manages all model provider credentials.
+
+When running inside Docker, the container cannot reach the host's `127.0.0.1` directly. Symphony handles this transparently:
+
+- Every container gets `--add-host=host.docker.internal:host-gateway`
+- The launcher script (`bin/codex-app-server-live`) rewrites `127.0.0.1` → `host.docker.internal` in `config.toml` at container startup
+
+This keeps account routing **below** Symphony and avoids duplicating credentials into each sandbox.
 
 ---
 
 ## 🐳 Docker Sandbox Boundary
 
-Symphony runs the Codex agent inside a Docker container using the `codex-universal` base image. The container is a **transparent wrapper** — the same `codex.command` runs inside, with the same paths and environment.
+Symphony runs the Codex agent inside a Docker container using a `node:22-bookworm` base image with the Codex CLI installed globally. The container is a **transparent wrapper** — the same `codex.command` runs inside, with the same paths and environment.
 
 **Key properties:**
 

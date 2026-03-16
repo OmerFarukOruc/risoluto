@@ -21,6 +21,80 @@ Symphony polls Linear for candidate issues, creates a workspace per issue, launc
 
 ---
 
+## 🌐 Deployment Architecture
+
+Symphony uses [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as its authentication and model-routing layer. CLIProxyAPI runs on the **host** and manages provider credentials — Symphony's Docker sandbox containers reach it over the network.
+
+```mermaid
+flowchart TD
+    subgraph Host ["🖥️ Host (local machine or VDS)"]
+        CLIP["🔑 CLIProxyAPI\n127.0.0.1:8317"]
+        SYM["🎵 Symphony Orchestrator\nport 4000"]
+        LINEAR["🗂️ Linear API"]
+    end
+
+    subgraph Docker ["🐳 Docker Containers"]
+        CX1["🤖 Codex Worker 1"]
+        CX2["🤖 Codex Worker 2"]
+        CXN["🤖 Codex Worker N"]
+    end
+
+    SYM -->|poll| LINEAR
+    SYM -->|spawn| CX1
+    SYM -->|spawn| CX2
+    SYM -->|spawn| CXN
+    CX1 -->|"host.docker.internal:8317"| CLIP
+    CX2 -->|"host.docker.internal:8317"| CLIP
+    CXN -->|"host.docker.internal:8317"| CLIP
+
+    style CLIP fill:#059669,stroke:#047857,color:#fff
+    style SYM fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style CX1 fill:#d97706,stroke:#b45309,color:#fff
+    style CX2 fill:#d97706,stroke:#b45309,color:#fff
+    style CXN fill:#d97706,stroke:#b45309,color:#fff
+```
+
+> [!IMPORTANT]
+> CLIProxyAPI runs **once on the host** and serves all concurrent sandbox containers. Do not install it inside the Docker images — that would duplicate credentials and waste resources.
+
+### 🐳 How Docker Networking Works
+
+Containers cannot reach the host's `127.0.0.1`. Symphony automatically:
+
+1. Adds `--add-host=host.docker.internal:host-gateway` to every container
+2. Rewrites `127.0.0.1` → `host.docker.internal` in the Codex `config.toml` when running inside Docker
+
+This is transparent — the fixture `config.toml` keeps using `127.0.0.1` and the launcher handles the rewrite at container startup.
+
+### 🖥️ VDS / Server Deployment
+
+```bash
+# 1. Install Node.js 22+ and Docker
+# 2. Clone the repo and install
+git clone <repo-url> && cd symphony-orchestrator
+npm install && npm run build
+
+# 3. Build the sandbox image
+bash bin/build-sandbox.sh
+
+# 4. Set up CLIProxyAPI on the host
+#    → https://github.com/router-for-me/CLIProxyAPI
+#    Ensure it listens on 127.0.0.1:8317
+
+# 5. Bootstrap Codex auth
+cp -R tests/fixtures/codex-home-custom-provider "$HOME/.symphony-codex"
+# Place your auth.json with provider tokens in ~/.codex/
+
+# 6. Export credentials and start
+export LINEAR_API_KEY="lin_api_..."
+node dist/cli.js ./WORKFLOW.md --port 4000
+```
+
+> [!TIP]
+> For persistent operation, run Symphony and CLIProxyAPI under `systemd`, `tmux`, or `screen`.
+
+---
+
 ## 📄 Choose the Right Workflow File
 
 | File | When to use |
@@ -113,7 +187,7 @@ Hook execution is bounded by `hooks.timeout_ms`.
 
 ### 🐳 Docker Sandbox
 
-Symphony runs the Codex agent inside a Docker container by default using the `codex-universal` base image. This provides process isolation, resource limits, and security hardening.
+Symphony runs the Codex agent inside a Docker container by default using a `node:22-bookworm` base image with the Codex CLI installed globally. This provides process isolation, resource limits, and security hardening.
 
 **Key runtime behavior:**
 

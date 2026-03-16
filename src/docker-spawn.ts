@@ -52,16 +52,16 @@ export function buildDockerRunArgs(input: DockerRunInput): DockerRunResult {
   // Working directory preserves the cwd contract
   args.push("--workdir", workspacePath);
 
-  // Identity mounts: -v host:host so all absolute paths are valid inside the container
-  const mounts: Array<[string, string]> = [
+  // Identity mounts: -v host:container[:mode] so all absolute paths are valid inside the container
+  const mounts: Array<[string, string, string?]> = [
     [workspacePath, workspacePath], // workspace
-    [repoRoot, `${repoRoot}:ro`], // repo (launcher + fixtures), read-only
+    [repoRoot, repoRoot, "ro"], // repo (launcher + fixtures), read-only
     [codexHome, codexHome], // CODEX_HOME (runtime)
-    [authSourceHome, `${authSourceHome}:ro`], // auth source, read-only
+    [authSourceHome, authSourceHome, "ro"], // auth source, read-only
     [archiveDir, archiveDir], // logs/archive
   ];
-  for (const [, target] of mounts) {
-    args.push("-v", target.includes(":") ? target : `${target}:${target}`);
+  for (const [host, container, mode] of mounts) {
+    args.push("-v", mode ? `${host}:${container}:${mode}` : `${host}:${container}`);
   }
 
   // Persistent HOME cache volume for npm/pip/git under numeric UID
@@ -84,6 +84,9 @@ export function buildDockerRunArgs(input: DockerRunInput): DockerRunResult {
       args.push("-e", `${envName}=${value}`);
     }
   }
+
+  // Allow the container to reach host-bound services (e.g. CLIProxyAPI)
+  args.push("--add-host=host.docker.internal:host-gateway");
 
   // Network
   if (cfg.network) {

@@ -1,98 +1,134 @@
-# Symphony
+<p align="center">
+  <h1 align="center">🎵 Symphony Orchestrator</h1>
+  <p align="center">
+    <em>Local orchestration for Linear-driven autonomous coding work — powered by Codex.</em>
+  </p>
+</p>
 
-Symphony is a local orchestration service for Linear-driven coding work. It polls Linear issues, creates one filesystem workspace per issue, launches `codex app-server` inside that workspace, and exposes a local dashboard plus JSON API so an operator can see what is running, what retried, and what each attempt did.
+<p align="center">
+  <a href="https://github.com/OmerFarukOruc/symphony-orchestrator/releases"><img alt="Version" src="https://img.shields.io/github/v/tag/OmerFarukOruc/symphony-orchestrator?label=version&color=blue&style=flat-square" /></a>
+  <a href="https://github.com/OmerFarukOruc/symphony-orchestrator/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/OmerFarukOruc/symphony-orchestrator?color=green&style=flat-square" /></a>
+  <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square&logo=node.js" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript" />
+  <img alt="Status" src="https://img.shields.io/badge/status-v0.1.0-orange?style=flat-square" />
+</p>
 
-This repository already contains a usable `v0.1.0` codebase: workflow loading and reload fallback, Linear polling, workspace lifecycle hooks, Codex worker orchestration, retry and stall handling, per-issue model overrides, archived attempt persistence under `.symphony/`, and a local dashboard/API for runtime visibility.
+---
 
-## What ships in v0.1.0
+## 🌟 Inspiration
 
-- Local single-host orchestration for Linear issues
-- One workspace per issue with lifecycle hooks and cleanup
-- Configurable polling, retry backoff, hook timeout, read timeout, turn timeout, and stall timeout
-- Local dashboard at `/` and JSON API under `/api/v1/*`
-- Per-issue saved model overrides that apply on the next run instead of interrupting the active worker
-- Archived attempt summaries and per-attempt event timelines persisted under `.symphony/`
-- Strict TypeScript implementation with deterministic Vitest coverage and an opt-in live integration suite
+This project draws direct inspiration from **[OpenAI's Symphony](https://github.com/openai/symphony)** — a framework that turns project work into isolated, autonomous implementation runs, allowing teams to *manage work* instead of *supervising coding agents*. We loved the vision of connecting a project tracker (Linear) to autonomous Codex agents and built our own TypeScript implementation tailored for local, single-host operator use.
 
-## Current scope and known gap
+> [!NOTE]
+> While OpenAI's Symphony provides a [spec](https://github.com/openai/symphony/blob/main/SPEC.md) and an Elixir reference implementation, **Symphony Orchestrator** is an independent TypeScript implementation that follows the same core philosophy: poll Linear → create workspaces → launch agents → report results.
 
-Symphony is currently a local, single-host operator tool. The largest remaining roadmap gap is upstream-style multi-host worker distribution over SSH; local orchestration, archived attempts, and operator-facing visibility are already implemented in this repository.
+---
 
-## Quick start
+## 📐 Architecture
 
-Use Node.js 22 or newer.
+```mermaid
+flowchart LR
+    A["🗂️ Linear\n(Issue Tracker)"] -->|poll| B["🎵 Symphony\n(Orchestrator)"]
+    B -->|create workspace| C["📁 Workspace\n(per issue)"]
+    B -->|launch| D["🤖 Codex\n(app-server)"]
+    D -->|JSON-RPC| B
+    B -->|persist| E["💾 Archive\n(.symphony/)"]
+    B -->|serve| F["🖥️ Dashboard\n(localhost)"]
+    F -->|API| G["📡 JSON API\n(/api/v1/*)"]
 
-Install dependencies:
+    style A fill:#7c3aed,stroke:#6d28d9,color:#fff
+    style B fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style C fill:#059669,stroke:#047857,color:#fff
+    style D fill:#d97706,stroke:#b45309,color:#fff
+    style E fill:#6366f1,stroke:#4f46e5,color:#fff
+    style F fill:#dc2626,stroke:#b91c1c,color:#fff
+    style G fill:#0891b2,stroke:#0e7490,color:#fff
+```
+
+---
+
+## ✨ What Ships in v0.1.0
+
+| Feature | Description |
+|---------|-------------|
+| **Local orchestration** | Single-host polling loop for Linear issues |
+| **Workspace isolation** | One directory per issue with lifecycle hooks & cleanup |
+| **Codex integration** | `codex app-server` process management via JSON-RPC |
+| **Retry & stall handling** | Configurable backoff, turn/stall timeouts, read timeouts |
+| **Model overrides** | Per-issue model selection saved by the operator, applied on next run |
+| **Archived attempts** | Durable attempt summaries & event timelines under `.symphony/` |
+| **Dashboard & API** | Local web UI at `/` and full JSON API under `/api/v1/*` |
+| **Strict TypeScript** | Full type safety with deterministic Vitest coverage |
+
+---
+
+## 🚀 Quick Start
+
+> [!IMPORTANT]
+> Requires **Node.js 22** or newer.
 
 ```bash
+# 1. Install dependencies
 npm install
-```
 
-Run the deterministic test suite:
-
-```bash
+# 2. Run the test suite
 npm test
-```
 
-Build the project:
-
-```bash
+# 3. Build the project
 npm run build
-```
 
-Dry-start with the portable example workflow:
-
-```bash
+# 4. Dry-start with the portable example workflow
 node dist/cli.js ./WORKFLOW.example.md
 ```
 
-If `LINEAR_API_KEY` is missing, startup should fail clearly instead of crashing:
+If `LINEAR_API_KEY` is missing, startup fails clearly:
 
 ```text
 error code=missing_tracker_api_key msg="tracker.api_key is required after env resolution"
 ```
 
-Start the local service and dashboard:
+### 🖥️ Start the Service
 
 ```bash
 node dist/cli.js ./WORKFLOW.example.md --port 4000
 ```
 
-Then visit `http://127.0.0.1:4000/` or query the state API:
+Then open the dashboard at **[http://127.0.0.1:4000/](http://127.0.0.1:4000/)** or query the API:
 
 ```bash
 curl -s http://127.0.0.1:4000/api/v1/state
 ```
 
-## Workflow files
+---
 
-- `WORKFLOW.example.md` is the portable example for normal local setup.
-- `WORKFLOW.md` is the checked-in live smoke workflow used in this repository.
+## 📄 Workflow Files
 
-The checked-in live workflow points at `bin/codex-app-server-live`. That wrapper seeds a repo-local isolated `CODEX_HOME` from `tests/fixtures/codex-home-custom-provider`, copies `auth.json` from `~/.codex`, and exports `OPENAI_API_KEY` from that file so local live runs avoid inherited skill noise while still authenticating successfully against the configured local Codex provider path.
+| File | Purpose |
+|------|---------|
+| `WORKFLOW.example.md` | Portable example for normal local setup |
+| `WORKFLOW.md` | Checked-in live smoke workflow for this repo |
 
-If you want the generic isolated-home setup used by `WORKFLOW.example.md`, bootstrap it once first:
+> [!TIP]
+> The checked-in live workflow uses `bin/codex-app-server-live`, which seeds a repo-local isolated `CODEX_HOME` to avoid inherited skill noise. For the generic setup from `WORKFLOW.example.md`, bootstrap the isolated home once:
+> ```bash
+> cp -R tests/fixtures/codex-home-custom-provider "$HOME/.symphony-codex"
+> ```
 
-```bash
-cp -R tests/fixtures/codex-home-custom-provider "$HOME/.symphony-codex"
-```
+---
 
-## Runtime surfaces
+## 📡 JSON API
 
-### Dashboard
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Local operator dashboard |
+| `GET` | `/api/v1/state` | Runtime snapshot — queued, running, retrying, completed + token totals |
+| `POST` | `/api/v1/refresh` | Trigger immediate orchestration refresh |
+| `GET` | `/api/v1/:issue` | Issue detail, recent events, archived attempts |
+| `GET` | `/api/v1/:issue/attempts` | Archived attempts + current live attempt id |
+| `GET` | `/api/v1/attempts/:id` | Archived event stream for a specific attempt |
+| `POST` | `/api/v1/:issue/model` | Save per-issue model override |
 
-- `GET /` renders the local operator dashboard.
-
-### JSON API
-
-- `GET /api/v1/state` returns the current queued, running, retrying, and completed snapshot with aggregate token usage.
-- `POST /api/v1/refresh` requests an immediate orchestration refresh.
-- `GET /api/v1/:issue_identifier` returns current issue detail, recent events, and archived attempts.
-- `GET /api/v1/:issue_identifier/attempts` returns archived attempts plus the current live attempt id.
-- `GET /api/v1/attempts/:attempt_id` returns the archived event stream for a specific attempt.
-- `POST /api/v1/:issue_identifier/model` saves a per-issue model override.
-
-Example model override request:
+### Example: Model Override
 
 ```bash
 curl -s -X POST http://127.0.0.1:4000/api/v1/MT-42/model \
@@ -100,9 +136,11 @@ curl -s -X POST http://127.0.0.1:4000/api/v1/MT-42/model \
   -d '{"model":"gpt-5","reasoning_effort":"medium"}'
 ```
 
-Saved model changes apply on the next run rather than interrupting a worker that is already active.
+> [!NOTE]
+> Model changes do **not** interrupt the active worker — they apply on the next run.
 
-Example `/api/v1/state` response shape:
+<details>
+<summary>📋 Example <code>/api/v1/state</code> response</summary>
 
 ```json
 {
@@ -123,55 +161,106 @@ Example `/api/v1/state` response shape:
 }
 ```
 
-## Archived attempts
+</details>
 
-Symphony persists attempt summaries and per-attempt event streams under the repo-local archive directory. By default the CLI uses a `.symphony/` directory next to the workflow file unless `--log-dir` is provided.
+---
+
+## 🗂️ Archived Attempts
+
+Symphony persists attempt summaries and per-attempt event streams under the repo-local archive directory. By default the CLI uses `.symphony/` next to the workflow file unless `--log-dir` is provided.
+
+```
+.symphony/
+├── attempts/
+│   └── <attempt-id>.json
+└── events/
+    └── <attempt-id>.jsonl
+```
 
 This archive powers:
+- 📊 Issue detail attempt history
+- 📜 Attempt detail API responses
+- 🔄 Dashboard retry/run inspection after restarts
 
-- issue detail attempt history
-- attempt detail API responses
-- dashboard retry/run inspection after a restart
+---
 
-## Live proving notes
+## 🧪 Testing
 
-For a safer live proving setup, set `codex.turn_timeout_ms` in the workflow to a short value such as `120000` so a runaway turn is interrupted after two minutes.
+```bash
+# Deterministic unit tests
+npm test
 
-An example success-oriented log line looks like:
+# Watch mode for local iteration
+npm run test:watch
+
+# Opt-in live integration (requires credentials)
+LINEAR_API_KEY=... npm run test:integration
+```
+
+> [!TIP]
+> The integration suite skips explicitly when required external inputs are absent — safe to run without credentials.
+
+---
+
+## 🔒 Live Proving Notes
+
+> [!WARNING]
+> For safer live proving, set `codex.turn_timeout_ms` in the workflow to a short value like `120000` so a runaway turn is interrupted after two minutes.
+
+Example success-oriented log line:
 
 ```text
 level=info msg="worker retry queued" issue_id=abc123 issue_identifier=MT-882 attempt=2 delay_ms=10000 reason="turn_failed"
 ```
 
-## Opt-in live integration test
+---
 
-When you have valid credentials:
+## 📚 Documentation Map
 
-```bash
-LINEAR_API_KEY=... npm run test:integration
-```
+| Document | Purpose |
+|----------|---------|
+| [`docs/OPERATOR_GUIDE.md`](docs/OPERATOR_GUIDE.md) | Day-to-day setup and operations guide |
+| [`docs/ROADMAP_AND_STATUS.md`](docs/ROADMAP_AND_STATUS.md) | Shipped scope, current status, and remaining gaps |
+| [`docs/RELEASING.md`](docs/RELEASING.md) | Release preparation checklist |
+| [`docs/TRUST_AND_AUTH.md`](docs/TRUST_AND_AUTH.md) | Trust boundary and auth model |
+| [`WORKFLOW.example.md`](WORKFLOW.example.md) | Portable example workflow |
+| [`WORKFLOW.md`](WORKFLOW.md) | Checked-in live smoke workflow |
+| [`EXECPLAN.md`](EXECPLAN.md) | Internal execution history and implementation log |
 
-The integration suite is designed to skip explicitly when required external inputs are absent.
+---
 
-## Docs map
+## 🧭 Files to Know First
 
-- `docs/OPERATOR_GUIDE.md` — day-to-day setup and operations guide
-- `docs/ROADMAP_AND_STATUS.md` — shipped scope, current status, and remaining gap summary
-- `docs/RELEASING.md` — release preparation checklist for future tags
-- `docs/TRUST_AND_AUTH.md` — trust boundary and auth model
-- `WORKFLOW.example.md` — portable example workflow
-- `WORKFLOW.md` — checked-in live smoke workflow for this repo
-- `EXECPLAN.md` — internal execution history and implementation log
+| File | Role |
+|------|------|
+| `src/cli.ts` | Startup, validation, archive directory selection, shutdown |
+| `src/orchestrator.ts` | Polling, reconciliation, retries, snapshot building, model overrides |
+| `src/agent-runner.ts` | Codex app-server client and dynamic tool handling |
+| `src/http-server.ts` | Dashboard and API routes |
+| `src/attempt-store.ts` | Archived attempt and event persistence |
+| `src/workspace-manager.ts` | Workspace creation, hooks, and cleanup |
 
-## Files to know first
+---
 
-- `src/cli.ts` — startup, validation, archive directory selection, and shutdown
-- `src/orchestrator.ts` — polling, reconciliation, retries, runtime snapshot building, and model overrides
-- `src/agent-runner.ts` — Codex app-server client and dynamic tool handling
-- `src/http-server.ts` — dashboard and API routes
-- `src/attempt-store.ts` — archived attempt and event persistence
-- `src/workspace-manager.ts` — workspace creation, hooks, and cleanup
+## 🔐 Trust Posture
 
-## Trust posture
+The recommended `v0.1` operating mode is intentionally **high trust** and **local-only**.
 
-The recommended `v0.1` operating mode is intentionally high trust and local-only. Symphony decides when to launch work and which workspace to use; Codex decides how each turn executes; the configured provider or proxy decides how the actual model call is routed. See `docs/TRUST_AND_AUTH.md` for the full trust and auth model.
+- Symphony decides *when* to launch work and *which workspace* to use
+- Codex decides *how* each turn executes
+- The configured provider or proxy decides *how* the model call is routed
+
+> [!CAUTION]
+> This posture (`danger-full-access` sandbox, `never` approval policy) is appropriate **only** for local, operator-controlled environments. See [`docs/TRUST_AND_AUTH.md`](docs/TRUST_AND_AUTH.md) for the full trust and auth model.
+
+---
+
+## ⚖️ License
+
+[MIT](LICENSE)
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ — Inspired by <a href="https://github.com/openai/symphony">OpenAI Symphony</a></sub>
+</p>

@@ -1,108 +1,115 @@
-# Operator Guide
+# 🛠️ Operator Guide
 
-This guide explains how to run and operate Symphony as a local service.
+> Day-to-day setup and operations reference for Symphony Orchestrator.
 
-## What Symphony does
+---
+
+## 🎵 What Symphony Does
 
 Symphony polls Linear for candidate issues, creates a workspace per issue, launches `codex app-server` inside that workspace, and keeps a local dashboard plus JSON API up to date with live and archived attempt state.
 
-## Prerequisites
+---
 
-- Node.js 22 or newer
-- `LINEAR_API_KEY` in your environment
-- A working Codex auth setup for the `codex app-server` command you plan to use
+## 📋 Prerequisites
 
-## Choose the right workflow file
+| Requirement | Details |
+|-------------|---------|
+| **Node.js** | v22 or newer |
+| **Linear API key** | `LINEAR_API_KEY` in your environment |
+| **Codex auth** | Working auth setup for your `codex app-server` command |
 
-- Use `WORKFLOW.example.md` for the portable example setup.
-- Use `WORKFLOW.md` only when you want the repository's checked-in live smoke path.
+---
 
-The example workflow assumes an isolated Codex home at `$HOME/.symphony-codex`. Bootstrap it once with:
+## 📄 Choose the Right Workflow File
+
+| File | When to use |
+|------|-------------|
+| `WORKFLOW.example.md` | Portable example setup (recommended for getting started) |
+| `WORKFLOW.md` | Repository's checked-in live smoke path |
+
+> [!TIP]
+> The example workflow assumes an isolated Codex home at `$HOME/.symphony-codex`. Bootstrap it once with:
+> ```bash
+> cp -R tests/fixtures/codex-home-custom-provider "$HOME/.symphony-codex"
+> ```
+
+---
+
+## 📦 Install and Validate
 
 ```bash
-cp -R tests/fixtures/codex-home-custom-provider "$HOME/.symphony-codex"
-```
-
-## Install and validate
-
-Install dependencies:
-
-```bash
+# Install dependencies
 npm install
-```
 
-Run the deterministic test suite:
-
-```bash
+# Run the deterministic test suite
 npm test
-```
 
-Build the project:
-
-```bash
+# Build the project
 npm run build
-```
 
-Dry-start the portable workflow:
-
-```bash
+# Dry-start the portable workflow
 node dist/cli.js ./WORKFLOW.example.md
 ```
 
-If `LINEAR_API_KEY` is missing, Symphony should exit with:
+If `LINEAR_API_KEY` is missing, Symphony exits with:
 
 ```text
 error code=missing_tracker_api_key msg="tracker.api_key is required after env resolution"
 ```
 
-## Start the service
+---
+
+## ▶️ Start the Service
 
 ```bash
 node dist/cli.js ./WORKFLOW.example.md --port 4000
 ```
 
-Then open the dashboard:
+- 🖥️ **Dashboard**: [http://127.0.0.1:4000/](http://127.0.0.1:4000/)
+- 📡 **API**: `curl -s http://127.0.0.1:4000/api/v1/state`
 
-- `http://127.0.0.1:4000/`
+---
 
-Or query the state API:
+## ⚙️ Runtime Behavior
 
-```bash
-curl -s http://127.0.0.1:4000/api/v1/state
-```
-
-## Runtime behavior
-
-### Polling and work selection
+### 🔄 Polling and Work Selection
 
 Symphony polls Linear on the configured interval, filters candidate issues, and launches work only for issues that are currently active.
 
-### Workspace lifecycle
+### 📁 Workspace Lifecycle
 
-Each issue gets its own workspace directory under `workspace.root`. Workspace hooks can run:
+Each issue gets its own workspace directory under `workspace.root`. Hooks run at these stages:
 
-- after workspace creation
-- before a worker run
-- after a worker run
-- before workspace removal
+```mermaid
+flowchart LR
+    A["📁 Created"] -->|after_create| B["🔧 Before Run"]
+    B -->|before_run| C["🤖 Worker Active"]
+    C -->|after_run| D["🧹 Before Removal"]
+    D -->|before_remove| E["🗑️ Cleaned Up"]
+
+    style A fill:#059669,stroke:#047857,color:#fff
+    style C fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style E fill:#6b7280,stroke:#4b5563,color:#fff
+```
 
 Hook execution is bounded by `hooks.timeout_ms`.
 
-### Timeouts and retries
+### ⏱️ Timeouts and Retries
 
-The runtime supports:
+| Knob | Config Key | Purpose |
+|------|-----------|---------|
+| Hook timeout | `hooks.timeout_ms` | Max time for any lifecycle hook |
+| Read timeout | `codex.read_timeout_ms` | JSON-RPC read timeout |
+| Turn timeout | `codex.turn_timeout_ms` | Total time for a single turn |
+| Stall timeout | `codex.stall_timeout_ms` | Detect long-silent workers |
+| Retry backoff | `agent.max_retry_backoff_ms` | Ceiling for retry delay |
 
-- hook timeout via `hooks.timeout_ms`
-- Codex JSON-RPC read timeout via `codex.read_timeout_ms`
-- total turn timeout via `codex.turn_timeout_ms`
-- stall detection via `codex.stall_timeout_ms`
-- retry backoff ceiling via `agent.max_retry_backoff_ms`
+> [!TIP]
+> For safer live proving, set `codex.turn_timeout_ms` to something short like `120000` (2 minutes).
 
-For safer live proving, it is reasonable to set `codex.turn_timeout_ms` to something short such as `120000`.
+### 🎯 Model Overrides
 
-### Model overrides
-
-Operators can save a per-issue model override through the dashboard or the API:
+Save per-issue overrides via the dashboard or the API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:4000/api/v1/MT-42/model \
@@ -110,73 +117,62 @@ curl -s -X POST http://127.0.0.1:4000/api/v1/MT-42/model \
   -d '{"model":"gpt-5","reasoning_effort":"medium"}'
 ```
 
-Saved model changes do not interrupt the active worker. They apply on the next run for that issue.
+> [!NOTE]
+> Model changes do **not** interrupt the active worker — they apply on the next run.
 
-## JSON API
+---
 
-### Snapshot
+## 📡 JSON API Reference
 
-- `GET /api/v1/state`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/state` | Snapshot — queued, running, retrying, completed + token totals |
+| `POST` | `/api/v1/refresh` | Trigger immediate reconciliation pass |
+| `GET` | `/api/v1/:issue_identifier` | Issue detail, recent events, archived attempts |
+| `GET` | `/api/v1/:issue_identifier/attempts` | Archived attempts + current live attempt id |
+| `GET` | `/api/v1/attempts/:attempt_id` | Archived per-attempt event timeline |
 
-Returns queued, running, retrying, and completed views plus aggregate token totals and recent events.
+---
 
-### Manual refresh
+## 🗂️ Archived Attempts and Logs
 
-- `POST /api/v1/refresh`
+By default, archives are stored in `.symphony/` next to the workflow file (override with `--log-dir`).
 
-Requests an immediate reconciliation pass.
-
-### Issue detail
-
-- `GET /api/v1/:issue_identifier`
-
-Returns current issue detail, recent events, and archived attempts.
-
-### Attempt listing
-
-- `GET /api/v1/:issue_identifier/attempts`
-
-Returns archived attempts plus the current live attempt id.
-
-### Attempt detail
-
-- `GET /api/v1/attempts/:attempt_id`
-
-Returns the archived per-attempt event timeline.
-
-## Archived attempts and logs
-
-By default, Symphony stores runtime archives in a repo-local `.symphony/` directory next to the workflow file unless `--log-dir` is provided.
-
-The archive layout is:
-
-- `attempts/<attempt-id>.json`
-- `events/<attempt-id>.jsonl`
-
-This archive allows the dashboard and API to keep showing historical attempt information after a restart.
-
-## Common failure cases
-
-### Missing tracker API key
-
-If `tracker.api_key` resolves to an empty value, startup fails with `missing_tracker_api_key`.
-
-### Missing Codex auth
-
-If the launched `codex app-server` cannot authenticate, `account/read` fails the run early as a startup failure instead of leaving the worker hanging.
-
-### Required MCP startup failure
-
-This is a Codex runtime startup problem rather than a Symphony orchestration bug:
-
-```text
-error code=startup_failed msg="thread/start failed because a required MCP server did not initialize"
+```
+.symphony/
+├── attempts/<attempt-id>.json
+└── events/<attempt-id>.jsonl
 ```
 
-### Invalid external credentials
+This archive keeps historical attempt information visible in the dashboard and API after a restart.
 
-If the configured Linear token or upstream provider credentials are invalid, Symphony should surface the upstream failure rather than crash the process.
+---
 
-## Trust and auth
+## ⚠️ Common Failure Cases
 
-Symphony is designed for a local, operator-controlled, high-trust environment. See `docs/TRUST_AND_AUTH.md` for the full trust boundary and auth model.
+> [!WARNING]
+> ### Missing Tracker API Key
+> If `tracker.api_key` resolves to an empty value, startup fails with `missing_tracker_api_key`.
+
+> [!WARNING]
+> ### Missing Codex Auth
+> If `codex app-server` cannot authenticate, `account/read` fails the run early as a startup failure instead of leaving the worker hanging.
+
+> [!WARNING]
+> ### Required MCP Startup Failure
+> This is a **Codex runtime** problem, not a Symphony bug:
+> ```text
+> error code=startup_failed msg="thread/start failed because a required MCP server did not initialize"
+> ```
+
+> [!WARNING]
+> ### Invalid External Credentials
+> If the Linear token or provider credentials are invalid, Symphony surfaces the upstream failure rather than crashing.
+
+---
+
+## 🔐 Trust and Auth
+
+Symphony is designed for a local, operator-controlled, high-trust environment.
+
+→ See **[`docs/TRUST_AND_AUTH.md`](TRUST_AND_AUTH.md)** for the full trust boundary and auth model.

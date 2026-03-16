@@ -1,53 +1,73 @@
-# Releasing Symphony
+# 🚀 Releasing Symphony
 
-This document captures the release preparation checklist for the current repository.
+> Release preparation checklist for Symphony Orchestrator.
 
-## Before tagging
+---
 
-1. Confirm `package.json` version matches the intended release.
-2. Confirm `README.md` describes the current shipped behavior.
-3. Confirm `docs/OPERATOR_GUIDE.md`, `docs/ROADMAP_AND_STATUS.md`, and `docs/TRUST_AND_AUTH.md` still match the implementation.
-4. Confirm workflow examples are safe to publish and do not contain secrets.
-5. Confirm `EXECPLAN.md` does not contain stale claims that contradict the codebase.
+## ✅ Before Tagging
 
-## Validation steps
+Confirm each of the following before creating a release tag:
 
-Run:
+- [ ] `package.json` version matches the intended release
+- [ ] `README.md` describes the current shipped behavior
+- [ ] `docs/OPERATOR_GUIDE.md`, `docs/ROADMAP_AND_STATUS.md`, and `docs/TRUST_AND_AUTH.md` still match the implementation
+- [ ] Workflow examples are safe to publish and contain **no secrets**
+- [ ] `EXECPLAN.md` does not contain stale claims that contradict the codebase
+
+---
+
+## 🧪 Validation Steps
+
+Run the following commands and confirm all pass:
 
 ```bash
+# Unit tests
 npm test
+
+# Build
 npm run build
+
+# Dry-start (no credentials needed)
 node dist/cli.js ./WORKFLOW.example.md
 ```
 
-If you have real credentials available, also run:
+If you have real credentials available:
 
 ```bash
+# Live integration (optional)
 LINEAR_API_KEY=... npm run test:integration
 ```
 
-## Public source release checklist
+---
+
+## 📦 Public Source Release Checklist
 
 For a GitHub source release:
 
-1. Create or verify the repository metadata, license, and visibility.
-2. Ensure the default branch contains the validated release commit.
-3. Create the tag in `vX.Y.Z` form.
-4. Draft release notes from verified repository facts only.
-5. Call out the current scope clearly: local single-host orchestration is shipped; multi-host SSH distribution is not.
+- [ ] Create or verify repository metadata, license, and visibility
+- [ ] Ensure the default branch contains the validated release commit
+- [ ] Create the tag in `vX.Y.Z` form
+- [ ] Draft release notes from **verified repository facts only**
+- [ ] Call out current scope clearly: local single-host orchestration is shipped; multi-host SSH distribution is **not**
 
-## Suggested release notes structure
+---
 
-- one-paragraph overview
-- key shipped features
-- operator-facing API/dashboard highlights
-- validation steps performed
-- known current scope and limitations
+## 📝 Suggested Release Notes Structure
 
-## Release note guardrails
+| Section | Content |
+|---------|---------|
+| **Overview** | One-paragraph summary |
+| **Key features** | Shipped capabilities |
+| **API/Dashboard** | Operator-facing highlights |
+| **Validation** | Steps performed |
+| **Scope & limitations** | Known current scope |
 
-Do not claim:
+---
 
-- SSH or multi-host worker distribution unless it is actually implemented
-- package-manager distribution if the repository is still source-only
-- behavior that only exists in planning notes but not in code
+## 🚫 Release Note Guardrails
+
+> [!CAUTION]
+> **Do not claim any of the following unless actually implemented:**
+> - SSH or multi-host worker distribution
+> - Package-manager distribution (if still source-only)
+> - Behavior that only exists in planning notes but not in code

@@ -65,6 +65,7 @@ export class AttemptStore {
         this.logger.warn({ entry: entry.name, error: String(error) }, "attempt archive entry could not be loaded");
       }
     }
+    await this.persistIssueIndex();
   }
 
   getAttempt(attemptId: string): AttemptRecord | null {
@@ -89,6 +90,7 @@ export class AttemptStore {
     this.eventsByAttempt.set(attempt.attemptId, []);
     await this.persistAttempt(attempt);
     await writeFile(this.eventsPath(attempt.attemptId), "", "utf8");
+    await this.persistIssueIndex();
   }
 
   async updateAttempt(attemptId: string, patch: Partial<AttemptRecord>): Promise<void> {
@@ -158,5 +160,18 @@ export class AttemptStore {
       previousList.filter((attemptId) => attemptId !== previous.attemptId),
     );
     this.indexAttempt(next);
+    void this.persistIssueIndex();
+  }
+
+  private async persistIssueIndex(): Promise<void> {
+    const index: Record<string, string[]> = {};
+    for (const [identifier, attemptIds] of this.attemptsByIssue) {
+      index[identifier] = [...attemptIds];
+    }
+    await writeFile(
+      path.join(this.baseDir, "issue-index.json"),
+      JSON.stringify(index, null, 2) + "\n",
+      "utf8",
+    );
   }
 }

@@ -98,7 +98,12 @@ describe("AttemptStore", () => {
     const eventArchivePath = path.join(baseDir, "events", `${attempt.attemptId}.jsonl`);
     expect(await readFile(eventArchivePath, "utf8")).toBe("");
 
-    expect(await readdir(baseDir)).toEqual(["attempts", "events"]);
+    const issueIndex = JSON.parse(await readFile(path.join(baseDir, "issue-index.json"), "utf8")) as Record<string, string[]>;
+    expect(issueIndex).toEqual({
+      "MT-42": [attempt.attemptId],
+    });
+
+    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json"]);
     expect(await readdir(path.join(baseDir, "attempts"))).toEqual([`${attempt.attemptId}.json`]);
     expect(await readdir(path.join(baseDir, "events"))).toEqual([`${attempt.attemptId}.jsonl`]);
   });
@@ -159,13 +164,23 @@ describe("AttemptStore", () => {
       "attempt-1",
     ]);
 
-    expect(await readdir(baseDir)).toEqual(["attempts", "events"]);
+    const issueIndexPath = path.join(baseDir, "issue-index.json");
+    expect(JSON.parse(await readFile(issueIndexPath, "utf8"))).toEqual({
+      "MT-42": ["attempt-2", "attempt-1"],
+    });
+
+    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json"]);
+
+    await rm(issueIndexPath, { force: true });
 
     const restartedStore = await createStore(baseDir);
     expect(restartedStore.getAttemptsForIssue("MT-42").map((attempt) => attempt.attemptId)).toEqual([
       "attempt-2",
       "attempt-1",
     ]);
+    expect(JSON.parse(await readFile(issueIndexPath, "utf8"))).toEqual({
+      "MT-42": ["attempt-2", "attempt-1"],
+    });
   });
 
   it("updates archived attempts and reindexes issue retrieval when the issue identifier changes", async () => {
@@ -205,6 +220,12 @@ describe("AttemptStore", () => {
       endedAt: "2026-03-16T10:05:00.000Z",
       errorCode: "turn_failed",
       errorMessage: "boom",
+    });
+
+    const issueIndex = JSON.parse(await readFile(path.join(baseDir, "issue-index.json"), "utf8")) as Record<string, string[]>;
+    expect(issueIndex).toEqual({
+      "MT-42": [],
+      "MT-99": [attempt.attemptId],
     });
 
     const restartedStore = await createStore(baseDir);

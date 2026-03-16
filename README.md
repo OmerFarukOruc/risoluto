@@ -27,14 +27,13 @@ This project draws direct inspiration from **[OpenAI's Symphony](https://github.
 ## 📐 Architecture
 
 ```mermaid
-flowchart LR
-    A["🗂️ Linear\n(Issue Tracker)"] -->|poll| B["🎵 Symphony\n(Orchestrator)"]
-    B -->|create workspace| C["📁 Workspace\n(per issue)"]
-    B -->|launch| D["🤖 Codex\n(app-server)"]
+flowchart TD
+    A["🗂️ Linear"] -->|poll| B["🎵 Symphony"]
+    B -->|create| C["📁 Workspace"]
+    B -->|launch| D["🤖 Codex"]
     D -->|JSON-RPC| B
-    B -->|persist| E["💾 Archive\n(.symphony/)"]
-    B -->|serve| F["🖥️ Dashboard\n(localhost)"]
-    F -->|API| G["📡 JSON API\n(/api/v1/*)"]
+    B -->|persist| E["💾 Archive"]
+    B -->|serve| F["🖥️ Dashboard & API"]
 
     style A fill:#7c3aed,stroke:#6d28d9,color:#fff
     style B fill:#2563eb,stroke:#1d4ed8,color:#fff
@@ -42,7 +41,6 @@ flowchart LR
     style D fill:#d97706,stroke:#b45309,color:#fff
     style E fill:#6366f1,stroke:#4f46e5,color:#fff
     style F fill:#dc2626,stroke:#b91c1c,color:#fff
-    style G fill:#0891b2,stroke:#0e7490,color:#fff
 ```
 
 ---

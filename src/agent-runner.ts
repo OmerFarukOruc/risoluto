@@ -4,8 +4,8 @@ import { Liquid } from "liquidjs";
 
 import { createSuccessResponse, type JsonRpcRequest } from "./codex-protocol.js";
 import { JsonRpcConnection, JsonRpcTimeoutError } from "./agent/json-rpc-connection.js";
+import { handleCodexRequest } from "./agent/codex-request-handler.js";
 import { LinearClient } from "./linear-client.js";
-import { handleLinearGraphqlToolCall } from "./linear-graphql-tool.js";
 import {
   asRecord,
   asString,
@@ -119,7 +119,7 @@ export class AgentRunner {
 
     try {
         await connection.request("initialize", {
-          clientInfo: { name: "symphony", version: "0.1.0" },
+          clientInfo: { name: "symphony", version: "0.1.1" },
           capabilities: {
             experimentalApi: true,
           },
@@ -370,81 +370,7 @@ export class AgentRunner {
   private async handleIncomingRequest(
     request: JsonRpcRequest,
   ): Promise<{ response?: unknown; fatalFailure: { code: string; message: string } | null }> {
-    switch (request.method) {
-      case "item/commandExecution/requestApproval":
-      case "item/fileChange/requestApproval":
-        return {
-          response: {
-            decision: "acceptForSession",
-          },
-          fatalFailure: null,
-        };
-      case "item/permissions/requestApproval": {
-        const params = asRecord(request.params);
-        return {
-          response: {
-            permissions: params.permissionProfile ?? params.permissions ?? null,
-            scope: "session",
-          },
-          fatalFailure: null,
-        };
-      }
-      case "item/tool/call": {
-        const params = asRecord(request.params);
-        const toolName = asString(params.name) ?? asString(params.toolName);
-        if (toolName === "linear_graphql") {
-          const response = await handleLinearGraphqlToolCall(
-            this.deps.linearClient,
-            params.arguments ?? params.args ?? params.input ?? null,
-          );
-          return { response, fatalFailure: null };
-        }
-        return {
-          response: {
-            success: false,
-            contentItems: [
-              {
-                type: "inputText",
-                text: JSON.stringify({
-                  error: `unsupported dynamic tool: ${toolName ?? "unknown"}`,
-                }),
-              },
-            ],
-          },
-          fatalFailure: null,
-        };
-      }
-      case "item/tool/requestUserInput":
-        return {
-          fatalFailure: {
-            code: "turn_input_required",
-            message: "codex requested interactive user input, which Symphony does not support",
-          },
-        };
-      case "mcpServer/elicitation/request":
-        return {
-          fatalFailure: {
-            code: "startup_failed",
-            message: "thread/start failed because a required MCP server did not initialize",
-          },
-        };
-      case "account/chatgptAuthTokens/refresh":
-      case "applyPatchApproval":
-      case "execCommandApproval":
-        return {
-          fatalFailure: {
-            code: "startup_failed",
-            message: `unsupported interactive request from codex: ${request.method}`,
-          },
-        };
-      default:
-        return {
-          fatalFailure: {
-            code: "startup_failed",
-            message: `unsupported codex request method: ${request.method}`,
-          },
-        };
-    }
+    return handleCodexRequest(request, this.deps.linearClient);
   }
 
   private outcomeForAbort(

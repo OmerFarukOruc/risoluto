@@ -42,6 +42,40 @@ interface RunningEntry {
   sessionId: string | null;
   tokenUsage: TokenUsageSnapshot | null;
   modelSelection: ModelSelection;
+  lastAgentMessageContent: string | null;
+}
+
+type StopSignal = "done" | "blocked";
+
+function normalizeMessageForSignalDetection(content: string): string {
+  return content.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function detectStopSignal(content: string | null): StopSignal | null {
+  if (!content) {
+    return null;
+  }
+
+  const normalized = normalizeMessageForSignalDetection(content);
+  if (normalized.includes("symphony_status: done") || normalized.includes("symphony status: done")) {
+    return "done";
+  }
+  if (normalized.includes("symphony_status: blocked") || normalized.includes("symphony status: blocked")) {
+    return "blocked";
+  }
+
+  const donePatterns = [
+    /\b(issue|task|work)\s+(is|was|remains)\s+(already\s+)?(done|complete|completed)\b/,
+    /\bno further (in-scope )?(work|progress|action)\b/,
+    /\bnothing (else|further) (to do|is needed)\b/,
+    /\bthere (isn't|is not) any additional work to do\b/,
+    /\bthe requested (artifact|proof file) already exists\b/,
+  ];
+  if (donePatterns.some((pattern) => pattern.test(normalized))) {
+    return "done";
+  }
+
+  return null;
 }
 
 export class Orchestrator {
@@ -377,6 +411,7 @@ export class Orchestrator {
   private async refreshQueueViews(): Promise<void> {
     const issues = await this.deps.linearClient.fetchCandidateIssues();
     this.queuedViews = issues
+      .filter((issue) => isActiveState(issue.state))
       .filter((issue) => !this.runningEntries.has(issue.id) && !this.retryEntries.has(issue.id))
       .slice(0, 50)
       .map((issue) =>
@@ -424,6 +459,9 @@ export class Orchestrator {
       if (launched >= availableSlots) {
         break;
       }
+      if (!isActiveState(issue.state)) {
+        continue;
+      }
       if (this.runningEntries.has(issue.id) || this.retryEntries.has(issue.id)) {
         continue;
       }
@@ -451,8 +489,11 @@ export class Orchestrator {
       sessionId: null,
       tokenUsage: null,
       modelSelection,
+      lastAgentMessageContent: null,
     };
     this.runningEntries.set(issue.id, entry);
+    this.completedViews.delete(issue.identifier);
+    this.queuedViews = this.queuedViews.filter((view) => view.issueId !== issue.id);
     await this.deps.attemptStore.createAttempt({
       attemptId: entry.runId,
       issueId: issue.id,
@@ -501,6 +542,9 @@ export class Orchestrator {
         onEvent: (event) => {
           entry.sessionId = event.sessionId;
           entry.lastEventAtMs = Date.now();
+          if (event.event === "item_completed" && event.message.includes("agentMessage") && event.content) {
+            entry.lastAgentMessageContent = event.content;
+          }
           this.pushEvent(event);
           void this.deps.attemptStore.appendEvent({
             attemptId: entry.runId,
@@ -646,6 +690,27 @@ export class Orchestrator {
               attempt,
               error: outcome.errorCode,
               message: outcome.errorMessage ?? "worker stopped without a retry",
+              configuredModel: this.resolveModelSelection(latestIssue.identifier).model,
+              configuredReasoningEffort: this.resolveModelSelection(latestIssue.identifier).reasoningEffort,
+              configuredModelSource: this.resolveModelSelection(latestIssue.identifier).source,
+              modelChangePending: false,
+              model: entry.modelSelection.model,
+              reasoningEffort: entry.modelSelection.reasoningEffort,
+              modelSource: entry.modelSelection.source,
+            }),
+          );
+          return;
+        }
+
+        const stopSignal = outcome.kind === "normal" ? detectStopSignal(entry.lastAgentMessageContent) : null;
+        if (stopSignal) {
+          this.completedViews.set(
+            latestIssue.identifier,
+            issueView(latestIssue, {
+              workspaceKey: workspace.workspaceKey,
+              status: stopSignal === "blocked" ? "paused" : "completed",
+              attempt,
+              message: stopSignal === "blocked" ? "worker reported issue blocked" : "worker reported issue complete",
               configuredModel: this.resolveModelSelection(latestIssue.identifier).model,
               configuredReasoningEffort: this.resolveModelSelection(latestIssue.identifier).reasoningEffort,
               configuredModelSource: this.resolveModelSelection(latestIssue.identifier).source,

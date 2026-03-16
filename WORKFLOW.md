@@ -42,4 +42,8 @@ You are working on Linear issue {{ issue.identifier }}: "{{ issue.title }}"
 {{ issue.description }}
 {% endif %}
 
+If the issue is a smoke test, healthcheck, or end-to-end verification task, prefer a minimal proof that works even in an otherwise empty workspace. In that case, create a file such as `SYMPHONY_SMOKE_RESULT.md` inside the issue workspace with the issue identifier, UTC timestamp, current working directory, and a short summary of what succeeded.
+
+When you have truly finished the issue and should stop, end your final message with `SYMPHONY_STATUS: DONE`. If you are blocked and cannot make further progress, end your final message with `SYMPHONY_STATUS: BLOCKED`.
+
 Respect the repository state you find in the workspace, explain what you are doing in short operator-friendly updates, and stop once the issue is either complete or blocked.

@@ -73,6 +73,17 @@ function createConfigStore(config: ServiceConfig): ConfigStore {
   } as unknown as ConfigStore;
 }
 
+function createAttemptStore(): AttemptStore {
+  return {
+    createAttempt: vi.fn(async () => undefined),
+    updateAttempt: vi.fn(async () => undefined),
+    appendEvent: vi.fn(async () => undefined),
+    getAttemptsForIssue: vi.fn(() => []),
+    getAttempt: vi.fn(() => null),
+    getEvents: vi.fn(() => []),
+  } as unknown as AttemptStore;
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -108,14 +119,7 @@ describe("Orchestrator", () => {
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
-      attemptStore: {
-        createAttempt: vi.fn(async () => undefined),
-        updateAttempt: vi.fn(async () => undefined),
-        appendEvent: vi.fn(async () => undefined),
-        getAttemptsForIssue: vi.fn(() => []),
-        getAttempt: vi.fn(() => null),
-        getEvents: vi.fn(() => []),
-      } as unknown as AttemptStore,
+      attemptStore: createAttemptStore(),
       configStore: createConfigStore(createConfig()),
       linearClient,
       workspaceManager,
@@ -139,6 +143,58 @@ describe("Orchestrator", () => {
     await vi.advanceTimersByTimeAsync(10_000);
     await Promise.resolve();
     expect(agentRunner.runAttempt).toHaveBeenCalledTimes(2);
+
+    await orchestrator.stop();
+  });
+
+  it("continues after a normal completion when no stop signal is present", async () => {
+    vi.useFakeTimers();
+    const issue = createIssue();
+    const agentRunner = {
+      runAttempt: vi.fn(
+        async (): Promise<RunOutcome> => ({
+          kind: "normal",
+          errorCode: null,
+          errorMessage: null,
+          threadId: null,
+          turnId: null,
+          turnCount: 1,
+        }),
+      ),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [issue]),
+      fetchIssueStatesByIds: vi.fn(async () => [issue]),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async () => ({
+        path: "/tmp/symphony/MT-42",
+        workspaceKey: "MT-42",
+        createdNow: true,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(createConfig()),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(orchestrator.getSnapshot().retrying).toEqual([
+      expect.objectContaining({
+        identifier: "MT-42",
+        attempt: 1,
+        status: "retrying",
+      }),
+    ]);
 
     await orchestrator.stop();
   });
@@ -179,14 +235,7 @@ describe("Orchestrator", () => {
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
-      attemptStore: {
-        createAttempt: vi.fn(async () => undefined),
-        updateAttempt: vi.fn(async () => undefined),
-        appendEvent: vi.fn(async () => undefined),
-        getAttemptsForIssue: vi.fn(() => []),
-        getAttempt: vi.fn(() => null),
-        getEvents: vi.fn(() => []),
-      } as unknown as AttemptStore,
+      attemptStore: createAttemptStore(),
       configStore: createConfigStore(createConfig()),
       linearClient,
       workspaceManager,
@@ -232,14 +281,7 @@ describe("Orchestrator", () => {
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
-      attemptStore: {
-        createAttempt: vi.fn(async () => undefined),
-        updateAttempt: vi.fn(async () => undefined),
-        appendEvent: vi.fn(async () => undefined),
-        getAttemptsForIssue: vi.fn(() => []),
-        getAttempt: vi.fn(() => null),
-        getEvents: vi.fn(() => []),
-      } as unknown as AttemptStore,
+      attemptStore: createAttemptStore(),
       configStore: createConfigStore(createConfig()),
       linearClient,
       workspaceManager,
@@ -302,14 +344,7 @@ describe("Orchestrator", () => {
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
-      attemptStore: {
-        createAttempt: vi.fn(async () => undefined),
-        updateAttempt: vi.fn(async () => undefined),
-        appendEvent: vi.fn(async () => undefined),
-        getAttemptsForIssue: vi.fn(() => []),
-        getAttempt: vi.fn(() => null),
-        getEvents: vi.fn(() => []),
-      } as unknown as AttemptStore,
+      attemptStore: createAttemptStore(),
       configStore: createConfigStore(createConfig()),
       linearClient,
       workspaceManager,
@@ -344,6 +379,192 @@ describe("Orchestrator", () => {
       configuredReasoningEffort: "medium",
       modelChangePending: true,
     });
+
+    await orchestrator.stop();
+  });
+
+  it("stops after a normal completion when the agent reports the issue is complete", async () => {
+    vi.useFakeTimers();
+    const issue = createIssue();
+    const agentRunner = {
+      runAttempt: vi.fn(
+        async ({
+          issue: currentIssue,
+          onEvent,
+        }: {
+          issue: Issue;
+          onEvent: (event: {
+            at: string;
+            issueId: string;
+            issueIdentifier: string;
+            sessionId: string | null;
+            event: string;
+            message: string;
+            content?: string | null;
+          }) => void;
+        }): Promise<RunOutcome> => {
+          onEvent({
+            at: "2026-03-16T00:00:01Z",
+            issueId: currentIssue.id,
+            issueIdentifier: currentIssue.identifier,
+            sessionId: "session-1",
+            event: "item_completed",
+            message: "agentMessage msg-1 completed",
+            content: "The issue is already complete. No further in-scope work is needed.\nSYMPHONY_STATUS: DONE",
+          });
+          return {
+            kind: "normal",
+            errorCode: null,
+            errorMessage: null,
+            threadId: "thread-1",
+            turnId: "turn-1",
+            turnCount: 1,
+          };
+        },
+      ),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [issue]),
+      fetchIssueStatesByIds: vi.fn(async () => [issue]),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async () => ({
+        path: "/tmp/symphony/MT-42",
+        workspaceKey: "MT-42",
+        createdNow: true,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(createConfig()),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(orchestrator.getSnapshot().retrying).toEqual([]);
+    expect(orchestrator.getSnapshot().completed).toEqual([
+      expect.objectContaining({
+        identifier: "MT-42",
+        status: "completed",
+        message: "worker reported issue complete",
+      }),
+    ]);
+
+    await orchestrator.stop();
+  });
+
+  it("does not queue or launch inactive issues", async () => {
+    vi.useFakeTimers();
+    const inactiveIssue = createIssue("Todo");
+    const agentRunner = {
+      runAttempt: vi.fn(),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [inactiveIssue]),
+      fetchIssueStatesByIds: vi.fn(async () => [inactiveIssue]),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(createConfig()),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    const snapshot = orchestrator.getSnapshot();
+    expect(agentRunner.runAttempt).not.toHaveBeenCalled();
+    expect(workspaceManager.ensureWorkspace).not.toHaveBeenCalled();
+    expect(snapshot.running).toEqual([]);
+    expect(snapshot.queued).toEqual([]);
+
+    await orchestrator.stop();
+  });
+
+  it("removes stale queued and completed entries when the issue relaunches", async () => {
+    vi.useFakeTimers();
+    const issue = createIssue();
+    const agentRunner = {
+      runAttempt: vi.fn(async ({ signal }: { signal: AbortSignal }): Promise<RunOutcome> => {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+        return {
+          kind: "cancelled",
+          errorCode: "shutdown",
+          errorMessage: "shutdown",
+          threadId: null,
+          turnId: null,
+          turnCount: 0,
+        };
+      }),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [issue]),
+      fetchIssueStatesByIds: vi.fn(async () => [issue]),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async () => ({
+        path: "/tmp/symphony/MT-42",
+        workspaceKey: "MT-42",
+        createdNow: false,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const config = createConfig();
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(config),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    const seededView = {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      state: issue.state,
+      workspaceKey: "MT-42",
+      message: "stale",
+      status: "completed",
+      updatedAt: issue.updatedAt ?? "2026-03-16T00:00:00Z",
+      attempt: 1,
+      error: null,
+    };
+    (orchestrator as unknown as { completedViews: Map<string, unknown> }).completedViews.set(
+      issue.identifier,
+      seededView,
+    );
+    (orchestrator as unknown as { queuedViews: Array<unknown> }).queuedViews = [seededView];
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    const snapshot = orchestrator.getSnapshot();
+    expect(snapshot.running).toEqual([expect.objectContaining({ identifier: "MT-42", status: "running" })]);
+    expect(snapshot.queued).toEqual([]);
+    expect(snapshot.completed).toEqual([]);
 
     await orchestrator.stop();
   });

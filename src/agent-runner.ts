@@ -35,7 +35,8 @@ import type {
 import { WorkspaceManager } from "./workspace-manager.js";
 import { sanitizeContent } from "./content-sanitizer.js";
 
-const CONTINUATION_PROMPT = "Continue the current issue, make concrete progress, and stop only when done or blocked.";
+const CONTINUATION_PROMPT =
+  "Continue the current issue, make concrete progress, and stop only when done or blocked. When the issue is complete, end your final message with `SYMPHONY_STATUS: DONE`. If you are blocked and cannot proceed, end your final message with `SYMPHONY_STATUS: BLOCKED`.";
 
 export { extractItemContent } from "./agent-runner-helpers.js";
 

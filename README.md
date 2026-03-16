@@ -52,7 +52,7 @@ flowchart TD
 | Feature | Description |
 |---------|-------------|
 | **Local orchestration** | Single-host polling loop for Linear issues |
-| **Docker sandbox** | Agent runs inside a `codex-universal` container with resource limits, security hardening, and OOM detection |
+| **Docker sandbox** | Agent runs inside a `node:22` container with Codex CLI, resource limits, security hardening, and OOM detection |
 | **Workspace isolation** | One directory per issue with lifecycle hooks & cleanup |
 | **Codex integration** | `codex app-server` process management via JSON-RPC |
 | **Retry & stall handling** | Configurable backoff, turn/stall timeouts, read timeouts |

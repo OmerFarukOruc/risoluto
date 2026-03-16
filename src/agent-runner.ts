@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { Liquid } from "liquidjs";
@@ -93,13 +94,18 @@ export class AgentRunner {
     const sandboxEnabled = config.codex.sandbox.enabled;
     let child;
     if (sandboxEnabled) {
+      const codexHome = process.env.CODEX_HOME ?? path.join(resolveAuthSourceHome(), "..", ".symphony-codex-home");
+      const archiveDir = process.env.SYMPHONY_ARCHIVE_DIR ?? path.join(process.cwd(), "archive");
+      // Pre-create host directories so Docker doesn't auto-create them as root:root
+      await mkdir(codexHome, { recursive: true });
+      await mkdir(archiveDir, { recursive: true });
       const docker = buildDockerRunArgs({
         sandboxConfig: config.codex.sandbox,
         runId: `${input.issue.identifier}-${Date.now()}`,
         command: config.codex.command,
         workspacePath: input.workspace.path,
-        codexHome: process.env.CODEX_HOME ?? path.join(resolveAuthSourceHome(), "..", ".symphony-codex-home"),
-        archiveDir: process.env.SYMPHONY_ARCHIVE_DIR ?? path.join(process.cwd(), "archive"),
+        codexHome,
+        archiveDir,
       });
       containerName = docker.containerName;
       child = spawn(docker.program, docker.args, {

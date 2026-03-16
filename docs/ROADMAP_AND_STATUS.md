@@ -41,7 +41,7 @@ The repository is at **`v0.1.1`** and implements a working local orchestration l
 - ✅ Rate limit preflight via `account/rateLimits/read`
 - ✅ Dynamic `linear_graphql` tool exposure to the worker
 - ✅ Per-issue model override selection saved by the operator
-- ✅ Docker container sandbox with `codex-universal` base image
+- ✅ Docker container sandbox with `node:22-bookworm` base image and Codex CLI
 - ✅ Resource limits (memory, CPU, tmpfs) and security hardening (cap-drop, no-new-privileges)
 - ✅ OOM kill detection via `docker inspect` with distinct `container_oom` error code
 - ✅ Container lifecycle management (stop, inspect, remove) on abort/shutdown

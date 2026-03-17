@@ -10,6 +10,7 @@ import { isBlockedByNonTerminal, sortIssuesForDispatch } from "./orchestrator/di
 import { type IssueView, isHardFailure, issueView, nowIso, usageDelta } from "./orchestrator/views.js";
 import type { RepoMatch, RepoRouter } from "./repo-router.js";
 import { isActiveState, isTerminalState, isTodoState, normalizeStateKey } from "./state-policy.js";
+import { buildWorkflowColumns } from "./workflow-columns.js";
 import type {
   Issue,
   ModelSelection,
@@ -156,31 +157,42 @@ export class Orchestrator {
   }
 
   getSnapshot(): RuntimeSnapshot {
+    const running = [...this.runningEntries.values()].map((entry) => this.runningIssueView(entry));
+    const retrying = [...this.retryEntries.values()].map((entry) =>
+      issueView(entry.issue, {
+        configuredModel: this.resolveModelSelection(entry.identifier).model,
+        configuredReasoningEffort: this.resolveModelSelection(entry.identifier).reasoningEffort,
+        configuredModelSource: this.resolveModelSelection(entry.identifier).source,
+        modelChangePending: false,
+        workspaceKey: entry.workspaceKey,
+        status: "retrying",
+        attempt: entry.attempt,
+        error: entry.error,
+        message: `retry due at ${new Date(entry.dueAtMs).toISOString()}`,
+        model: this.resolveModelSelection(entry.identifier).model,
+        reasoningEffort: this.resolveModelSelection(entry.identifier).reasoningEffort,
+        modelSource: this.resolveModelSelection(entry.identifier).source,
+      }),
+    );
+    const queued = this.queuedViews;
+    const completed = [...this.completedViews.values()].slice(0, 25);
+
     return {
       generatedAt: nowIso(),
       counts: {
         running: this.runningEntries.size,
         retrying: this.retryEntries.size,
       },
-      running: [...this.runningEntries.values()].map((entry) => this.runningIssueView(entry)),
-      retrying: [...this.retryEntries.values()].map((entry) =>
-        issueView(entry.issue, {
-          configuredModel: this.resolveModelSelection(entry.identifier).model,
-          configuredReasoningEffort: this.resolveModelSelection(entry.identifier).reasoningEffort,
-          configuredModelSource: this.resolveModelSelection(entry.identifier).source,
-          modelChangePending: false,
-          workspaceKey: entry.workspaceKey,
-          status: "retrying",
-          attempt: entry.attempt,
-          error: entry.error,
-          message: `retry due at ${new Date(entry.dueAtMs).toISOString()}`,
-          model: this.resolveModelSelection(entry.identifier).model,
-          reasoningEffort: this.resolveModelSelection(entry.identifier).reasoningEffort,
-          modelSource: this.resolveModelSelection(entry.identifier).source,
-        }),
-      ),
-      queued: this.queuedViews,
-      completed: [...this.completedViews.values()].slice(0, 25),
+      running,
+      retrying,
+      queued,
+      completed,
+      workflowColumns: buildWorkflowColumns(this.getConfig(), {
+        running,
+        retrying,
+        queued,
+        completed,
+      }),
       codexTotals: {
         ...this.codexTotals,
         secondsRunning: this.computeSecondsRunning(),

@@ -33,6 +33,14 @@ function serializeSnapshot(snapshot: RuntimeSnapshot & Record<string, unknown>):
     running: snapshot.running,
     retrying: snapshot.retrying,
     completed: snapshot.completed ?? [],
+    workflow_columns: (snapshot.workflowColumns ?? []).map((column) => ({
+      key: column.key,
+      label: column.label,
+      kind: column.kind,
+      terminal: Boolean(column.terminal),
+      count: column.count,
+      issues: column.issues,
+    })),
     codex_totals: {
       input_tokens: snapshot.codexTotals.inputTokens,
       output_tokens: snapshot.codexTotals.outputTokens,

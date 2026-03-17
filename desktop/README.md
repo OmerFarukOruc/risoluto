@@ -1,6 +1,6 @@
-# Symphony Desktop Scaffold
+# Symphony Desktop
 
-This directory is a lightweight placeholder for a future Tauri desktop shell.
+This directory contains a minimal Tauri desktop shell for local Symphony operations.
 
 ## Scope
 
@@ -10,17 +10,32 @@ This directory is a lightweight placeholder for a future Tauri desktop shell.
 
 ## Current Layout
 
-- `src-tauri/`: Rust host scaffold and Tauri config placeholders.
-- `web/`: placeholder directory for desktop-facing frontend glue.
+- `src-tauri/`: Rust host with process lifecycle commands and Tauri config.
+- `web/`: desktop wrapper UI that controls lifecycle and embeds the dashboard.
 
-## Integration Notes
+## Lifecycle Wiring
 
-The core service still starts via:
+The desktop host exposes these commands:
 
-- `node dist/cli.js ./WORKFLOW.example.md --port 4000`
+- `desktop_status`
+- `desktop_start_service(workflowPath?, port?)`
+- `desktop_stop_service`
 
-Future integration should wire desktop controls to this entrypoint and consume:
+When started from the desktop shell, Symphony launches via:
 
-- `GET /api/v1/state`
-- `POST /api/v1/refresh`
-- other `/api/v1/*` endpoints already exposed by the service.
+- `node dist/cli.js <workflow-path> --port <port>`
+
+## Local Run Checklist
+
+Run these from repository root first:
+
+- `npm install`
+- `npm run build`
+
+Then run Tauri from `desktop/src-tauri` with your preferred workflow.
+
+## Caveats
+
+- The desktop host resolves repository root relative to `desktop/src-tauri`.
+- Current process output is redirected to null in desktop mode; inspect archive data and dashboard/API for run behavior.
+- This shell is intended for local development use, not yet for bundled production distribution.

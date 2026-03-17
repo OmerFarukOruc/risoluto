@@ -6,10 +6,13 @@
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "devUrl": "http://127.0.0.1:4000",
     "frontendDist": "../web"
   },
   "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null
+    },
     "windows": [
       {
         "title": "Symphony Desktop",

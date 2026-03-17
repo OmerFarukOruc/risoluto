@@ -1,4 +1,4 @@
-import type { ServiceConfig } from "./types.js";
+import type { ServiceConfig, StateStageKind } from "./types.js";
 import { StateMachine } from "./state-machine.js";
 
 export const DEFAULT_ACTIVE_STATES = ["Todo", "In Progress"];
@@ -59,4 +59,58 @@ export function isTodoState(state: string, config?: ServiceConfig): boolean {
 
 export function normalizeStateKey(state: string): string {
   return normalizeStateValue(state);
+}
+
+export interface WorkflowStageDefinition {
+  key: string;
+  label: string;
+  kind: StateStageKind | "other";
+  terminal: boolean;
+}
+
+function appendStage(stages: WorkflowStageDefinition[], seen: Set<string>, stage: WorkflowStageDefinition): void {
+  if (!stage.key || seen.has(stage.key)) {
+    return;
+  }
+  seen.add(stage.key);
+  stages.push(stage);
+}
+
+export function listWorkflowStages(config: ServiceConfig): WorkflowStageDefinition[] {
+  const stages: WorkflowStageDefinition[] = [];
+  const seen = new Set<string>();
+
+  if (config.stateMachine?.stages?.length) {
+    for (const stage of config.stateMachine.stages) {
+      appendStage(stages, seen, {
+        key: normalizeStateValue(stage.name),
+        label: stage.name,
+        kind: stage.kind,
+        terminal: stage.kind === "terminal",
+      });
+    }
+    return stages;
+  }
+
+  for (const state of config.tracker.activeStates) {
+    const key = normalizeStateValue(state);
+    appendStage(stages, seen, {
+      key,
+      label: state,
+      kind: key === "todo" ? "todo" : "active",
+      terminal: false,
+    });
+  }
+
+  const terminalLabel = config.tracker.terminalStates[0];
+  if (terminalLabel) {
+    appendStage(stages, seen, {
+      key: normalizeStateValue(terminalLabel),
+      label: terminalLabel,
+      kind: "terminal",
+      terminal: true,
+    });
+  }
+
+  return stages;
 }

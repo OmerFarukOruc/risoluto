@@ -13,6 +13,7 @@ import { createLogger } from "./logger.js";
 import { NotificationManager } from "./notification-manager.js";
 import { Orchestrator } from "./orchestrator.js";
 import { PathRegistry } from "./path-registry.js";
+import { createLinearPlanningExecutor } from "./planning-executor.js";
 import { RepoRouter } from "./repo-router.js";
 import { SecretsStore } from "./secrets-store.js";
 import { SlackWebhookChannel } from "./slack-webhook.js";
@@ -189,6 +190,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     configStore,
     configOverlayStore: overlayStore,
     secretsStore,
+    executePlan: createLinearPlanningExecutor({
+      linearClient,
+    }),
   });
 
   await cleanupTransientWorkspaceDirs(config.workspace.root);

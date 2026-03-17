@@ -66,6 +66,7 @@ flowchart TD
 | **Git automation** | Optional repo routing, clone/bootstrap, commit/push, and PR creation on `SYMPHONY_STATUS: DONE` |
 | **Config overlay & secrets** | Persistent config overlay plus encrypted local secrets API |
 | **Planning API** | Goal-to-issue planning endpoints under `/api/v1/plan*` |
+| **Desktop shell** | Minimal Tauri host that can start/stop `node dist/cli.js` and embed the dashboard |
 | **Strict TypeScript** | Full type safety with deterministic Vitest coverage |
 
 ---
@@ -209,7 +210,7 @@ Both checked-in workflow files expect `LINEAR_PROJECT_SLUG` in the host environm
 |--------|----------|-------------|
 | `GET` | `/` | Local operator dashboard |
 | `GET` | `/metrics` | Prometheus metrics |
-| `GET` | `/api/v1/state` | Runtime snapshot — queued, running, retrying, completed + token totals |
+| `GET` | `/api/v1/state` | Runtime snapshot — queued, running, retrying, completed, workflow columns, and token totals |
 | `POST` | `/api/v1/refresh` | Trigger immediate orchestration refresh |
 | `GET` | `/api/v1/:issue` | Issue detail, recent events, archived attempts |
 | `GET` | `/api/v1/:issue/attempts` | Archived attempts + current live attempt id |
@@ -223,7 +224,7 @@ Both checked-in workflow files expect `LINEAR_PROJECT_SLUG` in the host environm
 | `POST` | `/api/v1/secrets/:key` | Store one secret |
 | `DELETE` | `/api/v1/secrets/:key` | Delete one secret |
 | `POST` | `/api/v1/plan` | Generate a structured implementation plan |
-| `POST` | `/api/v1/plan/execute` | Execute a generated plan when an execution backend is configured |
+| `POST` | `/api/v1/plan/execute` | Create Linear issues from a generated plan |
 
 ### Example: Model Override
 
@@ -247,6 +248,16 @@ curl -s -X POST http://127.0.0.1:4000/api/v1/MT-42/model \
   "running": [],
   "retrying": [],
   "completed": [],
+  "workflow_columns": [
+    {
+      "key": "todo",
+      "label": "Todo",
+      "kind": "todo",
+      "terminal": false,
+      "count": 0,
+      "issues": []
+    }
+  ],
   "codex_totals": {
     "input_tokens": 1200,
     "output_tokens": 400,

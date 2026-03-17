@@ -127,6 +127,15 @@ export interface RuntimeIssueView {
   modelChangePending?: boolean;
 }
 
+export interface WorkflowColumnView {
+  key: string;
+  label: string;
+  kind: "backlog" | "todo" | "active" | "terminal" | "other";
+  terminal: boolean;
+  count: number;
+  issues: RuntimeIssueView[];
+}
+
 export interface RuntimeSnapshot {
   generatedAt: string;
   counts: { running: number; retrying: number };
@@ -134,6 +143,7 @@ export interface RuntimeSnapshot {
   retrying: RuntimeIssueView[];
   queued?: RuntimeIssueView[];
   completed?: RuntimeIssueView[];
+  workflowColumns: WorkflowColumnView[];
   codexTotals: {
     inputTokens: number;
     outputTokens: number;

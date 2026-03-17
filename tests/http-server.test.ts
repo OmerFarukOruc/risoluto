@@ -21,6 +21,16 @@ describe("HttpServer", () => {
         retrying: [],
         queued: [],
         completed: [],
+        workflowColumns: [
+          {
+            key: "todo",
+            label: "Todo",
+            kind: "todo",
+            terminal: false,
+            count: 0,
+            issues: [],
+          },
+        ],
         codexTotals: {
           inputTokens: 0,
           outputTokens: 0,
@@ -121,6 +131,15 @@ describe("HttpServer", () => {
     expect(await stateResponse.json()).toMatchObject({
       generated_at: "2026-03-16T00:00:00Z",
       counts: { running: 0, retrying: 0 },
+      workflow_columns: [
+        expect.objectContaining({
+          key: "todo",
+          label: "Todo",
+          kind: "todo",
+          terminal: false,
+          count: 0,
+        }),
+      ],
     });
 
     const metricsResponse = await fetch(`${baseUrl}/metrics`);

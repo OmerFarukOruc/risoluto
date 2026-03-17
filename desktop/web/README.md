@@ -1,12 +1,21 @@
-# Desktop Web Placeholder
+# Desktop Web Wrapper
 
-This folder is reserved for desktop-specific web assets.
+This folder now contains a lightweight desktop wrapper UI that:
 
-For now, the scaffold expects the main Symphony dashboard to run at:
+- invokes Tauri commands to start/stop the Symphony service process,
+- polls service status from the Rust host, and
+- embeds the existing Symphony dashboard in an iframe.
 
-- `http://127.0.0.1:4000`
+## Files
 
-Future work can either:
+- `index.html`: host controls and iframe container
+- `styles.css`: desktop shell styling
+- `app.js`: invokes `desktop_status`, `desktop_start_service`, and `desktop_stop_service`
 
-- embed the existing dashboard routes directly, or
-- provide a thin desktop wrapper UI that consumes `/api/v1/*`.
+## Runtime Notes
+
+- The iframe target defaults to `http://127.0.0.1:4000/`.
+- Status polling is host-driven; this wrapper does not call `/api/v1/*` directly.
+- The Rust host resolves default workflow path to:
+  - `<repo>/WORKFLOW.example.md` if present
+  - otherwise `<repo>/WORKFLOW.md`

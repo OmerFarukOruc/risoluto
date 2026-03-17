@@ -290,6 +290,95 @@ describe("Orchestrator", () => {
     await orchestrator.stop();
   });
 
+  it("builds workflow columns from configured state-machine stages", async () => {
+    vi.useFakeTimers();
+    const queuedIssue = { ...createIssue("Todo"), id: "issue-1", identifier: "MT-41", priority: 2 };
+    const runningIssue = { ...createIssue("In Progress"), id: "issue-2", identifier: "MT-42", priority: 1 };
+    const agentRunner = {
+      runAttempt: vi.fn(async ({ signal }: { signal: AbortSignal }): Promise<RunOutcome> => {
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+        return {
+          kind: "cancelled",
+          errorCode: "shutdown",
+          errorMessage: "shutdown",
+          threadId: null,
+          turnId: null,
+          turnCount: 0,
+        };
+      }),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [queuedIssue, runningIssue]),
+      fetchIssueStatesByIds: vi.fn(async (ids: string[]) =>
+        [queuedIssue, runningIssue].filter((issue) => ids.includes(issue.id)),
+      ),
+      fetchIssuesByStates: vi.fn(async () => []),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async (identifier: string) => ({
+        path: `/tmp/symphony/${identifier}`,
+        workspaceKey: identifier,
+        createdNow: true,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const config = createConfig();
+    config.tracker.activeStates = ["Todo", "In Progress"];
+    config.agent.maxConcurrentAgents = 1;
+    config.stateMachine = {
+      stages: [
+        { name: "Todo", kind: "todo" },
+        { name: "In Progress", kind: "active" },
+        { name: "Done", kind: "terminal" },
+      ],
+      transitions: {},
+    };
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(config),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    const snapshot = orchestrator.getSnapshot();
+    expect(snapshot.workflowColumns).toEqual([
+      expect.objectContaining({
+        key: "todo",
+        label: "Todo",
+        kind: "todo",
+        terminal: false,
+        count: 1,
+        issues: [expect.objectContaining({ identifier: "MT-41", status: "queued", state: "Todo" })],
+      }),
+      expect.objectContaining({
+        key: "in progress",
+        label: "In Progress",
+        kind: "active",
+        terminal: false,
+        count: 1,
+        issues: [expect.objectContaining({ identifier: "MT-42", status: "running" })],
+      }),
+      expect.objectContaining({
+        key: "done",
+        label: "Done",
+        kind: "terminal",
+        terminal: true,
+        count: 0,
+        issues: [],
+      }),
+    ]);
+
+    await orchestrator.stop();
+  });
+
   it("continues after a normal completion when no stop signal is present", async () => {
     vi.useFakeTimers();
     const issue = createIssue();

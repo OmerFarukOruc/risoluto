@@ -771,6 +771,7 @@ export function renderDashboardTemplate(): string {
       uptimeValue: document.getElementById("uptimeValue"),
       rateLimitValue: document.getElementById("rateLimitValue"),
       generatedAtCompact: document.getElementById("generatedAtCompact"),
+      boardScroll: document.getElementById("boardScroll"),
       queuedHeading: document.getElementById("queuedHeading"),
       runningHeading: document.getElementById("runningHeading"),
       retryingHeading: document.getElementById("retryingHeading"),
@@ -860,14 +861,29 @@ export function renderDashboardTemplate(): string {
       return "detail-status-default";
     }
 
+    function itemStatusKey(item) {
+      const normalized = String(item?.status || "").toLowerCase();
+      if (normalized.includes("running")) return "running";
+      if (normalized.includes("retry")) return "retrying";
+      if (normalized.includes("complete")) return "completed";
+      return "queued";
+    }
+
     function cardForItem(item, column) {
       const priority = priorityLabel(item.priority);
       const tokenText = item.tokenUsage ? \`\${formatCompactNumber(item.tokenUsage.inputTokens)} / \${formatCompactNumber(item.tokenUsage.outputTokens)}\` : null;
+      const statusKey = itemStatusKey(item);
       const wrapper = document.createElement("div");
-      wrapper.className = "issue-card " + (column === "running" ? "issue-card-running" : column === "retrying" ? "issue-card-retrying" : "issue-card-default");
+      wrapper.className =
+        "issue-card " +
+        (statusKey === "running"
+          ? "issue-card-running"
+          : statusKey === "retrying"
+            ? "issue-card-retrying"
+            : "issue-card-default");
 
       const body = [];
-      if (column === "retrying") {
+      if (statusKey === "retrying") {
         body.push('<div class="issue-meta"><span class="issue-warning">⚠</span><span class="issue-meta-note">retry pending</span></div>');
       }
 
@@ -881,7 +897,7 @@ export function renderDashboardTemplate(): string {
       if (Array.isArray(item.labels) && item.labels.length > 0) {
         body.push('<div class="issue-labels">' + item.labels.slice(0, 3).map((label) => '<span class="issue-label">' + label + '</span>').join("") + '</div>');
       }
-      if (column === "running") {
+      if (statusKey === "running") {
         body.push(
           '<div class="issue-meta">' +
             '<span>Attempt ' + String(item.attempt ?? 0) + '</span>' +
@@ -894,7 +910,7 @@ export function renderDashboardTemplate(): string {
           '</div>'
         );
       }
-      if (column === "retrying") {
+      if (statusKey === "retrying") {
         body.push(
           '<div class="issue-meta">' +
             '<span>Attempt ' + String(item.attempt ?? 0) + '</span>' +
@@ -907,12 +923,12 @@ export function renderDashboardTemplate(): string {
           '</div>'
         );
       }
-      if (column === "completed") {
+      if (statusKey === "completed") {
         body.push('<div class="issue-meta"><span>' + (item.status || "completed") + '</span><span>' + relativeTime(item.updatedAt) + '</span></div>');
       } else {
         body.push(
           '<div class="issue-meta">' +
-            '<span>' + (column === "running" ? "Worker live" : column === "retrying" ? "Retry queued" : "Tracker issue") + '</span>' +
+            '<span>' + (statusKey === "running" ? "Worker live" : statusKey === "retrying" ? "Retry queued" : "Tracker issue") + '</span>' +
             '<span>' + relativeTime(item.updatedAt) + '</span>' +
           '</div>'
         );
@@ -996,22 +1012,61 @@ export function renderDashboardTemplate(): string {
 
     function filteredItems(items, column) {
       return (items || []).filter((item) => {
-        if (state.currentFilter !== "all" && state.currentFilter !== column) return false;
+        if (state.currentFilter !== "all" && state.currentFilter !== itemStatusKey(item)) return false;
         if (!state.search) return true;
         const haystack = [item.identifier, item.title, item.message, item.error, ...(item.labels || [])].filter(Boolean).join(" ").toLowerCase();
         return haystack.includes(state.search.toLowerCase());
       });
     }
 
-    function renderColumn(container, heading, label, items, column) {
-      const filtered = filteredItems(items, column);
-      heading.textContent = label + " (" + String(items.length) + ")";
-      container.innerHTML = "";
-      if (filtered.length === 0) {
-        container.appendChild(emptyCard("No " + label.toLowerCase() + " items."));
-        return;
-      }
-      filtered.forEach((item) => container.appendChild(cardForItem(item, column)));
+    function legacyWorkflowColumns(snapshot) {
+      return [
+        { key: "queued", label: "Queued", kind: "todo", issues: snapshot.queued || [] },
+        { key: "running", label: "Running", kind: "active", issues: snapshot.running || [] },
+        { key: "retrying", label: "Retrying", kind: "active", issues: snapshot.retrying || [] },
+        { key: "completed", label: "Completed", kind: "terminal", issues: snapshot.completed || [] },
+      ];
+    }
+
+    function columnDotColor(kind) {
+      if (kind === "terminal") return "#94a3b8";
+      if (kind === "todo") return "#3b82f6";
+      if (kind === "backlog") return "#64748b";
+      if (kind === "other") return "#a855f7";
+      return "#22c55e";
+    }
+
+    function renderWorkflowColumns(columns) {
+      els.boardScroll.innerHTML = "";
+      (columns || []).forEach((column) => {
+        const items = Array.isArray(column.issues) ? column.issues : [];
+        const filtered = filteredItems(items, column.key);
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "kanban-column flex flex-col gap-4";
+
+        const header = document.createElement("div");
+        header.className = "flex items-center justify-between px-2";
+        header.innerHTML =
+          '<div class="flex items-center gap-2">' +
+            '<span class="size-2 rounded-full" style="background:' + columnDotColor(column.kind) + ';"></span>' +
+            '<h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">' +
+              String(column.label || column.key || "Stage") + " (" + String(items.length) + ")" +
+            '</h3>' +
+          '</div>' +
+          '<button class="text-slate-400 hover:text-slate-600"><span class="icon">⋯</span></button>';
+        wrapper.appendChild(header);
+
+        const body = document.createElement("div");
+        body.className = "flex flex-col gap-3";
+        if (filtered.length === 0) {
+          body.appendChild(emptyCard("No " + String(column.label || column.key || "stage").toLowerCase() + " items."));
+        } else {
+          filtered.forEach((item) => body.appendChild(cardForItem(item, column.key)));
+        }
+        wrapper.appendChild(body);
+        els.boardScroll.appendChild(wrapper);
+      });
     }
 
     function renderSnapshot(snapshot) {
@@ -1026,11 +1081,11 @@ export function renderDashboardTemplate(): string {
       els.uptimeValue.textContent = formatDuration(snapshot.codex_totals.seconds_running);
       els.rateLimitValue.textContent = formatRateLimit(snapshot.rate_limits);
       els.generatedAtCompact.textContent = new Date(snapshot.generated_at).toISOString().slice(11, 16);
-
-      renderColumn(els.queuedColumn, els.queuedHeading, "Queued", snapshot.queued || [], "queued");
-      renderColumn(els.runningColumn, els.runningHeading, "Running", snapshot.running || [], "running");
-      renderColumn(els.retryingColumn, els.retryingHeading, "Retrying", snapshot.retrying || [], "retrying");
-      renderColumn(els.completedColumn, els.completedHeading, "Completed", snapshot.completed || [], "completed");
+      renderWorkflowColumns(
+        Array.isArray(snapshot.workflow_columns) && snapshot.workflow_columns.length > 0
+          ? snapshot.workflow_columns
+          : legacyWorkflowColumns(snapshot),
+      );
     }
 
     function openDetailPanel() {

@@ -29,7 +29,11 @@ The implementation request came from `/home/oruc/Desktop/implementation_plan.md`
 - [x] (2026-03-17 02:57Z) Implemented the main Phase 8 and Phase 9 scaffolding: extended `.github/workflows/ci.yml`, added `test:docker` and `test:e2e` scripts plus opt-in integration placeholders, and added the `desktop/` scaffold.
 - [x] (2026-03-17 02:57Z) Updated the operator-facing docs for Docker service mode, overlay/secrets APIs, notifications, git automation, and the expanded API surface.
 - [x] (2026-03-17 02:57Z) Re-ran full validation after the broader rollout: `npm run build` passed and `npm test` passed with 32 files, 171 tests, and 2 intentionally skipped opt-in integration placeholders.
-- [ ] (2026-03-17 02:58Z) Finish the remaining partial integrations (completed: core runtime wiring, Docker service packaging, CI scripts, planning router, desktop scaffold; remaining: planning execution still requires a real Linear mutation backend, the dashboard still renders runtime status columns rather than configurable workflow-state columns, and the desktop scaffold is not yet wired to actual service lifecycle control).
+- [x] (2026-03-17 08:51Z) Finished the remaining planning execution integration: `src/linear-client.ts` now resolves the target Linear project/team/labels and creates issues from `PlannedIssue[]`, `src/planning-executor.ts` exposes the HTTP-facing wrapper, `src/cli.ts` injects the executor, and the planning plus Linear tests cover the happy path and failure handling.
+- [x] (2026-03-17 08:52Z) Finished the workflow-state dashboard integration: `src/workflow-columns.ts`, `src/state-policy.ts`, `src/orchestrator.ts`, `src/http-server.ts`, and `src/dashboard-template.ts` now expose and render configurable workflow columns while preserving the legacy queued/running/retrying/completed snapshot fields for backward compatibility.
+- [x] (2026-03-17 08:53Z) Finished the desktop lifecycle wiring: `desktop/src-tauri/src/main.rs` now manages `node dist/cli.js` start/stop/status commands, `desktop/web/*` is now a working wrapper UI that embeds the HTTP dashboard, and the desktop docs/config were updated to match the real behavior.
+- [x] (2026-03-17 08:54Z) Re-ran the full repository validation after the final integrations: `npm test` passed with 33 files, 176 tests, and 2 intentionally skipped opt-in integration placeholders; `npm run build` passed; `node --check desktop/web/app.js` passed; and `desktop/src-tauri/tauri.conf.json` parsed successfully.
+- [ ] (2026-03-17 08:55Z) Push the finished work to `origin/main` (completed: implementation, docs, TypeScript validation, desktop wrapper asset checks; remaining: GitHub push is still blocked until HTTPS credentials are available on this machine, and Rust/Tauri compilation could not be validated locally because `cargo` is not installed here).
 
 ## Surprises & Discoveries
 
@@ -57,6 +61,12 @@ The implementation request came from `/home/oruc/Desktop/implementation_plan.md`
 - Observation: a strict `MASTER_KEY` requirement at service startup would have broken existing workflows before the secrets feature was used.
   Evidence: the initial `SecretsStore` implementation threw immediately without `MASTER_KEY`; the final integration changed that to a disabled-until-configured posture unless an existing encrypted secrets file is already present.
 
+- Observation: the repo already contained part of the “remaining” work as dormant modules, which made the last integrations smaller than they first appeared.
+  Evidence: `src/linear-client.ts` already included `createIssuesFromPlan()` and its GraphQL helpers, while `src/workflow-columns.ts`, `src/state-policy.ts`, and `src/types.ts` already defined workflow-column structures that only needed wiring into the snapshot, HTTP serializer, and dashboard renderer.
+
+- Observation: the desktop shell can be completed meaningfully without touching the orchestration core, but local Rust validation depends on toolchain availability outside the Node test path.
+  Evidence: the final desktop work stayed confined to `desktop/*`, and the plain-file checks (`node --check desktop/web/app.js`, JSON parse for `desktop/src-tauri/tauri.conf.json`) passed, while `cargo` commands were unavailable on this machine.
+
 ## Decision Log
 
 - Decision: adapt `/home/oruc/Desktop/implementation_plan.md` into a repository-local execution document instead of treating it as a literal file-by-file patch list.
@@ -81,9 +91,9 @@ The implementation request came from `/home/oruc/Desktop/implementation_plan.md`
 
 ## Outcomes & Retrospective
 
-The repo is now materially further along than the original Phase 1 checkpoint. In addition to the landed metrics, Linear hardening, dispatch extraction, and offline HTML templates, the current tree includes notification primitives plus orchestration wiring, optional git routing and PR automation, encrypted secrets and config overlay stores with local APIs, Docker service packaging artifacts, state-machine and planning leaf modules, CI/test entrypoint extensions, and a desktop scaffold. The unattended-session goal also landed: this ExecPlan remains the restart document for the current tree and records the remaining gaps explicitly.
+The repo is now materially further along than the original Phase 1 checkpoint. In addition to the landed metrics, Linear hardening, dispatch extraction, and offline HTML templates, the current tree includes notification primitives plus orchestration wiring, optional git routing and PR automation, encrypted secrets and config overlay stores with local APIs, Docker service packaging artifacts, state-machine and planning leaf modules, CI/test entrypoint extensions, and a working desktop shell. The unattended-session goal also landed: this ExecPlan remains the restart document for the current tree and records the remaining gaps explicitly.
 
-The latest validation evidence is stronger than the earlier Phase 1 pass. `npm run build` succeeds, `npm test` now passes with 32 files and 171 tests, and only 2 opt-in integration placeholders are skipped behind environment flags. The main remaining gaps are integration depth rather than codebase breadth: planning execution still needs a real Linear mutation backend, dashboard columns still reflect runtime buckets rather than configurable state-machine columns, and the desktop scaffold is not yet wired to actual `node dist/cli.js` lifecycle control.
+The latest validation evidence is stronger than the earlier Phase 1 pass. `npm run build` succeeds, `npm test` now passes with 33 files and 176 tests, and only 2 opt-in integration placeholders are skipped behind environment flags. The previously remaining integration gaps are now closed: planning execution creates real Linear issues through the existing GraphQL client, the dashboard renders configurable workflow-state columns while keeping the legacy snapshot fields available, and the desktop shell can start/stop the local service and embed the existing dashboard. The main remaining risks are operational rather than implementation breadth: GitHub push still depends on host credentials, and Tauri/Rust compilation could not be re-verified locally because `cargo` is unavailable on this machine.
 
 The main lesson from the full unattended pass is that broad roadmaps become tractable when decomposed into leaf modules plus a small set of integration seams. Parallel delegation worked well because the ownership boundaries were explicit, while the final shared-file integration stayed local and test-driven.
 
@@ -229,3 +239,5 @@ At the end of Phase 1, `src/http-server.ts` must expose `GET /metrics` that retu
     Content-Type: text/plain; version=0.0.4; charset=utf-8
 
 Revision note: on 2026-03-17 this ExecPlan was rewritten because the previous file still described an earlier repository path and an outdated project snapshot. The new version aligns the plan with `/home/oruc/Desktop/symphony-orchestrator`, decomposes the requested external roadmap into atomic repository tasks, and sets Phase 1 as the active implementation milestone.
+
+Revision note: later on 2026-03-17 the ExecPlan was updated again to reflect the completed final integrations. The planning execution backend, workflow-column dashboard rendering, and desktop lifecycle shell are now recorded as landed work, validation evidence has been refreshed to the current `npm test` and `npm run build` results, and the remaining blockers were narrowed to push credentials plus unavailable local Rust tooling.

@@ -1,3 +1,4 @@
+import type { PlannedIssue, PlanningPriority } from "./planning-skill.js";
 import type { Issue, IssueBlockerRef, ServiceConfig, SymphonyLogger } from "./types.js";
 
 const PAGE_SIZE = 50;
@@ -5,6 +6,18 @@ const PAGE_SIZE = 50;
 interface GraphQLResponse {
   data?: Record<string, unknown>;
   errors?: unknown[];
+}
+
+interface LinearPlanTarget {
+  teamId: string;
+  projectId: string | null;
+  labelIdsByName: Map<string, string>;
+}
+
+interface LinearCreatedIssue {
+  id: string;
+  identifier: string;
+  url: string | null;
 }
 
 export type LinearErrorCode =
@@ -35,6 +48,10 @@ function asArray(value: unknown): unknown[] {
 
 function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
 function normalizeLabels(raw: unknown): string[] {
@@ -224,6 +241,140 @@ function buildIssuesByStatesQuery(): string {
   `;
 }
 
+function buildProjectLookupQuery(): string {
+  return `
+    query SymphonyPlanProject($projectSlug: String!) {
+      projects(first: 1, filter: { slugId: { eq: $projectSlug } }) {
+        nodes {
+          id
+          name
+          slugId
+          teams(first: 1) {
+            nodes {
+              id
+              name
+              key
+            }
+          }
+        }
+      }
+    }
+  `;
+}
+
+function buildTeamLookupQuery(): string {
+  return `
+    query SymphonyPlanTeams {
+      teams(first: 2) {
+        nodes {
+          id
+          name
+          key
+        }
+      }
+    }
+  `;
+}
+
+function buildLabelLookupQuery(): string {
+  return `
+    query SymphonyPlanLabels($teamId: String!, $names: [String!]) {
+      issueLabels(first: 250, filter: { team: { id: { eq: $teamId } }, name: { in: $names } }) {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  `;
+}
+
+function buildIssueCreateMutation(): string {
+  return `
+    mutation SymphonyCreateIssue($input: IssueCreateInput!) {
+      issueCreate(input: $input) {
+        success
+        issue {
+          id
+          identifier
+          url
+        }
+      }
+    }
+  `;
+}
+
+function extractNodesConnection(
+  payload: GraphQLResponse,
+  fieldName: string,
+): { nodes: Record<string, unknown>[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } | null } {
+  if (
+    Object.prototype.hasOwnProperty.call(payload, "data") === false ||
+    typeof payload.data !== "object" ||
+    payload.data === null
+  ) {
+    throw new LinearClientError("linear_unknown_payload", "linear graphql response missing data object");
+  }
+  const root = payload.data as Record<string, unknown>;
+  const connection = asRecord(root[fieldName]);
+  const nodes = asArray(connection.nodes).map((node) => asRecord(node));
+  const pageInfoRecord = asRecord(connection.pageInfo);
+  const hasNextPage = asBoolean(pageInfoRecord.hasNextPage);
+  const endCursor = asString(pageInfoRecord.endCursor);
+
+  return {
+    nodes,
+    pageInfo:
+      hasNextPage === null
+        ? null
+        : {
+            hasNextPage,
+            endCursor,
+          },
+  };
+}
+
+function normalizePlanningPriority(priority: PlanningPriority): number {
+  if (priority === "high") {
+    return 1;
+  }
+  if (priority === "medium") {
+    return 2;
+  }
+  return 3;
+}
+
+function buildPlannedIssueDescription(
+  issue: PlannedIssue,
+  createdByPlanId: ReadonlyMap<string, LinearCreatedIssue>,
+): string {
+  const sections: string[] = [];
+  if (issue.summary.trim()) {
+    sections.push(issue.summary.trim());
+  }
+
+  if (issue.acceptanceCriteria.length > 0) {
+    sections.push(
+      ["Acceptance criteria:", ...issue.acceptanceCriteria.map((criterion) => `- ${criterion}`)].join("\n"),
+    );
+  }
+
+  if (issue.dependencies.length > 0) {
+    sections.push(
+      [
+        "Dependencies:",
+        ...issue.dependencies.map((dependency) => {
+          const created = createdByPlanId.get(dependency);
+          return `- ${created?.identifier ?? dependency}`;
+        }),
+      ].join("\n"),
+    );
+  }
+
+  sections.push(`Plan item: ${issue.id}`);
+  return sections.filter(Boolean).join("\n\n");
+}
+
 async function readJsonResponse(response: Response): Promise<GraphQLResponse> {
   try {
     return (await response.json()) as GraphQLResponse;
@@ -311,6 +462,52 @@ export class LinearClient {
     return issues;
   }
 
+  async createIssuesFromPlan(issues: PlannedIssue[]): Promise<LinearCreatedIssue[]> {
+    if (issues.length === 0) {
+      return [];
+    }
+
+    const target = await this.resolvePlanTarget(issues);
+    const createdByPlanId = new Map<string, LinearCreatedIssue>();
+    const created: LinearCreatedIssue[] = [];
+
+    for (const issue of issues) {
+      const payload = await this.runGraphQL(buildIssueCreateMutation(), {
+        input: {
+          title: issue.title,
+          description: buildPlannedIssueDescription(issue, createdByPlanId),
+          priority: normalizePlanningPriority(issue.priority),
+          teamId: target.teamId,
+          ...(target.projectId ? { projectId: target.projectId } : {}),
+          ...(issue.labels.length > 0
+            ? {
+                labelIds: issue.labels
+                  .map((label) => target.labelIdsByName.get(label.trim().toLowerCase()) ?? null)
+                  .filter((labelId): labelId is string => Boolean(labelId)),
+              }
+            : {}),
+        },
+      });
+
+      const issueCreate = asRecord(asRecord(payload.data).issueCreate);
+      const success = asBoolean(issueCreate.success);
+      const createdIssue = asRecord(issueCreate.issue);
+      const id = asString(createdIssue.id);
+      const identifier = asString(createdIssue.identifier);
+      const url = asString(createdIssue.url);
+
+      if (!success || !id || !identifier) {
+        throw new LinearClientError("linear_unknown_payload", "linear issueCreate response missing created issue");
+      }
+
+      const nextIssue = { id, identifier, url };
+      createdByPlanId.set(issue.id, nextIssue);
+      created.push(nextIssue);
+    }
+
+    return created;
+  }
+
   async runGraphQL(
     query: string,
     variables?: Record<string, unknown>,
@@ -360,5 +557,70 @@ export class LinearClient {
     }
 
     return payload;
+  }
+
+  private async resolvePlanTarget(issues: PlannedIssue[]): Promise<LinearPlanTarget> {
+    const config = this.getConfig();
+    let teamId: string;
+    let projectId: string | null;
+
+    if (config.tracker.projectSlug) {
+      const payload = await this.runGraphQL(buildProjectLookupQuery(), {
+        projectSlug: config.tracker.projectSlug,
+      });
+      const { nodes } = extractNodesConnection(payload, "projects");
+      const project = nodes[0];
+      const teams = asArray(asRecord(asRecord(project).teams).nodes).map((team) => asRecord(team));
+      const firstTeam = teams[0];
+      projectId = asString(project?.id);
+      teamId = asString(firstTeam?.id);
+
+      if (!projectId || !teamId) {
+        throw new Error(`unable to resolve Linear project for slug ${config.tracker.projectSlug}`);
+      }
+    } else {
+      projectId = null;
+      const payload = await this.runGraphQL(buildTeamLookupQuery());
+      const { nodes } = extractNodesConnection(payload, "teams");
+      if (nodes.length !== 1) {
+        throw new Error(
+          `unable to resolve a unique Linear team without tracker.project_slug; found ${nodes.length} teams`,
+        );
+      }
+      teamId = asString(nodes[0]?.id);
+      if (!teamId) {
+        throw new Error("unable to resolve Linear team id");
+      }
+    }
+
+    const labelNames = [...new Set(issues.flatMap((issue) => issue.labels.map((label) => label.trim().toLowerCase())))];
+    if (labelNames.length === 0) {
+      return {
+        teamId,
+        projectId,
+        labelIdsByName: new Map(),
+      };
+    }
+
+    const payload = await this.runGraphQL(buildLabelLookupQuery(), {
+      teamId,
+      names: labelNames,
+    });
+    const { nodes } = extractNodesConnection(payload, "issueLabels");
+    const labelIdsByName = new Map<string, string>();
+    for (const label of nodes) {
+      const id = asString(label.id);
+      const name = asString(label.name)?.trim().toLowerCase();
+      if (!id || !name) {
+        continue;
+      }
+      labelIdsByName.set(name, id);
+    }
+
+    return {
+      teamId,
+      projectId,
+      labelIdsByName,
+    };
   }
 }

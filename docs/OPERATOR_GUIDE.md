@@ -140,6 +140,23 @@ export LINEAR_PROJECT_SLUG="symphony-test-e1e26e4576d1"
 
 ## 📦 Install and Validate
 
+## 🖥️ Desktop Shell
+
+The repository also includes a minimal Tauri desktop shell under `desktop/`. It starts and stops the same built Symphony service you would launch from the terminal and embeds the existing dashboard in an iframe.
+
+Desktop flow:
+
+- run `npm install`
+- run `npm run build`
+- start the Tauri app from `desktop/src-tauri`
+- use the wrapper controls to call `desktop_status`, `desktop_start_service`, and `desktop_stop_service`
+
+Current caveats:
+
+- the desktop host expects `node` on `PATH`
+- it launches `dist/cli.js` from the repository root
+- Rust/Tauri validation requires a working local `cargo` toolchain
+
 ```bash
 # Install dependencies
 npm install

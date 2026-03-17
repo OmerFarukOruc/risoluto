@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LinearClient, LinearClientError } from "../src/linear-client.js";
 import { createLogger } from "../src/logger.js";
+import type { PlannedIssue } from "../src/planning-skill.js";
 import type { ServiceConfig } from "../src/types.js";
 
 function createConfig(): ServiceConfig {
@@ -240,5 +241,178 @@ describe("LinearClient", () => {
         body: expect.stringContaining('"activeStates":["In Progress","Review"]'),
       }),
     );
+  });
+
+  it("creates Linear issues from a generated plan using the resolved project, team, and label ids", async () => {
+    const issues: PlannedIssue[] = [
+      {
+        id: "PLAN-1",
+        title: "Create backend slice",
+        summary: "Implement the backend endpoint.",
+        acceptanceCriteria: ["Adds an endpoint", "Covers the endpoint with tests"],
+        dependencies: [],
+        priority: "high",
+        labels: ["backend", "api"],
+      },
+      {
+        id: "PLAN-2",
+        title: "Create frontend slice",
+        summary: "Implement the frontend view.",
+        acceptanceCriteria: ["Renders the endpoint output"],
+        dependencies: ["PLAN-1"],
+        priority: "medium",
+        labels: ["frontend"],
+      },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            projects: {
+              nodes: [
+                {
+                  id: "project-1",
+                  teams: {
+                    nodes: [{ id: "team-1" }],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            issueLabels: {
+              nodes: [
+                { id: "label-1", name: "backend" },
+                { id: "label-2", name: "api" },
+                { id: "label-3", name: "frontend" },
+              ],
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-1",
+                identifier: "ABC-101",
+                url: "https://linear.example/ABC-101",
+              },
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-2",
+                identifier: "ABC-102",
+                url: "https://linear.example/ABC-102",
+              },
+            },
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => createConfig(), createLogger());
+    await expect(client.createIssuesFromPlan(issues)).resolves.toEqual([
+      { id: "issue-1", identifier: "ABC-101", url: "https://linear.example/ABC-101" },
+      { id: "issue-2", identifier: "ABC-102", url: "https://linear.example/ABC-102" },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    const projectLookupBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(projectLookupBody.query).toContain("query SymphonyPlanProject");
+    expect(projectLookupBody.variables).toEqual({ projectSlug: "EXAMPLE" });
+
+    const labelLookupBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(labelLookupBody.query).toContain("query SymphonyPlanLabels");
+    expect(labelLookupBody.variables).toEqual({
+      teamId: "team-1",
+      names: ["backend", "api", "frontend"],
+    });
+
+    const firstCreateBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body));
+    expect(firstCreateBody.query).toContain("mutation SymphonyCreateIssue");
+    expect(firstCreateBody.variables.input).toEqual(
+      expect.objectContaining({
+        teamId: "team-1",
+        projectId: "project-1",
+        title: "Create backend slice",
+        priority: 1,
+        labelIds: ["label-1", "label-2"],
+      }),
+    );
+    expect(firstCreateBody.variables.input.description).toContain("Plan item: PLAN-1");
+
+    const secondCreateBody = JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body));
+    expect(secondCreateBody.variables.input).toEqual(
+      expect.objectContaining({
+        teamId: "team-1",
+        projectId: "project-1",
+        title: "Create frontend slice",
+        priority: 2,
+        labelIds: ["label-3"],
+      }),
+    );
+    expect(secondCreateBody.variables.input.description).toContain("- ABC-101");
+  });
+
+  it("fails clearly when plan execution cannot resolve a unique team", async () => {
+    const config = createConfig();
+    config.tracker.projectSlug = null;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          teams: {
+            nodes: [{ id: "team-1" }, { id: "team-2" }],
+          },
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => config, createLogger());
+    await expect(
+      client.createIssuesFromPlan([
+        {
+          id: "PLAN-1",
+          title: "One issue",
+          summary: "One issue",
+          acceptanceCriteria: [],
+          dependencies: [],
+          priority: "low",
+          labels: [],
+        },
+      ]),
+    ).rejects.toThrow("unable to resolve a unique Linear team without tracker.project_slug");
   });
 });

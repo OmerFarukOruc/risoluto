@@ -82,6 +82,65 @@ Symphony runs the Codex agent inside a Docker container using a `node:22-bookwor
 > [!NOTE]
 > Named Docker volumes (used for build caches) survive container and image replacement, but **not** `docker system prune --volumes`. Operator docs should warn against pruning volumes prefixed with `symphony-`.
 
+### Sandbox Hardening Options
+
+Symphony supports several opt-in hardening knobs configured under `codex.sandbox` in the workflow file.
+
+#### Egress Domain Allowlist
+
+Set `codex.sandbox.egress_allowlist` to restrict which external hosts the sandbox container can reach:
+
+```yaml
+codex:
+  sandbox:
+    egress_allowlist:
+      - api.openai.com
+      - api.linear.app
+      - "*.github.com"
+```
+
+When the allowlist is non-empty, Symphony:
+
+1. Adds `--cap-add=NET_ADMIN` to the container (required for iptables manipulation)
+2. Injects iptables OUTPUT rules before launching Codex:
+   - Allows loopback, established/related, and DNS (port 53) traffic
+   - Resolves each allowlisted domain and allows traffic to the resolved IPs
+   - Rejects all other outbound traffic
+
+> [!WARNING]
+> Enabling egress allowlist adds `CAP_NET_ADMIN` back despite `--cap-drop=ALL`. This partially weakens the default capability posture. This is the same trade-off used by OpenSandbox's egress sidecar. The sandbox image must include `iptables` and `getent`; if unavailable, egress filtering silently degrades (no enforcement).
+
+#### Seccomp Profile
+
+Set `codex.sandbox.security.seccomp_profile` to apply a custom seccomp profile for syscall-level filtering:
+
+```yaml
+codex:
+  sandbox:
+    security:
+      seccomp_profile: /etc/docker/seccomp-strict.json
+```
+
+When empty (default), Docker's built-in default seccomp profile applies.
+
+#### Container Labels
+
+Every sandbox container is tagged with observability labels:
+
+| Label | Value |
+|-------|-------|
+| `symphony.issue` | Issue identifier (e.g. `NIN-5`) |
+| `symphony.model` | Model in use (e.g. `gpt-5.4`) |
+| `symphony.workspace` | Workspace directory path |
+| `symphony.started-at` | UTC ISO-8601 start timestamp |
+
+Filter containers with: `docker ps --filter label=symphony.issue=NIN-5`
+
+#### Startup Readiness & Graceful Drain
+
+- **Startup readiness** (`codex.startup_timeout_ms`, default 30s): Symphony waits for the child process to emit output before sending `initialize`. Returns `startup_timeout` error on failure.
+- **Graceful drain** (`codex.drain_timeout_ms`, default 2s): After the last turn completes, Symphony waits before closing the JSON-RPC connection, giving final notifications (token usage, events) time to flush.
+
 ### Containerized Symphony
 
 When Symphony itself runs inside Docker, worker containers still need host-side bind mounts for the workspace and archive directories. Symphony now supports that by translating container-visible paths back to host-visible paths before it launches a worker container.

@@ -9,6 +9,7 @@ import { JsonRpcConnection, JsonRpcTimeoutError } from "./agent/json-rpc-connect
 import { prepareCodexRuntimeConfig, getRequiredProviderEnvNames } from "./codex-runtime-config.js";
 import { buildDockerRunArgs } from "./docker-spawn.js";
 import { inspectOomKilled, removeContainer, stopContainer } from "./docker-lifecycle.js";
+import { getContainerStats } from "./docker-stats.js";
 import { handleCodexRequest } from "./agent/codex-request-handler.js";
 import type { GithubApiToolClient } from "./github-api-tool.js";
 import { LinearClient } from "./linear-client.js";
@@ -114,6 +115,8 @@ export class AgentRunner {
       runtimeConfigToml: runtimeConfig.configToml,
       runtimeAuthJsonBase64: runtimeConfig.authJsonBase64,
       requiredEnv: getRequiredProviderEnvNames(config.codex),
+      issueIdentifier: input.issue.identifier,
+      model: input.modelSelection.model,
     });
     containerName = docker.containerName;
     const child: ChildProcessWithoutNullStreams = spawnProcess(docker.program, docker.args, {
@@ -158,7 +161,32 @@ export class AgentRunner {
     };
     input.signal.addEventListener("abort", abortHandler, { once: true });
 
+    let statsInterval: ReturnType<typeof setInterval> | null = null;
     try {
+      // Wait for the child process to become ready before sending JSON-RPC
+      await this.waitForStartup(child, config.codex.startupTimeoutMs, input.signal);
+
+      // Start periodic container stats polling (every 30s)
+      const statsIntervalMs = 30_000;
+      if (containerName) {
+        statsInterval = setInterval(async () => {
+          try {
+            const stats = await getContainerStats(containerName!);
+            if (stats) {
+              input.onEvent({
+                at: new Date().toISOString(),
+                issueId: input.issue.id,
+                issueIdentifier: input.issue.identifier,
+                sessionId: this.composeSessionId(threadId, turnId),
+                event: "container_stats",
+                message: `CPU ${stats.cpuPercent} | MEM ${stats.memoryUsage}/${stats.memoryLimit} (${stats.memoryPercent})`,
+              });
+            }
+          } catch {
+            // Stats collection is best-effort; don't interrupt the run
+          }
+        }, statsIntervalMs);
+      }
       await connection.request("initialize", {
         clientInfo: { name: "symphony", version: "0.2.0" },
         capabilities: {
@@ -454,6 +482,16 @@ export class AgentRunner {
           turnCount,
         };
       }
+      if (message.includes("startup readiness")) {
+        return {
+          kind: "failed",
+          errorCode: "startup_timeout",
+          errorMessage: message,
+          threadId,
+          turnId,
+          turnCount,
+        };
+      }
       return {
         kind: "failed",
         errorCode: "startup_failed",
@@ -463,7 +501,16 @@ export class AgentRunner {
         turnCount,
       };
     } finally {
+      if (statsInterval) {
+        clearInterval(statsInterval);
+      }
       input.signal.removeEventListener("abort", abortHandler);
+
+      // Graceful drain: give connection time to flush final notifications
+      if (!input.signal.aborted && config.codex.drainTimeoutMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, config.codex.drainTimeoutMs));
+      }
+
       connection.close();
       if (containerName) {
         await stopContainer(containerName, 5);
@@ -722,5 +769,49 @@ export class AgentRunner {
       return threadId;
     }
     return `${threadId}-${turnId}`;
+  }
+
+  /**
+   * Wait for the child process to become ready by detecting its first
+   * output on stdout or stderr. Races against a startup timeout and
+   * the abort signal. Listening on both streams handles backends that
+   * may emit to stderr before stdout.
+   */
+  private waitForStartup(child: ChildProcessWithoutNullStreams, timeoutMs: number, signal: AbortSignal): Promise<void> {
+    if (timeoutMs <= 0) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+
+      const onData = () => settle(resolve);
+      const onExit = (code: number | null) =>
+        settle(() => reject(new Error(`child exited with code ${code} before startup readiness`)));
+      const onAbort = () => settle(() => reject(new Error("startup readiness interrupted")));
+      const timer = setTimeout(
+        () => settle(() => reject(new Error(`startup readiness timed out after ${timeoutMs}ms`))),
+        timeoutMs,
+      );
+
+      const cleanup = () => {
+        child.stdout.removeListener("data", onData);
+        child.stderr.removeListener("data", onData);
+        child.removeListener("exit", onExit);
+        signal.removeEventListener("abort", onAbort);
+        clearTimeout(timer);
+      };
+
+      child.stdout.once("data", onData);
+      child.stderr.once("data", onData);
+      child.once("exit", onExit);
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }

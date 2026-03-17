@@ -9,7 +9,7 @@ function baseSandboxConfig(): SandboxConfig {
   return {
     image: "symphony-codex:latest",
     network: "",
-    security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false },
+    security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
     resources: {
       memory: "4g",
       memoryReservation: "1g",
@@ -20,6 +20,7 @@ function baseSandboxConfig(): SandboxConfig {
     extraMounts: [],
     envPassthrough: [],
     logs: { driver: "json-file", maxSize: "50m", maxFile: 3 },
+    egressAllowlist: [],
   };
 }
 
@@ -196,5 +197,71 @@ describe("buildDockerRunArgs", () => {
     expect(mountArgs).toContain("/host/archives:/data/archives");
     const wdIdx = result.args.indexOf("--workdir");
     expect(result.args[wdIdx + 1]).toBe("/data/workspaces/MT-1");
+  });
+
+  it("includes observability labels", () => {
+    const result = buildDockerRunArgs(baseInput({ issueIdentifier: "NIN-5", model: "gpt-5.4" }));
+    const labelArgs = result.args.filter((_, i) => result.args[i - 1] === "--label");
+    expect(labelArgs).toEqual(
+      expect.arrayContaining([
+        "symphony.issue=NIN-5",
+        "symphony.model=gpt-5.4",
+        expect.stringContaining("symphony.workspace=/tmp/workspaces/MT-1"),
+        expect.stringMatching(/^symphony\.started-at=\d{4}-/),
+      ]),
+    );
+    // Labels must appear before the image
+    const firstLabelIdx = result.args.indexOf("--label");
+    const imageIdx = result.args.indexOf("symphony-codex:latest");
+    expect(firstLabelIdx).toBeLessThan(imageIdx);
+  });
+
+  it("omits issue and model labels when not provided", () => {
+    const result = buildDockerRunArgs(baseInput());
+    const labelArgs = result.args.filter((_, i) => result.args[i - 1] === "--label");
+    expect(labelArgs).not.toEqual(expect.arrayContaining([expect.stringContaining("symphony.issue=")]));
+    expect(labelArgs).not.toEqual(expect.arrayContaining([expect.stringContaining("symphony.model=")]));
+    // workspace and started-at are always present
+    expect(labelArgs).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("symphony.workspace="),
+        expect.stringMatching(/^symphony\.started-at=/),
+      ]),
+    );
+  });
+
+  it("includes seccomp profile when set", () => {
+    const cfg = baseSandboxConfig();
+    cfg.security.seccompProfile = "/etc/docker/seccomp-strict.json";
+    const result = buildDockerRunArgs(baseInput({ sandboxConfig: cfg }));
+    expect(result.args).toContain("--security-opt=seccomp=/etc/docker/seccomp-strict.json");
+  });
+
+  it("omits seccomp when profile is empty", () => {
+    const result = buildDockerRunArgs(baseInput());
+    const seccompArgs = result.args.filter((a) => a.startsWith("--security-opt=seccomp="));
+    expect(seccompArgs).toHaveLength(0);
+  });
+
+  it("adds CAP_NET_ADMIN and egress env when allowlist is non-empty", () => {
+    const cfg = baseSandboxConfig();
+    cfg.egressAllowlist = ["api.openai.com", "api.linear.app"];
+    const result = buildDockerRunArgs(baseInput({ sandboxConfig: cfg }));
+    expect(result.args).toContain("--cap-add=NET_ADMIN");
+    const envArgs = result.args.filter((_, i) => result.args[i - 1] === "-e");
+    expect(envArgs).toContain("SYMPHONY_EGRESS_ALLOWLIST=api.openai.com api.linear.app");
+    // Entrypoint should contain iptables rules
+    const bashScript = result.args[result.args.length - 1];
+    expect(bashScript).toContain("iptables -A OUTPUT");
+    expect(bashScript).toContain("SYMPHONY_EGRESS_ALLOWLIST");
+  });
+
+  it("does not add egress flags when allowlist is empty", () => {
+    const result = buildDockerRunArgs(baseInput());
+    expect(result.args).not.toContain("--cap-add=NET_ADMIN");
+    const envArgs = result.args.filter((_, i) => result.args[i - 1] === "-e");
+    expect(envArgs).not.toEqual(expect.arrayContaining([expect.stringContaining("SYMPHONY_EGRESS_ALLOWLIST")]));
+    const bashScript = result.args[result.args.length - 1];
+    expect(bashScript).not.toContain("iptables");
   });
 });

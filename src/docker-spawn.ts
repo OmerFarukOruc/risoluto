@@ -16,6 +16,8 @@ export interface DockerRunInput {
   runtimeConfigToml: string;
   runtimeAuthJsonBase64?: string | null;
   requiredEnv?: string[];
+  issueIdentifier?: string;
+  model?: string;
 }
 
 export interface DockerRunResult {
@@ -108,29 +110,67 @@ export function buildDockerRunArgs(input: DockerRunInput): DockerRunResult {
   if (cfg.security.gvisor) {
     args.push("--runtime=runsc");
   }
+  if (cfg.security.seccompProfile) {
+    args.push(`--security-opt=seccomp=${cfg.security.seccompProfile}`);
+  }
 
   // Log driver
   args.push("--log-driver", cfg.logs.driver);
   args.push("--log-opt", `max-size=${cfg.logs.maxSize}`);
   args.push("--log-opt", `max-file=${cfg.logs.maxFile}`);
 
+  // Observability labels
+  if (input.issueIdentifier) {
+    args.push("--label", `symphony.issue=${input.issueIdentifier}`);
+  }
+  if (input.model) {
+    args.push("--label", `symphony.model=${input.model}`);
+  }
+  args.push("--label", `symphony.workspace=${workspacePath}`);
+  args.push("--label", `symphony.started-at=${new Date().toISOString()}`);
+
+  // Egress allowlist: grant CAP_NET_ADMIN and pass allowlist as env
+  const egressAllowlist = cfg.egressAllowlist ?? [];
+  if (egressAllowlist.length > 0) {
+    args.push("--cap-add=NET_ADMIN");
+    args.push("-e", `SYMPHONY_EGRESS_ALLOWLIST=${egressAllowlist.join(" ")}`);
+  }
+
   // Image
   args.push(cfg.image);
 
-  // Materialize the runtime home entirely inside the container before starting Codex.
-  args.push(
-    "bash",
-    "-lc",
-    [
-      "set -euo pipefail",
-      "umask 077",
-      'rm -rf "$CODEX_HOME"',
-      'mkdir -p "$CODEX_HOME"',
-      'printf "%s" "$SYMPHONY_CODEX_CONFIG_TOML" > "$CODEX_HOME/config.toml"',
-      'if [ -n "${SYMPHONY_CODEX_AUTH_JSON_B64:-}" ]; then printf "%s" "$SYMPHONY_CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"; fi',
-      'exec bash -lc "$SYMPHONY_CODEX_COMMAND"',
-    ].join("; "),
+  // Build the entrypoint script with optional egress iptables rules
+  const entrypointSteps = ["set -euo pipefail", "umask 077"];
+
+  // When egress allowlist is configured, inject iptables rules before starting Codex
+  if (egressAllowlist.length > 0) {
+    entrypointSteps.push(
+      // Only apply iptables if available (graceful degradation)
+      'if command -v iptables >/dev/null 2>&1 && [ -n "${SYMPHONY_EGRESS_ALLOWLIST:-}" ]; then',
+      "  iptables -A OUTPUT -o lo -j ACCEPT",
+      "  iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+      "  iptables -A OUTPUT -p udp --dport 53 -j ACCEPT",
+      "  iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT",
+      "  for domain in $SYMPHONY_EGRESS_ALLOWLIST; do",
+      "    for ip in $(getent hosts \"$domain\" 2>/dev/null | awk '{print $1}' | head -5); do",
+      '      iptables -A OUTPUT -d "$ip" -j ACCEPT',
+      "    done",
+      "  done",
+      "  iptables -A OUTPUT -j REJECT 2>/dev/null || iptables -A OUTPUT -j DROP",
+      "fi",
+    );
+  }
+
+  entrypointSteps.push(
+    'rm -rf "$CODEX_HOME"',
+    'mkdir -p "$CODEX_HOME"',
+    'printf "%s" "$SYMPHONY_CODEX_CONFIG_TOML" > "$CODEX_HOME/config.toml"',
+    'if [ -n "${SYMPHONY_CODEX_AUTH_JSON_B64:-}" ]; then printf "%s" "$SYMPHONY_CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"; fi',
+    'exec bash -lc "$SYMPHONY_CODEX_COMMAND"',
   );
+
+  // Materialize the runtime home entirely inside the container before starting Codex.
+  args.push("bash", "-lc", entrypointSteps.join("; "));
 
   return { program: "docker", args, containerName };
 }

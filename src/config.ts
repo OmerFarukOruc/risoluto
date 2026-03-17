@@ -327,6 +327,8 @@ export function deriveServiceConfig(
   const hookTimeoutMs = rawHookTimeoutMs > 0 ? rawHookTimeoutMs : 60000;
   const readTimeoutMs = asNumber(codex.read_timeout_ms, asNumber(agent.read_timeout_ms, 5000));
   const turnTimeoutMs = asNumber(codex.turn_timeout_ms, 3600000);
+  const drainTimeoutMs = asNumber(codex.drain_timeout_ms, 2000);
+  const startupTimeoutMs = asNumber(codex.startup_timeout_ms, 30000);
   const stallTimeoutMs = asNumber(codex.stall_timeout_ms, asNumber(agent.stall_timeout_ms, 300000));
   const approvalPolicy = normalizeApprovalPolicy(codex.approval_policy);
   const auth = asRecord(codex.auth);
@@ -384,6 +386,8 @@ export function deriveServiceConfig(
       turnSandboxPolicy: normalizeTurnSandboxPolicy(turnSandboxPolicyRecord),
       readTimeoutMs,
       turnTimeoutMs,
+      drainTimeoutMs,
+      startupTimeoutMs,
       stallTimeoutMs,
       auth: {
         mode: asCodexAuthMode(auth.mode, "api_key"),
@@ -397,6 +401,7 @@ export function deriveServiceConfig(
           noNewPrivileges: asBoolean(sandboxSecurity.no_new_privileges, true),
           dropCapabilities: asBoolean(sandboxSecurity.drop_capabilities, true),
           gvisor: asBoolean(sandboxSecurity.gvisor, false),
+          seccompProfile: asString(sandboxSecurity.seccomp_profile, ""),
         },
         resources: {
           memory: asString(sandboxResources.memory, "4g"),
@@ -416,6 +421,9 @@ export function deriveServiceConfig(
           maxSize: asString(sandboxLogs.max_size, "50m"),
           maxFile: asNumber(sandboxLogs.max_file, 3),
         },
+        egressAllowlist: Array.isArray(sandbox.egress_allowlist)
+          ? sandbox.egress_allowlist.filter((v): v is string => typeof v === "string")
+          : [],
       },
     },
     stateMachine: normalizeStateMachine(stateMachine),

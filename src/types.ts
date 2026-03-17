@@ -246,6 +246,7 @@ export interface SandboxSecurityConfig {
   noNewPrivileges: boolean;
   dropCapabilities: boolean;
   gvisor: boolean;
+  seccompProfile: string;
 }
 
 export interface SandboxResourceConfig {
@@ -270,6 +271,7 @@ export interface SandboxConfig {
   extraMounts: string[];
   envPassthrough: string[];
   logs: SandboxLogConfig;
+  egressAllowlist: string[];
 }
 
 export type CodexAuthMode = "api_key" | "openai_login";
@@ -301,6 +303,8 @@ export interface CodexConfig {
   turnSandboxPolicy: { type: string; [key: string]: unknown };
   readTimeoutMs: number;
   turnTimeoutMs: number;
+  drainTimeoutMs: number;
+  startupTimeoutMs: number;
   stallTimeoutMs: number;
   auth: CodexAuthConfig;
   provider: CodexProviderConfig | null;

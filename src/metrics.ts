@@ -66,17 +66,41 @@ class Histogram {
   }
 }
 
+class Gauge {
+  private values = new Map<string, number>();
+
+  set(value: number, labels: Labels = {}): void {
+    this.values.set(labelKey(labels), value);
+  }
+
+  serialize(name: string, help: string): string {
+    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} gauge`];
+    if (this.values.size === 0) {
+      lines.push(`${name} 0`);
+    } else {
+      for (const [key, value] of this.values) {
+        const suffix = key ? `{${key}}` : "";
+        lines.push(`${name}${suffix} ${value}`);
+      }
+    }
+    return lines.join("\n");
+  }
+}
+
 /**
  * Prometheus-format metrics collector for Symphony.
  *
  * Tracks HTTP requests, request durations, orchestrator polls,
- * and agent run completions.  Expose via `GET /metrics`.
+ * agent run completions, and container resource snapshots.
+ * Expose via `GET /metrics`.
  */
 export class MetricsCollector {
   readonly httpRequestsTotal = new Counter();
   readonly httpRequestDurationSeconds = new Histogram();
   readonly orchestratorPollsTotal = new Counter();
   readonly agentRunsTotal = new Counter();
+  readonly containerCpuPercent = new Gauge();
+  readonly containerMemoryPercent = new Gauge();
 
   serialize(): string {
     return [
@@ -87,6 +111,8 @@ export class MetricsCollector {
       ),
       this.orchestratorPollsTotal.serialize("symphony_orchestrator_polls_total", "Orchestrator poll cycles"),
       this.agentRunsTotal.serialize("symphony_agent_runs_total", "Agent run completions by status"),
+      this.containerCpuPercent.serialize("symphony_container_cpu_percent", "Container CPU usage percentage"),
+      this.containerMemoryPercent.serialize("symphony_container_memory_percent", "Container memory usage percentage"),
     ].join("\n\n");
   }
 }

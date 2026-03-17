@@ -29,6 +29,8 @@ function baseConfig(overrides?: Partial<CodexConfig>): CodexConfig {
     turnSandboxPolicy: { type: "dangerFullAccess" },
     readTimeoutMs: 5000,
     turnTimeoutMs: 120000,
+    drainTimeoutMs: 2000,
+    startupTimeoutMs: 30000,
     stallTimeoutMs: 300000,
     auth: {
       mode: "api_key",
@@ -38,7 +40,7 @@ function baseConfig(overrides?: Partial<CodexConfig>): CodexConfig {
     sandbox: {
       image: "symphony-codex:latest",
       network: "",
-      security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false },
+      security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
       resources: {
         memory: "4g",
         memoryReservation: "1g",
@@ -49,6 +51,7 @@ function baseConfig(overrides?: Partial<CodexConfig>): CodexConfig {
       extraMounts: [],
       envPassthrough: [],
       logs: { driver: "json-file", maxSize: "50m", maxFile: 3 },
+      egressAllowlist: [],
     },
     ...overrides,
   };

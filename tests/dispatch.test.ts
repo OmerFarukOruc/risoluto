@@ -39,6 +39,8 @@ function createConfig(): ServiceConfig {
       turnSandboxPolicy: { type: "dangerFullAccess" },
       readTimeoutMs: 1000,
       turnTimeoutMs: 10000,
+      drainTimeoutMs: 0,
+      startupTimeoutMs: 5000,
       stallTimeoutMs: 10000,
       auth: {
         mode: "api_key",
@@ -48,11 +50,12 @@ function createConfig(): ServiceConfig {
       sandbox: {
         image: "symphony-codex:latest",
         network: "",
-        security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false },
+        security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
         resources: { memory: "4g", memoryReservation: "1g", memorySwap: "4g", cpus: "2.0", tmpfsSize: "512m" },
         extraMounts: [],
         envPassthrough: [],
         logs: { driver: "json-file", maxSize: "50m", maxFile: 3 },
+        egressAllowlist: [],
       },
     },
     server: { port: 4000 },

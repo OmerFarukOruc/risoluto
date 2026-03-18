@@ -61,8 +61,6 @@ Significant improvements to developer experience, extensibility, and autonomous 
 | [#66](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/66) | Chat integration layer — pluggable channel adapters (Telegram, Discord, Slack) with normalized message format | core, api | thepopebot |
 | [#67](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/67) | Scheduled/cron job system — JSON-configured recurring tasks with per-cron model overrides | core | thepopebot |
 | [#68](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/68) | Headless agent execution — lightweight runs without branch/PR workflow | core | thepopebot |
-| — | Circuit breaker for provider reliability — per-provider closed/open/half-open states, persistent state, automatic recovery probing | core | jinyang |
-| — | Provider health daemon — background provider probing, cached health with TTL, feeds into provider selection | core | jinyang |
 
 ---
 
@@ -91,8 +89,6 @@ Infrastructure work, scale-out, and deeper observability.
 | [#53](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/53) | Desktop packaging — Tauri builds, release artifacts | desktop | Follow-up |
 | [#69](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/69) | File-watch triggers — reactive agent dispatch on file changes with debounce | core | thepopebot |
 | [#70](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/70) | Interactive agent workspaces — browser-based terminal access to agent environments | dashboard, core | thepopebot |
-| — | Background poller for missed events — safety-net polling loop, deduplicates against active sessions | core | jinyang |
-| — | Label/tag-based multi-repo routing — label-driven routing engine, multi-tier priority | core | jinyang |
 
 ---
 
@@ -140,10 +136,10 @@ graph TD
 | Tier | Issues | Status |
 |------|:------:|--------|
 | **Tier 1** — Ship first | 7 | Not started |
-| **Tier 2** — High impact | 26 | Not started |
-| **Tier 3** — Architectural | 21 | Not started |
+| **Tier 2** — High impact | 24 | Not started |
+| **Tier 3** — Architectural | 19 | Not started |
 | **Tier 4** — Lights-Out | 4 | Not started |
-| **Total** | **58** | |
+| **Total** | **54** | |
 
 ---
 

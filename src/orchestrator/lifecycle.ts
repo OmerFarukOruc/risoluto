@@ -1,0 +1,161 @@
+import { sortIssuesForDispatch } from "./dispatch.js";
+import { issueView, nowIso } from "./views.js";
+import { isActiveState, isTerminalState } from "../state-policy.js";
+import type { Issue, ServiceConfig } from "../types.js";
+import type { RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
+
+export async function reconcileRunningAndRetrying(ctx: {
+  runningEntries: Map<string, RunningEntry>;
+  retryEntries: Map<string, RetryRuntimeEntry>;
+  deps: {
+    linearClient: {
+      fetchIssueStatesByIds: (ids: string[]) => Promise<Issue[]>;
+      fetchIssuesByStates: (states: string[]) => Promise<Issue[]>;
+    };
+    workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+  };
+  getConfig: () => ServiceConfig;
+  clearRetryEntry: (issueId: string) => void;
+  pushEvent: (event: {
+    at: string;
+    issueId: string;
+    issueIdentifier: string;
+    sessionId: string | null;
+    event: string;
+    message: string;
+  }) => void;
+}): Promise<void> {
+  const now = Date.now();
+  const config = ctx.getConfig();
+
+  if (config.codex.stallTimeoutMs > 0) {
+    for (const entry of ctx.runningEntries.values()) {
+      if (!entry.abortController.signal.aborted && now - entry.lastEventAtMs > config.codex.stallTimeoutMs) {
+        entry.abortController.abort("stalled");
+        entry.status = "stopping";
+        ctx.pushEvent({
+          at: nowIso(),
+          issueId: entry.issue.id,
+          issueIdentifier: entry.issue.identifier,
+          sessionId: entry.sessionId,
+          event: "worker_stalled",
+          message: "worker exceeded stall timeout and was cancelled",
+        });
+      }
+    }
+  }
+
+  const trackedIds = new Set<string>([...ctx.runningEntries.keys(), ...ctx.retryEntries.keys()]);
+  if (trackedIds.size === 0) {
+    return;
+  }
+
+  const issues = await ctx.deps.linearClient.fetchIssueStatesByIds([...trackedIds]);
+  const byId = new Map(issues.map((issue) => [issue.id, issue]));
+
+  for (const entry of ctx.runningEntries.values()) {
+    const latest = byId.get(entry.issue.id);
+    if (!latest) {
+      continue;
+    }
+    entry.issue = latest;
+    if (isTerminalState(latest.state, config)) {
+      entry.cleanupOnExit = true;
+      if (!entry.abortController.signal.aborted) {
+        entry.abortController.abort("terminal");
+      }
+      entry.status = "stopping";
+    } else if (!isActiveState(latest.state, config) && !entry.abortController.signal.aborted) {
+      entry.abortController.abort("inactive");
+      entry.status = "stopping";
+    }
+  }
+
+  for (const retryEntry of [...ctx.retryEntries.values()]) {
+    const latest = byId.get(retryEntry.issueId);
+    if (!latest) {
+      ctx.clearRetryEntry(retryEntry.issueId);
+      continue;
+    }
+    retryEntry.issue = latest;
+    if (isTerminalState(latest.state, config)) {
+      ctx.clearRetryEntry(retryEntry.issueId);
+      await ctx.deps.workspaceManager.removeWorkspace(latest.identifier).catch(() => undefined);
+    } else if (!isActiveState(latest.state, config)) {
+      ctx.clearRetryEntry(retryEntry.issueId);
+    }
+  }
+}
+
+export async function refreshQueueViews(ctx: {
+  queuedViews: IssueView[];
+  detailViews: Map<string, IssueView>;
+  claimedIssueIds: Set<string>;
+  deps: {
+    linearClient: { fetchCandidateIssues: () => Promise<Issue[]> };
+  };
+  canDispatchIssue: (issue: Issue) => boolean;
+  resolveModelSelection: (identifier: string) => {
+    model: string;
+    reasoningEffort: ServiceConfig["codex"]["reasoningEffort"];
+    source: "default" | "override";
+  };
+  setQueuedViews: (views: IssueView[]) => void;
+}): Promise<void> {
+  const issues = sortIssuesForDispatch(await ctx.deps.linearClient.fetchCandidateIssues());
+  const queuedViews = issues
+    .filter((issue) => ctx.canDispatchIssue(issue))
+    .slice(0, 50)
+    .map((issue) => {
+      const selection = ctx.resolveModelSelection(issue.identifier);
+      return issueView(issue, {
+        status: "queued",
+        configuredModel: selection.model,
+        configuredReasoningEffort: selection.reasoningEffort,
+        configuredModelSource: selection.source,
+        modelChangePending: false,
+        model: selection.model,
+        reasoningEffort: selection.reasoningEffort,
+        modelSource: selection.source,
+      });
+    });
+  ctx.setQueuedViews(queuedViews);
+
+  for (const issue of issues) {
+    if (!ctx.claimedIssueIds.has(issue.id)) {
+      const selection = ctx.resolveModelSelection(issue.identifier);
+      ctx.detailViews.set(
+        issue.identifier,
+        issueView(issue, {
+          configuredModel: selection.model,
+          configuredReasoningEffort: selection.reasoningEffort,
+          configuredModelSource: selection.source,
+          modelChangePending: false,
+          model: selection.model,
+          reasoningEffort: selection.reasoningEffort,
+          modelSource: selection.source,
+        }),
+      );
+    }
+  }
+}
+
+export async function cleanupTerminalIssueWorkspaces(ctx: {
+  deps: {
+    linearClient: { fetchIssuesByStates: (states: string[]) => Promise<Issue[]> };
+    workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+    logger: { warn: (meta: Record<string, unknown>, message: string) => void };
+  };
+  getConfig: () => ServiceConfig;
+}): Promise<void> {
+  try {
+    const terminalIssues = await ctx.deps.linearClient.fetchIssuesByStates(ctx.getConfig().tracker.terminalStates);
+    await Promise.all(
+      terminalIssues.map((issue) => ctx.deps.workspaceManager.removeWorkspace(issue.identifier).catch(() => undefined)),
+    );
+  } catch (error) {
+    ctx.deps.logger.warn({ error: String(error) }, "startup terminal workspace cleanup failed");
+  }
+}
+
+type IssueView = ReturnType<typeof issueView>;

@@ -5,10 +5,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import YAML from "yaml";
 
 import type { SymphonyLogger } from "./types.js";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isRecord } from "./utils/type-guards.js";
 
 function normalizePath(pathExpression: string): string[] {
   return pathExpression

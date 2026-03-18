@@ -1,16 +1,29 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { afterEach, describe, expect, it } from "vitest";
 
+import { ConfigOverlayStore } from "../../src/config/overlay.js";
 import { HttpServer } from "../../src/http/server.js";
 import { createLogger } from "../../src/core/logger.js";
 import { Orchestrator } from "../../src/orchestrator/orchestrator.js";
 
 describe("HttpServer", () => {
   let server: HttpServer | null = null;
+  const tempDirs: string[] = [];
 
   afterEach(async () => {
     await server?.stop();
     server = null;
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
+
+  async function createTempDir(): Promise<string> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "symphony-http-server-test-"));
+    tempDirs.push(dir);
+    return dir;
+  }
 
   it("serves dashboard and API routes in the expected order with 405 handling", async () => {
     const orchestrator = {
@@ -89,6 +102,7 @@ describe("HttpServer", () => {
 
     const rootResponse = await fetch(`${baseUrl}/`);
     expect(rootResponse.status).toBe(200);
+    expect(rootResponse.headers.get("x-request-id")).toBeTruthy();
     const rootHtml = await rootResponse.text();
     expect(rootHtml).toContain("Symphony | AI Agent Orchestration");
     expect(rootHtml).toContain('id="boardScroll"');
@@ -147,6 +161,7 @@ describe("HttpServer", () => {
     expect(metricsResponse.headers.get("content-type")).toContain("text/plain");
     const metricsBody = await metricsResponse.text();
     expect(metricsBody).toContain("# TYPE symphony_http_requests_total counter");
+    expect(metricsBody).toContain('symphony_http_requests_total{method="GET",status="200"}');
 
     const methodResponse = await fetch(`${baseUrl}/api/v1/state`, { method: "POST" });
     expect(methodResponse.status).toBe(405);
@@ -318,5 +333,73 @@ describe("HttpServer", () => {
       body: JSON.stringify({ model: "gpt-5.4", reasoningEffort: "medium" }),
     });
     expect(response.status).toBe(202);
+  });
+
+  it("redacts nested secret values in /api/v1/config", async () => {
+    const dir = await createTempDir();
+    const overlayStore = new ConfigOverlayStore(path.join(dir, "config", "overlay.yaml"), createLogger());
+    await overlayStore.start();
+
+    const orchestrator = {
+      getSnapshot: () => ({
+        generatedAt: "2026-03-16T00:00:00Z",
+        counts: { running: 0, retrying: 0 },
+        running: [],
+        retrying: [],
+        queued: [],
+        completed: [],
+        workflowColumns: [],
+        codexTotals: {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          secondsRunning: 0,
+        },
+        rateLimits: null,
+        recentEvents: [],
+      }),
+      requestRefresh: () => ({
+        queued: true,
+        coalesced: false,
+        requestedAt: "2026-03-16T00:00:00Z",
+      }),
+      getIssueDetail: () => null,
+      getAttemptDetail: () => null,
+      updateIssueModelSelection: async () => null,
+    } as unknown as Orchestrator;
+
+    server = new HttpServer({
+      orchestrator,
+      logger: createLogger(),
+      configStore: {
+        getMergedConfigMap: () => ({
+          tracker: { kind: "linear" },
+          provider: {
+            http_headers: {
+              Authorization: "Bearer live-secret-token",
+            },
+            metadata: {
+              callback_url: "https://user:password@example.com/webhook",
+            },
+          },
+        }),
+      } as never,
+      configOverlayStore: overlayStore,
+    });
+
+    const started = await server.start(0);
+    const response = await fetch(`http://127.0.0.1:${started.port}/api/v1/config`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      tracker: { kind: "linear" },
+      provider: {
+        http_headers: "[REDACTED]",
+        metadata: {
+          callback_url: "https://[REDACTED]@example.com/webhook",
+        },
+      },
+    });
+
+    await overlayStore.stop();
   });
 });

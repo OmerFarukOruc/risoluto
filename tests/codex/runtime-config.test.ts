@@ -115,6 +115,21 @@ describe("prepareCodexRuntimeConfig", () => {
     expect(runtimeConfig.configToml).toContain('cli_auth_credentials_store = "file"');
     expect(runtimeConfig.authJsonBase64).toBeTruthy();
   });
+
+  it("throws a controlled error when auth.json becomes unavailable", async () => {
+    const sourceHome = await createTempDir();
+
+    await expect(
+      prepareCodexRuntimeConfig(
+        baseConfig({
+          auth: {
+            mode: "openai_login",
+            sourceHome,
+          },
+        }),
+      ),
+    ).rejects.toThrow(`codex auth.json unavailable at ${path.join(sourceHome, "auth.json")}`);
+  });
 });
 
 describe("getRequiredProviderEnvNames", () => {

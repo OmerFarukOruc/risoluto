@@ -268,12 +268,7 @@ describe("AgentRunner", () => {
         "started",
         reasoningBuffers,
       ),
-    ).toBe(
-      `linear_graphql(${JSON.stringify({
-        query: "query One { viewer { id } }",
-        apiKey: "secret-value",
-      })})`,
-    );
+    ).toBe(`linear_graphql(${JSON.stringify({ query: "query One { viewer { id } }", apiKey: "[REDACTED]" })})`);
 
     expect(
       extractItemContent(
@@ -370,21 +365,33 @@ describe("AgentRunner", () => {
           event: "item_started",
           message: "reasoning reason-1 started",
           content: null,
+          sessionId: "thread-1-turn-1",
         }),
         expect.objectContaining({
           event: "item_completed",
           message: "reasoning reason-1 completed",
           content: "I need to run a query.",
+          sessionId: "thread-1-turn-1",
         }),
         expect.objectContaining({
           event: "item_started",
           message: "agentMessage msg-1 started",
           content: null,
+          sessionId: "thread-1-turn-1",
         }),
         expect.objectContaining({
           event: "item_completed",
           message: "agentMessage msg-1 completed",
           content: "Here is the result.",
+          sessionId: "thread-1-turn-1",
+        }),
+        expect.objectContaining({
+          event: "turn_completed",
+          usage: {
+            inputTokens: 12,
+            outputTokens: 8,
+            totalTokens: 20,
+          },
         }),
       ]),
     );

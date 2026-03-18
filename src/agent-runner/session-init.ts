@@ -42,6 +42,22 @@ export async function initializeSession(
 
   await waitForStartup(session.child, input.startupTimeoutMs, input.signal);
 
+  const earlyFailure = await initCodexProtocol(session, input, deps);
+  if (earlyFailure) {
+    return { ...earlyFailure, threadId, turnId, turnCount };
+  }
+
+  const resolvedThreadId = await startThread(session, config, input);
+  session.threadId = resolvedThreadId;
+
+  return renderPromptTemplate(liquid, input, resolvedThreadId, turnId, turnCount);
+}
+
+async function initCodexProtocol(
+  session: DockerSession,
+  input: SessionInitInput,
+  deps: SessionInitDeps,
+): Promise<{ kind: "failed"; errorCode: string; errorMessage: string } | null> {
   await session.connection.request("initialize", {
     clientInfo: { name: "symphony", version: "0.2.0" },
     capabilities: { experimentalApi: true },
@@ -54,9 +70,6 @@ export async function initializeSession(
       kind: "failed",
       errorCode: "startup_failed",
       errorMessage: "codex account/read reported that OpenAI auth is required and no account is configured",
-      threadId,
-      turnId,
-      turnCount,
     };
   }
 
@@ -66,7 +79,7 @@ export async function initializeSession(
       at: new Date().toISOString(),
       issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
-      sessionId: threadId,
+      sessionId: null,
       event: "rate_limits_updated",
       message: "rate limits refreshed",
       rateLimits: extractRateLimits(rateLimitResult),
@@ -75,61 +88,71 @@ export async function initializeSession(
     deps.logger.warn({ error: String(error) }, "rate limit preflight unavailable");
   }
 
+  return null;
+}
+
+async function startThread(session: DockerSession, config: ServiceConfig, input: SessionInitInput): Promise<string> {
   const threadResult = await session.connection.request("thread/start", {
     cwd: input.workspace.path,
     model: input.modelSelection.model,
     approvalPolicy: config.codex.approvalPolicy,
     sandbox: config.codex.threadSandbox,
     personality: "friendly",
-    dynamicTools: [
-      {
-        name: "linear_graphql",
-        description: "Run exactly one GraphQL operation against Linear.",
-        inputSchema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            query: {
-              type: "string",
-              description: "A single GraphQL query, mutation, or subscription document.",
-            },
-            variables: {
-              type: "object",
-              additionalProperties: true,
-              description: "Optional GraphQL variables for the document.",
-            },
-          },
-          required: ["query"],
-        },
-      },
-      {
-        name: "github_api",
-        description: "Read pull request status or add a pull request comment in GitHub.",
-        inputSchema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            action: {
-              type: "string",
-              enum: ["add_pr_comment", "get_pr_status"],
-            },
-            owner: { type: "string" },
-            repo: { type: "string" },
-            pullNumber: { type: "number" },
-            body: { type: "string" },
-          },
-          required: ["action", "owner", "repo", "pullNumber"],
-        },
-      },
-    ],
+    dynamicTools: buildDynamicTools(),
   });
 
   const resolvedThreadId = extractThreadId(threadResult);
   if (!resolvedThreadId) {
     throw new Error("thread/start did not return a thread identifier");
   }
-  session.threadId = resolvedThreadId;
+  return resolvedThreadId;
+}
 
+function buildDynamicTools(): object[] {
+  return [
+    {
+      name: "linear_graphql",
+      description: "Run exactly one GraphQL operation against Linear.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          query: { type: "string", description: "A single GraphQL query, mutation, or subscription document." },
+          variables: {
+            type: "object",
+            additionalProperties: true,
+            description: "Optional GraphQL variables for the document.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "github_api",
+      description: "Read pull request status or add a pull request comment in GitHub.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["add_pr_comment", "get_pr_status"] },
+          owner: { type: "string" },
+          repo: { type: "string" },
+          pullNumber: { type: "number" },
+          body: { type: "string" },
+        },
+        required: ["action", "owner", "repo", "pullNumber"],
+      },
+    },
+  ];
+}
+
+async function renderPromptTemplate(
+  liquid: Liquid,
+  input: SessionInitInput,
+  threadId: string,
+  turnId: string | null,
+  turnCount: number,
+): Promise<SessionInitSuccess | EarlyOutcome> {
   let parsedTemplate;
   try {
     parsedTemplate = liquid.parse(input.promptTemplate);
@@ -138,7 +161,7 @@ export async function initializeSession(
       kind: "failed",
       errorCode: "template_parse_error",
       errorMessage: error instanceof Error ? error.message : String(error),
-      threadId: resolvedThreadId,
+      threadId,
       turnId,
       turnCount,
     };
@@ -156,13 +179,13 @@ export async function initializeSession(
       kind: "failed",
       errorCode: "template_render_error",
       errorMessage: error instanceof Error ? error.message : String(error),
-      threadId: resolvedThreadId,
+      threadId,
       turnId,
       turnCount,
     };
   }
 
-  return { threadId: resolvedThreadId, prompt };
+  return { threadId, prompt };
 }
 
 function waitForStartup(child: ChildProcessWithoutNullStreams, timeoutMs: number, signal: AbortSignal): Promise<void> {

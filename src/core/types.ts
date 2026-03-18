@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Pure type definitions; splitting would hurt readability. */
 import type { NotificationVerbosity } from "../notification/channel.js";
 
 export interface WorkflowDefinition {

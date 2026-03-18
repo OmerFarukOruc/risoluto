@@ -42,6 +42,49 @@ async function cleanupTransientWorkspaceDirs(workspaceRoot: string): Promise<voi
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { workflowPath, archiveDir, selectedPort, logger } = parseCliArgs(argv);
+
+  const overlayStore = new ConfigOverlayStore(
+    path.join(archiveDir, "config", "overlay.yaml"),
+    logger.child({ component: "config-overlay" }),
+  );
+  const secretsStore = new SecretsStore(archiveDir, logger.child({ component: "secrets" }));
+  await overlayStore.start();
+  await secretsStore.start();
+  const configStore = new ConfigStore(workflowPath, logger.child({ component: "config" }), {
+    overlayStore,
+    secretsStore,
+  });
+
+  const startError = await safeStartConfigStore(configStore);
+  if (startError !== null) return startError;
+
+  const validationError = configStore.validateDispatch();
+  if (validationError) {
+    printValidationError(validationError);
+    await configStore.stop();
+    return 1;
+  }
+
+  const config = configStore.getConfig();
+  const port = selectedPort ?? config.server.port;
+  const services = await createServices(config, configStore, overlayStore, secretsStore, archiveDir, logger);
+  wireNotifications(services.notificationManager, configStore, logger);
+
+  const { orchestrator, httpServer } = services;
+  await cleanupTransientWorkspaceDirs(config.workspace.root);
+  await orchestrator.start();
+  await httpServer.start(port);
+
+  const shutdown = buildShutdown(httpServer, orchestrator, configStore, overlayStore);
+  logger.info({ workflowPath, port, logDir: archiveDir }, "service started");
+  watchConfigChanges(configStore, services.notificationManager, config.server.port, logger);
+
+  await awaitShutdown(logger, shutdown);
+  return 0;
+}
+
+function parseCliArgs(argv: string[]) {
   const parsed = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -62,20 +105,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         ? path.join(process.env.DATA_DIR, "archives")
         : path.join(path.dirname(resolvedWorkflowPath), ".symphony")),
   );
-  const overlayStore = new ConfigOverlayStore(
-    path.join(archiveDir, "config", "overlay.yaml"),
-    logger.child({ component: "config-overlay" }),
-  );
-  const secretsStore = new SecretsStore(archiveDir, logger.child({ component: "secrets" }));
-  await overlayStore.start();
-  await secretsStore.start();
-  const configStore = new ConfigStore(workflowPath, logger.child({ component: "config" }), {
-    overlayStore,
-    secretsStore,
-  });
+  const selectedPort = parsed.values.port ? Number(parsed.values.port) : undefined;
+  return { workflowPath, resolvedWorkflowPath, archiveDir, selectedPort, logger };
+}
 
+async function safeStartConfigStore(configStore: ConfigStore): Promise<number | null> {
   try {
     await configStore.start();
+    return null;
   } catch (error) {
     if (
       error &&
@@ -88,16 +125,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
     throw error;
   }
+}
 
-  const validationError = configStore.validateDispatch();
-  if (validationError) {
-    printValidationError(validationError);
-    await configStore.stop();
-    return 1;
-  }
-
-  const config = configStore.getConfig();
-  const selectedPort = parsed.values.port ? Number(parsed.values.port) : config.server.port;
+async function createServices(
+  config: ReturnType<ConfigStore["getConfig"]>,
+  configStore: ConfigStore,
+  overlayStore: ConfigOverlayStore,
+  secretsStore: SecretsStore,
+  archiveDir: string,
+  logger: ReturnType<typeof createLogger>,
+) {
   const attemptStore = new AttemptStore(archiveDir, logger.child({ component: "attempt-store" }));
   await attemptStore.start();
   const linearClient = new LinearClient(() => configStore.getConfig(), logger.child({ component: "linear" }));
@@ -105,26 +142,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     () => configStore.getConfig(),
     logger.child({ component: "workspace" }),
   );
-  const notificationManager = new NotificationManager({
-    logger: logger.child({ component: "notifications" }),
-  });
-  const configureNotifications = () => {
-    for (const channelName of notificationManager.listChannels()) {
-      notificationManager.removeChannel(channelName);
-    }
-    const slack = configStore.getConfig().notifications?.slack;
-    if (slack?.webhookUrl) {
-      notificationManager.registerChannel(
-        new SlackWebhookChannel({
-          webhookUrl: slack.webhookUrl,
-          verbosity: slack.verbosity,
-          logger: logger.child({ component: "slack-webhook" }),
-        }),
-      );
-    }
-  };
-  configureNotifications();
-
+  const notificationManager = new NotificationManager({ logger: logger.child({ component: "notifications" }) });
   const pathRegistry = PathRegistry.fromEnv();
   const repoRouter = createRepoRouterProvider(() => configStore.getConfig());
   const gitManager = createGitHubToolProvider(() => configStore.getConfig(), { env: process.env });
@@ -154,20 +172,43 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     configStore,
     configOverlayStore: overlayStore,
     secretsStore,
-    executePlan: createLinearPlanningExecutor({
-      linearClient,
-    }),
+    executePlan: createLinearPlanningExecutor({ linearClient }),
   });
+  return { orchestrator, httpServer, notificationManager, linearClient };
+}
 
-  await cleanupTransientWorkspaceDirs(config.workspace.root);
-  await orchestrator.start();
-  await httpServer.start(selectedPort);
-
-  let shuttingDown = false;
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) {
-      return;
+function wireNotifications(
+  notificationManager: NotificationManager,
+  configStore: ConfigStore,
+  logger: ReturnType<typeof createLogger>,
+): void {
+  const configureNotifications = () => {
+    for (const channelName of notificationManager.listChannels()) {
+      notificationManager.removeChannel(channelName);
     }
+    const slack = configStore.getConfig().notifications?.slack;
+    if (slack?.webhookUrl) {
+      notificationManager.registerChannel(
+        new SlackWebhookChannel({
+          webhookUrl: slack.webhookUrl,
+          verbosity: slack.verbosity,
+          logger: logger.child({ component: "slack-webhook" }),
+        }),
+      );
+    }
+  };
+  configureNotifications();
+}
+
+function buildShutdown(
+  httpServer: HttpServer,
+  orchestrator: Orchestrator,
+  configStore: ConfigStore,
+  overlayStore: ConfigOverlayStore,
+): () => Promise<void> {
+  let shuttingDown = false;
+  return async () => {
+    if (shuttingDown) return;
     shuttingDown = true;
     await httpServer.stop().catch(() => undefined);
     await orchestrator.stop().catch(() => undefined);
@@ -177,31 +218,27 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       .flush()
       .catch(() => undefined);
   };
+}
 
-  logger.info(
-    {
-      workflowPath,
-      port: selectedPort,
-      logDir: archiveDir,
-    },
-    "service started",
-  );
-
-  const initialPort = config.server.port;
-  const unsubscribe = configStore.subscribe(() => {
-    configureNotifications();
+function watchConfigChanges(
+  configStore: ConfigStore,
+  notificationManager: NotificationManager,
+  initialPort: number,
+  logger: ReturnType<typeof createLogger>,
+): void {
+  configStore.subscribe(() => {
+    wireNotifications(notificationManager, configStore, logger);
     const latestConfig = configStore.getConfig();
     if (latestConfig.server.port !== initialPort) {
       logger.warn(
-        {
-          previousPort: initialPort,
-          nextPort: latestConfig.server.port,
-        },
+        { previousPort: initialPort, nextPort: latestConfig.server.port },
         "server.port changed in workflow; restart required to apply",
       );
     }
   });
+}
 
+async function awaitShutdown(logger: ReturnType<typeof createLogger>, shutdown: () => Promise<void>): Promise<void> {
   await new Promise<void>((resolve) => {
     const handleSignal = (signal: NodeJS.Signals) => {
       logger.info({ signal }, "shutdown signal received");
@@ -210,8 +247,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     process.once("SIGINT", handleSignal);
     process.once("SIGTERM", handleSignal);
   });
-  unsubscribe();
-  return 0;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

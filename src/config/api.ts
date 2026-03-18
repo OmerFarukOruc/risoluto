@@ -47,6 +47,13 @@ interface ConfigApiDeps {
 }
 
 export function registerConfigApi(app: Express, deps: ConfigApiDeps): void {
+  registerConfigRoute(app, deps);
+  registerSchemaRoute(app, deps);
+  registerOverlayRoute(app, deps);
+  registerOverlayDeleteRoute(app, deps);
+}
+
+function registerConfigRoute(app: Express, deps: ConfigApiDeps): void {
   app
     .route("/api/v1/config")
     .get((_request, response) => {
@@ -55,7 +62,9 @@ export function registerConfigApi(app: Express, deps: ConfigApiDeps): void {
     .all((_request, response) => {
       methodNotAllowed(response);
     });
+}
 
+function registerSchemaRoute(app: Express, deps: ConfigApiDeps): void {
   app
     .route("/api/v1/config/schema")
     .get((_request, response) => {
@@ -64,7 +73,9 @@ export function registerConfigApi(app: Express, deps: ConfigApiDeps): void {
     .all((_request, response) => {
       methodNotAllowed(response);
     });
+}
 
+function registerOverlayRoute(app: Express, deps: ConfigApiDeps): void {
   app
     .route("/api/v1/config/overlay")
     .get((_request, response) => {
@@ -112,7 +123,9 @@ export function registerConfigApi(app: Express, deps: ConfigApiDeps): void {
     .all((_request, response) => {
       methodNotAllowed(response);
     });
+}
 
+function registerOverlayDeleteRoute(app: Express, deps: ConfigApiDeps): void {
   app
     .route("/api/v1/config/overlay/:path")
     .delete(async (request, response) => {

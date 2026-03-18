@@ -10,7 +10,17 @@ export function renderLogsTemplate(issueIdentifier: string): string {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Logs — ${escaped} — Symphony</title>
-  <style>
+  <style>${renderStyles()}</style>
+</head>
+<body>
+  ${renderHtml(escaped)}
+  <script>${renderScript(escaped)}</script>
+</body>
+</html>`;
+}
+
+function renderStyles(): string {
+  return `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0d1117; --surface: #161b22; --surface2: #1c2129;
@@ -137,10 +147,11 @@ export function renderLogsTemplate(issueIdentifier: string): string {
     .back-link {
       font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 4px;
     }
-    .back-link:hover { color: var(--primary); }
-  </style>
-</head>
-<body>
+    .back-link:hover { color: var(--primary); }`;
+}
+
+function renderHtml(escaped: string): string {
+  return `
   <div class="header">
     <div class="header-left">
       <a class="back-link" href="/">
@@ -188,9 +199,11 @@ export function renderLogsTemplate(issueIdentifier: string): string {
   <button class="auto-scroll-btn" id="scrollToBottom" onclick="scrollToBottom()">
     <span class="icon" style="font-size:16px">⇣</span>
     Scroll to bottom
-  </button>
+  </button>`;
+}
 
-  <script>
+function renderScript(escaped: string): string {
+  return `
     const ISSUE = "${escaped}";
     let allEvents = [];
     let currentFilter = "all";
@@ -349,11 +362,11 @@ export function renderLogsTemplate(issueIdentifier: string): string {
         const time = formatTime(ev.at);
         const label = typeLabel(type).toUpperCase();
         let line = '[' + time + '] [' + label + '] ' + (ev.message || '');
-        if (ev.content) line += '\\n' + ev.content;
+        if (ev.content) line += '\\\\n' + ev.content;
         return line;
       });
       const header = '=== Symphony Logs: ' + ISSUE + ' (' + new Date().toISOString() + ') ===';
-      const text = header + '\\n' + lines.join('\\n---\\n') + '\\n=== End of Logs ===';
+      const text = header + '\\\\n' + lines.join('\\\\n---\\\\n') + '\\\\n=== End of Logs ===';
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById('copyLogsBtn');
         btn.innerHTML = '<span class="icon" style="font-size:16px">✓</span> Copied!';
@@ -427,8 +440,5 @@ export function renderLogsTemplate(issueIdentifier: string): string {
 
     // Initial load + polling
     loadEvents();
-    setInterval(loadEvents, 3000);
-  </script>
-</body>
-</html>`;
+    setInterval(loadEvents, 3000);`;
 }

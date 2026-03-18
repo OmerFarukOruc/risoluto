@@ -11,6 +11,7 @@ skills/
 
 # Config & docs
 *.md
+!WORKFLOW.docker.md
 .eslintrc*
 .prettierrc*
 .jscpd.json

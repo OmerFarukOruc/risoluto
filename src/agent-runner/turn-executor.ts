@@ -157,31 +157,34 @@ async function runSingleTurn(
   const completedTurnRecord = asRecord(asRecord(completedTurn).turn);
   const completedStatus = asString(completedTurnRecord.status) ?? "failed";
   const completedError = asRecord(completedTurnRecord.error);
-  const completedUsage =
-    extractTokenUsageSnapshot(completedTurnRecord.usage) ??
-    extractTokenUsageSnapshot(completedTurnRecord.tokenUsage) ??
-    extractTokenUsageSnapshot(asRecord(completedTurn).usage) ??
-    extractTokenUsageSnapshot(asRecord(completedTurn).tokenUsage) ??
-    extractTokenUsageSnapshot(asRecord(turnResult).usage) ??
-    extractTokenUsageSnapshot(asRecord(turnResult).tokenUsage);
+  const completedUsage = resolveTokenUsage(completedTurnRecord, completedTurn, turnResult);
 
   emitTurnCompletedEvent(input, state, completedStatus, completedError, completedUsage, turnResult);
 
   const fatalOutcome = checkFatalFailure(state);
-  if (fatalOutcome) {
-    return fatalOutcome;
-  }
+  if (fatalOutcome) return fatalOutcome;
 
   const turnOutcome = classifyTurnResult(completedStatus, completedError, state);
-  if (turnOutcome) {
-    return turnOutcome;
-  }
+  if (turnOutcome) return turnOutcome;
 
   const latestIssue = (await input.linearClient.fetchIssueStatesByIds([input.runInput.issue.id]))[0];
-  if (!latestIssue || !isActiveState(latestIssue.state, input.config)) {
-    return null; // break out of loop
-  }
+  if (!latestIssue || !isActiveState(latestIssue.state, input.config)) return null;
   return undefined as unknown as RunOutcome; // continue to next turn (sentinel)
+}
+
+function resolveTokenUsage(
+  turnRecord: Record<string, unknown>,
+  completedTurn: unknown,
+  turnResult: unknown,
+): ReturnType<typeof extractTokenUsageSnapshot> {
+  return (
+    extractTokenUsageSnapshot(turnRecord.usage) ??
+    extractTokenUsageSnapshot(turnRecord.tokenUsage) ??
+    extractTokenUsageSnapshot(asRecord(completedTurn).usage) ??
+    extractTokenUsageSnapshot(asRecord(completedTurn).tokenUsage) ??
+    extractTokenUsageSnapshot(asRecord(turnResult).usage) ??
+    extractTokenUsageSnapshot(asRecord(turnResult).tokenUsage)
+  );
 }
 
 export async function executeTurns(

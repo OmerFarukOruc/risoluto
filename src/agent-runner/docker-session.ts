@@ -59,11 +59,6 @@ export async function createDockerSession(
   deps: DockerSessionDeps,
   turnState: TurnState,
 ): Promise<DockerSession> {
-  const logger = deps.logger.child({
-    issueIdentifier: input.issue.identifier,
-    workspacePath: input.workspace.path,
-  });
-
   const spawnProcess = deps.spawnProcess ?? spawn;
   const runtimeConfig = await prepareCodexRuntimeConfig(config.codex);
   const archiveDir = deps.archiveDir ?? path.join(process.cwd(), "archive");
@@ -83,16 +78,28 @@ export async function createDockerSession(
     model: input.modelSelection.model,
   });
 
-  const containerName = docker.containerName;
-  const cacheVolumeName = docker.cacheVolumeName;
   const child: ChildProcessWithoutNullStreams = spawnProcess(docker.program, docker.args, {
     env: process.env,
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  let fatalFailure: { code: string; message: string } | null = null;
+  const session = buildDockerSessionObject(child, docker, input);
+  setupConnection(session, child, config, input, deps, turnState);
+  startStatsPolling(session, input);
 
-  const session: DockerSession = {
+  return session;
+}
+
+function buildDockerSessionObject(
+  child: ChildProcessWithoutNullStreams,
+  docker: { containerName: string; cacheVolumeName: string },
+  input: DockerSessionInput,
+): DockerSession & { abortHandler: () => void; statsInterval: ReturnType<typeof setInterval> | null } {
+  const fatalFailure: { code: string; message: string } | null = null;
+  const containerName = docker.containerName;
+  const cacheVolumeName = docker.cacheVolumeName;
+
+  const session: DockerSession & { abortHandler: () => void; statsInterval: ReturnType<typeof setInterval> | null } = {
     child,
     connection: null as unknown as JsonRpcConnection,
     containerName,
@@ -102,9 +109,14 @@ export async function createDockerSession(
       child.once("exit", (code, sig) => resolve({ code, signal: sig }));
     }),
     getFatalFailure: () => fatalFailure,
+    abortHandler: () => {
+      session.connection.close();
+      void stopContainer(containerName, 5);
+    },
+    statsInterval: null,
     cleanup: async (cfg: ServiceConfig, signal: AbortSignal) => {
-      clearInterval(statsInterval);
-      signal.removeEventListener("abort", abortHandler);
+      if (session.statsInterval) clearInterval(session.statsInterval);
+      signal.removeEventListener("abort", session.abortHandler);
       if (!signal.aborted && cfg.codex.drainTimeoutMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, cfg.codex.drainTimeoutMs));
       }
@@ -117,6 +129,24 @@ export async function createDockerSession(
       await removeVolume(cacheVolumeName);
     },
   };
+
+  input.signal.addEventListener("abort", session.abortHandler, { once: true });
+  return session;
+}
+
+function setupConnection(
+  session: DockerSession,
+  child: ChildProcessWithoutNullStreams,
+  config: ServiceConfig,
+  input: DockerSessionInput,
+  deps: DockerSessionDeps,
+  turnState: TurnState,
+): void {
+  const logger = deps.logger.child({
+    issueIdentifier: input.issue.identifier,
+    workspacePath: input.workspace.path,
+  });
+  let fatalFailure: { code: string; message: string } | null = null;
 
   session.connection = new JsonRpcConnection(
     child,
@@ -149,16 +179,19 @@ export async function createDockerSession(
     },
   );
 
-  const abortHandler = () => {
-    session.connection.close();
-    void stopContainer(containerName, 5);
-  };
-  input.signal.addEventListener("abort", abortHandler, { once: true });
+  // Attach the fatalFailure getter to the session
+  const originalGetFatalFailure = session.getFatalFailure;
+  session.getFatalFailure = () => fatalFailure ?? originalGetFatalFailure();
+}
 
+function startStatsPolling(
+  session: DockerSession & { statsInterval: ReturnType<typeof setInterval> | null },
+  input: DockerSessionInput,
+): void {
   const statsIntervalMs = 30_000;
-  const statsInterval = setInterval(async () => {
+  session.statsInterval = setInterval(async () => {
     try {
-      const stats = await getContainerStats(containerName);
+      const stats = await getContainerStats(session.containerName);
       if (stats) {
         input.onEvent({
           at: new Date().toISOString(),
@@ -175,6 +208,4 @@ export async function createDockerSession(
       // intentionally swallowed — stats are best-effort
     }
   }, statsIntervalMs);
-
-  return session;
 }

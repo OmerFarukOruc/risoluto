@@ -68,92 +68,15 @@ export class AgentRunner {
 
     const session = await createDockerSession(
       config,
-      {
-        issue: input.issue,
-        modelSelection: input.modelSelection,
-        workspace: input.workspace,
-        signal: input.signal,
-        onEvent: input.onEvent,
-      },
-      {
-        archiveDir: this.deps.archiveDir,
-        pathRegistry: this.deps.pathRegistry,
-        githubToolClient: this.deps.githubToolClient,
-        linearClient: this.deps.linearClient,
-        logger: this.deps.logger,
-        spawnProcess: this.deps.spawnProcess,
-      },
+      buildDockerInput(input),
+      buildDockerDeps(this.deps),
       this.turnState,
     );
 
     try {
-      const initResult = await initializeSession(
-        session,
-        config,
-        {
-          issue: input.issue,
-          attempt: input.attempt,
-          modelSelection: input.modelSelection,
-          workspace: input.workspace,
-          promptTemplate: input.promptTemplate,
-          signal: input.signal,
-          onEvent: input.onEvent,
-          startupTimeoutMs: config.codex.startupTimeoutMs,
-        },
-        { logger },
-        this.liquid,
-      );
-
-      if ("kind" in initResult) {
-        return initResult;
-      }
-
-      const { threadId, prompt } = initResult;
-      const turnId: string | null = null;
-      const turnCount = 0;
-
-      return await executeTurns(
-        {
-          connection: session.connection,
-          config,
-          prompt,
-          runInput: {
-            issue: input.issue,
-            attempt: input.attempt,
-            modelSelection: input.modelSelection,
-            workspace: input.workspace,
-            signal: input.signal,
-            onEvent: input.onEvent,
-          },
-          turnState: this.turnState,
-          linearClient: this.deps.linearClient,
-          setActiveTurnId: (turnId) => {
-            session.turnId = turnId;
-          },
-        },
-        {
-          threadId,
-          turnId,
-          turnCount,
-          containerName: session.containerName,
-          exitPromise: session.exitPromise,
-          getFatalFailure: session.getFatalFailure,
-        },
-      );
+      return await this.executeSession(session, config, input);
     } catch (error) {
-      const threadId = session.threadId;
-      const turnId: string | null = null;
-      const turnCount = 0;
-      {
-        const maybeFailureOutcome = failureOutcome(session.getFatalFailure(), threadId, turnId, turnCount);
-        if (maybeFailureOutcome) {
-          return maybeFailureOutcome;
-        }
-      }
-      if (input.signal.aborted) {
-        return outcomeForAbort(input.signal, threadId, turnId, turnCount);
-      }
-      return classifyRunError(error, threadId, turnId, turnCount);
+      return handleRunError(error, session, input.signal);
     } finally {
       session.turnId = null;
       await session.cleanup(config, input.signal);
@@ -162,4 +85,96 @@ export class AgentRunner {
       });
     }
   }
+
+  private async executeSession(
+    session: Awaited<ReturnType<typeof createDockerSession>>,
+    config: ServiceConfig,
+    input: {
+      issue: Issue;
+      attempt: number | null;
+      modelSelection: ModelSelection;
+      promptTemplate: string;
+      workspace: Workspace;
+      signal: AbortSignal;
+      onEvent: AgentRunnerEventHandler;
+    },
+  ): Promise<RunOutcome> {
+    const initResult = await initializeSession(
+      session,
+      config,
+      { ...input, startupTimeoutMs: config.codex.startupTimeoutMs },
+      { logger: this.deps.logger },
+      this.liquid,
+    );
+
+    if ("kind" in initResult) return initResult;
+
+    const { threadId, prompt } = initResult;
+    return executeTurns(
+      {
+        connection: session.connection,
+        config,
+        prompt,
+        runInput: input,
+        turnState: this.turnState,
+        linearClient: this.deps.linearClient,
+        setActiveTurnId: (turnId) => {
+          session.turnId = turnId;
+        },
+      },
+      {
+        threadId,
+        turnId: null,
+        turnCount: 0,
+        containerName: session.containerName,
+        exitPromise: session.exitPromise,
+        getFatalFailure: session.getFatalFailure,
+      },
+    );
+  }
+}
+
+function buildDockerInput(input: {
+  issue: Issue;
+  modelSelection: ModelSelection;
+  workspace: Workspace;
+  signal: AbortSignal;
+  onEvent: AgentRunnerEventHandler;
+}) {
+  return {
+    issue: input.issue,
+    modelSelection: input.modelSelection,
+    workspace: input.workspace,
+    signal: input.signal,
+    onEvent: input.onEvent,
+  };
+}
+
+function buildDockerDeps(deps: AgentRunner["deps"]): DockerSessionDeps {
+  return {
+    archiveDir: deps.archiveDir,
+    pathRegistry: deps.pathRegistry,
+    githubToolClient: deps.githubToolClient,
+    linearClient: deps.linearClient,
+    logger: deps.logger,
+    spawnProcess: deps.spawnProcess,
+  };
+}
+
+function handleRunError(
+  error: unknown,
+  session: { threadId: string | null; getFatalFailure: () => { code: string; message: string } | null },
+  signal: AbortSignal,
+): RunOutcome {
+  const threadId = session.threadId;
+  const turnId: string | null = null;
+  const turnCount = 0;
+  const maybeFailureOutcome = failureOutcome(session.getFatalFailure(), threadId, turnId, turnCount);
+  if (maybeFailureOutcome) {
+    return maybeFailureOutcome;
+  }
+  if (signal.aborted) {
+    return outcomeForAbort(signal, threadId, turnId, turnCount);
+  }
+  return classifyRunError(error, threadId, turnId, turnCount);
 }

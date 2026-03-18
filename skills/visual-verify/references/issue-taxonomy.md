@@ -46,6 +46,18 @@ Minor cosmetic issues.
 - Inconsistent icon sizing
 - Subtle color inconsistencies
 
+### Infrastructure
+
+Issues that prevent testing from starting or completing.
+
+- Server fails to start (missing env vars, port conflict)
+- `MASTER_KEY` or `LINEAR_API_KEY` not set
+- agent-browser or brave-browser not installed
+- agent-browser session hangs or fails to connect
+- Browser crashes or blank page on launch
+- Config file (`agent-browser.json`) missing or malformed
+- Network/port conflicts
+
 ## Exploration Checklist
 
 ### Page load
@@ -114,3 +126,13 @@ Minor cosmetic issues.
 - [ ] Laptop (1280x720): all columns visible, may scroll horizontally
 - [ ] Tablet (768x1024): usable layout
 - [ ] Mobile (375x812): content accessible, may stack
+
+### Infrastructure
+
+- [ ] Server starts without errors
+- [ ] `MASTER_KEY` is set in environment
+- [ ] `LINEAR_API_KEY` is set in environment
+- [ ] agent-browser and brave-browser are installed
+- [ ] `agent-browser.json` config exists at project root
+- [ ] Preflight script (`scripts/preflight.sh`) passes
+

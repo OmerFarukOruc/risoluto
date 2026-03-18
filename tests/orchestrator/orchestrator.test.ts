@@ -696,6 +696,108 @@ describe("Orchestrator", () => {
     await orchestrator.stop();
   });
 
+  it("continues when the agent uses completion-like prose without an explicit SYMPHONY_STATUS marker", async () => {
+    vi.useFakeTimers();
+    const issue = createIssue();
+    let callCount = 0;
+    const agentRunner = {
+      runAttempt: vi.fn(
+        async ({
+          issue: currentIssue,
+          attempt,
+          onEvent,
+        }: {
+          issue: Issue;
+          attempt: number | null;
+          onEvent: (event: {
+            at: string;
+            issueId: string;
+            issueIdentifier: string;
+            sessionId: string | null;
+            event: string;
+            message: string;
+            content?: string | null;
+          }) => void;
+        }): Promise<RunOutcome> => {
+          callCount += 1;
+          onEvent({
+            at: "2026-03-16T00:00:01Z",
+            issueId: currentIssue.id,
+            issueIdentifier: currentIssue.identifier,
+            sessionId: "session-1",
+            event: "item_completed",
+            message: "agentMessage msg-1 completed",
+            content: "The issue is already complete. No further in-scope work is needed.",
+          });
+          if (callCount === 1) {
+            return {
+              kind: "failed",
+              errorCode: "turn_failed",
+              errorMessage: "first pass failed",
+              threadId: "thread-1",
+              turnId: "turn-1",
+              turnCount: 1,
+            };
+          }
+          return {
+            kind: "normal",
+            errorCode: null,
+            errorMessage: null,
+            threadId: "thread-1",
+            turnId: "turn-2",
+            turnCount: attempt ?? 0,
+          };
+        },
+      ),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [issue]),
+      fetchIssueStatesByIds: vi.fn(async () => [issue]),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async () => ({
+        path: "/tmp/symphony/MT-42",
+        workspaceKey: "MT-42",
+        createdNow: true,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(createConfig()),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(orchestrator.getSnapshot().retrying).toEqual([
+      expect.objectContaining({
+        identifier: "MT-42",
+        attempt: 1,
+      }),
+    ]);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await Promise.resolve();
+
+    expect(agentRunner.runAttempt).toHaveBeenCalledTimes(2);
+    expect(orchestrator.getSnapshot().retrying).toEqual([
+      expect.objectContaining({
+        identifier: "MT-42",
+        attempt: 2,
+      }),
+    ]);
+    expect(orchestrator.getSnapshot().completed).toEqual([]);
+
+    await orchestrator.stop();
+  });
+
   it("does not queue or launch inactive issues", async () => {
     vi.useFakeTimers();
     const inactiveIssue = createIssue("Todo");

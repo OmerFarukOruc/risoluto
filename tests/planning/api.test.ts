@@ -120,4 +120,34 @@ describe("planning-api", () => {
     });
     expect(executePlan).toHaveBeenCalledTimes(1);
   });
+
+  it("rejects malformed execute payloads with 400", async () => {
+    const executePlan = vi.fn(async () => ({
+      created: 0,
+      externalIds: [],
+    }));
+    const base = await startServer(createPlanningRouter({ executePlan }));
+    const response = await fetch(`${base}/api/v1/plan/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        issues: [
+          {
+            id: "PLAN-1",
+            title: "A",
+            summary: "A",
+            acceptanceCriteria: ["ok", 1],
+            dependencies: [],
+            priority: "medium",
+            labels: [],
+          },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("invalid_issues");
+    expect(executePlan).not.toHaveBeenCalled();
+  });
 });

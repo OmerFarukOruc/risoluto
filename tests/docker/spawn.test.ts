@@ -47,6 +47,7 @@ describe("buildDockerRunArgs", () => {
     const result = buildDockerRunArgs(baseInput());
     expect(result.program).toBe("docker");
     expect(result.containerName).toBe("symphony-MT-1-1710000000000");
+    expect(result.cacheVolumeName).toBe("symphony-cache-MT-1-1710000000000");
   });
 
   it("includes identity-mapped volume mounts", () => {

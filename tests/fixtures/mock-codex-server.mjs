@@ -65,6 +65,15 @@ function startSuccessTurnSequence(turnRequestId) {
           error: null,
         },
       });
+      send({
+        jsonrpc: "2.0",
+        method: "turn/started",
+        params: {
+          turn: {
+            id: "turn-1",
+          },
+        },
+      });
 
       // Emulate reasoning stream
       send({ jsonrpc: "2.0", method: "item/started", params: { item: { type: "reasoning", id: "reason-1" } } });
@@ -111,6 +120,11 @@ function startSuccessTurnSequence(turnRequestId) {
             status: "completed",
             items: [],
             error: null,
+            tokenUsage: {
+              inputTokens: 12,
+              outputTokens: 8,
+              totalTokens: 20,
+            },
           },
         },
       });

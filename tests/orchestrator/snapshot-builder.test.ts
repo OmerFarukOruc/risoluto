@@ -66,6 +66,8 @@ function createRunningEntry(overrides?: Partial<RunningEntry>): RunningEntry {
     modelSelection: createModelSelection(),
     lastAgentMessageContent: null,
     repoMatch: null,
+    queuePersistence: () => undefined,
+    flushPersistence: async () => undefined,
     ...overrides,
   } as RunningEntry;
 }
@@ -446,7 +448,15 @@ describe("snapshot-builder", () => {
         attempt: 1,
         error: null,
       };
-      const deps = { attemptStore: createAttemptStore() };
+      const archivedAttempt = createAttemptRecord();
+      const archivedEvent = createEvent({ attemptId: "attempt-1" } as Partial<RecentEvent> as RecentEvent);
+      const deps = {
+        attemptStore: createAttemptStore({
+          attempts: [archivedAttempt],
+          events: [archivedEvent],
+          attemptsByIssue: new Map([["MT-42", [archivedAttempt]]]),
+        }),
+      };
       const callbacks = createCallbacks({
         getCompletedViews: () => new Map([["MT-42", completedView]]),
       });
@@ -456,6 +466,7 @@ describe("snapshot-builder", () => {
       expect(detail).toMatchObject({
         identifier: "MT-42",
         status: "completed",
+        recentEvents: [archivedEvent],
       });
     });
 

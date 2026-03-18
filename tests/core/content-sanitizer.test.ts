@@ -54,6 +54,12 @@ describe("sanitizeContent", () => {
       expect(sanitizeContent("slack: xoxb-1234567890-1234567890-abcdef")).toBe("slack: [REDACTED]");
     });
 
+    it("redacts credential-bearing URLs", () => {
+      expect(sanitizeContent("https://user:password@example.com/webhook")).toBe(
+        "https://[REDACTED]@example.com/webhook",
+      );
+    });
+
     it("handles multiline string redaction", () => {
       const output = `stdout:
 Connecting to service...
@@ -112,6 +118,27 @@ Done.`;
               credential: "[REDACTED]",
             },
             public: "data",
+          },
+        },
+        null,
+        2,
+      );
+
+      expect(sanitizeContent(json)).toBe(expected);
+    });
+
+    it("redacts secret-looking string values even under benign keys", () => {
+      const json = JSON.stringify({
+        callback_url: "https://user:password@example.com/webhook",
+        headers: {
+          Authorization: "Bearer top-secret-value",
+        },
+      });
+      const expected = JSON.stringify(
+        {
+          callback_url: "https://[REDACTED]@example.com/webhook",
+          headers: {
+            Authorization: "[REDACTED]",
           },
         },
         null,

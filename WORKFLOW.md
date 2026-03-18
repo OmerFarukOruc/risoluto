@@ -32,9 +32,19 @@ codex:
   read_timeout_ms: 5000
   turn_timeout_ms: 120000
   stall_timeout_ms: 300000
+  ## Auth: uncomment ONE of the two blocks below.
+  ## Option A – API key via local CLIProxyAPI proxy (active)
   auth:
-    mode: "openai_login"
-    source_home: "~/.codex"
+    mode: "api_key"
+  provider:
+    name: "CLIProxyAPI"
+    base_url: "http://localhost:8317/v1"
+    env_key: "OPENAI_API_KEY"
+    wire_api: "responses"
+  ## Option B – OpenAI browser login (uncomment below, comment Option A above)
+  # auth:
+  #   mode: "openai_login"
+  #   source_home: "~/.codex"
   sandbox:
     image: "symphony-codex:latest"
     network: ""

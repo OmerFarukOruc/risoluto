@@ -2,6 +2,20 @@
 
 Element reference for visual verification. Use this when you need current routes, selectors, or page structure for the Symphony web UI.
 
+## Required Environment
+
+Before the dashboard can serve, these must be set:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `MASTER_KEY` | Yes | Any non-empty string for local QA (e.g. `local-qa-key`) |
+| `LINEAR_API_KEY` | Yes | API key for Linear integration |
+| `LINEAR_PROJECT_SLUG` | Optional | Scopes which Linear project to poll |
+
+**Workflow files:**
+- `WORKFLOW.example.md` — safe for QA runs, won't affect real issues
+- `WORKFLOW.md` — production workflow, use only for real runs
+
 ## Pages
 
 | Route | Description | Template source |

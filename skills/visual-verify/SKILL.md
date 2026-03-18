@@ -11,10 +11,11 @@ description: >
   or backend-only debugging without a visual verification goal.
 compatibility: >
   Requires local Symphony UI at http://127.0.0.1:4000, agent-browser,
-  brave-browser, and the repo-root agent-browser.json config.
+  brave-browser, MASTER_KEY env var, LINEAR_API_KEY env var, and the
+  repo-root agent-browser.json config.
 metadata:
   author: symphony
-  version: 1.1.0
+  version: 2.0.0
 ---
 
 # Visual Verify
@@ -28,18 +29,46 @@ Default to **Quick Verify** for a targeted change. Escalate to **Full QA** when 
 
 ## Prerequisites
 
-Confirm these first:
+### Automated preflight
 
-1. `agent-browser` is installed: `command -v agent-browser`
-2. `brave-browser` is available: `command -v brave-browser`
-3. `agent-browser.json` exists at project root (configures Brave + headed mode)
-4. Symphony UI is running at `http://127.0.0.1:4000`
-
-If the UI is not running:
+Run the preflight script first — it checks everything at once:
 
 ```bash
-npm run dev -- ./WORKFLOW.example.md --port 4000
+bash skills/visual-verify/scripts/preflight.sh
 ```
+
+If preflight passes, skip to the workflow. If it fails, fix the reported issues before continuing.
+
+### Manual checks (if preflight is unavailable)
+
+1. **agent-browser is installed:** `command -v agent-browser`
+2. **brave-browser is available:** `command -v brave-browser`
+3. **agent-browser.json** exists at project root (configures Brave + headed mode)
+4. **Required environment variables** are set:
+   - `MASTER_KEY` — used by SecretsStore for encrypted config (any non-empty value works for local QA, e.g. `MASTER_KEY="local-qa-key"`)
+   - `LINEAR_API_KEY` — required for workflow polling
+   - `LINEAR_PROJECT_SLUG` — optional but recommended
+5. **Symphony UI is running** at `http://127.0.0.1:4000`
+
+### Starting the server
+
+If the UI is not running, start it with **all required env vars**:
+
+```bash
+MASTER_KEY="${MASTER_KEY:-local-qa-key}" npm run dev -- ./WORKFLOW.example.md --port 4000
+```
+
+Wait for the server to respond before proceeding:
+
+```bash
+# Health check — retries for up to 30 seconds
+for attempt in $(seq 1 15); do
+  curl -sf http://127.0.0.1:4000 > /dev/null 2>&1 && echo "Server ready" && break
+  sleep 2
+done
+```
+
+> **Note:** Use `WORKFLOW.example.md` for QA runs, not `WORKFLOW.md`, to avoid interfering with real Linear issues.
 
 If the request is not about visual confirmation, screenshots, layout, interaction, or browser-driven QA, do not use this skill.
 
@@ -108,14 +137,29 @@ Use this after major UI changes, before releases, or when the user asks to "dogf
 
 ```bash
 mkdir -p dogfood-output/screenshots dogfood-output/videos
-cp skills/visual-verify/templates/verification-report-template.md dogfood-output/report.md
+```
+
+Create `dogfood-output/report.md` from the template at `skills/visual-verify/templates/verification-report-template.md`. Fill in the date, session name, and environment info.
+
+Open the browser session:
+
+```bash
 agent-browser --session symphony-qa open http://127.0.0.1:4000
 agent-browser --session symphony-qa wait --load networkidle
 ```
 
+Confirm the page loaded by checking for errors immediately:
+
+```bash
+agent-browser --session symphony-qa errors
+agent-browser --session symphony-qa console
+```
+
+If errors appear at this stage, record them as **infrastructure issues** in the report and decide whether to continue or abort.
+
 ### 2. Orient
 
-Start from the dashboard, then verify the logs page for at least one issue if the change could affect cross-page navigation or issue detail behavior. Consult `references/dashboard-map.md` for the current selector map.
+Start from the dashboard. Take a baseline screenshot and interactive snapshot:
 
 ```bash
 agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/dashboard-main.png
@@ -124,52 +168,149 @@ agent-browser --session symphony-qa errors
 agent-browser --session symphony-qa console
 ```
 
-### 3. Explore
+Consult `references/dashboard-map.md` for the current selector map.
 
-At each meaningful state or interaction:
+### 3. Systematic Exploration
+
+Work through each area in order. At each step: screenshot, snapshot, check errors.
+
+#### Step 3a — Kanban Board
+
+Verify all four columns render and cards display correctly:
+
+```bash
+agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/kanban-board.png
+agent-browser --session symphony-qa snapshot -i
+```
+
+Check: `#queuedColumn`, `#runningColumn`, `#retryingColumn`, `#completedColumn` exist and show appropriate content.
+
+#### Step 3b — Detail Panel
+
+Click a card to open the detail panel:
 
 ```bash
 agent-browser --session symphony-qa snapshot -i
-agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/{page-name}.png
+# Use the @ref from snapshot to click a card
+agent-browser --session symphony-qa click @e<N>
+agent-browser --session symphony-qa wait 1000
+agent-browser --session symphony-qa snapshot -i
+agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/detail-panel.png
+agent-browser --session symphony-qa errors
+```
+
+Check: `#detailPanel` is visible, fields populated (`#detailTitle`, `#detailIdentifier`, `#detailBadges`).
+
+Close the panel:
+
+```bash
+agent-browser --session symphony-qa click "#closeDetailButton"
+agent-browser --session symphony-qa wait 500
+```
+
+#### Step 3c — Filter Navigation
+
+Test each filter button:
+
+```bash
+# Test Running filter
+agent-browser --session symphony-qa click ".filter-button[data-filter='running']"
+agent-browser --session symphony-qa wait 500
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/filter-running.png
+
+# Test Retrying filter
+agent-browser --session symphony-qa click ".filter-button[data-filter='retrying']"
+agent-browser --session symphony-qa wait 500
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/filter-retrying.png
+
+# Test Completed filter
+agent-browser --session symphony-qa click ".filter-button[data-filter='completed']"
+agent-browser --session symphony-qa wait 500
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/filter-completed.png
+
+# Reset to All
+agent-browser --session symphony-qa click ".filter-button[data-filter='all']"
+agent-browser --session symphony-qa wait 500
+```
+
+#### Step 3d — Search
+
+```bash
+agent-browser --session symphony-qa fill "#searchInput" "test"
+agent-browser --session symphony-qa wait 500
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/search-active.png
+agent-browser --session symphony-qa fill "#searchInput" ""
+```
+
+#### Step 3e — Status Bar
+
+```bash
+agent-browser --session symphony-qa screenshot --annotate -s "section" dogfood-output/screenshots/status-bar.png
+```
+
+Check: `#queuedCount`, `#runningCount`, `#retryingCount`, `#completedCount`, `#uptimeValue`, `#rateLimitValue` are visible.
+
+#### Step 3f — Logs Page
+
+Navigate to a logs page (use an issue identifier from a card, or attempt a known route):
+
+```bash
+agent-browser --session symphony-qa snapshot -i
+# Click the logs link in the detail panel, or navigate directly:
+# agent-browser --session symphony-qa open http://127.0.0.1:4000/logs/<issue_identifier>
+agent-browser --session symphony-qa wait --load networkidle
+agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/logs-page.png
+agent-browser --session symphony-qa snapshot -i
 agent-browser --session symphony-qa errors
 agent-browser --session symphony-qa console
 ```
 
-Check these areas:
+Check: `#issueTitle`, `#statusBadge`, `#eventCount`, `#shownCount`, `.filter-btn`, `#copyLogsBtn`, `#autoScrollToggle`.
 
-- Kanban board: all four columns render, cards display correctly
-- Detail panel: opens on card click, shows all fields, model routing works
-- Filter nav: All/Running/Retrying/Completed filters work
-- Search: filters cards by text
-- Status bar: token counts, uptime, rate limit display
-- Logs page: title, status badge, filters, counts, copy action, and refresh behavior work
-- Responsive behavior: resize viewport and check layout stability
+Navigate back:
 
-For responsive testing:
+```bash
+agent-browser --session symphony-qa click ".back-link"
+agent-browser --session symphony-qa wait --load networkidle
+```
+
+#### Step 3g — Responsive Testing
 
 ```bash
 agent-browser --session symphony-qa set viewport 1920 1080
-agent-browser --session symphony-qa screenshot dogfood-output/screenshots/desktop.png
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/viewport-desktop.png
+
 agent-browser --session symphony-qa set viewport 768 1024
-agent-browser --session symphony-qa screenshot dogfood-output/screenshots/tablet.png
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/viewport-tablet.png
+
 agent-browser --session symphony-qa set viewport 375 812
-agent-browser --session symphony-qa screenshot dogfood-output/screenshots/mobile.png
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/viewport-mobile.png
+
+# Reset to default
+agent-browser --session symphony-qa set viewport 1280 720
+```
+
+#### Step 3h — Final Error Check
+
+```bash
+agent-browser --session symphony-qa errors
+agent-browser --session symphony-qa console
 ```
 
 ### 4. Document issues
 
-Document issues as you find them. Do not batch them for later.
+Document issues as you find them — do not batch them for later.
 
 **For interactive bugs** (require interaction to reproduce):
 
 ```bash
-agent-browser --session symphony-qa record start dogfood-output/videos/issue-{NNN}-repro.webm
+agent-browser --session symphony-qa record start dogfood-output/videos/issue-NNN-repro.webm
 # Walk through steps with sleep 1 between actions
-agent-browser --session symphony-qa screenshot dogfood-output/screenshots/issue-{NNN}-step-1.png
+agent-browser --session symphony-qa screenshot dogfood-output/screenshots/issue-NNN-step-1.png
 sleep 1
 # ... perform action ...
 sleep 1
-agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/issue-{NNN}-result.png
+agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/issue-NNN-result.png
 sleep 2
 agent-browser --session symphony-qa record stop
 ```
@@ -177,18 +318,17 @@ agent-browser --session symphony-qa record stop
 **For static/visible-on-load bugs** (typos, layout glitches):
 
 ```bash
-agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/issue-{NNN}.png
+agent-browser --session symphony-qa screenshot --annotate dogfood-output/screenshots/issue-NNN.png
 ```
 
 Append each issue to `dogfood-output/report.md` immediately with:
 
-- severity
-- page
+- severity (consult `references/issue-taxonomy.md`)
+- page (`/` or `/logs/:issue_identifier`)
+- element (ID or selector)
 - summary
 - expected vs actual behavior
-- screenshot or video evidence
-
-Consult `references/issue-taxonomy.md` for severity levels.
+- screenshot or video evidence filename
 
 ### 5. Wrap up
 
@@ -196,7 +336,7 @@ Consult `references/issue-taxonomy.md` for severity levels.
 agent-browser --session symphony-qa close
 ```
 
-Update the report summary to reflect actual issue counts and severity breakdown.
+Update the report summary to reflect actual issue counts and severity breakdown. Set the overall verdict: pass (0 critical/high), conditional pass, or fail.
 
 ## Evidence Rules
 
@@ -246,6 +386,29 @@ Always close sessions when done to avoid leaked daemons:
 agent-browser close                         # Default session
 agent-browser --session symphony-qa close   # Named session
 ```
+
+## Troubleshooting
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Server won't start | Missing `MASTER_KEY` | Set `MASTER_KEY="local-qa-key"` in env before starting |
+| Server won't start | Missing `LINEAR_API_KEY` | Ensure `LINEAR_API_KEY` is exported in your shell |
+| Connection refused on :4000 | Server didn't start or crashed | Check `/tmp/symphony-qa-dev.log` or terminal output for errors |
+| Port already in use | Another instance running | Kill existing: `lsof -ti:4000 \| xargs kill` |
+| agent-browser hangs | Stale session | Run `agent-browser session list` then close stale sessions |
+| Screenshots are empty/blank | Page not loaded | Add `agent-browser wait --load networkidle` before screenshot |
+| `zsh: read-only variable` | Used `status` as var name | Use `rc` or `result` — `status` is reserved in zsh |
+| `snapshot` returns no refs | All elements are non-interactive | Use `snapshot` without `-i`, or use `snapshot -i -C` |
+
+## Agent Compatibility
+
+This skill uses **`agent-browser` CLI commands** run via bash/shell. All commands in this document are designed to be run in a terminal.
+
+**Shell compatibility:** All examples avoid zsh reserved words (`status`, `precmd`, `preexec`). Loop variables use `attempt`, `rc`, `ok` instead of `status`.
+
+**File operations:** When the skill says "create a file from the template", use whatever file-creation tool your agent provides (bash `cp`, `write_to_file`, `apply_patch`, etc.). The important thing is that the file gets created with the template content.
+
+**Screenshot paths:** Quick Verify uses `archive/screenshots/` (matches `agent-browser.json`'s `screenshotDir`). Full QA uses `dogfood-output/screenshots/` (explicitly set in each command).
 
 ## References
 

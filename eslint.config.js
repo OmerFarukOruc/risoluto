@@ -47,6 +47,14 @@ export default tseslint.config(
     },
   },
   {
+    // Dashboard template files return template-literal strings (HTML/CSS/JS),
+    // not logic — stricter per-function limits hurt readability here.
+    files: ["src/dashboard/template/**/*.ts", "src/dashboard/logs/**/*.ts"],
+    rules: {
+      "max-lines-per-function": ["warn", { max: 200, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "coverage/", "*.js", "*.mjs", "tests/fixtures/", "vitest.*.ts", "knip.config.ts"],
   },
 );

@@ -430,3 +430,105 @@ describe("handleWorkerFailure", () => {
     expect(pushEvent).toHaveBeenCalledWith(expect.objectContaining({ message: "string error" }));
   });
 });
+
+describe("handleWorkerOutcome - git post-run failure", () => {
+  it("marks as failed and notifies when git post-run throws", async () => {
+    const ctx = makeCtx();
+    (ctx.deps.gitManager as { commitAndPush: ReturnType<typeof vi.fn> }).commitAndPush.mockRejectedValueOnce(
+      new Error("push rejected"),
+    );
+    const entry = makeEntry({
+      lastAgentMessageContent: "SYMPHONY_STATUS: DONE",
+      repoMatch: {
+        repoUrl: "https://github.com/org/repo",
+        defaultBranch: "main",
+        identifierPrefix: "MT",
+        label: null,
+        githubOwner: "org",
+        githubRepo: "repo",
+        githubTokenEnv: null,
+      },
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    // Should notify as failed because git post-run throws
+    expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_failed" }));
+    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    expect(view.status).toBe("failed");
+    expect(ctx.queueRetry).not.toHaveBeenCalled();
+  });
+});
+
+describe("detectStopSignal edge cases", () => {
+  it("detects SYMPHONY_STATUS: DONE with extra whitespace", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "  SYMPHONY_STATUS:   DONE  ",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_completed" }));
+  });
+
+  it("detects symphony status: done (space instead of underscore)", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "symphony status: done",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_completed" }));
+  });
+
+  it("detects SYMPHONY STATUS: BLOCKED (space instead of underscore)", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "SYMPHONY STATUS: BLOCKED",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    expect(view.status).toBe("paused");
+  });
+
+  it("detects signal embedded mid-message", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "I finished the task.\nSYMPHONY_STATUS: DONE\nClosing now.",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_completed" }));
+  });
+
+  it("does not detect stop signal from non-normal outcomes", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "SYMPHONY_STATUS: DONE",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    // Failed outcome — stop signal should not be checked
+    await handleWorkerOutcome(
+      ctx,
+      makeOutcome({ kind: "failed", errorCode: "turn_failed" }),
+      entry,
+      makeIssue(),
+      makeWorkspace(),
+      1,
+    );
+
+    // Should queue retry, not mark as done
+    expect(ctx.queueRetry).toHaveBeenCalled();
+  });
+});

@@ -1,18 +1,33 @@
 .overview-page {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
+/* Varied grid: primary metrics (Now, Token burn) larger, secondary (Attention, Recent) smaller */
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1.15fr 1.15fr 0.85fr 0.85fr;
   gap: var(--space-5);
 }
 
+/* Primary stat cards get more visual weight */
+.overview-grid .mc-stat-card:first-child,
+.overview-grid .mc-stat-card:nth-child(2) {
+  padding: var(--space-5);
+}
+
+/* Secondary cards are more compact */
+.overview-grid .mc-stat-card:nth-child(3),
+.overview-grid .mc-stat-card:nth-child(4) {
+  padding: var(--space-4);
+}
+
+/* Lower section has generous separation from top grid */
 .overview-lower {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   gap: var(--space-5);
+  padding-top: var(--space-2);
 }
 
 .overview-list,

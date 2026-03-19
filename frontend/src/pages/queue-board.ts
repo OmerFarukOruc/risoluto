@@ -90,6 +90,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
           "Broaden search, clear stage filters, or show completed columns.",
           "Clear filters",
           options.clearFilters,
+          "queue",
         ),
       );
       return;
@@ -113,6 +114,9 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
           createEmptyState(
             `No ${column.label.toLowerCase()} issues`,
             column.terminal ? "Terminal work is tucked away here." : "No active issues yet.",
+            undefined,
+            undefined,
+            column.terminal ? "terminal" : "queue",
           ),
         );
         return handle.section;

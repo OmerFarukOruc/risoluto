@@ -52,16 +52,33 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
   });
   const refreshButton = chip("Refresh", onRefresh);
 
+  function normalizeStageKey(key: string): string {
+    const lower = key.toLowerCase();
+    if (lower === "cancelled" || lower === "canceled") return "cancelled";
+    return key;
+  }
+
   function renderStages(): void {
+    const seen = new Set<string>();
+    const deduped: WorkflowColumn[] = [];
+    for (const column of columns) {
+      const normalized = normalizeStageKey(column.key);
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        deduped.push(column);
+      }
+    }
     stageBar.replaceChildren(
-      ...columns.map((column) => {
+      ...deduped.map((column) => {
         const button = chip(`${column.label} ${column.count}`, () => {
-          if (filters.stages.has(column.key)) filters.stages.delete(column.key);
-          else filters.stages.add(column.key);
+          const normalized = normalizeStageKey(column.key);
+          if (filters.stages.has(normalized)) filters.stages.delete(normalized);
+          else filters.stages.add(normalized);
           renderStages();
           onChange();
         });
-        button.classList.toggle("is-active", filters.stages.has(column.key));
+        const normalized = normalizeStageKey(column.key);
+        button.classList.toggle("is-active", filters.stages.has(normalized));
         return button;
       }),
     );
@@ -97,7 +114,26 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
   });
   renderStages();
   renderPriorities();
-  toolbar.append(search, stageBar, priorityBar, density, sort, completed, refreshButton);
+
+  const stageSection = document.createElement("div");
+  stageSection.className = "mc-toolbar-section";
+  const stageLabel = document.createElement("span");
+  stageLabel.className = "mc-toolbar-label";
+  stageLabel.textContent = "Stage";
+  stageSection.append(stageLabel, stageBar);
+
+  const prioritySection = document.createElement("div");
+  prioritySection.className = "mc-toolbar-section";
+  const priorityLabel = document.createElement("span");
+  priorityLabel.className = "mc-toolbar-label";
+  priorityLabel.textContent = "Priority";
+  prioritySection.append(priorityLabel, priorityBar);
+
+  const utilityGroup = document.createElement("div");
+  utilityGroup.className = "mc-toolbar-group";
+  utilityGroup.append(density, sort, completed, refreshButton);
+
+  toolbar.append(search, stageSection, prioritySection, utilityGroup);
   return {
     search,
     sort,

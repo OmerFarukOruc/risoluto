@@ -482,7 +482,9 @@ body {
    COMPONENT: Input
    ============================================ */
 
-.input {
+/* Shared form field styles */
+.input,
+.select {
   width: 100%;
   border: 1px solid var(--input-border);
   border-radius: var(--radius-md);
@@ -492,16 +494,24 @@ body {
   font-size: var(--text-sm);
   font-family: var(--font-sans);
   outline: none;
+}
+
+.input {
   transition: all var(--transition-fast);
 }
 
-.input:focus {
+.input:focus,
+.select:focus {
   border-color: var(--interactive-primary);
   box-shadow: 0 0 0 2px var(--interactive-focus-ring);
 }
 
 .input::placeholder {
   color: var(--text-subtle);
+}
+
+.select {
+  cursor: pointer;
 }
 
 /* Input with icon */
@@ -519,25 +529,6 @@ body {
 
 .input-icon-wrap .input {
   padding-left: 2.5rem;
-}
-
-/* Select */
-.select {
-  width: 100%;
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  font-family: var(--font-sans);
-  outline: none;
-  cursor: pointer;
-}
-
-.select:focus {
-  border-color: var(--interactive-primary);
-  box-shadow: 0 0 0 2px var(--interactive-focus-ring);
 }
 
 /* ============================================

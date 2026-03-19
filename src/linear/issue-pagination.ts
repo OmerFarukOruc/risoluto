@@ -90,6 +90,30 @@ function ensurePaginationCursor(
 }
 
 /**
+ * Runs a single paginated GraphQL query loop and collects normalized issues.
+ *
+ * Shared by all fetch functions to eliminate the repeated do-while pagination pattern.
+ */
+async function paginateQuery(
+  deps: PaginationDependencies,
+  query: string,
+  baseVariables: Record<string, unknown>,
+  normalizeIssue: (node: unknown) => Issue,
+): Promise<Issue[]> {
+  const issues: Issue[] = [];
+  let after: string | null = null;
+  do {
+    const payload = await deps.runGraphQL(query, { ...baseVariables, after });
+    const connection = extractIssuesConnection(payload);
+    issues.push(...connection.nodes.map(normalizeIssue));
+    const pageInfo = connection.pageInfo;
+    ensurePaginationCursor(pageInfo, issues.length);
+    after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
+  } while (after);
+  return issues;
+}
+
+/**
  * Fetches candidate issues with full pagination support.
  *
  * Repeatedly queries the GraphQL API until all pages are consumed,
@@ -106,24 +130,16 @@ export async function fetchCandidateIssues(
   normalizeIssue: (node: unknown) => Issue,
 ): Promise<Issue[]> {
   const config = deps.getConfig();
-  const issues: Issue[] = [];
-  let after: string | null = null;
   const query = buildCandidateIssuesQuery(Boolean(config.tracker.projectSlug));
-
-  do {
-    const payload = await deps.runGraphQL(query, {
-      after,
+  return paginateQuery(
+    deps,
+    query,
+    {
       activeStates: config.tracker.activeStates,
       ...(config.tracker.projectSlug ? { projectSlug: config.tracker.projectSlug } : {}),
-    });
-    const connection = extractIssuesConnection(payload);
-    issues.push(...connection.nodes.map(normalizeIssue));
-    const pageInfo = connection.pageInfo;
-    ensurePaginationCursor(pageInfo, issues.length);
-    after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
-  } while (after);
-
-  return issues;
+    },
+    normalizeIssue,
+  );
 }
 
 /**
@@ -149,20 +165,13 @@ export async function fetchIssueStatesByIds(
   if (ids.length === 0) {
     return [];
   }
-  const issues: Issue[] = [];
+  const query = buildIssuesByIdsQuery();
+  const results: Issue[][] = [];
   for (let index = 0; index < ids.length; index += pageSize) {
     const chunk = ids.slice(index, index + pageSize);
-    let after: string | null = null;
-    do {
-      const payload = await deps.runGraphQL(buildIssuesByIdsQuery(), { ids: chunk, after });
-      const connection = extractIssuesConnection(payload);
-      issues.push(...connection.nodes.map(normalizeIssue));
-      const pageInfo = connection.pageInfo;
-      ensurePaginationCursor(pageInfo, issues.length);
-      after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
-    } while (after);
+    results.push(await paginateQuery(deps, query, { ids: chunk }, normalizeIssue));
   }
-  return issues;
+  return results.flat();
 }
 
 /**
@@ -186,15 +195,5 @@ export async function fetchIssuesByStates(
   if (states.length === 0) {
     return [];
   }
-  const issues: Issue[] = [];
-  let after: string | null = null;
-  do {
-    const payload = await deps.runGraphQL(buildIssuesByStatesQuery(), { states, after });
-    const connection = extractIssuesConnection(payload);
-    issues.push(...connection.nodes.map(normalizeIssue));
-    const pageInfo = connection.pageInfo;
-    ensurePaginationCursor(pageInfo, issues.length);
-    after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
-  } while (after);
-  return issues;
+  return paginateQuery(deps, buildIssuesByStatesQuery(), { states }, normalizeIssue);
 }

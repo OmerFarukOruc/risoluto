@@ -1,4 +1,5 @@
 import { asRecord } from "../utils/type-guards.js";
+import { type ToolCallResult, toolCallSuccess, toolCallFailure } from "../utils/tool-call-result.js";
 
 type GithubApiAction = "add_pr_comment" | "get_pr_status";
 
@@ -73,14 +74,7 @@ function parseInput(args: unknown): GithubApiInput {
   throw new Error(`unsupported github_api action: ${action}`);
 }
 
-function jsonText(value: unknown): string {
-  return JSON.stringify(value);
-}
-
-export async function handleGithubApiToolCall(
-  client: GithubApiToolClient,
-  args: unknown,
-): Promise<{ success: boolean; contentItems: Array<{ type: "inputText"; text: string }> }> {
+export async function handleGithubApiToolCall(client: GithubApiToolClient, args: unknown): Promise<ToolCallResult> {
   try {
     const input = parseInput(args);
     const response =
@@ -97,26 +91,8 @@ export async function handleGithubApiToolCall(
             pullNumber: input.pullNumber,
           });
 
-    return {
-      success: true,
-      contentItems: [
-        {
-          type: "inputText",
-          text: jsonText(response),
-        },
-      ],
-    };
+    return toolCallSuccess(response);
   } catch (error) {
-    return {
-      success: false,
-      contentItems: [
-        {
-          type: "inputText",
-          text: jsonText({
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        },
-      ],
-    };
+    return toolCallFailure(error);
   }
 }

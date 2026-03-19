@@ -1,5 +1,4 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import express, { type Express } from "express";
 
@@ -17,7 +16,7 @@ import { handleAttemptDetail } from "./attempt-handler.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { methodNotAllowed, refreshReason, sanitizeConfigValue, serializeSnapshot } from "./route-helpers.js";
 
-const frontendDist = join(dirname(fileURLToPath(import.meta.url)), "../../dist/frontend");
+const frontendDist = join(process.cwd(), "dist/frontend");
 
 interface HttpRouteDeps {
   orchestrator: Orchestrator;

@@ -1,16 +1,38 @@
+/* Tier 1: Primary containers — prominent via shadow, minimal border */
 .mc-panel,
+.mc-stat-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+/* Tier 2: Secondary containers — lighter shadow, subtle border */
 .mc-toolbar,
-.mc-stat-card,
 .mc-strip,
 .mc-drawer,
+.mc-empty-state {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tier 3: Inline/row elements — no shadow, minimal border */
 .mc-log-row,
 .issue-card,
 .attempts-table,
-.event-row,
-.mc-empty-state {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+.event-row {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  box-shadow: none;
+}
+
+.issue-card:hover,
+.issue-card.is-selected,
+.issue-card.is-focused {
+  border-color: var(--border-default);
   box-shadow: var(--shadow-sm);
 }
 
@@ -40,6 +62,20 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.mc-toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mc-toolbar-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .mc-button,
@@ -105,6 +141,17 @@
   place-items: start;
   min-height: 132px;
   align-content: center;
+}
+
+.mc-empty-state-icon {
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin-bottom: var(--space-1);
+}
+
+.mc-empty-state h3 {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .event-row {

@@ -184,17 +184,50 @@ export function createOverviewPage(): HTMLElement {
     );
     if (attentionList.childElementCount === 0) {
       attentionList.replaceChildren(
-        createEmptyState("No intervention queue", "Blocked, retrying, and pending override issues will surface here."),
+        createEmptyState(
+          "No intervention queue",
+          "Blocked, retrying, and pending override issues will surface here.",
+          "View queue",
+          () => router.navigate("/queue"),
+          "attention",
+        ),
+      );
+    }
+    if (recentList.childElementCount === 0) {
+      recentList.replaceChildren(
+        createEmptyState(
+          "No recent changes",
+          "Workflow state changes and agent events will appear here as they occur.",
+          "Refresh",
+          async () => {
+            await api.postRefresh().catch(() => undefined);
+          },
+          "events",
+        ),
       );
     }
     if (terminalList.childElementCount === 0) {
       terminalList.replaceChildren(
-        createEmptyState("No terminal issues yet", "Completed and failed work will collect here."),
+        createEmptyState(
+          "No terminal issues yet",
+          "Completed and failed work will collect here. Run agents from the Queue to populate.",
+          "Go to Queue",
+          () => router.navigate("/queue"),
+          "terminal",
+        ),
       );
     }
     if (eventList.childElementCount === 0) {
       eventList.replaceChildren(
-        createEmptyState("Waiting for agent activity", "Recent orchestration events will stream into this panel."),
+        createEmptyState(
+          "Waiting for agent activity",
+          "Recent orchestration events will stream into this panel as agents execute workflows.",
+          "Refresh",
+          async () => {
+            await api.postRefresh().catch(() => undefined);
+          },
+          "events",
+        ),
       );
     }
   }

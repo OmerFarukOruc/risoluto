@@ -30,13 +30,11 @@
   gap: var(--space-3);
   min-height: 60vh;
   padding: var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-stitch);
+  border-top: 3px solid var(--border-stitch);
+  background: var(--bg-surface);
   transition:
     border-color var(--motion-fast) var(--ease-out-quart),
-    box-shadow var(--motion-medium) var(--ease-out-quart),
     background-color var(--motion-fast) var(--ease-out-quart);
 }
 
@@ -63,9 +61,9 @@
 }
 
 .queue-column-header > strong {
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .queue-column.is-collapsed .queue-column-list {
@@ -73,17 +71,31 @@
 }
 
 .queue-column.is-focused {
-  border-color: color-mix(in srgb, var(--color-copper-500) 38%, var(--border-strong));
-  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--color-copper-500) 38%, var(--border-stitch));
+}
+
+.queue-column[data-stage="todo"] {
+  border-top-color: var(--status-queued);
+}
+.queue-column[data-stage="in_progress"] {
+  border-top-color: var(--status-running);
+}
+.queue-column[data-stage="review"] {
+  border-top-color: var(--status-claimed);
+}
+.queue-column[data-stage="done"] {
+  border-top-color: var(--status-completed);
+}
+.queue-column[data-stage="blocked"] {
+  border-top-color: var(--status-blocked);
 }
 
 .mc-drawer {
   width: 380px;
   min-width: 380px;
   max-width: 380px;
-  box-shadow: var(--shadow-lg);
   background: var(--bg-elevated);
-  transform: translateX(0);
+  border-left: 1px solid var(--border-stitch);
   align-self: start;
 }
 

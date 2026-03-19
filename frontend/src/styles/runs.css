@@ -16,6 +16,8 @@
 .runs-detail-column {
   display: grid;
   align-content: start;
+  border-left: 1px solid var(--border-stitch);
+  padding-left: var(--space-5);
 }
 
 .runs-table-wrap,
@@ -35,7 +37,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
+  background: var(--bg-surface);
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -47,8 +50,8 @@
 }
 
 .runs-row.is-active {
-  background: color-mix(in srgb, var(--color-copper-500) 8%, var(--bg-elevated));
-  box-shadow: inset 3px 0 0 var(--color-copper-500);
+  background: var(--bg-elevated);
+  border-left: 3px solid var(--text-accent);
 }
 
 .runs-row.is-compared {
@@ -134,10 +137,10 @@
 }
 
 .runs-diff-value {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--color-copper-500) 14%, transparent);
-  border-radius: var(--radius-sm);
+  color: var(--text-accent);
   padding: 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .runs-compare-card {

@@ -4,6 +4,7 @@
 }
 
 .form-label {
+  font-family: var(--font-mono);
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
@@ -14,6 +15,7 @@
 .form-hint,
 .form-note,
 .form-error {
+  font-family: var(--font-body);
   font-size: 12px;
 }
 
@@ -46,13 +48,13 @@
 .mc-input,
 .mc-select {
   width: 100%;
+  font-family: var(--font-body);
 }
 
 .mc-textarea {
   min-height: 112px;
   padding: var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-stitch);
   background: var(--bg-elevated);
   color: var(--text-primary);
   font: inherit;
@@ -64,13 +66,8 @@
 .mc-textarea:focus-visible,
 .mc-button:focus-visible,
 .mc-chip:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-copper-500) 54%, transparent);
+  outline: 2px solid var(--text-accent);
   outline-offset: 2px;
-}
-
-.mc-button.is-primary {
-  background: color-mix(in srgb, var(--color-copper-500) 18%, var(--bg-elevated));
-  border-color: color-mix(in srgb, var(--color-copper-500) 42%, var(--border-strong));
 }
 
 @media (max-width: 760px) {

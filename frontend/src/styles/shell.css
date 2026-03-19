@@ -6,8 +6,8 @@
 
 .shell-sidebar {
   width: var(--sidebar-width-collapsed);
-  border-right: 1px solid var(--border-default);
-  background: linear-gradient(180deg, var(--bg-surface), color-mix(in srgb, var(--bg-surface) 80%, var(--bg-canvas)));
+  border-right: 1px solid var(--border-stitch);
+  background: var(--bg-muted);
   display: flex;
   flex-direction: column;
   padding: var(--space-3) var(--space-2);
@@ -28,8 +28,8 @@
 
 .shell-header {
   height: var(--header-height);
-  border-bottom: 1px solid var(--border-default);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  border-bottom: 1px solid var(--border-stitch);
+  background: var(--bg-surface);
   display: grid;
   grid-template-columns: 1fr minmax(220px, 420px) 1fr;
   align-items: center;
@@ -51,11 +51,11 @@
   padding: 0 var(--space-5);
   background: color-mix(in srgb, var(--color-copper-700) 42%, var(--bg-surface));
   color: var(--color-copper-100);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-copper-500) 40%, var(--border-default));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-copper-500) 40%, var(--border-stitch));
 }
 
 #stale-banner::before {
-  content: "⚠";
+  content: "\26A0";
   color: var(--color-copper-300);
 }
 
@@ -75,6 +75,7 @@
   justify-content: space-between;
   min-height: 24px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -105,27 +106,30 @@
   min-height: 36px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
+  color: var(--text-secondary);
+  transition:
+    color var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
+    border-color var(--motion-fast) var(--ease-out-quart);
 }
 
-.sidebar-item:hover,
-.sidebar-item.is-active {
-  background: color-mix(in srgb, var(--color-copper-500) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-copper-500) 26%, transparent);
+.sidebar-item:hover {
+  color: var(--text-primary);
 }
 
 .sidebar-item.is-active {
   color: var(--text-accent);
+  border-left: 2px solid var(--text-accent);
 }
 
 .sidebar-icon,
 .palette-item-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   fill: currentColor;
-  flex: 0 0 18px;
+  flex: 0 0 20px;
 }
 
 .sidebar-item-tooltip {
@@ -134,11 +138,11 @@
   top: 50%;
   transform: translateY(-50%);
   padding: 6px 8px;
-  border-radius: var(--radius-sm);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-stitch);
   color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -156,10 +160,73 @@
   gap: var(--space-3);
 }
 
+.header-brand {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
 .header-command {
   justify-content: center;
 }
 
 .header-actions {
   justify-content: flex-end;
+}
+
+.header-command-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 380px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-stitch);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.header-command-trigger:hover {
+  border-color: var(--border-strong);
+}
+
+.header-command-hint {
+  margin-left: auto;
+  padding: 2px 6px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-stitch);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.header-action-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--ease-out-quart),
+    border-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.header-action-btn:hover {
+  color: var(--text-accent);
+  border-color: var(--border-stitch);
+}
+
+.header-action-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }

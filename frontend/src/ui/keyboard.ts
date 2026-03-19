@@ -49,6 +49,11 @@ export function initKeyboard(router: Router, options: KeyboardOptions = {}): voi
         c: "/config",
         s: "/secrets",
         m: "/observability",
+        n: "/notifications",
+        g: "/git",
+        d: "/containers",
+        w: "/workspaces",
+        i: "/welcome",
         ",": "/settings",
       };
       resetPrefix();

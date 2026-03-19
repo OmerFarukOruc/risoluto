@@ -16,6 +16,20 @@ function isValidSecretKey(value: string): boolean {
   return /^[A-Za-z0-9._:-]+$/.test(value);
 }
 
+/** Returns false and sends a 400 response when the key param is invalid. */
+function validateSecretKeyOrReject(key: string | undefined, response: Response): key is string {
+  if (!key || !isValidSecretKey(key)) {
+    response.status(400).json({
+      error: {
+        code: "invalid_secret_key",
+        message: "secret key must match /^[A-Za-z0-9._:-]+$/",
+      },
+    });
+    return false;
+  }
+  return true;
+}
+
 interface SecretsApiDeps {
   secretsStore: SecretsStore;
 }
@@ -35,16 +49,7 @@ export function registerSecretsApi(app: Express, deps: SecretsApiDeps): void {
   app
     .route("/api/v1/secrets/:key")
     .post(async (request, response) => {
-      const key = request.params.key;
-      if (!key || !isValidSecretKey(key)) {
-        response.status(400).json({
-          error: {
-            code: "invalid_secret_key",
-            message: "secret key must match /^[A-Za-z0-9._:-]+$/",
-          },
-        });
-        return;
-      }
+      if (!validateSecretKeyOrReject(request.params.key, response)) return;
 
       const body = request.body;
       const rawValue = isRecord(body) ? body.value : null;
@@ -58,22 +63,13 @@ export function registerSecretsApi(app: Express, deps: SecretsApiDeps): void {
         return;
       }
 
-      await deps.secretsStore.set(key, rawValue);
+      await deps.secretsStore.set(request.params.key, rawValue);
       response.status(204).send();
     })
     .delete(async (request, response) => {
-      const key = request.params.key;
-      if (!key || !isValidSecretKey(key)) {
-        response.status(400).json({
-          error: {
-            code: "invalid_secret_key",
-            message: "secret key must match /^[A-Za-z0-9._:-]+$/",
-          },
-        });
-        return;
-      }
+      if (!validateSecretKeyOrReject(request.params.key, response)) return;
 
-      const deleted = await deps.secretsStore.delete(key);
+      const deleted = await deps.secretsStore.delete(request.params.key);
       if (!deleted) {
         response.status(404).json({
           error: {

@@ -1,7 +1,7 @@
 # 🗺️ Roadmap
 
 > Symphony Orchestrator feature roadmap — all items tracked as GitHub issues.
-> Research sources: Composio, OpenSwarm, mog, thepopebot, **jinyang**, **Orchestra**.
+> Research sources: Composio, OpenSwarm, mog, thepopebot, **jinyang**, **Orchestra**, **Eva**.
 
 <p>
   <img alt="Version" src="https://img.shields.io/badge/version-0.3.0--pre-blue?style=flat-square" />
@@ -25,7 +25,7 @@ High-value, achievable now. These directly address the most requested features a
 | [#11](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/11) | GitHub Issues adapter | core | Twitter, Composio |
 | [#12](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/12) | Mobile-responsive dashboard | dashboard | Twitter feedback |
 | [#13](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/13) | `symphony init --auto` one-command setup — setup-wizard-level thoroughness: prerequisite checks, repo creation, secret config, `.env` generation; add `symphony validate` post-setup step *(jinyang)* | core | Composio, thepopebot, jinyang |
-| [#14](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/14) | Dollar cost tracking per issue / per model — complement with passive telemetry log watcher (#75) for agent CLI log ingestion *(Orchestra)* | dashboard, api | Twitter (@DatisAgent), Orchestra |
+| [#14](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/14) | Dollar cost tracking per issue / per model — complement with passive telemetry log watcher (#75) for agent CLI log ingestion; provider-specific extraction from nested JSON paths *(Orchestra)* | dashboard, api | Twitter (@DatisAgent), Orchestra |
 | [#15](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/15) | Live agent feed / subagent drill-down view — SSE event+snapshot pair pattern, 5s heartbeat, snapshot fingerprinting *(Orchestra)* | dashboard, api | Twitter (@VladimirNovick), Orchestra |
 | [#59](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/59) | Auto-squash + conventional commit formatting — with configurable path validation | core | v2 roadmap, thepopebot |
 
@@ -46,7 +46,7 @@ Significant improvements to developer experience, extensibility, and autonomous 
 | [#22](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/22) | Multi-agent role pipeline — agent clusters with shared workspaces, per-role concurrency, template variables | core | Composio, OpenSwarm, thepopebot |
 | [#23](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/23) | Agent-agnostic runner — dual LLM config, per-job model overrides, multi-provider support; priority-based provider routing; Runner interface + registry, provider cascading after 3 failures, tool/resource injection *(jinyang, Orchestra)* | core | Composio, Twitter, thepopebot, jinyang, Orchestra |
 | [#24](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/24) | Settings UI page | dashboard | Internal |
-| [#25](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/25) | Acceptance criteria validation before PR | core | v2 roadmap, Composio |
+| [#25](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/25) | Acceptance criteria validation before PR — extend with evaluation reports: structured scoring of code quality, test coverage, and requirement fulfillment; store as linked artifacts *(Eva)* | core | v2 roadmap, Composio, Eva |
 | [#26](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/26) | Prompt analytics | dashboard, api | Composio |
 | [#35](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/35) | Review comment ingestion | sentinel, core | v2 Phase 1 |
 | [#36](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/36) | Re-dispatch on REQUEST_CHANGES | sentinel, core | v2 Phase 1 |
@@ -55,18 +55,22 @@ Significant improvements to developer experience, extensibility, and autonomous 
 | [#39](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/39) | Pre-merge verification (test/lint before done) | core | v2 Phase 2 |
 | [#51](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/51) | Dashboard polish — workflow summaries, credential UI | dashboard | Follow-up |
 | [#54](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/54) | Default-on hardening — request tracing, error tracking; webhook rate limiting, payload validation, request ID propagation, webhook loop detection *(jinyang)* | core | Follow-up, jinyang |
-| [#56](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/56) | Docker/container sandbox — self-hosted runner pattern; Unsandbox-style remote exec with credential sync + artifact retrieval *(Orchestra)* | core | Follow-up, thepopebot, Orchestra |
+| [#56](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/56) | Docker/container sandbox — self-hosted runner pattern; Unsandbox-style remote exec with credential sync + artifact retrieval *(Orchestra)*; Daytona SDK cloud sandbox provisioning with pre-built snapshots *(Eva)* | core | Follow-up, thepopebot, Orchestra, Eva |
 | [#57](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/57) | Agent progress monitoring — stall detection, iteration limits; session dedup, mutex status locking *(jinyang)*; claim system + stall reconciliation *(Orchestra)* | core | Follow-up, jinyang, Orchestra |
-| [#58](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/58) | Secret/config injection — dual-tier secret model with env-sanitizer | core | Follow-up, thepopebot |
-| [#66](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/66) | Chat integration layer — pluggable channel adapters (Telegram, Discord, Slack) with normalized message format | core, api | thepopebot |
+| [#58](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/58) | Secret/config injection — dual-tier secret model with env-sanitizer; encrypted env var storage with resolution at sandbox startup *(Eva)* | core | Follow-up, thepopebot, Eva |
+| [#66](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/66) | Chat integration layer — pluggable channel adapters (Telegram, Discord, Slack) with normalized message format; MS Teams bot adapter via Bot Framework *(Eva)* | core, api | thepopebot, Eva |
 | [#67](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/67) | Scheduled/cron job system — JSON-configured recurring tasks with per-cron model overrides | core | thepopebot |
 | [#68](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/68) | Headless agent execution — lightweight runs without branch/PR workflow | core | thepopebot |
 | [#71](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/71) | Circuit breaker for provider reliability — per-provider closed/open/half-open states, persistent state, automatic recovery probing | core | jinyang |
 | [#72](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/72) | Provider health daemon — background provider probing, cached health with TTL, feeds into provider selection | core | jinyang |
 | [#75](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/75) | Telemetry log watcher — passive agent session ingestion with PII sanitization, multi-provider log parsing | core | Orchestra |
 | [#76](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/76) | Kanban board UI — drag-and-drop issue state management with column-based layout | dashboard | Orchestra |
-| [#77](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/77) | Issue dependency blocking — prevent dispatch of blocked issues with topological ordering | core | Orchestra |
+| [#77](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/77) | Issue dependency blocking — prevent dispatch of blocked issues with topological ordering; subtask decomposition with parent-child relationships *(Eva)* | core | Orchestra, Eva |
 | [#80](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/80) | Workspace lifecycle hooks — configurable pre/post scripts for agent execution lifecycle | core | Orchestra |
+| [#82](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/82) | Sandbox snapshot management — pre-built environment snapshots for faster agent startup; snapshot lifecycle with rebuild triggers | core | Eva |
+| [#83](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/83) | Document/PRD context store — structured storage for PRDs, specs, docs; template variable injection into agent prompts; AI interview workflow for PRD creation | core, api | Eva |
+| [#85](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/85) | Workflow watchdog — background health checker for stuck/zombie workflows; corrective actions with dead letter queue | core | Eva |
+| [#87](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/87) | Agent presence and activity tracking — real-time heartbeat-based presence indicators; dashboard badges; API endpoint | core, dashboard | Eva |
 
 ---
 
@@ -92,13 +96,16 @@ Infrastructure work, scale-out, and deeper observability.
 | [#45](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/45) | Host health monitoring + auto-failover; per-provider health cache with TTL, consecutive-error tolerance *(jinyang)* | core | v2 Phase 4, jinyang |
 | [#46](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/46) | Tracker write APIs — orchestrator-driven transitions | core | v2 Phase 5 |
 | [#52](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/52) | Richer reporting — Prometheus, OTLP, webhook presets | observability, api | Follow-up |
-| [#53](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/53) | Desktop packaging — Tauri builds, release artifacts; Electron sidecar pattern with auto-port + random token *(Orchestra)* | desktop | Follow-up, Orchestra |
+| [#53](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/53) | Desktop packaging — Tauri builds, release artifacts; Electron sidecar pattern with auto-port + random token *(Orchestra)*; electron-vite for fast dev builds *(Eva)* | desktop | Follow-up, Orchestra, Eva |
 | [#69](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/69) | File-watch triggers — reactive agent dispatch on file changes with debounce | core | thepopebot |
-| [#70](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/70) | Interactive agent workspaces — browser-based terminal access; terminal multiplexer UI for concurrent sessions *(Orchestra)* | dashboard, core | thepopebot, Orchestra |
+| [#70](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/70) | Interactive agent workspaces — browser-based terminal access; terminal multiplexer UI for concurrent sessions *(Orchestra)*; PTY streaming for sandbox terminal relay *(Eva)* | dashboard, core | thepopebot, Orchestra, Eva |
 | [#73](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/73) | Background poller for missed events — safety-net polling loop, deduplicates against active sessions | core | jinyang |
 | [#74](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/74) | Label/tag-based multi-repo routing — label-driven routing engine, multi-tier priority | core | jinyang |
 | [#78](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/78) | Issue search and filter API — query filtering by state, provider, project, date range; free-text search | core, api | Orchestra |
 | [#79](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/79) | OpenAPI specification endpoint — machine-readable API spec for client generation | api | Orchestra |
+| [#84](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/84) | Chrome extension for task dispatch — browser side panel for quick task creation, context capture, status monitoring | dashboard, core | Eva |
+| [#86](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/86) | Automated test generation in sandboxes — AI-driven test suite generation for agent-authored code; complements pre-merge verification (#39) | core | Eva |
+| [#88](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/88) | Mobile companion app — React Native app for monitoring, push notifications, and remote task dispatch | mobile | Eva |
 
 ---
 
@@ -146,10 +153,10 @@ graph TD
 | Tier | Issues | Status |
 |------|:------:|--------|
 | **Tier 1** — Ship first | 7 | Not started |
-| **Tier 2** — High impact | 30 | Not started |
-| **Tier 3** — Architectural | 23 | Not started |
+| **Tier 2** — High impact | 34 | Not started |
+| **Tier 3** — Architectural | 26 | Not started |
 | **Tier 4** — Lights-Out | 4 | Not started |
-| **Total** | **64** | |
+| **Total** | **71** | |
 
 ---
 

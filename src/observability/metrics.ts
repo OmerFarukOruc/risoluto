@@ -7,6 +7,20 @@ function labelKey(labels: Labels): string {
     .join(",");
 }
 
+/** Shared serializer for Counter and Gauge (same format, different TYPE string). */
+function serializeKeyValue(name: string, help: string, typeName: string, values: Map<string, number>): string {
+  const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} ${typeName}`];
+  if (values.size === 0) {
+    lines.push(`${name} 0`);
+  } else {
+    for (const [key, value] of values) {
+      const suffix = key ? `{${key}}` : "";
+      lines.push(`${name}${suffix} ${value}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 class Counter {
   private readonly values = new Map<string, number>();
 
@@ -16,16 +30,7 @@ class Counter {
   }
 
   serialize(name: string, help: string): string {
-    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} counter`];
-    if (this.values.size === 0) {
-      lines.push(`${name} 0`);
-    } else {
-      for (const [key, value] of this.values) {
-        const suffix = key ? `{${key}}` : "";
-        lines.push(`${name}${suffix} ${value}`);
-      }
-    }
-    return lines.join("\n");
+    return serializeKeyValue(name, help, "counter", this.values);
   }
 }
 
@@ -74,16 +79,7 @@ class Gauge {
   }
 
   serialize(name: string, help: string): string {
-    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} gauge`];
-    if (this.values.size === 0) {
-      lines.push(`${name} 0`);
-    } else {
-      for (const [key, value] of this.values) {
-        const suffix = key ? `{${key}}` : "";
-        lines.push(`${name}${suffix} ${value}`);
-      }
-    }
-    return lines.join("\n");
+    return serializeKeyValue(name, help, "gauge", this.values);
   }
 }
 

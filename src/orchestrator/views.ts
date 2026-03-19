@@ -1,30 +1,7 @@
-import type { Issue, ReasoningEffort, TokenUsageSnapshot } from "../core/types.js";
+import type { Issue, RuntimeIssueView, TokenUsageSnapshot } from "../core/types.js";
 
-export interface IssueView {
-  issueId: string;
-  identifier: string;
-  title: string;
-  state: string;
-  workspaceKey: string | null;
-  workspacePath?: string | null;
-  message: string | null;
-  status: string;
-  updatedAt: string;
-  attempt: number | null;
-  error: string | null;
-  priority?: number | null;
-  labels?: string[];
-  startedAt?: string | null;
-  lastEventAt?: string | null;
-  tokenUsage?: TokenUsageSnapshot | null;
-  model?: string | null;
-  reasoningEffort?: ReasoningEffort | null;
-  modelSource?: "default" | "override" | null;
-  configuredModel?: string | null;
-  configuredReasoningEffort?: ReasoningEffort | null;
-  configuredModelSource?: "default" | "override" | null;
-  modelChangePending?: boolean;
-}
+/** @deprecated Use `RuntimeIssueView` directly. Kept for backward compatibility. */
+export type IssueView = RuntimeIssueView;
 
 export function nowIso(): string {
   return new Date().toISOString();

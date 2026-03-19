@@ -28,6 +28,20 @@ async function pathIsDirectory(pathname: string): Promise<boolean> {
   }
 }
 
+interface ResolvedWorkspacePath {
+  workspaceKey: string;
+  workspacePath: string;
+}
+
+function resolveWorkspacePath(config: ServiceConfig, issueIdentifier: string): ResolvedWorkspacePath {
+  const workspaceKey = sanitizeIdentifier(issueIdentifier);
+  const workspacePath = path.resolve(config.workspace.root, workspaceKey);
+  if (!isWithinRoot(config.workspace.root, workspacePath)) {
+    throw new Error(`workspace path escaped root: ${workspacePath}`);
+  }
+  return { workspaceKey, workspacePath };
+}
+
 export class WorkspaceManager {
   constructor(
     private readonly getConfig: () => ServiceConfig,
@@ -38,11 +52,7 @@ export class WorkspaceManager {
     const config = this.getConfig();
     await ensureDirectory(config.workspace.root);
 
-    const workspaceKey = sanitizeIdentifier(issueIdentifier);
-    const workspacePath = path.resolve(config.workspace.root, workspaceKey);
-    if (!isWithinRoot(config.workspace.root, workspacePath)) {
-      throw new Error(`workspace path escaped root: ${workspacePath}`);
-    }
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config, issueIdentifier);
 
     let createdNow = false;
     try {
@@ -92,11 +102,7 @@ export class WorkspaceManager {
 
   async removeWorkspace(issueIdentifier: string): Promise<void> {
     const config = this.getConfig();
-    const workspaceKey = sanitizeIdentifier(issueIdentifier);
-    const workspacePath = path.resolve(config.workspace.root, workspaceKey);
-    if (!isWithinRoot(config.workspace.root, workspacePath)) {
-      throw new Error(`workspace path escaped root: ${workspacePath}`);
-    }
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config, issueIdentifier);
 
     const workspace = { path: workspacePath, workspaceKey, createdNow: false };
     if (!(await pathIsDirectory(workspacePath))) {

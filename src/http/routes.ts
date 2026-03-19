@@ -1,28 +1,30 @@
-import type { Express, Request, Response } from "express";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import express, { type Express, type Request, type Response } from "express";
 
 import { registerConfigApi } from "../config/api.js";
-import type { ConfigStore } from "../config/store.js";
 import type { ConfigOverlayStore } from "../config/overlay.js";
-import { renderDashboardTemplate } from "../dashboard/template.js";
-import { renderLogsTemplate } from "../dashboard/logs-template.js";
+import type { ConfigStore } from "../config/store.js";
+import { redactSensitiveValue } from "../core/content-sanitizer.js";
+import type { RuntimeSnapshot } from "../core/types.js";
 import { globalMetrics } from "../observability/metrics.js";
 import { Orchestrator } from "../orchestrator/orchestrator.js";
 import { createPlanningRouter, type PlanningExecutionResult } from "../planning/api.js";
 import type { PlannedIssue } from "../planning/skill.js";
 import { registerSecretsApi } from "../secrets/api.js";
 import type { SecretsStore } from "../secrets/store.js";
-import type { RuntimeSnapshot } from "../core/types.js";
 import { isRecord } from "../utils/type-guards.js";
 import { handleAttemptDetail } from "./attempt-handler.js";
 import { handleModelUpdate } from "./model-handler.js";
-import { redactSensitiveValue } from "../core/content-sanitizer.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const frontendDist = join(__dirname, "../../dist/frontend");
 
 function methodNotAllowed(response: Response): void {
   response.status(405).json({
-    error: {
-      code: "method_not_allowed",
-      message: "Method Not Allowed",
-    },
+    error: { code: "method_not_allowed", message: "Method Not Allowed" },
   });
 }
 
@@ -97,33 +99,26 @@ interface HttpRouteDeps {
   executePlan?: (issues: PlannedIssue[]) => Promise<PlanningExecutionResult>;
 }
 
-export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
-  app
-    .route("/")
-    .get((_request, response) => {
-      response.type("html").send(renderDashboardTemplate());
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
-
-  app
-    .route("/logs/:issue_identifier")
-    .get((request, response) => {
-      response.type("html").send(renderLogsTemplate(request.params.issue_identifier));
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
-
+function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void {
   app
     .route("/api/v1/state")
     .get((_request, response) => {
       response.json(serializeSnapshot(deps.orchestrator.getSnapshot() as RuntimeSnapshot & Record<string, unknown>));
     })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
+    .all((_request, response) => methodNotAllowed(response));
+
+  app
+    .route("/api/v1/runtime")
+    .get((_request, response) => {
+      response.json({
+        version: process.env.npm_package_version ?? "unknown",
+        workflow_path: process.env.SYMPHONY_WORKFLOW_PATH ?? "",
+        data_dir: process.env.SYMPHONY_DATA_DIR ?? "",
+        feature_flags: {},
+        provider_summary: "Codex",
+      });
+    })
+    .all((_request, response) => methodNotAllowed(response));
 
   app
     .route("/metrics")
@@ -131,9 +126,7 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
       response.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8");
       response.send(globalMetrics.serialize());
     })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
+    .all((_request, response) => methodNotAllowed(response));
 
   app
     .route("/api/v1/refresh")
@@ -145,9 +138,53 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
         requested_at: refresh.requestedAt,
       });
     })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
+    .all((_request, response) => methodNotAllowed(response));
+}
+
+function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
+  app
+    .route("/api/v1/:issue_identifier/model")
+    .post(async (request, response) => {
+      await handleModelUpdate(deps.orchestrator, request, response);
+    })
+    .all((_request, response) => methodNotAllowed(response));
+
+  app
+    .route("/api/v1/:issue_identifier/attempts")
+    .get((request, response) => {
+      const detail = deps.orchestrator.getIssueDetail(request.params.issue_identifier);
+      if (!detail) {
+        response.status(404).json({ error: { code: "not_found", message: "Unknown issue identifier" } });
+        return;
+      }
+      response.json({ attempts: detail.attempts ?? [], current_attempt_id: detail.currentAttemptId ?? null });
+    })
+    .all((_request, response) => methodNotAllowed(response));
+
+  app
+    .route("/api/v1/attempts/:attempt_id")
+    .get((request, response) => {
+      handleAttemptDetail(deps.orchestrator, request, response);
+    })
+    .all((_request, response) => methodNotAllowed(response));
+
+  app
+    .route("/api/v1/:issue_identifier")
+    .get((request, response) => {
+      const detail = deps.orchestrator.getIssueDetail(request.params.issue_identifier);
+      if (!detail) {
+        response.status(404).json({ error: { code: "not_found", message: "Unknown issue identifier" } });
+        return;
+      }
+      response.json(detail);
+    })
+    .all((_request, response) => methodNotAllowed(response));
+}
+
+export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
+  app.use(express.static(frontendDist));
+
+  registerStateAndMetricsRoutes(app, deps);
 
   if (deps.configStore && deps.configOverlayStore) {
     registerConfigApi(app, {
@@ -158,73 +195,17 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   }
 
   if (deps.secretsStore) {
-    registerSecretsApi(app, {
-      secretsStore: deps.secretsStore,
-    });
+    registerSecretsApi(app, { secretsStore: deps.secretsStore });
   }
 
-  app.use(
-    createPlanningRouter({
-      executePlan: deps.executePlan ? (issues) => deps.executePlan!(issues) : undefined,
-    }),
-  );
+  app.use(createPlanningRouter({ executePlan: deps.executePlan ? (issues) => deps.executePlan!(issues) : undefined }));
+  registerIssueRoutes(app, deps);
 
-  app
-    .route("/api/v1/:issue_identifier/model")
-    .post(async (request, response) => {
-      await handleModelUpdate(deps.orchestrator, request, response);
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
-
-  app
-    .route("/api/v1/:issue_identifier/attempts")
-    .get((request, response) => {
-      const detail = deps.orchestrator.getIssueDetail(request.params.issue_identifier);
-      if (!detail) {
-        response.status(404).json({
-          error: {
-            code: "not_found",
-            message: "Unknown issue identifier",
-          },
-        });
-        return;
-      }
-      response.json({
-        attempts: detail.attempts ?? [],
-        current_attempt_id: detail.currentAttemptId ?? null,
-      });
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
-
-  app
-    .route("/api/v1/attempts/:attempt_id")
-    .get((request, response) => {
-      handleAttemptDetail(deps.orchestrator, request, response);
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
-
-  app
-    .route("/api/v1/:issue_identifier")
-    .get((request, response) => {
-      const detail = deps.orchestrator.getIssueDetail(request.params.issue_identifier);
-      if (!detail) {
-        response.status(404).json({
-          error: {
-            code: "not_found",
-            message: "Unknown issue identifier",
-          },
-        });
-        return;
-      }
-      response.json(detail);
-    })
-    .all((_request, response) => {
-      methodNotAllowed(response);
-    });
+  app.use((request, response) => {
+    if (request.path.startsWith("/api/") || request.path === "/metrics") {
+      response.status(404).json({ error: { code: "not_found", message: "Not found" } });
+      return;
+    }
+    response.sendFile(join(frontendDist, "index.html"));
+  });
 }

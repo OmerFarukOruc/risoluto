@@ -1,4 +1,4 @@
-import type { Issue, ReasoningEffort, TokenUsageSnapshot } from "../core/types.js";
+import type { Issue, IssueBlockerRef, ReasoningEffort, TokenUsageSnapshot } from "../core/types.js";
 
 export interface IssueView {
   issueId: string;
@@ -24,6 +24,11 @@ export interface IssueView {
   configuredReasoningEffort?: ReasoningEffort | null;
   configuredModelSource?: "default" | "override" | null;
   modelChangePending?: boolean;
+  url?: string | null;
+  description?: string | null;
+  blockedBy?: IssueBlockerRef[];
+  branchName?: string | null;
+  createdAt?: string | null;
 }
 
 export function nowIso(): string {
@@ -48,6 +53,11 @@ export function issueView(issue: Issue, extra?: Partial<IssueView>): IssueView {
     updatedAt: issue.updatedAt ?? nowIso(),
     attempt: null,
     error: null,
+    url: issue.url,
+    description: issue.description,
+    blockedBy: issue.blockedBy,
+    branchName: issue.branchName,
+    createdAt: issue.createdAt,
     ...extra,
   };
 }

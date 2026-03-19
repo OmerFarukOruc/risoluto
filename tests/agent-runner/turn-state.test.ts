@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 
 import {
   appendReasoningText,
+  composeSessionId,
   createTurnState,
+  deleteReasoningBuffer,
   recordCompletedTurn,
   waitForTurnCompletion,
 } from "../../src/agent-runner/turn-state.js";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("turn state", () => {
   it("returns a buffered completed turn when notification arrives before the waiter", async () => {
@@ -47,5 +53,93 @@ describe("turn state", () => {
     appendReasoningText(state, "reason-1", "run a query.");
 
     expect(state.reasoningBuffers.get("reason-1")).toBe("I need to run a query.");
+  });
+
+  it("rejects with timeout error when no completion arrives", async () => {
+    vi.useFakeTimers();
+    const state = createTurnState();
+    const promise = waitForTurnCompletion(state, {
+      turnId: "turn-timeout",
+      signal: new AbortController().signal,
+      timeoutMs: 500,
+    });
+    vi.advanceTimersByTime(501);
+    await expect(promise).rejects.toThrow("timed out waiting for turn completion after 500ms");
+    expect(state.turnCompletionResolvers.has("turn-timeout")).toBe(false);
+  });
+
+  it("rejects when abort signal fires before completion", async () => {
+    const state = createTurnState();
+    const controller = new AbortController();
+    const promise = waitForTurnCompletion(state, {
+      turnId: "turn-abort",
+      signal: controller.signal,
+      timeoutMs: 5000,
+    });
+    controller.abort();
+    await expect(promise).rejects.toThrow("turn completion interrupted");
+    expect(state.turnCompletionResolvers.has("turn-abort")).toBe(false);
+  });
+
+  it("handles multiple concurrent waiters on different turnIds", async () => {
+    const state = createTurnState();
+    const controller = new AbortController();
+    const p1 = waitForTurnCompletion(state, {
+      turnId: "t1",
+      signal: controller.signal,
+      timeoutMs: 5000,
+    });
+    const p2 = waitForTurnCompletion(state, {
+      turnId: "t2",
+      signal: controller.signal,
+      timeoutMs: 5000,
+    });
+
+    recordCompletedTurn(state, "t2", { id: "t2", done: true });
+    recordCompletedTurn(state, "t1", { id: "t1", done: true });
+
+    await expect(p1).resolves.toEqual({ id: "t1", done: true });
+    await expect(p2).resolves.toEqual({ id: "t2", done: true });
+  });
+
+  it("appendReasoningText is a no-op for null itemId or text", () => {
+    const state = createTurnState();
+    appendReasoningText(state, null, "some text");
+    appendReasoningText(state, "item-1", null);
+    expect(state.reasoningBuffers.size).toBe(0);
+  });
+
+  it("deleteReasoningBuffer removes the buffer", () => {
+    const state = createTurnState();
+    appendReasoningText(state, "item-1", "data");
+    expect(state.reasoningBuffers.has("item-1")).toBe(true);
+    deleteReasoningBuffer(state, "item-1");
+    expect(state.reasoningBuffers.has("item-1")).toBe(false);
+  });
+
+  it("deleteReasoningBuffer is a no-op for null itemId", () => {
+    const state = createTurnState();
+    deleteReasoningBuffer(state, null);
+    expect(state.reasoningBuffers.size).toBe(0);
+  });
+
+  it("recordCompletedTurn is a no-op for null turnId", () => {
+    const state = createTurnState();
+    recordCompletedTurn(state, null, { something: true });
+    expect(state.completedTurnNotifications.size).toBe(0);
+  });
+});
+
+describe("composeSessionId", () => {
+  it("returns null when threadId is null", () => {
+    expect(composeSessionId(null, "turn-1")).toBeNull();
+  });
+
+  it("returns threadId when turnId is null", () => {
+    expect(composeSessionId("thread-1", null)).toBe("thread-1");
+  });
+
+  it("returns combined string when both are present", () => {
+    expect(composeSessionId("thread-1", "turn-1")).toBe("thread-1-turn-1");
   });
 });

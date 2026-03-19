@@ -5,18 +5,16 @@
 @keyframes diffFlash {
   0% {
     background: color-mix(in srgb, var(--color-copper-500) 10%, var(--bg-surface));
-    border-color: color-mix(in srgb, var(--color-copper-500) 42%, var(--border-strong));
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-copper-500) 28%, transparent);
+    border-color: color-mix(in srgb, var(--color-copper-500) 42%, var(--border-stitch));
   }
 
   55% {
     background: color-mix(in srgb, var(--color-copper-500) 6%, var(--bg-surface));
-    border-color: color-mix(in srgb, var(--color-copper-500) 26%, var(--border-default));
+    border-color: color-mix(in srgb, var(--color-copper-500) 26%, var(--border-stitch));
   }
 
   100% {
     background: initial;
     border-color: initial;
-    box-shadow: 0 0 0 10px transparent;
   }
 }

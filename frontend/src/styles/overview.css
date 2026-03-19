@@ -3,26 +3,26 @@
   gap: var(--space-6);
 }
 
-/* Varied grid: primary metrics (Now, Token burn) larger, secondary (Attention, Recent) smaller */
 .overview-grid {
   display: grid;
   grid-template-columns: 1.15fr 1.15fr 0.85fr 0.85fr;
   gap: var(--space-5);
 }
 
-/* Primary stat cards get more visual weight */
-.overview-grid .mc-stat-card:first-child,
+.overview-grid .mc-stat-card:first-child {
+  padding: var(--space-5);
+  border-top: 2px solid var(--text-accent);
+}
+
 .overview-grid .mc-stat-card:nth-child(2) {
   padding: var(--space-5);
 }
 
-/* Secondary cards are more compact */
 .overview-grid .mc-stat-card:nth-child(3),
 .overview-grid .mc-stat-card:nth-child(4) {
   padding: var(--space-4);
 }
 
-/* Lower section has generous separation from top grid */
 .overview-lower {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
@@ -43,13 +43,9 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
-  transition:
-    border-color var(--motion-fast) var(--ease-out-quart),
-    box-shadow var(--motion-medium) var(--ease-out-quart),
-    transform var(--motion-fast) var(--ease-out-quart);
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
+  transition: border-color var(--motion-fast) var(--ease-out-quart);
 }
 
 .overview-row-meta,
@@ -71,8 +67,18 @@
 .overview-attention-item strong,
 .overview-terminal-item strong {
   display: block;
+  font-family: var(--font-heading);
   font-size: 20px;
+  font-weight: 700;
   line-height: 1.1;
+}
+
+.overview-kpi-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .overview-grid > .mc-stat-card,
@@ -82,6 +88,7 @@
 
 .overview-kpi span,
 .overview-small {
+  font-family: var(--font-body);
   color: var(--text-secondary);
 }
 
@@ -95,7 +102,6 @@
 .overview-terminal-item:hover,
 .overview-row:hover {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
 }
 
 .overview-attention-item[data-status="blocked"] {
@@ -112,6 +118,31 @@
   max-height: 46vh;
   overflow: auto;
   padding-right: 4px;
+}
+
+.overview-event-feed {
+  position: relative;
+}
+
+.overview-event-feed.idle::after {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-running);
+  animation: statusPulse 2s ease-in-out infinite;
+  margin: var(--space-3) 0;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 1180px) {

@@ -30,17 +30,35 @@
 
 .settings-card.is-selected,
 .settings-rail-item.is-selected {
-  border-color: color-mix(in srgb, var(--color-copper-500) 38%, var(--border-strong));
+  border-color: var(--text-accent);
 }
 
 .settings-rail-item {
   width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  background: transparent;
   text-align: left;
   cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition:
+    color var(--motion-fast) var(--ease-out-quart),
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.settings-rail-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.settings-rail-item.is-active {
+  color: var(--text-accent);
+  border-left-color: var(--text-accent);
+  background: var(--bg-elevated);
 }
 
 .settings-actions {
@@ -54,6 +72,24 @@
 .settings-diff,
 .settings-textarea {
   min-height: 180px;
+}
+
+.settings-card {
+  border: 1px solid var(--border-stitch);
+  padding: var(--space-5);
+  background: var(--bg-surface);
+}
+
+.settings-card-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.settings-card-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 1100px) {

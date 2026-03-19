@@ -39,16 +39,17 @@
   display: grid;
   gap: var(--space-1);
   padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
 }
 
 .planner-summary-card strong {
+  font-family: var(--font-heading);
   font-size: 20px;
 }
 
 .planner-summary-card span {
+  font-family: var(--font-body);
   color: var(--text-secondary);
 }
 
@@ -62,19 +63,26 @@
   width: 100%;
   justify-content: flex-start;
   padding: var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   text-align: left;
+  font-family: var(--font-body);
 }
 
 .planner-dependency-chip.static {
   cursor: default;
 }
 
+.planner-card {
+  border: 1px solid var(--border-stitch);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  transition: border-color var(--motion-fast) var(--ease-out-quart);
+}
+
 .planner-card.is-selected {
-  border-color: color-mix(in srgb, var(--color-copper-500) 40%, var(--border-strong));
+  border-color: color-mix(in srgb, var(--color-copper-500) 40%, var(--border-stitch));
 }
 
 .planner-card-header,
@@ -86,16 +94,37 @@
   flex-wrap: wrap;
 }
 
+.planner-card-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
 .planner-card-labels {
   grid-template-columns: repeat(auto-fit, minmax(100px, max-content));
 }
 
 .planner-result-link {
   padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
   color: var(--text-accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.planner-rail {
+  border-left: 1px solid var(--border-stitch);
+  padding-left: var(--space-5);
+}
+
+.planner-rail-section h3 {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-3);
 }
 
 @media (max-width: 1080px) {

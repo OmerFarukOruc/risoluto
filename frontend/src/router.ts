@@ -25,7 +25,7 @@ function compileRoute(path: string): Pick<InternalRoute, "pattern" | "keys"> {
     })
     .join("\\/");
 
-  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp — source is sanitized developer-defined route paths, not user input
+  // nosemgrep: detect-non-literal-regexp
   return { pattern: RegExp(`^${source}$`), keys };
 }
 

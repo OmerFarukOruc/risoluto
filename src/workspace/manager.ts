@@ -72,7 +72,7 @@ export class WorkspaceManager {
 
       const workspace = { path: workspacePath, workspaceKey, createdNow };
       if (createdNow) {
-        await this.runHook(config.workspace.hooks.afterCreate, workspace, issueIdentifier);
+        await this.runHook(config.workspace.hooks.afterCreate, workspace, issueIdentifier, workspaceKey);
       }
       return workspace;
     } catch (error) {
@@ -93,11 +93,13 @@ export class WorkspaceManager {
   }
 
   async runBeforeRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
-    await this.runHook(this.getConfig().workspace.hooks.beforeRun, workspace, issueIdentifier);
+    const sanitized = sanitizeIdentifier(issueIdentifier);
+    await this.runHook(this.getConfig().workspace.hooks.beforeRun, workspace, issueIdentifier, sanitized);
   }
 
   async runAfterRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
-    await this.runHook(this.getConfig().workspace.hooks.afterRun, workspace, issueIdentifier);
+    const sanitized = sanitizeIdentifier(issueIdentifier);
+    await this.runHook(this.getConfig().workspace.hooks.afterRun, workspace, issueIdentifier, sanitized);
   }
 
   async removeWorkspace(issueIdentifier: string): Promise<void> {
@@ -110,7 +112,7 @@ export class WorkspaceManager {
     }
 
     try {
-      await this.runHook(config.workspace.hooks.beforeRemove, workspace, issueIdentifier);
+      await this.runHook(config.workspace.hooks.beforeRemove, workspace, issueIdentifier, workspaceKey);
     } catch (error) {
       this.logger.warn(
         {
@@ -125,7 +127,12 @@ export class WorkspaceManager {
     await rm(workspacePath, { recursive: true, force: true });
   }
 
-  private async runHook(hook: string | null, workspace: Workspace, issueIdentifier: string): Promise<void> {
+  private async runHook(
+    hook: string | null,
+    workspace: Workspace,
+    issueIdentifier: string,
+    sanitizedIdentifier: string,
+  ): Promise<void> {
     if (!hook) {
       return;
     }
@@ -138,7 +145,7 @@ export class WorkspaceManager {
           ...process.env,
           PATH: process.env.PATH,
           SYMPHONY_WORKSPACE_PATH: workspace.path,
-          SYMPHONY_ISSUE_IDENTIFIER: issueIdentifier,
+          SYMPHONY_ISSUE_IDENTIFIER: sanitizedIdentifier,
         },
         stdio: ["ignore", "pipe", "pipe"],
       });

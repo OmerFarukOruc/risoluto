@@ -73,9 +73,10 @@ describe("WorkspaceManager", () => {
     await manager.runAfterRun(workspace, "MT/42");
 
     const hookLog = await readFile(path.join(workspace.path, "hook.log"), "utf8");
-    expect(hookLog).toContain("after_create:MT/42");
-    expect(hookLog).toContain("before_run:MT/42");
-    expect(hookLog).toContain("after_run:MT/42");
+    // SYMPHONY_ISSUE_IDENTIFIER is sanitized to prevent shell injection
+    expect(hookLog).toContain("after_create:MT_42");
+    expect(hookLog).toContain("before_run:MT_42");
+    expect(hookLog).toContain("after_run:MT_42");
 
     await manager.removeWorkspace("MT/42");
     await expect(stat(workspace.path)).rejects.toThrow();

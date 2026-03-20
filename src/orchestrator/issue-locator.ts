@@ -1,4 +1,4 @@
-import { buildRunningIssueView, buildRetryIssueView } from "./snapshot-builder.js";
+import { buildRunningIssueView, buildRetryIssueView } from "./issue-view-builders.js";
 import type { ModelSelection, RuntimeIssueView } from "../core/types.js";
 import type { RunningEntry, RetryRuntimeEntry } from "./runtime-types.js";
 

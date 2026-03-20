@@ -21,11 +21,20 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   boardWrap.className = "kanban-board-wrap";
   const board = document.createElement("div");
   board.className = "kanban-board";
-  const inspector = createIssueInspector({ mode: "drawer", initialId: params?.id });
+  const backdrop = document.createElement("div");
+  backdrop.className = "drawer-overlay";
+  backdrop.hidden = true;
+  backdrop.addEventListener("click", () => router.navigate("/queue"));
+  const inspector = createIssueInspector({
+    mode: "drawer",
+    initialId: params?.id,
+    onClose: () => router.navigate("/queue"),
+  });
   inspector.element.hidden = !params?.id;
+  if (params?.id) backdrop.hidden = false;
   boardWrap.append(board);
-  layout.append(boardWrap, inspector.element);
-  page.append(toolbar, layout);
+  layout.append(boardWrap);
+  page.append(toolbar, layout, backdrop, inspector.element);
 
   const filters = createFilters();
   let ui = createUiState(store.getState().snapshot?.workflow_columns ?? []);
@@ -63,8 +72,10 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
 
   function setRoute(id = ""): void {
     routeId = id;
-    inspector.element.hidden = !id;
-    if (id) {
+    const open = Boolean(id);
+    inspector.element.hidden = !open;
+    backdrop.hidden = !open;
+    if (open) {
       void inspector.load(id);
     }
   }

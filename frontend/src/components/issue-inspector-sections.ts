@@ -38,10 +38,11 @@ export function buildDescriptionSection(detail: IssueDetail): HTMLElement {
   body.className = detail.description ? "issue-body-copy" : "issue-placeholder";
   body.textContent = detail.description?.trim() || "Not exposed yet";
   section.append(body);
-  if ((detail.blocked_by ?? []).length > 0) {
+  if ((detail.blockedBy ?? []).length > 0) {
     const blockers = document.createElement("div");
     blockers.className = "issue-blocker-list";
-    detail.blocked_by?.forEach((identifier) => {
+    detail.blockedBy?.forEach((blocker) => {
+      const identifier = blocker.identifier ?? blocker.id ?? "";
       const item = document.createElement("button");
       item.type = "button";
       item.className = "overview-row";
@@ -62,7 +63,7 @@ export function buildWorkspaceSection(detail: IssueDetail): HTMLElement {
   grid.className = "issue-meta-grid";
   grid.append(
     kv("Workspace", detail.workspacePath ?? "Not available"),
-    kv("Branch", detail.branch_name ?? "—"),
+    kv("Branch", detail.branchName ?? "—"),
     kv("Pull request", detail.pull_request_url ?? "—"),
     kv("Tokens", formatCompactNumber(detail.tokenUsage?.totalTokens ?? null)),
     kv("Duration", formatDuration(computeDurationSeconds(detail.startedAt, detail.updated_at ?? detail.updatedAt))),
@@ -98,7 +99,7 @@ export function buildModelSection(detail: IssueDetail): HTMLElement {
   });
   const effortSelect = document.createElement("select");
   effortSelect.className = "mc-select";
-  ["none", "low", "medium", "high"].forEach((value) => {
+  ["none", "minimal", "low", "medium", "high", "xhigh"].forEach((value) => {
     const option = document.createElement("option");
     option.value = value === "none" ? "" : value;
     option.textContent = value;

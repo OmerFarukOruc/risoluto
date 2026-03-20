@@ -3,6 +3,7 @@ const STATUS_LABELS: Record<string, string> = {
   retrying: "Retrying",
   blocked: "Blocked",
   completed: "Done",
+  failed: "Failed",
   queued: "Queued",
   claimed: "Claimed",
   pending_change: "Model Change",

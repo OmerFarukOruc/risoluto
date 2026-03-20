@@ -25,7 +25,7 @@ export function renderRunsSummary(attempt: AttemptSummary, detail: AttemptRecord
   header.className = "runs-detail-header";
   const titleWrap = document.createElement("div");
   const title = document.createElement("h2");
-  title.textContent = `Run #${attempt.attemptNumber}`;
+  title.textContent = `Run #${attempt.attemptNumber ?? "—"}`;
   const subtitle = document.createElement("p");
   subtitle.className = "page-subtitle";
   subtitle.textContent =

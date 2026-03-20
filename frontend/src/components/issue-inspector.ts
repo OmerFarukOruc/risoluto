@@ -18,6 +18,7 @@ import {
 interface IssueInspectorOptions {
   mode: "page" | "drawer";
   initialId?: string;
+  onClose?: () => void;
 }
 
 function mergeDetail(
@@ -33,7 +34,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   destroy: () => void;
 } {
   const root = document.createElement("div");
-  root.className = options.mode === "drawer" ? "issue-inspector mc-drawer" : "issue-page";
+  root.className = options.mode === "drawer" ? "issue-inspector queue-drawer drawer" : "issue-page";
   const header = document.createElement("section");
   header.className = "issue-section mc-panel";
   const summary = document.createElement("section");
@@ -76,8 +77,16 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   headerTop.append(updatedAt, statusSlot, logsLink, runsLink);
   if (options.mode === "drawer") {
     headerTop.append(fullPageButton);
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "mc-button mc-button-ghost drawer-close-btn";
+    closeBtn.setAttribute("aria-label", "Close panel");
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", () => options.onClose?.());
+    header.append(identifier, title, headerTop, closeBtn);
+  } else {
+    header.append(identifier, title, headerTop);
   }
-  header.append(identifier, title, headerTop);
 
   const summaryStats = {
     priority: createSummaryStat("Priority"),

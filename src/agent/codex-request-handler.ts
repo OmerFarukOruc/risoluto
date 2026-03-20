@@ -1,4 +1,4 @@
-import { asRecord, asString } from "../agent-runner/helpers.js";
+import { asRecord, asStringOrNull as asString } from "../utils/type-guards.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
 import { handleGithubApiToolCall } from "../git/github-api-tool.js";
 import type { LinearClient } from "../linear/client.js";

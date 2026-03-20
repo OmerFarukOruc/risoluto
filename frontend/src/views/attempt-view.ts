@@ -75,7 +75,7 @@ function renderAttemptPage(attempt: AttemptRecord, issue: IssueDetail | null): H
     actions.append(createLinkButton(`Back to ${issueIdentifier}`, `/issues/${issueIdentifier}`));
   }
   const header = createPageHeader(
-    `${issueTitle} · Run #${attempt.attemptNumber}`,
+    `${issueTitle} · Run #${attempt.attemptNumber ?? "—"}`,
     "Archived attempt metadata, routing, and workspace context for one complete run.",
     {
       eyebrow: issueIdentifier,

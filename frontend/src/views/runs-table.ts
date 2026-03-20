@@ -99,7 +99,7 @@ export function createRunsTable(options: RunsTableOptions): HTMLElement {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = isCompared;
-    checkbox.setAttribute("aria-label", `Compare run ${attempt.attemptNumber}`);
+    checkbox.setAttribute("aria-label", `Compare run ${attempt.attemptNumber ?? "best"}`);
     checkbox.addEventListener("click", (event) => event.stopPropagation());
     checkbox.addEventListener("change", () => options.onToggleCompare(attempt.attemptId));
     compareCell.append(checkbox);
@@ -109,7 +109,7 @@ export function createRunsTable(options: RunsTableOptions): HTMLElement {
     runWrap.className = "runs-run-cell";
     const runNumber = document.createElement("strong");
     runNumber.className = "text-mono";
-    runNumber.textContent = `#${attempt.attemptNumber}`;
+    runNumber.textContent = `#${attempt.attemptNumber ?? "—"}`;
     runWrap.append(runNumber);
     if (attempt.endedAt === null) {
       const livePill = document.createElement("span");

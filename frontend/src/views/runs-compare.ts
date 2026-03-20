@@ -38,7 +38,7 @@ function compareCard(attempt: AttemptSummary): HTMLElement {
   const title = document.createElement("div");
   title.className = "runs-compare-card-header";
   const heading = document.createElement("h3");
-  heading.textContent = `Run #${attempt.attemptNumber}`;
+  heading.textContent = `Run #${attempt.attemptNumber ?? "—"}`;
   title.append(heading, statusChip(attempt.status));
 
   const list = document.createElement("dl");
@@ -73,7 +73,7 @@ export function createRunsCompare(
   header.className = "runs-detail-header";
   const text = document.createElement("div");
   const title = document.createElement("h2");
-  title.textContent = `Run #${leftAttempt.attemptNumber} vs Run #${rightAttempt.attemptNumber}`;
+  title.textContent = `Run #${leftAttempt.attemptNumber ?? "—"} vs Run #${rightAttempt.attemptNumber ?? "—"}`;
   const subtitle = document.createElement("p");
   subtitle.className = "page-subtitle";
   subtitle.textContent = "Changed values are highlighted for quick side-by-side inspection.";

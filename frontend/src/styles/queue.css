@@ -4,9 +4,6 @@
 }
 
 .queue-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-5);
   min-height: 0;
 }
 
@@ -96,47 +93,80 @@
   border-top-color: var(--status-blocked);
 }
 
-.mc-drawer {
-  width: min(420px, 30vw);
-  min-width: min(340px, 25vw);
-  max-width: min(420px, 30vw);
-  background: var(--bg-elevated);
-  border-left: 1px solid var(--border-stitch);
-  align-self: start;
+/* ── Queue drawer (slide-over panel) ──────────────────────── */
+
+.queue-drawer {
+  top: var(--header-height);
+  width: 480px;
 }
 
-.mc-drawer[hidden] {
+.queue-drawer[hidden] {
   display: none;
 }
 
-/* Issue inspector overrides for narrow drawer */
-.mc-drawer .issue-header-top {
+/* Sticky panel header — stays visible while content scrolls */
+.queue-drawer .issue-section:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-stitch);
+}
+
+/* Close button — top-right of the sticky header */
+.drawer-close-btn {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: var(--text-md);
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color var(--motion-fast) var(--ease-out-quart);
+}
+
+.drawer-close-btn:hover {
+  color: var(--text-primary);
+}
+
+.queue-page .drawer-overlay {
+  top: var(--header-height);
+  left: var(--sidebar-width-collapsed);
+  background: transparent;
+}
+
+/* Issue inspector overrides for panel context */
+.queue-drawer .issue-header-top {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding-right: var(--space-8);
 }
 
-.mc-drawer .issue-summary-strip {
+.queue-drawer .issue-summary-strip {
   grid-template-columns: 1fr 1fr;
 }
 
-.mc-drawer .issue-meta-grid {
+.queue-drawer .issue-meta-grid {
   grid-template-columns: 1fr 1fr;
 }
 
-.mc-drawer .issue-section {
+.queue-drawer .issue-section {
   padding: var(--space-4);
 }
 
-.mc-drawer .issue-form-grid {
+.queue-drawer .issue-form-grid {
   grid-template-columns: 1fr auto;
 }
 
-.mc-drawer .issue-form-grid .mc-select {
+.queue-drawer .issue-form-grid .mc-select {
   width: 100px;
 }
 
-.mc-drawer .issue-activity-list .event-row-message {
+.queue-drawer .issue-activity-list .event-row-message {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -148,21 +178,24 @@
   overflow-x: auto;
 }
 
-.mc-drawer .attempts-table th,
-.mc-drawer .attempts-table td {
+.queue-drawer .attempts-table th,
+.queue-drawer .attempts-table td {
   padding: 8px 10px;
   font-size: var(--text-xs);
   white-space: nowrap;
 }
 
-@media (max-width: 1220px) {
-  .queue-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .mc-drawer {
+/* On narrow viewports the panel goes full-width from bottom */
+@media (max-width: 768px) {
+  .queue-drawer {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: 100%;
-    min-width: 0;
     max-width: none;
+    height: 70vh;
+    border-left: none;
+    border-top: 1px solid var(--border-stitch);
   }
 }

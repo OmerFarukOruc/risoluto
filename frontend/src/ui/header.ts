@@ -37,15 +37,15 @@ export function initHeader(headerEl: HTMLElement): void {
   command.className = "header-command";
   const commandButton = document.createElement("button");
   commandButton.type = "button";
-  commandButton.className = "header-command-trigger";
+  commandButton.className = "mc-button is-command header-command-trigger";
   const searchIcon = document.createElement("span");
-  searchIcon.className = "header-command-icon";
+  searchIcon.className = "mc-button-icon header-command-icon";
   searchIcon.append(createIcon("overview", { size: 14 }));
   const cmdLabel = document.createElement("span");
   cmdLabel.className = "header-command-label";
   cmdLabel.textContent = "Search routes, issues, actions\u2026";
   const cmdHint = document.createElement("span");
-  cmdHint.className = "header-command-hint";
+  cmdHint.className = "mc-button-hint header-command-hint";
   cmdHint.textContent = "Ctrl+K";
   commandButton.append(searchIcon, cmdLabel, cmdHint);
   commandButton.addEventListener("click", () => {

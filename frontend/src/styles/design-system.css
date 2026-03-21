@@ -7,11 +7,40 @@
    to avoid render-blocking CSS @import. */
 
 /* ============================================
+   ACCENT USAGE RULES
+   ============================================
+
+   COPPER (brand accent) — Use ONLY for:
+   - Primary actions (main CTA buttons)
+   - Active navigation state
+   - Live zone indicators (when data is actively flowing)
+   - Brand identity elements (logo, key highlights)
+
+   DO NOT use copper for:
+   - Status indicators (use semantic status colors)
+   - Secondary actions
+   - Decorative borders on non-urgent content
+
+   SEMANTIC COLORS — Use for operational state:
+   - Green (running): Active, healthy, in-progress
+   - Red (blocked): Error, blocked, needs attention
+   - Amber (retrying): Warning, retrying, degraded
+   - Blue (queued): Waiting, informational
+   - Purple (claimed): Reserved, assigned
+   - Gray (completed): Done, neutral
+
+   NEUTRAL — Default for everything else:
+   - Standard containers and surfaces
+   - Non-active navigation
+   - Metadata and secondary content
+   ============================================ */
+
+/* ============================================
    COLOR PALETTE — Copper Brand
    ============================================ */
 
 :root {
-  /* Copper brand scale */
+  /* Copper brand scale — reserved for primary brand identity */
   --color-copper-50: #f9eee9;
   --color-copper-100: #f3ddd4;
   --color-copper-200: #e8bba9;
@@ -320,6 +349,89 @@ body {
 }
 
 /* ============================================
+   TYPOGRAPHY HIERARCHY
+   Use type for hierarchy, not just borders
+
+   ── HEADING HIERARCHY ──────────────────────────────────────
+   .heading-display  — Hero numbers, large metrics
+   .heading-section  — Page/section titles
+   .heading-card     — Card titles, list headings
+   .heading-label    — Small section labels
+
+   ── BODY HIERARCHY ────────────────────────────────────────
+   .text-primary     — Main content (use token)
+   .text-secondary   — Supporting content (use token)
+   .text-tertiary    — Metadata, timestamps
+
+   ── SPECIAL USE ───────────────────────────────────────────
+   .text-identifier  — Issue IDs, code snippets (mono)
+   .text-metric      — KPI numbers (tabular figures)
+   .text-action      — Button text, CTAs
+   ============================================ */
+
+.heading-display {
+  font-family: var(--font-heading);
+  font-size: var(--text-hero);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tightest);
+  font-feature-settings: var(--font-features-tabular);
+}
+
+.heading-section {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+}
+
+.heading-card {
+  font-family: var(--font-heading);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+}
+
+.heading-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.text-identifier {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-accent);
+}
+
+.text-metric {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+  font-feature-settings: var(--font-features-tabular);
+}
+
+.text-action {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* ============================================
    COMPONENT CLASSES
    ============================================ */
 
@@ -364,20 +476,20 @@ body {
 }
 
 [data-theme="dark"] .badge-success {
-  background: rgba(47, 158, 68, 0.15);
-  color: #4db86a;
+  background: color-mix(in srgb, var(--status-running) 15%, transparent);
+  color: var(--status-running);
 }
 [data-theme="dark"] .badge-warning {
-  background: rgba(217, 138, 28, 0.15);
-  color: #e8a33c;
+  background: color-mix(in srgb, var(--status-retrying) 15%, transparent);
+  color: var(--status-retrying);
 }
 [data-theme="dark"] .badge-danger {
-  background: rgba(217, 72, 65, 0.15);
-  color: #e86060;
+  background: color-mix(in srgb, var(--status-blocked) 15%, transparent);
+  color: var(--status-blocked);
 }
 [data-theme="dark"] .badge-info {
-  background: rgba(79, 124, 255, 0.15);
-  color: #6b8fff;
+  background: color-mix(in srgb, var(--status-queued) 15%, transparent);
+  color: var(--status-queued);
 }
 
 /* Buttons */
@@ -432,8 +544,8 @@ body {
 }
 
 .btn-icon {
-  width: 36px;
-  height: 36px;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
   padding: 0;
 }
 

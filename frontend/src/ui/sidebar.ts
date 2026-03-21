@@ -67,9 +67,12 @@ function buildNavItems(groupEl: HTMLElement, groupName: string): void {
   groupEl.append(itemsContainer);
 }
 
-function buildGroupHeader(groupName: string): HTMLDivElement {
-  const header = document.createElement("div");
+function buildGroupHeader(groupName: string, groupEl: HTMLElement): HTMLButtonElement {
+  const header = document.createElement("button");
   header.className = "sidebar-group-header";
+  header.type = "button";
+  header.setAttribute("aria-expanded", "true");
+  header.setAttribute("aria-controls", `sidebar-group-${groupName.toLowerCase().replace(/\s+/g, "-")}`);
 
   const groupLabel = document.createElement("span");
   groupLabel.className = "sidebar-group-label";
@@ -78,8 +81,16 @@ function buildGroupHeader(groupName: string): HTMLDivElement {
   const groupToggle = document.createElement("span");
   groupToggle.className = "sidebar-group-toggle";
   groupToggle.textContent = "⌃";
+  groupToggle.setAttribute("aria-hidden", "true");
 
   header.append(groupLabel, groupToggle);
+
+  // Toggle collapse state and update ARIA
+  header.addEventListener("click", () => {
+    const isCollapsed = groupEl.classList.toggle("is-collapsed");
+    header.setAttribute("aria-expanded", String(!isCollapsed));
+  });
+
   return header;
 }
 
@@ -121,12 +132,9 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   for (const groupName of navGroups) {
     const group = document.createElement("section");
     group.className = "sidebar-group";
+    group.id = `sidebar-group-${groupName.toLowerCase().replace(/\s+/g, "-")}`;
 
-    const header = buildGroupHeader(groupName);
-    header.addEventListener("click", () => {
-      group.classList.toggle("is-collapsed");
-    });
-
+    const header = buildGroupHeader(groupName, group);
     group.append(header);
     buildNavItems(group, groupName);
     sidebarEl.append(group);

@@ -585,16 +585,6 @@
   background: var(--bg-elevated);
 }
 
-@keyframes skeletonPulse {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
 @keyframes shimmer {
   0% {
     background-position: -200% 0;

@@ -14,7 +14,14 @@ export async function loadLiveLogs(issueId: string): Promise<LogsData> {
 
 export async function loadArchiveLogs(issueId: string): Promise<LogsData> {
   const attempts = await api.getAttempts(issueId);
-  const latestAttempt = [...attempts.attempts].sort((left, right) => right.attemptNumber - left.attemptNumber)[0];
+
+  // Sort by attemptNumber descending. Null attemptNumber means "current/most recent",
+  // so treat null as Infinity to prioritize it over numbered historical attempts.
+  const latestAttempt = [...attempts.attempts].sort((left, right) => {
+    const leftNum = left.attemptNumber ?? Infinity;
+    const rightNum = right.attemptNumber ?? Infinity;
+    return rightNum - leftNum;
+  })[0];
   if (!latestAttempt) {
     return { title: issueId, issueId, events: [] };
   }

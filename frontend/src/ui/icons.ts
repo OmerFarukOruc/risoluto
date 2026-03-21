@@ -110,6 +110,11 @@ const ICONS = {
     { tag: "path", attrs: { d: "M8.53 16.11a6 6 0 0 1 6.95 0" } },
     { tag: "line", attrs: { x1: "12", y1: "20", x2: "12.01", y2: "20" } },
   ]),
+  dense: strokeIcon([
+    { tag: "line", attrs: { x1: "3", y1: "6", x2: "21", y2: "6" } },
+    { tag: "line", attrs: { x1: "3", y1: "12", x2: "21", y2: "12" } },
+    { tag: "line", attrs: { x1: "3", y1: "18", x2: "21", y2: "18" } },
+  ]),
 } as const satisfies Record<string, IconDefinition>;
 
 export type IconName = keyof typeof ICONS;
@@ -127,7 +132,7 @@ function createIconNode(definition: IconNodeDefinition): SVGElement {
 }
 
 export function createIcon(name: IconName, options: IconOptions = {}): SVGSVGElement {
-  const definition = ICONS[name];
+  const definition = ICONS[name] ?? ICONS.emptyDefault;
   const size = options.size ?? 16;
   const icon = document.createElementNS(SVG_NS, "svg");
   icon.setAttribute("viewBox", definition.viewBox);

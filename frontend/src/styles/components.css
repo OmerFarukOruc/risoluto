@@ -117,16 +117,56 @@
   border-left: var(--stroke-emphasis) solid var(--text-accent);
 }
 
+/* ============================================
+   UNIFIED STATUS TREATMENT PATTERN
+   ============================================
+
+   Status hierarchy based on operational urgency:
+
+   URGENT/LIVE STATES (running, blocked, retrying):
+   - Strong border-left accent (3px)
+   - Background tint for visibility
+   - Running: animated pulse indicator
+
+   ACTIVE STATES (claimed):
+   - Medium border-left accent (2px)
+   - Subtle background tint
+   - Animated pulse indicator (agent preparing)
+
+   NON-URGENT STATES (queued, completed):
+   - No border-left accent
+   - No background tint
+   - Rely on status chip/badge for identification
+   ============================================ */
+
+/* ── mc-strip status variants ───────────────────────────────────── */
+
+/* Urgent states - strong visual treatment */
 .mc-strip.is-status-running {
   border-left: var(--stroke-emphasis) solid var(--status-running);
+  background: color-mix(in srgb, var(--status-running) 4%, var(--bg-surface));
 }
 
 .mc-strip.is-status-blocked {
   border-left: var(--stroke-emphasis) solid var(--status-blocked);
+  background: color-mix(in srgb, var(--status-blocked) 4%, var(--bg-surface));
 }
 
 .mc-strip.is-status-retrying {
-  border-left: var(--stroke-emphasis) solid var(--status-retrying);
+  border-left: var(--stroke-accent) solid var(--status-retrying);
+  background: color-mix(in srgb, var(--status-retrying) 4%, var(--bg-surface));
+}
+
+/* Active state - medium treatment */
+.mc-strip.is-status-claimed {
+  border-left: var(--stroke-accent) solid var(--status-claimed);
+  background: color-mix(in srgb, var(--status-claimed) 3%, var(--bg-surface));
+}
+
+/* Non-urgent states - subtle treatment, no border-left accent */
+.mc-strip.is-status-queued,
+.mc-strip.is-status-completed {
+  /* Status conveyed through badge/chip only */
 }
 
 /* ============================================
@@ -140,39 +180,70 @@
   padding: var(--space-4);
 }
 
-.mc-container.is-status-queued {
-  border-left: var(--stroke-emphasis) solid var(--status-queued);
-}
+/* ── mc-container status variants ───────────────────────────────────── */
 
+/* Urgent states - strong visual treatment */
 .mc-container.is-status-running {
   border-left: var(--stroke-emphasis) solid var(--status-running);
-  background: color-mix(in srgb, var(--status-running) 3%, var(--bg-surface));
-}
-
-.mc-container.is-status-retrying {
-  border-left: var(--stroke-emphasis) solid var(--status-retrying);
-  background: color-mix(in srgb, var(--status-retrying) 3%, var(--bg-surface));
+  background: color-mix(in srgb, var(--status-running) 4%, var(--bg-surface));
 }
 
 .mc-container.is-status-blocked {
   border-left: var(--stroke-emphasis) solid var(--status-blocked);
-  background: color-mix(in srgb, var(--status-blocked) 3%, var(--bg-surface));
+  background: color-mix(in srgb, var(--status-blocked) 4%, var(--bg-surface));
 }
 
-.mc-container.is-status-completed {
-  border-left: var(--stroke-emphasis) solid var(--status-completed);
+.mc-container.is-status-retrying {
+  border-left: var(--stroke-accent) solid var(--status-retrying);
+  background: color-mix(in srgb, var(--status-retrying) 4%, var(--bg-surface));
 }
 
+/* Active state - medium treatment */
 .mc-container.is-status-claimed {
-  border-left: var(--stroke-emphasis) solid var(--status-claimed);
+  border-left: var(--stroke-accent) solid var(--status-claimed);
   background: color-mix(in srgb, var(--status-claimed) 3%, var(--bg-surface));
 }
 
-/* Status rail items with stronger differentiation */
+/* Non-urgent states - subtle treatment, no border-left accent */
+.mc-container.is-status-queued,
+.mc-container.is-status-completed {
+  /* Status conveyed through badge/chip only */
+}
+
+/* ── mc-list-item / mc-rail-item status variants ──────────────────── */
+
+/* Urgent states - strong visual treatment */
 .mc-list-item.is-status-running,
 .mc-rail-item.is-status-running {
-  border-left-color: var(--status-running);
-  background: color-mix(in srgb, var(--status-running) 8%, var(--bg-elevated));
+  border-left: var(--stroke-emphasis) solid var(--status-running);
+  background: color-mix(in srgb, var(--status-running) 6%, var(--bg-elevated));
+}
+
+.mc-list-item.is-status-blocked,
+.mc-rail-item.is-status-blocked {
+  border-left: var(--stroke-emphasis) solid var(--status-blocked);
+  background: color-mix(in srgb, var(--status-blocked) 6%, var(--bg-elevated));
+}
+
+.mc-list-item.is-status-retrying,
+.mc-rail-item.is-status-retrying {
+  border-left: var(--stroke-accent) solid var(--status-retrying);
+  background: color-mix(in srgb, var(--status-retrying) 6%, var(--bg-elevated));
+}
+
+/* Active state - medium treatment */
+.mc-list-item.is-status-claimed,
+.mc-rail-item.is-status-claimed {
+  border-left: var(--stroke-accent) solid var(--status-claimed);
+  background: color-mix(in srgb, var(--status-claimed) 5%, var(--bg-elevated));
+}
+
+/* Non-urgent states - no border-left accent */
+.mc-list-item.is-status-queued,
+.mc-rail-item.is-status-queued,
+.mc-list-item.is-status-completed,
+.mc-rail-item.is-status-completed {
+  /* Status conveyed through badge/chip only, no border accent */
 }
 
 /* Live indicator animation for running/claimed states */
@@ -186,6 +257,7 @@
   }
 }
 
+/* Animated pulse indicator - running state (strongest) */
 .mc-list-item.is-status-running::before,
 .mc-rail-item.is-status-running::before,
 .mc-strip.is-status-running::before {
@@ -201,6 +273,7 @@
   animation: pulse-live 2s ease-in-out infinite;
 }
 
+/* Animated pulse indicator - claimed state (active agent preparing) */
 .mc-list-item.is-status-claimed::before,
 .mc-rail-item.is-status-claimed::before,
 .mc-strip.is-status-claimed::before {
@@ -209,39 +282,11 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
+  width: 2px;
+  height: 50%;
   background: var(--status-claimed);
   border-radius: 0 2px 2px 0;
   animation: pulse-live 2s ease-in-out infinite;
-}
-
-.mc-list-item.is-status-retrying,
-.mc-rail-item.is-status-retrying {
-  border-left-color: var(--status-retrying);
-  background: color-mix(in srgb, var(--status-retrying) 8%, var(--bg-elevated));
-}
-
-.mc-list-item.is-status-queued,
-.mc-rail-item.is-status-queued {
-  border-left-color: var(--status-queued);
-}
-
-.mc-list-item.is-status-blocked,
-.mc-rail-item.is-status-blocked {
-  border-left-color: var(--status-blocked);
-  background: color-mix(in srgb, var(--status-blocked) 8%, var(--bg-elevated));
-}
-
-.mc-list-item.is-status-completed,
-.mc-rail-item.is-status-completed {
-  border-left-color: var(--status-completed);
-}
-
-.mc-list-item.is-status-claimed,
-.mc-rail-item.is-status-claimed {
-  border-left-color: var(--status-claimed);
-  background: color-mix(in srgb, var(--status-claimed) 8%, var(--bg-elevated));
 }
 
 .mc-actions,

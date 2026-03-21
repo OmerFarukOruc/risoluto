@@ -42,6 +42,10 @@ export function createLogRow(options: LogRowOptions): HTMLElement {
 
   const row = document.createElement("article");
   row.className = "mc-log-row";
+
+  const eventClass = classifyEvent(event);
+  row.classList.add(`is-${eventClass}`);
+
   if (payload) row.classList.add("has-payload");
   if (expanded) row.classList.add("is-expanded");
 
@@ -62,7 +66,7 @@ export function createLogRow(options: LogRowOptions): HTMLElement {
   timestamp.textContent = formatShortTime(event.at);
 
   const chip = document.createElement("span");
-  chip.className = `event-chip event-chip-${classifyEvent(event)}`;
+  chip.className = `event-chip event-chip-${eventClass}`;
   chip.textContent = eventTypeLabel(event.event);
 
   const message = document.createElement("p");

@@ -5,30 +5,13 @@
    Primary: Commanding, high contrast — live data, primary actions
    Standard: Current treatment, default for most content
    Quiet: No border, transparent background, for metadata and secondary info
+
+   Border-left accent reserved for:
+   - Primary commanding surfaces (mc-command, mc-live-panel, mc-status-primary)
+   - Active/urgent operational states (running, claimed, blocked, retrying)
    ============================================ */
 
-/* ── Base Surface Classes ───────────────────────────────────── */
-
-.surface-primary {
-  border: var(--surface-primary-border-width) solid var(--surface-primary-border);
-  border-left: var(--surface-primary-accent-width) solid var(--surface-primary-border-accent);
-  background: var(--surface-primary-bg);
-  padding: var(--space-5);
-}
-
-.surface-standard {
-  border: var(--surface-standard-border-width) solid var(--surface-standard-border);
-  background: var(--surface-standard-bg);
-  padding: var(--space-4);
-}
-
-.surface-quiet {
-  border: 1px solid transparent;
-  background: var(--surface-quiet-bg);
-  padding: var(--space-4);
-}
-
-/* ── Primary Surfaces — commanding presence ───────────────────── */
+/* ── Primary Surfaces — commanding presence with accent ───────────────────── */
 
 .mc-command,
 .mc-live-panel,
@@ -39,31 +22,73 @@
   padding: var(--space-5);
 }
 
-/* ── Standard Surfaces — default containers ───────────────────── */
+/* ── Standard Surfaces — default bordered containers ────────────────────────
+   These classes share the same base surface treatment.
+   Add layout-specific properties via additional classes or per-class rules.
+   ========================================================================== */
 
 .mc-panel,
 .mc-stat-card,
 .mc-toolbar,
-.mc-strip {
+.mc-strip,
+.mc-container {
   border: var(--stroke-default) solid var(--border-stitch);
   background: var(--bg-surface);
   padding: var(--space-4);
 }
 
-/* Primary variant for stat cards */
-.mc-stat-card.is-primary {
-  border-left: var(--stroke-emphasis) solid var(--text-accent);
-  background: var(--surface-primary-bg);
+/* Stat card variants */
+.mc-stat-card.is-emphasized {
   padding: var(--space-5);
+  background: var(--surface-primary-bg);
 }
 
-/* Quiet variant for stat cards */
 .mc-stat-card.is-quiet {
   border-color: transparent;
   background: transparent;
 }
 
-/* ── Quiet Surfaces — subtle, minimal ─────────────────────────── */
+/* Strip layout and status variants */
+.mc-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+/* Active status variants — border-left accent for urgent/live states only */
+.mc-strip.is-status-running,
+.mc-container.is-status-running {
+  border-left: var(--stroke-emphasis) solid var(--status-running);
+  background: color-mix(in srgb, var(--status-running) 3%, var(--bg-surface));
+}
+
+.mc-strip.is-status-blocked,
+.mc-container.is-status-blocked {
+  border-left: var(--stroke-emphasis) solid var(--status-blocked);
+  background: color-mix(in srgb, var(--status-blocked) 3%, var(--bg-surface));
+}
+
+.mc-strip.is-status-retrying,
+.mc-container.is-status-retrying {
+  border-left: var(--stroke-emphasis) solid var(--status-retrying);
+  background: color-mix(in srgb, var(--status-retrying) 3%, var(--bg-surface));
+}
+
+.mc-container.is-status-claimed {
+  border-left: var(--stroke-emphasis) solid var(--status-claimed);
+  background: color-mix(in srgb, var(--status-claimed) 3%, var(--bg-surface));
+}
+
+/* Passive status variants — no accent, just subtle background tint */
+.mc-strip.is-status-queued,
+.mc-container.is-status-queued,
+.mc-container.is-status-completed {
+  /* No accent — these are passive/waiting states */
+}
+
+/* ── Quiet Surfaces — subtle, minimal ─────────────────────────────────────── */
 
 .mc-drawer,
 .mc-empty-state,
@@ -73,7 +98,8 @@
   padding: var(--space-4);
 }
 
-/* Elevated surfaces for emphasis */
+/* ── Elevation Modifiers ──────────────────────────────────────────────────── */
+
 .mc-elevated {
   border: var(--stroke-default) solid var(--border-stitch);
   background: var(--bg-elevated);
@@ -84,7 +110,8 @@
   background: var(--bg-muted);
 }
 
-/* Legacy aliases */
+/* ── Legacy Aliases ───────────────────────────────────────────────────────── */
+
 .mc-log-row,
 .issue-card,
 .attempts-table,
@@ -99,78 +126,46 @@
   border-color: var(--border-stitch);
 }
 
-/* Strip variant with stronger presence */
-.mc-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-}
-
-.mc-strip.is-primary {
-  border-left: var(--stroke-emphasis) solid var(--text-accent);
-}
-
-.mc-strip.is-status-running {
-  border-left: var(--stroke-emphasis) solid var(--status-running);
-}
-
-.mc-strip.is-status-blocked {
-  border-left: var(--stroke-emphasis) solid var(--status-blocked);
-}
-
-.mc-strip.is-status-retrying {
-  border-left: var(--stroke-emphasis) solid var(--status-retrying);
-}
-
 /* ============================================
-   STATUS CONTAINERS
-   Strong visual differentiation for operational states
+   STATUS RAIL/LIST ITEMS
+   Visual differentiation for operational states
+   Border-left accent only for active/urgent states
    ============================================ */
 
-.mc-container {
-  border: var(--stroke-default) solid var(--border-stitch);
-  background: var(--bg-surface);
-  padding: var(--space-4);
-}
-
-.mc-container.is-status-queued {
-  border-left: var(--stroke-emphasis) solid var(--status-queued);
-}
-
-.mc-container.is-status-running {
-  border-left: var(--stroke-emphasis) solid var(--status-running);
-  background: color-mix(in srgb, var(--status-running) 3%, var(--bg-surface));
-}
-
-.mc-container.is-status-retrying {
-  border-left: var(--stroke-emphasis) solid var(--status-retrying);
-  background: color-mix(in srgb, var(--status-retrying) 3%, var(--bg-surface));
-}
-
-.mc-container.is-status-blocked {
-  border-left: var(--stroke-emphasis) solid var(--status-blocked);
-  background: color-mix(in srgb, var(--status-blocked) 3%, var(--bg-surface));
-}
-
-.mc-container.is-status-completed {
-  border-left: var(--stroke-emphasis) solid var(--status-completed);
-}
-
-.mc-container.is-status-claimed {
-  border-left: var(--stroke-emphasis) solid var(--status-claimed);
-  background: color-mix(in srgb, var(--status-claimed) 3%, var(--bg-surface));
-}
-
-/* Status rail items with stronger differentiation */
+/* Active/urgent states — accent + background tint */
 .mc-list-item.is-status-running,
 .mc-rail-item.is-status-running {
   border-left-color: var(--status-running);
   background: color-mix(in srgb, var(--status-running) 8%, var(--bg-elevated));
 }
 
-/* Live indicator animation for running/claimed states */
+.mc-list-item.is-status-claimed,
+.mc-rail-item.is-status-claimed {
+  border-left-color: var(--status-claimed);
+  background: color-mix(in srgb, var(--status-claimed) 8%, var(--bg-elevated));
+}
+
+.mc-list-item.is-status-blocked,
+.mc-rail-item.is-status-blocked {
+  border-left-color: var(--status-blocked);
+  background: color-mix(in srgb, var(--status-blocked) 8%, var(--bg-elevated));
+}
+
+.mc-list-item.is-status-retrying,
+.mc-rail-item.is-status-retrying {
+  border-left-color: var(--status-retrying);
+  background: color-mix(in srgb, var(--status-retrying) 8%, var(--bg-elevated));
+}
+
+/* Passive states — no accent, just subtle border-left color */
+.mc-list-item.is-status-queued,
+.mc-rail-item.is-status-queued,
+.mc-list-item.is-status-completed,
+.mc-rail-item.is-status-completed {
+  /* No special treatment — use base border color */
+}
+
+/* Live indicator animation — running and claimed only */
 @keyframes pulse-live {
   0%,
   100% {
@@ -209,34 +204,6 @@
   background: var(--status-claimed);
   border-radius: 0 2px 2px 0;
   animation: pulse-live 2s ease-in-out infinite;
-}
-
-.mc-list-item.is-status-retrying,
-.mc-rail-item.is-status-retrying {
-  border-left-color: var(--status-retrying);
-  background: color-mix(in srgb, var(--status-retrying) 8%, var(--bg-elevated));
-}
-
-.mc-list-item.is-status-queued,
-.mc-rail-item.is-status-queued {
-  border-left-color: var(--status-queued);
-}
-
-.mc-list-item.is-status-blocked,
-.mc-rail-item.is-status-blocked {
-  border-left-color: var(--status-blocked);
-  background: color-mix(in srgb, var(--status-blocked) 8%, var(--bg-elevated));
-}
-
-.mc-list-item.is-status-completed,
-.mc-rail-item.is-status-completed {
-  border-left-color: var(--status-completed);
-}
-
-.mc-list-item.is-status-claimed,
-.mc-rail-item.is-status-claimed {
-  border-left-color: var(--status-claimed);
-  background: color-mix(in srgb, var(--status-claimed) 8%, var(--bg-elevated));
 }
 
 .mc-actions,

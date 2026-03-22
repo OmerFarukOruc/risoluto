@@ -42,6 +42,11 @@ agent:
   #   in progress: 4
   max_turns: 20
   max_retry_backoff_ms: 120000
+  # Orchestrator-level stall timeout: kill and requeue agents that emit no events for this long.
+  # Default is 1200000 ms (20 min). Set to 0 to disable.
+  # stall_timeout_ms: 1200000
+  # Linear state to transition the issue to on successful agent completion. Null = no transition.
+  # success_state: "Done"
 
 codex:
   command: "codex app-server"

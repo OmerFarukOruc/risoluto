@@ -25,7 +25,8 @@ import {
   hasAvailableStateSlot as hasAvailableStateSlotState,
   launchWorker as launchWorkerState,
 } from "./worker-launcher.js";
-import { handleWorkerFailure, handleWorkerOutcome } from "./worker-outcome.js";
+import { handleWorkerFailure } from "./worker-failure.js";
+import { handleWorkerOutcome } from "./worker-outcome.js";
 import { globalMetrics } from "../observability/metrics.js";
 
 /**

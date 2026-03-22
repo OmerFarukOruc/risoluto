@@ -136,18 +136,3 @@ export function buildProjectLookupQuery(): string {
   `;
 }
 
-export function buildTeamLookupQuery(): string {
-  return `
-    query SymphonyPlanTeams {
-      teams(first: 2) {
-        nodes {
-          id
-          name
-          key
-        }
-      }
-    }
-  `;
-}
-
-

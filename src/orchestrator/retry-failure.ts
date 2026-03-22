@@ -68,16 +68,19 @@ function buildFailureAttemptData(
   };
 }
 
-async function persistRetryFailure(
-  attemptStore: Pick<AttemptStore, "updateAttempt" | "createAttempt">,
-  runningEntry: RunningEntry | null,
-  issue: Issue,
-  selection: ModelSelection,
-  errorText: string,
-  attempt: number,
-  workspaceKey: string | null,
-  logger: { warn: (meta: Record<string, unknown>, message: string) => void },
-): Promise<void> {
+interface PersistRetryFailureInput {
+  attemptStore: Pick<AttemptStore, "updateAttempt" | "createAttempt">;
+  runningEntry: RunningEntry | null;
+  issue: Issue;
+  selection: ModelSelection;
+  errorText: string;
+  attempt: number;
+  workspaceKey: string | null;
+  logger: { warn: (meta: Record<string, unknown>, message: string) => void };
+}
+
+async function persistRetryFailure(input: PersistRetryFailureInput): Promise<void> {
+  const { attemptStore, runningEntry, issue, selection, errorText, attempt, workspaceKey, logger } = input;
   const endedAt = nowIso();
   const attemptId = runningEntry?.runId ?? randomUUID();
 
@@ -159,14 +162,14 @@ export async function handleRetryLaunchFailure(
   ctx.completedViews.set(issue.identifier, failureView);
 
   const selection = runningEntry?.modelSelection ?? ctx.resolveModelSelection(issue.identifier);
-  await persistRetryFailure(
-    ctx.deps.attemptStore,
+  await persistRetryFailure({
+    attemptStore: ctx.deps.attemptStore,
     runningEntry,
     issue,
     selection,
     errorText,
     attempt,
-    failureView.workspaceKey ?? null,
-    ctx.deps.logger,
-  );
+    workspaceKey: failureView.workspaceKey ?? null,
+    logger: ctx.deps.logger,
+  });
 }

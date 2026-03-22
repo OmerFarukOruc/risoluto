@@ -4,7 +4,7 @@
 > Research sources: Composio, OpenSwarm, mog, thepopebot, **jinyang**, **Orchestra**, **Eva**, **pilot**, **vibe-kanban**, **hatice**.
 
 <p>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-blue?style=flat-square" />
   <img alt="Spec Conformance" src="https://img.shields.io/badge/spec-238%2F239-brightgreen?style=flat-square" />
 </p>
 
@@ -183,7 +183,7 @@ graph TD
 | **Total**                  | **89** |                                                   |
 
 > [!NOTE]
-> Several T2/T3 issues have **partial implementations shipped as extensions** (see [CONFORMANCE_AUDIT.md §Extensions](CONFORMANCE_AUDIT.md#-extensions-beyond-spec)): #54 (request tracing/error tracking), #56 (Docker sandbox), #61 (per-state concurrency), #76 (Kanban state machine). #53 (Tauri desktop shell) was removed in favor of CLI-first operation.
+> Several T2/T3 issues have **partial implementations shipped as extensions** (see [CONFORMANCE_AUDIT.md §Extensions](CONFORMANCE_AUDIT.md#-extensions-beyond-spec)): #54 (request tracing/error tracking), #56 (Docker sandbox), #61 (per-state concurrency), #76 (Kanban state machine), #57 (orchestrator stall detector + watchdog health monitor), #85 (workflow watchdog shipped as `Watchdog` class), #46 (Linear write-back: completion comments + optional state transition). #53 (Tauri desktop shell) was removed in favor of CLI-first operation.
 
 ---
 

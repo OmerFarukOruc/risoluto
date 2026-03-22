@@ -147,6 +147,23 @@ export interface WorkflowColumnView {
   issues: RuntimeIssueView[];
 }
 
+export interface StallEventView {
+  at: string;
+  issueId: string;
+  issueIdentifier: string;
+  silentMs: number;
+  timeoutMs: number;
+}
+
+export type HealthStatus = "healthy" | "degraded" | "critical";
+
+export interface SystemHealth {
+  status: HealthStatus;
+  checkedAt: string;
+  runningCount: number;
+  message: string;
+}
+
 export interface RuntimeSnapshot {
   generatedAt: string;
   counts: { running: number; retrying: number };
@@ -163,6 +180,8 @@ export interface RuntimeSnapshot {
   };
   rateLimits: unknown;
   recentEvents: RecentEvent[];
+  stallEvents?: StallEventView[];
+  systemHealth?: SystemHealth;
 }
 
 export interface ValidationError {
@@ -226,6 +245,10 @@ export interface AgentConfig {
   maxTurns: number;
   maxRetryBackoffMs: number;
   maxContinuationAttempts: number;
+  /** Linear state name to transition to on successful agent completion. Null = no transition. */
+  successState: string | null;
+  /** Stall timeout in ms: if no agent event for this duration, kill and retry. */
+  stallTimeoutMs: number;
 }
 
 export interface SandboxSecurityConfig {

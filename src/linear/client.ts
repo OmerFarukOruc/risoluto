@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { asArray, asRecord, asStringOrNull } from "../utils/type-guards.js";
 import { normalizeIssue } from "./issue-parser.js";
 import type { Issue, ServiceConfig, SymphonyLogger } from "../core/types.js";
@@ -223,7 +224,7 @@ export class LinearClient {
           );
           return;
         }
-        const delayMs = 1000 * 2 ** (attempt - 1) * (0.5 + Math.random() * 0.5);
+        const delayMs = 1000 * 2 ** (attempt - 1) * (randomInt(500, 1000) / 1000);
         this.logger.warn({ operation, attempt, delayMs, error: String(error) }, "linear write-back retry");
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }

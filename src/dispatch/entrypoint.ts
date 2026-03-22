@@ -3,7 +3,7 @@ import { createLogger } from "../core/logger.js";
 
 const logger = createLogger().child({ component: "data-plane-entrypoint" });
 
-const PORT = parseInt(process.env.DISPATCH_PORT ?? "9100", 10);
+const PORT = Number.parseInt(process.env.DISPATCH_PORT ?? "9100", 10);
 const SECRET = process.env.DISPATCH_SHARED_SECRET ?? "";
 
 if (!SECRET) {

@@ -50,7 +50,7 @@ export async function startDeviceAuth(): Promise<DeviceCodeResponse> {
 
 export async function pollDeviceAuth(
   deviceCode: string,
-): Promise<{ status: "pending" | "complete" | "expired"; error?: string }> {
+): Promise<{ status: "pending" | "complete" | "expired"; error?: string; tokenData?: TokenResponse }> {
   const response = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -63,7 +63,7 @@ export async function pollDeviceAuth(
 
   if (response.ok) {
     const tokenData = (await response.json()) as TokenResponse;
-    return { status: "complete", error: undefined, ...{ tokenData } };
+    return { status: "complete", error: undefined, tokenData };
   }
 
   const errorData = (await response.json()) as TokenErrorResponse;

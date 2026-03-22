@@ -10,9 +10,8 @@ function getRequestBody(fetchMock: ReturnType<typeof vi.fn>, callIndex: number):
   return JSON.parse(String(calls[callIndex]?.[1]?.body ?? "{}")) as Record<string, unknown>;
 }
 
-function getRequestVariables(fetchMock: ReturnType<typeof vi.fn>, callIndex: number): Record<string, unknown> {
-  return (getRequestBody(fetchMock, callIndex).variables as Record<string, unknown> | undefined) ?? {};
-}
+
+
 
 function createConfig(): ServiceConfig {
   return {
@@ -40,6 +39,7 @@ function createConfig(): ServiceConfig {
       maxConcurrentAgentsByState: {},
       maxTurns: 2,
       maxRetryBackoffMs: 300000,
+      maxContinuationAttempts: 5,
     },
     codex: {
       command: "codex app-server",

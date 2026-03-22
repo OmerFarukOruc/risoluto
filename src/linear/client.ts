@@ -1,5 +1,5 @@
 
-import { asArray, asBooleanOrNull, asRecord, asStringOrNull } from "../utils/type-guards.js";
+import { asArray, asRecord, asStringOrNull } from "../utils/type-guards.js";
 import { normalizeIssue } from "./issue-parser.js";
 import type { Issue, ServiceConfig, SymphonyLogger } from "../core/types.js";
 import {
@@ -9,7 +9,6 @@ import {
   buildIssuesByIdsQuery,
   buildIssuesByStatesQuery,
   buildProjectLookupQuery,
-  buildTeamLookupQuery,
 } from "./queries.js";
 import { fetchCandidateIssues, fetchIssueStatesByIds, fetchIssuesByStates } from "./issue-pagination.js";
 import { LinearClientError } from "./errors.js";
@@ -21,11 +20,7 @@ interface GraphQLResponse {
   errors?: unknown[];
 }
 
-interface LinearCreatedIssue {
-  id: string;
-  identifier: string;
-  url: string | null;
-}
+
 
 interface ResolvedWorkflowStates {
   stateIds: string[];

@@ -209,6 +209,57 @@ function queueRetryWithLog(
   );
 }
 
+async function handleNormalContinuation(
+  ctx: OutcomeContext,
+  entry: RunningEntry,
+  latestIssue: Issue,
+  workspace: Workspace,
+  modelSelection: ModelSelection,
+  attempt: number | null,
+): Promise<void> {
+  const maxContinuations = ctx.getConfig().agent.maxContinuationAttempts;
+  const nextAttempt = (attempt ?? 0) + 1;
+  if (nextAttempt > maxContinuations) {
+    const message = `agent did not emit SYMPHONY_STATUS after ${maxContinuations} continuations`;
+    ctx.notify({
+      type: "worker_failed",
+      severity: "critical",
+      timestamp: nowIso(),
+      message,
+      issue: issueRef(latestIssue),
+      attempt,
+    });
+    ctx.completedViews.set(
+      latestIssue.identifier,
+      buildOutcomeView(latestIssue, workspace, entry, modelSelection, {
+        status: "failed",
+        attempt,
+        error: "max_continuations_exceeded",
+        message,
+      }),
+    );
+    ctx.releaseIssueClaim(latestIssue.id);
+    await ctx.deps.attemptStore.updateAttempt(entry.runId, {
+      status: "failed",
+      errorCode: "max_continuations_exceeded",
+      errorMessage: message,
+    });
+    return;
+  }
+  queueRetryWithLog(ctx, latestIssue, attempt, 1000, "continuation");
+}
+
+function handleErrorRetry(
+  ctx: OutcomeContext,
+  outcome: RunOutcome,
+  latestIssue: Issue,
+  attempt: number | null,
+): void {
+  const nextAttempt = (attempt ?? 0) + 1;
+  const delayMs = Math.min(10_000 * 2 ** Math.max(0, nextAttempt - 1), ctx.getConfig().agent.maxRetryBackoffMs);
+  queueRetryWithLog(ctx, latestIssue, attempt, delayMs, outcome.errorCode ?? "turn_failed");
+}
+
 async function reconcileOutcomeAgainstLatestIssueState(
   ctx: OutcomeContext,
   outcome: RunOutcome,
@@ -259,42 +310,11 @@ async function reconcileOutcomeAgainstLatestIssueState(
   }
 
   if (outcome.kind === "normal") {
-    const maxContinuations = ctx.getConfig().agent.maxContinuationAttempts;
-    const nextAttempt = (attempt ?? 0) + 1;
-    if (nextAttempt > maxContinuations) {
-      const message = `agent did not emit SYMPHONY_STATUS after ${maxContinuations} continuations`;
-      ctx.notify({
-        type: "worker_failed",
-        severity: "critical",
-        timestamp: nowIso(),
-        message,
-        issue: issueRef(latestIssue),
-        attempt,
-      });
-      ctx.completedViews.set(
-        latestIssue.identifier,
-        buildOutcomeView(latestIssue, workspace, entry, modelSelection, {
-          status: "failed",
-          attempt,
-          error: "max_continuations_exceeded",
-          message,
-        }),
-      );
-      ctx.releaseIssueClaim(latestIssue.id);
-      await ctx.deps.attemptStore.updateAttempt(entry.runId, {
-        status: "failed",
-        errorCode: "max_continuations_exceeded",
-        errorMessage: message,
-      });
-      return;
-    }
-    queueRetryWithLog(ctx, latestIssue, attempt, 1000, "continuation");
+    await handleNormalContinuation(ctx, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
 
-  const nextAttempt = (attempt ?? 0) + 1;
-  const delayMs = Math.min(10_000 * 2 ** Math.max(0, nextAttempt - 1), ctx.getConfig().agent.maxRetryBackoffMs);
-  queueRetryWithLog(ctx, latestIssue, attempt, delayMs, outcome.errorCode ?? "turn_failed");
+  handleErrorRetry(ctx, outcome, latestIssue, attempt);
 }
 
 export async function handleWorkerOutcome(
@@ -342,91 +362,4 @@ export async function handleWorkerOutcome(
   await reconcileOutcomeAgainstLatestIssueState(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
 }
 
-export async function handleWorkerFailure(
-  ctx: {
-    runningEntries: Map<string, RunningEntry>;
-    releaseIssueClaim: (issueId: string) => void;
-    pushEvent: (event: {
-      at: string;
-      issueId: string;
-      issueIdentifier: string;
-      sessionId: string | null;
-      event: string;
-      message: string;
-    }) => void;
-    deps: {
-      attemptStore: { updateAttempt: (attemptId: string, patch: Record<string, unknown>) => Promise<void> };
-      logger: { warn: (meta: Record<string, unknown>, message: string) => void };
-    };
-  },
-  issue: Issue,
-  entry: RunningEntry,
-  error: unknown,
-): Promise<void> {
-  try {
-    await entry.flushPersistence();
-  } catch (flushError) {
-    ctx.deps.logger.warn(
-      { issue_id: issue.id, issue_identifier: issue.identifier, attempt_id: entry.runId, error: String(flushError) },
-      "worker failure: failed to flush persistence, attempting fallback update",
-    );
-    try {
-      await ctx.deps.attemptStore.updateAttempt(entry.runId, { errorCode: "flush_failed" });
-    } catch (fallbackError) {
-      ctx.deps.logger.warn(
-        {
-          issue_id: issue.id,
-          issue_identifier: issue.identifier,
-          attempt_id: entry.runId,
-          error: String(fallbackError),
-        },
-        "worker failure: fallback attempt update also failed",
-      );
-    }
-  }
 
-  ctx.runningEntries.delete(issue.id);
-  ctx.releaseIssueClaim(issue.id);
-  ctx.pushEvent({
-    at: nowIso(),
-    issueId: issue.id,
-    issueIdentifier: issue.identifier,
-    sessionId: entry.sessionId,
-    event: "worker_failed",
-    message: String(error),
-  });
-
-  try {
-    await ctx.deps.attemptStore.updateAttempt(entry.runId, {
-      status: "failed",
-      endedAt: nowIso(),
-      errorCode: "worker_failed",
-      errorMessage: String(error),
-      tokenUsage: entry.tokenUsage,
-      threadId: null,
-    });
-  } catch (updateError) {
-    ctx.deps.logger.warn(
-      {
-        issue_id: issue.id,
-        issue_identifier: issue.identifier,
-        attempt_id: entry.runId,
-        error: String(updateError),
-      },
-      "worker failure: failed to update attempt status, attempting fallback error code",
-    );
-    try {
-      await ctx.deps.attemptStore.updateAttempt(entry.runId, { errorCode: "update_failed" });
-    } catch (fallbackError) {
-      ctx.deps.logger.warn(
-        {
-          issue_id: issue.id,
-          issue_identifier: issue.identifier,
-          attempt_id: entry.runId,
-          error: String(fallbackError),
-        },
-        "worker failure: fallback error code update also failed",
-      );
-    }
-  }
-}

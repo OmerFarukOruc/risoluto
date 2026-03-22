@@ -12,8 +12,29 @@
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square&logo=node.js" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript" />
   <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker" />
-  <img alt="Status" src="https://img.shields.io/badge/status-v0.2.0-orange?style=flat-square" />
+  <img alt="Status" src="https://img.shields.io/badge/status-v0.3.0-orange?style=flat-square" />
 </p>
+
+<br/>
+
+<p align="center">
+  <img src="docs/screenshots/overview.png" width="90%" alt="Symphony Dashboard — Overview" />
+  <br/>
+  <sub>Overview — active issues, recent events, and run statistics</sub>
+</p>
+
+<table>
+<tr>
+<td width="50%" align="center">
+  <img src="docs/screenshots/board.png" alt="Board — Kanban view" />
+  <br/><sub>Board — Kanban view with workflow columns</sub>
+</td>
+<td width="50%" align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings" />
+  <br/><sub>Settings — Tracker, provider, and sandbox configuration</sub>
+</td>
+</tr>
+</table>
 
 ---
 
@@ -112,7 +133,7 @@ codex login                       # ChatGPT/Codex subscription path
 
 ---
 
-## ✨ What Ships Today (v0.2.0)
+## ✨ What Ships Today (v0.3.0)
 
 <table>
 <tr>
@@ -366,7 +387,7 @@ npm run test:integration  # Opt-in live integration (requires credentials)
 
 ## 🔒 Trust Posture
 
-The v0.2 operating mode is intentionally **high trust** and **local-only**.
+The v0.3 operating mode is intentionally **high trust** and **local-only**.
 
 ```mermaid
 flowchart TB

@@ -501,15 +501,17 @@ Hook execution is bounded by `hooks.timeout_ms`.
 
 ### ⏱️ Timeouts and Retries
 
-| Knob            | Config Key                   | Purpose                                        |
-| --------------- | ---------------------------- | ---------------------------------------------- |
-| Hook timeout    | `hooks.timeout_ms`           | Max time for any lifecycle hook                |
-| Read timeout    | `codex.read_timeout_ms`      | JSON-RPC read timeout                          |
-| Turn timeout    | `codex.turn_timeout_ms`      | Total time for a single turn                   |
-| Stall timeout   | `codex.stall_timeout_ms`     | Detect long-silent workers                     |
-| Retry backoff   | `agent.max_retry_backoff_ms` | Ceiling for retry delay                        |
-| Active states   | `tracker.active_states`      | Which tracker states are eligible for dispatch |
-| Terminal states | `tracker.terminal_states`    | Which states stop work and trigger cleanup     |
+| Knob                    | Config Key                        | Purpose                                                          |
+| ----------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| Hook timeout            | `hooks.timeout_ms`                | Max time for any lifecycle hook                                  |
+| Read timeout            | `codex.read_timeout_ms`           | JSON-RPC read timeout                                            |
+| Turn timeout            | `codex.turn_timeout_ms`           | Total time for a single turn                                     |
+| Turn stall timeout      | `codex.stall_timeout_ms`          | Detect long-silent turns (per-turn level)                        |
+| Orchestrator stall      | `agent.stall_timeout_ms`          | Kill agents with no events for this duration (default 1200000 ms = 20 min); set to `0` or negative to disable |
+| Success state           | `agent.success_state`             | Linear state name to transition the issue to on successful completion; null = no transition |
+| Retry backoff           | `agent.max_retry_backoff_ms`      | Ceiling for retry delay                                          |
+| Active states           | `tracker.active_states`           | Which tracker states are eligible for dispatch                   |
+| Terminal states         | `tracker.terminal_states`         | Which states stop work and trigger cleanup                       |
 
 > [!TIP]
 > For safer live proving, set `codex.turn_timeout_ms` to something short like `120000` (2 minutes).

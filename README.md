@@ -12,7 +12,7 @@
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square&logo=node.js" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript" />
   <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker" />
-  <img alt="Status" src="https://img.shields.io/badge/status-v0.3.0-orange?style=flat-square" />
+  <img alt="Status" src="https://img.shields.io/badge/status-v0.3.1-orange?style=flat-square" />
 </p>
 
 <br/>
@@ -133,7 +133,7 @@ codex login                       # ChatGPT/Codex subscription path
 
 ---
 
-## ✨ What Ships Today (v0.3.0)
+## ✨ What Ships Today (v0.3.1)
 
 <table>
 <tr>
@@ -145,6 +145,9 @@ codex login                       # ChatGPT/Codex subscription path
 - **📁 Workspace isolation** — One directory per issue with lifecycle hooks
 - **🔄 Retry & stall handling** — Configurable backoff, turn/stall timeouts
 - **🎯 Model overrides** — Per-issue model selection from the dashboard
+- **🩺 Watchdog health monitor** — Periodic background health check with `healthy` / `degraded` / `critical` status exposed on the dashboard
+- **🔍 Orchestrator stall detector** — Kills agents silent for longer than `agent.stall_timeout_ms` (default 20 min) and requeues for retry
+- **✍️ Linear write-back** — Posts a rich completion comment and optionally transitions the issue to `agent.success_state` when an agent finishes
 
 </td>
 <td width="50%" valign="top">

@@ -14,6 +14,8 @@ export interface RuntimeSnapshot {
   };
   rate_limits: RateLimits | null;
   recent_events: RecentEvent[];
+  stall_events?: StallEventView[];
+  system_health?: SystemHealth;
 }
 
 export interface WorkflowColumn {
@@ -107,7 +109,20 @@ export interface RecentEvent {
   content: unknown | null;
 }
 
+export interface StallEventView {
+  at: string;
+  issue_id: string;
+  issue_identifier: string;
+  silent_ms: number;
+  timeout_ms: number;
+}
 
+export interface SystemHealth {
+  status: "healthy" | "degraded" | "critical";
+  checked_at: string;
+  running_count: number;
+  message: string;
+}
 
 export interface RateLimits {
   [key: string]: unknown;

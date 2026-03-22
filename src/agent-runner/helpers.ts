@@ -109,7 +109,8 @@ function extractCommandContent(item: Record<string, unknown>, verb: "started" | 
   }
   if (asString(item.output) !== null) return asString(item.output);
   if (item.exitCode === undefined) return null;
-  const code = typeof item.exitCode === "object" ? JSON.stringify(item.exitCode) : String(item.exitCode);
+  const rawCode: unknown = item.exitCode;
+  const code = typeof rawCode === "number" ? String(rawCode) : JSON.stringify(rawCode);
   return `Exit code: ${code}`;
 }
 

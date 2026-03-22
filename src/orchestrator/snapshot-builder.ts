@@ -10,6 +10,8 @@ import type {
   RuntimeSnapshot,
   ServiceConfig,
   ModelSelection,
+  StallEventView,
+  SystemHealth,
 } from "../core/types.js";
 import type { RunningEntry, RetryRuntimeEntry } from "./runtime-types.js";
 
@@ -62,6 +64,8 @@ export interface SnapshotBuilderCallbacks {
     totalTokens: number;
     secondsRunning: number;
   };
+  getStallEvents?: () => StallEventView[];
+  getSystemHealth?: () => SystemHealth | null;
 }
 
 // Builds a runtime snapshot from orchestrator state.
@@ -99,6 +103,8 @@ export function buildSnapshot(deps: SnapshotBuilderDeps, callbacks: SnapshotBuil
     },
     rateLimits: callbacks.getRateLimits(),
     recentEvents: [...callbacks.getRecentEvents()],
+    stallEvents: callbacks.getStallEvents ? [...callbacks.getStallEvents()] : undefined,
+    systemHealth: callbacks.getSystemHealth ? (callbacks.getSystemHealth() ?? undefined) : undefined,
   };
 }
 

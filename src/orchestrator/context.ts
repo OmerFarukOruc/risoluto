@@ -7,7 +7,7 @@ import type {
   TokenUsageSnapshot,
 } from "../core/types.js";
 import type { OrchestratorDeps, RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
-
+import type { StallEvent } from "./stall-detector.js";
 import type { NotificationEvent } from "../notification/channel.js";
 
 export interface OrchestratorContext {
@@ -37,4 +37,6 @@ export interface OrchestratorContext {
   setQueuedViews: (views: RuntimeIssueView[]) => void;
   applyUsageEvent: (entry: RunningEntry, usage: TokenUsageSnapshot, usageMode: "absolute_total" | "delta") => void;
   setRateLimits: (rateLimits: unknown) => void;
+  getStallEvents: () => StallEvent[];
+  detectAndKillStalled: () => number;
 }

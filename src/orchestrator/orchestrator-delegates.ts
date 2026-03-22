@@ -27,6 +27,7 @@ import {
 } from "./worker-launcher.js";
 import { handleWorkerFailure } from "./worker-failure.js";
 import { handleWorkerOutcome } from "./worker-outcome.js";
+import { detectAndKillStalledWorkers } from "./stall-detector.js";
 import { globalMetrics } from "../observability/metrics.js";
 
 /**
@@ -71,6 +72,15 @@ export function buildCtx(state: OrchestratorState, deps: OrchestratorDeps): Orch
     setRateLimits: (rateLimits) => {
       state.rateLimits = rateLimits;
     },
+    getStallEvents: () => state.stallEvents,
+    detectAndKillStalled: () =>
+      detectAndKillStalledWorkers({
+        runningEntries: state.runningEntries,
+        stallEvents: state.stallEvents,
+        getConfig: () => deps.configStore.getConfig(),
+        pushEvent: (event) => pushRecentEvent(state.recentEvents, event),
+        logger: { warn: (...args) => deps.logger.warn(...args) },
+      }),
   };
 }
 
@@ -87,6 +97,7 @@ export interface OrchestratorState {
   issueModelOverrides: Map<string, Omit<ModelSelection, "source">>;
   sessionUsageTotals: Map<string, TokenUsageSnapshot>;
   codexTotals: { inputTokens: number; outputTokens: number; totalTokens: number; secondsRunning: number };
+  stallEvents: import("./stall-detector.js").StallEvent[];
 }
 
 function notifyChannel(deps: OrchestratorDeps, event: NotificationEvent): void {

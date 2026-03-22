@@ -2,6 +2,7 @@ import {
   updateIssueModelSelection,
   resolveModelSelection as resolveModelSelectionFromConfig,
 } from "./model-selection.js";
+import { Watchdog } from "./watchdog.js";
 import {
   reconcileRunningAndRetrying as reconcileRunningAndRetryingState,
   refreshQueueViews as refreshQueueViewsState,
@@ -20,6 +21,7 @@ export class Orchestrator {
   private tickInFlight = false;
   private nextTickTimer: NodeJS.Timeout | null = null;
   private refreshQueued = false;
+  private readonly watchdog: Watchdog;
 
   constructor(private readonly deps: OrchestratorDeps) {
     this._state = {
@@ -35,7 +37,14 @@ export class Orchestrator {
       issueModelOverrides: new Map(),
       sessionUsageTotals: new Map(),
       codexTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
+      stallEvents: [],
     };
+    this.watchdog = new Watchdog({
+      getRunningCount: () => this._state.runningEntries.size,
+      getQueuedCount: () => this._state.queuedViews.length,
+      getRecentStalls: () => [...this._state.stallEvents],
+      logger: deps.logger,
+    });
   }
 
   private ctx() {
@@ -45,6 +54,7 @@ export class Orchestrator {
   async start(): Promise<void> {
     if (this._state.running) return;
     this._state.running = true;
+    this.watchdog.start();
     await cleanupTerminalWorkspaces(this._state, this.deps);
     seedCompletedClaims({
       claimedIssueIds: this._state.claimedIssueIds,
@@ -55,6 +65,7 @@ export class Orchestrator {
 
   async stop(): Promise<void> {
     this._state.running = false;
+    this.watchdog.stop();
     if (this.nextTickTimer) {
       clearTimeout(this.nextTickTimer);
       this.nextTickTimer = null;
@@ -125,6 +136,7 @@ export class Orchestrator {
     if (!this._state.running || this.tickInFlight) return;
     this.tickInFlight = true;
     try {
+      this.ctx().detectAndKillStalled();
       await reconcileRunningAndRetryingState(this.ctx());
       await refreshQueueViewsState(this.ctx());
       await launchAvailableWorkersState(this.ctx());
@@ -153,6 +165,11 @@ export class Orchestrator {
       getRecentEvents: () => this._state.recentEvents,
       getRateLimits: () => this._state.rateLimits,
       getCodexTotals: () => this._state.codexTotals,
+      getStallEvents: () => this._state.stallEvents,
+      getSystemHealth: () => {
+        const h = this.watchdog.getHealth();
+        return { status: h.status, checkedAt: h.checkedAt, runningCount: h.runningCount, message: h.message };
+      },
     };
   }
 }

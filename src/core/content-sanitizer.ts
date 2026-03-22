@@ -4,7 +4,7 @@ const REDACT_KEYS = /secret|token|key|password|credential|authorization|auth|web
 const SECRET_PATTERNS = [
   /lin_api_[A-Za-z0-9]+/g,
   /sk-[A-Za-z0-9]{20,}/g,
-  /Bearer\s+(?!null|undefined)[A-Za-z0-9._~+/-]+=*/gi,
+  /Bearer\s+(?!null|undefined)[\w.~+/-]+=*/gi,
   /ghp_[A-Za-z0-9]{36}/g,
   /AKIA[0-9A-Z]{16}/g,
   /xox[baprs]-[0-9a-zA-Z-]+/g,

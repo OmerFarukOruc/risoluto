@@ -107,7 +107,10 @@ function extractCommandContent(item: Record<string, unknown>, verb: "started" | 
   if (verb === "started") {
     return asString(item.command);
   }
-  return asString(item.output) ?? (item.exitCode === undefined ? null : `Exit code: ${String(item.exitCode)}`);
+  if (asString(item.output) !== null) return asString(item.output);
+  if (item.exitCode === undefined) return null;
+  const code = typeof item.exitCode === "object" ? JSON.stringify(item.exitCode) : String(item.exitCode);
+  return `Exit code: ${code}`;
 }
 
 function extractFileChangeContent(

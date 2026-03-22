@@ -44,7 +44,7 @@ function reconcileRunning(entries: Map<string, RunningEntry>, byId: Map<string, 
   }
 }
 async function reconcileRetries(ctx: ReconcileContext, byId: Map<string, Issue>, config: ServiceConfig): Promise<void> {
-  for (const retryEntry of [...ctx.retryEntries.values()]) {
+  for (const retryEntry of ctx.retryEntries.values()) {
     const latest = byId.get(retryEntry.issueId);
     if (!latest) {
       ctx.clearRetryEntry(retryEntry.issueId);

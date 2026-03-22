@@ -54,7 +54,7 @@
    curl -X POST http://127.0.0.1:4000/api/v1/refresh
    ```
 3. **Review workspace** — check if the workspace directory exists and has expected content. Workspace management lives in `src/workspace/manager.ts`.
-4. **Stall timeout** — the orchestrator detects stalls via `codex.stall_timeout_ms`. Set it to `0` or a negative value to disable stall cancellation during debugging.
+4. **Stall timeout** — there are two independent stall knobs: `codex.stall_timeout_ms` (per-turn stall, default 5 min) and `agent.stall_timeout_ms` (orchestrator-level stall detector, default 20 min). The orchestrator-level detector fires if an agent emits no events for `agent.stall_timeout_ms` milliseconds and aborts + requeues it. Set either to `0` or a negative value to disable that level of stall cancellation during debugging.
 
 ---
 

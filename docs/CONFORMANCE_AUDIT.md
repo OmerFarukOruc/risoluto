@@ -3,7 +3,7 @@
 > Per-requirement spec conformance audit for Symphony Orchestrator.
 
 <p>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-blue?style=flat-square" />
   <img alt="Status" src="https://img.shields.io/badge/status-shipped-brightgreen?style=flat-square" />
 </p>
 
@@ -11,7 +11,7 @@
 
 ## 📌 Current Release Baseline
 
-The repository is at **`v0.2.0`** and implements a full local orchestration loop for Linear-driven Codex work with git automation, secrets management, notifications, and a Docker deployment target. This document tracks every atomic requirement from the Symphony Service Specification against the current codebase.
+The repository is at **`v0.3.1`** and implements a full local orchestration loop for Linear-driven Codex work with git automation, secrets management, notifications, and a Docker deployment target. This document tracks every atomic requirement from the Symphony Service Specification against the current codebase.
 
 **Legend:** ✅ Implemented · 🟡 Partial / Minor Deviation · ❌ Not Implemented · 🔵 Extension (beyond spec)
 
@@ -78,6 +78,8 @@ The repository is at **`v0.2.0`** and implements a full local orchestration loop
 - ✅ `agent.max_turns` defaults to `20`
 - ✅ `agent.max_retry_backoff_ms` defaults to `300000`
 - ✅ `agent.max_concurrent_agents_by_state` — state keys normalized, invalid entries ignored
+- 🔵 `agent.stall_timeout_ms` defaults to `1200000` (20 min) — orchestrator-level stall detector; `0` or negative disables
+- 🔵 `agent.success_state` defaults to `null` — Linear state name to transition issue to on successful completion
 
 #### §5.3.6 `codex`
 
@@ -385,8 +387,8 @@ The repository is at **`v0.2.0`** and implements a full local orchestration loop
 
 ### §11.5 Tracker Writes Boundary
 
-- ✅ Symphony remains scheduler/reader; writes via agent tools
 - ✅ `linear_graphql` tool available for agent-driven mutations
+- 🔵 Orchestrator-driven write-back (extension): on successful completion, Symphony posts a rich comment and optionally transitions the issue state via `agent.success_state` — non-blocking, all errors are warnings only
 
 ---
 
@@ -678,6 +680,17 @@ Capabilities shipped that go beyond the spec requirements:
 | Request tracing          | `X-Request-ID` middleware for request correlation                                                 |
 | Error tracking           | Sentry-ready error tracker with breadcrumbs and context                                           |
 | Developer tooling        | ESLint, Prettier, husky, knip, jscpd, TypeDoc                                                     |
+
+### Resilience Extensions (v0.3.1)
+
+| Extension                     | Description                                                                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orchestrator stall detector   | `src/orchestrator/stall-detector.ts` — kills agents silent longer than `agent.stall_timeout_ms` (default 20 min) and requeues; records `StallEvent` per kill for dashboard display |
+| Watchdog health monitor       | `src/orchestrator/watchdog.ts` — 60 s background health check; `healthy` / `degraded` / `critical` status exposed in runtime snapshot as `systemHealth` |
+| Linear write-back on success  | Posts rich completion comment (tokens, duration, attempt #, PR URL) and optionally transitions issue state via `agent.success_state`; fire-and-forget with 3-retry backoff |
+| `resolveStateId` on client    | `LinearClient.resolveStateId()` — team-filtered Linear state lookup; used by write-back and transition handler                                      |
+| `createComment` on client     | `LinearClient.createComment()` — posts issue comments; used by write-back on completion                                                             |
+| `updateIssueState` on client  | `LinearClient.updateIssueState()` — transitions issue state; used by write-back when `agent.success_state` is configured                            |
 
 ### v1.0 Plan Extensions
 

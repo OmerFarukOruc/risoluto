@@ -46,6 +46,13 @@ export class JsonRpcConnection {
     child.stderr.on("data", (chunk: Buffer) => {
       this.logger.warn({ stderr: chunk.toString().trim() || null }, "codex stderr");
     });
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EPIPE" || error.code === "ERR_STREAM_DESTROYED") {
+        this.logger.debug({ error: error.code }, "stdin write failed (child exited)");
+        return;
+      }
+      this.logger.error({ error: String(error) }, "unexpected stdin error");
+    });
     child.on("exit", () => {
       this.exited = true;
       for (const [id, pending] of this.pending) {
@@ -63,6 +70,9 @@ export class JsonRpcConnection {
   }
 
   notify(method: string, params: unknown): void {
+    if (this.exited) {
+      return;
+    }
     this.send({
       jsonrpc: "2.0",
       method,
@@ -71,6 +81,9 @@ export class JsonRpcConnection {
   }
 
   request(method: string, params: unknown): Promise<unknown> {
+    if (this.exited) {
+      return Promise.reject(new Error("connection already exited"));
+    }
     const request = createRequest(method, params);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -84,6 +97,9 @@ export class JsonRpcConnection {
   }
 
   private send(message: unknown): void {
+    if (this.exited) {
+      return;
+    }
     this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 

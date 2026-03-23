@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import type { Request, Response } from "express";
@@ -187,4 +187,56 @@ export async function handleWorkspaceInventory(
   };
 
   res.json(response);
+}
+
+export async function handleWorkspaceRemove(deps: WorkspaceInventoryDeps, req: Request, res: Response): Promise<void> {
+  const workspaceKey = String(req.params.workspace_key);
+  if (!workspaceKey) {
+    res.status(400).json({ error: { code: "bad_request", message: "Missing workspace_key parameter" } });
+    return;
+  }
+
+  const config = deps.configStore?.getConfig() ?? null;
+  const workspaceRoot = config?.workspace.root;
+
+  if (!workspaceRoot) {
+    res.status(503).json({ error: { code: "config_unavailable", message: "Workspace config not available" } });
+    return;
+  }
+
+  const wsPath = path.join(workspaceRoot, workspaceKey);
+  const resolvedRoot = path.resolve(workspaceRoot);
+  const resolvedPath = path.resolve(wsPath);
+
+  if (!resolvedPath.startsWith(`${resolvedRoot}${path.sep}`) && resolvedPath !== resolvedRoot) {
+    res.status(400).json({ error: { code: "bad_request", message: "Invalid workspace key" } });
+    return;
+  }
+
+  const snapshot = deps.orchestrator.getSnapshot();
+  const isActive =
+    snapshot.running.some((v) => v.workspaceKey === workspaceKey) ||
+    (snapshot.retrying ?? []).some((v) => v.workspaceKey === workspaceKey);
+
+  if (isActive) {
+    res.status(409).json({ error: { code: "conflict", message: "Cannot remove an active workspace" } });
+    return;
+  }
+
+  try {
+    const info = await stat(wsPath);
+    if (!info.isDirectory()) {
+      res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
+      return;
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
+      return;
+    }
+    throw error;
+  }
+
+  await rm(wsPath, { recursive: true, force: true });
+  res.status(204).end();
 }

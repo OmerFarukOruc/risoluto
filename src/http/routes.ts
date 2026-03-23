@@ -17,7 +17,7 @@ import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { handleTransition } from "./transition-handler.js";
 import { handleGetTransitions } from "./transitions-api.js";
-import { handleWorkspaceInventory } from "./workspace-inventory.js";
+import { handleWorkspaceInventory, handleWorkspaceRemove } from "./workspace-inventory.js";
 import { methodNotAllowed, refreshReason, sanitizeConfigValue, serializeSnapshot } from "./route-helpers.js";
 import type { LinearClient } from "../linear/client.js";
 
@@ -46,8 +46,8 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   registerStateAndMetricsRoutes(app, deps);
   registerExtensionApis(app, deps);
   registerGitRoutes(app, deps);
-  registerIssueRoutes(app, deps);
   registerWorkspaceRoutes(app, deps);
+  registerIssueRoutes(app, deps);
 
   app.use((request, response) => {
     if (request.path.startsWith("/api/") || request.path === "/metrics") {
@@ -218,6 +218,22 @@ function registerWorkspaceRoutes(app: Express, deps: HttpRouteDeps): void {
     .route("/api/v1/workspaces")
     .get(async (req, res) => {
       await handleWorkspaceInventory(
+        {
+          orchestrator: deps.orchestrator,
+          configStore: deps.configStore,
+        },
+        req,
+        res,
+      );
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+
+  app
+    .route("/api/v1/workspaces/:workspace_key")
+    .delete(async (req, res) => {
+      await handleWorkspaceRemove(
         {
           orchestrator: deps.orchestrator,
           configStore: deps.configStore,

@@ -71,7 +71,7 @@ function statusVariant(status: string): string {
   }
 }
 
-function buildWorkspaceRow(ws: WorkspaceInventoryEntry): HTMLElement {
+function buildWorkspaceRow(ws: WorkspaceInventoryEntry, onRemove: (key: string) => void): HTMLElement {
   const row = el("div", "ws-row");
 
   const key = el("div", "ws-row-key");
@@ -99,6 +99,15 @@ function buildWorkspaceRow(ws: WorkspaceInventoryEntry): HTMLElement {
   const time = el("div", "ws-row-time", formatRelativeTime(ws.last_modified_at));
   row.append(time);
 
+  if (ws.status === "orphaned" || ws.status === "completed") {
+    const actions = el("div", "ws-row-actions");
+    const removeBtn = el("button", "ws-row-remove", "Remove");
+    removeBtn.type = "button";
+    removeBtn.addEventListener("click", () => onRemove(ws.workspace_key));
+    actions.append(removeBtn);
+    row.append(actions);
+  }
+
   return row;
 }
 
@@ -106,7 +115,7 @@ function buildWorkspaceRow(ws: WorkspaceInventoryEntry): HTMLElement {
 /*  Section builders                                                   */
 /* ------------------------------------------------------------------ */
 
-function buildWorkspaceSection(data: WorkspaceInventoryResponse): HTMLElement {
+function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key: string) => void): HTMLElement {
   const section = el("section", "ws-section");
 
   const header = el("div", "ws-section-header");
@@ -123,7 +132,7 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse): HTMLElement {
 
   const list = el("div", "ws-list");
   for (const ws of data.workspaces) {
-    list.append(buildWorkspaceRow(ws));
+    list.append(buildWorkspaceRow(ws, onRemove));
   }
   section.append(list);
 
@@ -134,12 +143,12 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse): HTMLElement {
 /*  Render                                                             */
 /* ------------------------------------------------------------------ */
 
-function renderWorkspaces(page: HTMLElement, data: WorkspaceInventoryResponse): void {
+function renderWorkspaces(page: HTMLElement, data: WorkspaceInventoryResponse, onRemove: (key: string) => void): void {
   const body = page.querySelector(".ws-page-body");
   if (!body) return;
   body.innerHTML = "";
 
-  body.append(buildStatsRow(data), buildWorkspaceSection(data));
+  body.append(buildStatsRow(data), buildWorkspaceSection(data, onRemove));
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +175,7 @@ export function createWorkspacesPage(): HTMLElement {
   async function fetchAndRender(): Promise<void> {
     try {
       currentData = await api.getWorkspaces();
-      renderWorkspaces(page, currentData);
+      renderWorkspaces(page, currentData, handleRemove);
     } catch {
       body.innerHTML = "";
       body.append(
@@ -178,6 +187,15 @@ export function createWorkspacesPage(): HTMLElement {
           "error",
         ),
       );
+    }
+  }
+
+  async function handleRemove(workspaceKey: string): Promise<void> {
+    try {
+      await api.removeWorkspace(workspaceKey);
+      await fetchAndRender();
+    } catch {
+      await fetchAndRender();
     }
   }
 

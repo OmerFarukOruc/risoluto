@@ -13,6 +13,7 @@ import { registerSecretsApi } from "../secrets/api.js";
 import { registerSetupApi } from "../setup/api.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { handleAttemptDetail } from "./attempt-handler.js";
+import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { handleTransition } from "./transition-handler.js";
 import { handleGetTransitions } from "./transitions-api.js";
@@ -43,6 +44,7 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   app.use("/metrics", apiLimiter);
   registerStateAndMetricsRoutes(app, deps);
   registerExtensionApis(app, deps);
+  registerGitRoutes(app, deps);
   registerIssueRoutes(app, deps);
 
   app.use((request, response) => {
@@ -111,6 +113,26 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
 
 function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
   app
+    .route("/api/v1/:issue_identifier/abort")
+    .post((req, res) => {
+      const result = deps.orchestrator.abortIssue(req.params.issue_identifier);
+      if (!result.ok) {
+        const status = result.code === "not_found" ? 404 : 409;
+        res.status(status).json({ error: { code: result.code, message: result.message } });
+        return;
+      }
+      res.status(result.alreadyStopping ? 200 : 202).json({
+        ok: true,
+        status: "stopping",
+        already_stopping: result.alreadyStopping,
+        requested_at: result.requestedAt,
+      });
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+
+  app
     .route("/api/v1/:issue_identifier/model")
     .post(async (req, res) => {
       await handleModelUpdate(deps.orchestrator, req, res);
@@ -164,6 +186,25 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
         return;
       }
       res.json(detail);
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+}
+
+function registerGitRoutes(app: Express, deps: HttpRouteDeps): void {
+  app
+    .route("/api/v1/git/context")
+    .get(async (req, res) => {
+      await handleGitContext(
+        {
+          orchestrator: deps.orchestrator,
+          configStore: deps.configStore,
+          secretsStore: deps.secretsStore,
+        },
+        req,
+        res,
+      );
     })
     .all((_req, res) => {
       methodNotAllowed(res);

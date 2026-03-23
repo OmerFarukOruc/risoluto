@@ -26,7 +26,15 @@ describe("DispatchClient", () => {
       root: "/tmp/workspaces",
       hooks: { afterCreate: null, beforeRun: null, afterRun: null, beforeRemove: null, timeoutMs: 30000 },
     },
-    agent: { maxConcurrentAgents: 3, maxConcurrentAgentsByState: {}, maxTurns: 50, maxRetryBackoffMs: 60000 },
+    agent: {
+      maxConcurrentAgents: 3,
+      maxConcurrentAgentsByState: {},
+      maxTurns: 50,
+      maxRetryBackoffMs: 60000,
+      maxContinuationAttempts: 5,
+      successState: null,
+      stallTimeoutMs: 60000,
+    },
     codex: {
       command: "codex",
       model: "test-model",
@@ -53,7 +61,7 @@ describe("DispatchClient", () => {
       },
     },
     server: { port: 4000 },
-  } as ServiceConfig;
+  } as unknown as ServiceConfig;
 
   const mockIssue: Issue = {
     id: "test-id",
@@ -179,5 +187,68 @@ describe("DispatchClient", () => {
         onEvent: vi.fn(),
       }),
     ).rejects.toThrow("Dispatch request failed: 500");
+  });
+
+  it("forwards aborts to the data plane and returns a cancelled outcome", async () => {
+    const control: {
+      resolveDispatchRead: null | ((value: { done: boolean; value?: Uint8Array }) => void);
+    } = { resolveDispatchRead: null };
+    const dispatchRead = new Promise<{ done: boolean; value?: Uint8Array }>((resolve) => {
+      control.resolveDispatchRead = resolve;
+    });
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        body: {
+          getReader: () => ({
+            read: vi.fn().mockImplementation(() => dispatchRead),
+            releaseLock: vi.fn(),
+          }),
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, text: () => Promise.resolve('{"status":"aborted"}') });
+
+    vi.stubGlobal("fetch", mockFetch);
+
+    const client = new DispatchClient({
+      dispatchUrl: "http://test:9100/dispatch",
+      secret: "test-secret",
+      getConfig: () => mockConfig,
+      logger: createMockLogger() as unknown as ReturnType<typeof import("../../src/core/logger.js").createLogger>,
+    });
+
+    const abortController = new AbortController();
+    const runPromise = client.runAttempt({
+      issue: mockIssue,
+      attempt: 1,
+      modelSelection: mockModelSelection,
+      promptTemplate: "Test prompt",
+      workspace: mockWorkspace,
+      signal: abortController.signal,
+      onEvent: vi.fn(),
+    });
+
+    abortController.abort("operator_abort");
+    const finishRead = control.resolveDispatchRead;
+    if (typeof finishRead === "function") {
+      finishRead({ done: true });
+    }
+
+    await expect(runPromise).resolves.toEqual({
+      kind: "cancelled",
+      errorCode: "operator_abort",
+      errorMessage: "worker cancelled by operator request",
+      threadId: null,
+      turnId: null,
+      turnCount: 0,
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://test:9100/dispatch/test-id/abort",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer test-secret" }),
+      }),
+    );
   });
 });

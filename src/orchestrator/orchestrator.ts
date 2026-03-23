@@ -104,6 +104,41 @@ export class Orchestrator {
     return detail ? { ...detail } : null;
   }
 
+  abortIssue(
+    identifier: string,
+  ):
+    | { ok: true; alreadyStopping: boolean; requestedAt: string }
+    | { ok: false; code: "not_found" | "conflict"; message: string } {
+    const entry = [...this._state.runningEntries.values()].find(
+      (runningEntry) => runningEntry.issue.identifier === identifier,
+    );
+    if (!entry) {
+      const detail = this.getIssueDetail(identifier);
+      if (!detail) {
+        return { ok: false, code: "not_found", message: "Unknown issue identifier" };
+      }
+      return { ok: false, code: "conflict", message: "Issue is not currently running" };
+    }
+
+    const requestedAt = nowIso();
+    const alreadyStopping = entry.status === "stopping" || entry.abortController.signal.aborted;
+    if (!alreadyStopping) {
+      entry.status = "stopping";
+      this.ctx().pushEvent({
+        at: requestedAt,
+        issueId: entry.issue.id,
+        issueIdentifier: entry.issue.identifier,
+        sessionId: entry.sessionId,
+        event: "worker_abort_requested",
+        message: "operator requested worker abort",
+      });
+      entry.abortController.abort("operator_abort");
+    }
+
+    this.requestRefresh("issue_abort_requested");
+    return { ok: true, alreadyStopping, requestedAt };
+  }
+
   async updateIssueModelSelection(input: {
     identifier: string;
     model: string;

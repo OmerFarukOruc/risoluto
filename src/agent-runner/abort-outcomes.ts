@@ -3,6 +3,11 @@ import type { RunOutcome } from "../core/types.js";
 
 const ABORT_REASONS: Record<string, { kind: RunOutcome["kind"]; errorCode: string; errorMessage: string }> = {
   stalled: { kind: "stalled", errorCode: "stalled", errorMessage: "worker exceeded stall timeout" },
+  operator_abort: {
+    kind: "cancelled",
+    errorCode: "operator_abort",
+    errorMessage: "worker cancelled by operator request",
+  },
   terminal: {
     kind: "cancelled",
     errorCode: "terminal",

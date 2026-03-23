@@ -1,4 +1,5 @@
 import { getRequiredProviderEnvNames, prepareCodexRuntimeConfig } from "../codex/runtime-config.js";
+import { outcomeForAbort } from "../agent-runner/abort-outcomes.js";
 import type { ServiceConfig, SymphonyLogger, Issue, ModelSelection, Workspace, RunOutcome } from "../core/types.js";
 import type { AgentRunnerEventHandler } from "../agent-runner/contracts.js";
 import type { DispatchRequest, DispatchStreamMessage, RunAttemptDispatcher } from "./types.js";
@@ -33,23 +34,47 @@ export class DispatchClient implements RunAttemptDispatcher {
       dispatchUrl: this.deps.dispatchUrl,
     });
 
+    let abortForwarding: Promise<void> | null = null;
+    const forwardAbort = () => {
+      abortForwarding = this.abortRun(input.issue.id, logger).catch((error: unknown) => {
+        logger.warn({ runId: input.issue.id, error: String(error) }, "Dispatch abort request failed");
+      });
+    };
+
+    input.signal.addEventListener("abort", forwardAbort, { once: true });
     const dispatchRequest = await this.buildDispatchRequest(input, config);
-
-    logger.debug({ runId: input.issue.id }, "Dispatching runAttempt to data plane");
-
-    const response = await this.sendDispatchRequest(dispatchRequest, input.signal);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error({ status: response.status, error: errorText }, "Dispatch request failed");
-      throw new Error(`Dispatch request failed: ${response.status} ${errorText}`);
+    if (input.signal.aborted && !abortForwarding) {
+      forwardAbort();
     }
 
-    if (!response.body) {
-      throw new Error("Dispatch response has no body");
-    }
+    try {
+      logger.debug({ runId: input.issue.id }, "Dispatching runAttempt to data plane");
 
-    return parseDispatchStream(response.body, input.onEvent, logger);
+      const response = await this.sendDispatchRequest(dispatchRequest, input.signal);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error({ status: response.status, error: errorText }, "Dispatch request failed");
+        throw new Error(`Dispatch request failed: ${response.status} ${errorText}`);
+      }
+
+      if (!response.body) {
+        throw new Error("Dispatch response has no body");
+      }
+
+      return await parseDispatchStream(response.body, input.onEvent, logger);
+    } catch (error) {
+      if (input.signal.aborted) {
+        if (abortForwarding) {
+          await Promise.allSettled([abortForwarding]);
+        }
+        logger.info({ runId: input.issue.id, reason: String(input.signal.reason ?? "aborted") }, "Dispatch aborted");
+        return outcomeForAbort(input.signal, null, null, 0);
+      }
+      throw error;
+    } finally {
+      input.signal.removeEventListener("abort", forwardAbort);
+    }
   }
 
   private async buildDispatchRequest(
@@ -89,6 +114,34 @@ export class DispatchClient implements RunAttemptDispatcher {
       body: JSON.stringify(dispatchRequest),
       signal,
     });
+  }
+
+  private async abortRun(
+    runId: string,
+    logger: { debug: (meta: Record<string, unknown>, msg: string) => void },
+  ): Promise<void> {
+    const response = await fetch(this.buildAbortUrl(runId), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.deps.secret}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (response.status === 404) {
+      logger.debug({ runId }, "Dispatch abort skipped because run was not active");
+      return;
+    }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Dispatch abort failed: ${response.status} ${errorText}`);
+    }
+  }
+
+  private buildAbortUrl(runId: string): string {
+    const url = new URL(this.deps.dispatchUrl);
+    url.pathname = `${url.pathname.replace(/\/$/, "")}/${encodeURIComponent(runId)}/abort`;
+    return url.toString();
   }
 }
 

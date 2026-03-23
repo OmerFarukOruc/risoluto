@@ -25,6 +25,7 @@ function makeOrchestrator() {
     }),
     getIssueDetail: vi.fn().mockReturnValue(null),
     getAttemptDetail: vi.fn().mockReturnValue(null),
+    abortIssue: vi.fn().mockReturnValue({ ok: false, code: "not_found", message: "Unknown issue identifier" }),
     updateIssueModelSelection: vi.fn().mockResolvedValue(null),
   };
 }
@@ -127,6 +128,38 @@ describe("HTTP routes", () => {
       body: JSON.stringify({ model: "gpt-4o" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it("POST /api/v1/:identifier/abort returns 202 for active issue", async () => {
+    orchestrator.abortIssue.mockReturnValueOnce({
+      ok: true,
+      alreadyStopping: false,
+      requestedAt: "2024-01-01T00:00:00Z",
+    });
+    const res = await fetchRoute("/api/v1/MT-1/abort", { method: "POST" });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.status).toBe("stopping");
+    expect(body.already_stopping).toBe(false);
+  });
+
+  it("POST /api/v1/:identifier/abort returns 409 for non-running issue", async () => {
+    orchestrator.abortIssue.mockReturnValueOnce({
+      ok: false,
+      code: "conflict",
+      message: "Issue is not currently running",
+    });
+    const res = await fetchRoute("/api/v1/MT-1/abort", { method: "POST" });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("conflict");
+  });
+
+  it("POST /api/v1/:identifier/abort returns 404 for unknown issue", async () => {
+    const res = await fetchRoute("/api/v1/MT-999/abort", { method: "POST" });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.code).toBe("not_found");
   });
 
   it("GET /api/v1/:identifier returns detail when found", async () => {

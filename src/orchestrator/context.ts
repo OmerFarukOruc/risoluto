@@ -24,7 +24,7 @@ export interface OutcomeContext {
       createComment: (issueId: string, body: string) => Promise<void>;
     };
     attemptStore: { updateAttempt: (attemptId: string, patch: Record<string, unknown>) => Promise<void> };
-    workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+    workspaceManager: { removeWorkspace: (identifier: string, issue?: Issue) => Promise<void> };
     gitManager?: Pick<GitManager, "commitAndPush" | "createPullRequest">;
     logger: {
       info: (meta: Record<string, unknown>, message: string) => void;

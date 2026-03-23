@@ -57,7 +57,7 @@ async function finalizeTerminalOrCleanupOutcome(
   modelSelection: ModelSelection,
   attempt: number | null,
 ): Promise<void> {
-  await ctx.deps.workspaceManager.removeWorkspace(issue.identifier).catch((error) => {
+  await ctx.deps.workspaceManager.removeWorkspace(issue.identifier, issue).catch((error) => {
     ctx.deps.logger.info(
       { issue_identifier: issue.identifier, error: String(error) },
       "workspace cleanup failed (non-fatal)",
@@ -102,6 +102,35 @@ function handleCancelledOrHardFailure(
     }),
   );
   ctx.releaseIssueClaim(issue.id);
+}
+
+function handleOperatorAbort(
+  ctx: OutcomeContext,
+  outcome: RunOutcome,
+  entry: RunningEntry,
+  issue: Issue,
+  workspace: Workspace,
+  modelSelection: ModelSelection,
+  attempt: number | null,
+): void {
+  ctx.notify({
+    type: "worker_failed",
+    severity: "info",
+    timestamp: nowIso(),
+    message: outcome.errorMessage ?? "worker cancelled by operator request",
+    issue: issueRef(issue),
+    attempt,
+    metadata: { errorCode: outcome.errorCode },
+  });
+  ctx.completedViews.set(
+    issue.identifier,
+    buildOutcomeView(issue, workspace, entry, modelSelection, {
+      status: "cancelled",
+      attempt,
+      error: outcome.errorCode,
+      message: outcome.errorMessage ?? "worker cancelled by operator request",
+    }),
+  );
 }
 
 /** Write completion status back to Linear (non-blocking). */
@@ -324,6 +353,10 @@ async function reconcileOutcomeAgainstLatestIssueState(
   }
   if (outcome.errorCode === "model_override_updated") {
     ctx.queueRetry(latestIssue, attempt ?? 1, 0, "model_override_updated");
+    return;
+  }
+  if (outcome.errorCode === "operator_abort") {
+    handleOperatorAbort(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
   if (outcome.kind === "cancelled" || isHardFailure(outcome.errorCode)) {

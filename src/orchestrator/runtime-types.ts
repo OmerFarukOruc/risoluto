@@ -45,6 +45,15 @@ export interface OrchestratorDeps {
   agentRunner: RunAttemptDispatcher;
   notificationManager?: NotificationManager;
   repoRouter?: Pick<RepoRouter, "matchIssue">;
-  gitManager?: Pick<GitManager, "cloneInto" | "commitAndPush" | "createPullRequest">;
+  gitManager?: Pick<
+    GitManager,
+    | "cloneInto"
+    | "commitAndPush"
+    | "createPullRequest"
+    | "setupWorktree"
+    | "syncWorktree"
+    | "removeWorktree"
+    | "deriveBaseCloneDir"
+  >;
   logger: SymphonyLogger;
 }

@@ -234,9 +234,13 @@ interface WorkspaceHooks {
   timeoutMs: number;
 }
 
+export type WorkspaceStrategy = "directory" | "worktree";
+
 export interface WorkspaceConfig {
   root: string;
   hooks: WorkspaceHooks;
+  strategy: WorkspaceStrategy;
+  branchPrefix: string;
 }
 
 export interface AgentConfig {

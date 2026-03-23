@@ -391,6 +391,84 @@ describe("Orchestrator", () => {
     expect(orchestrator.getSnapshot().retrying).toEqual([]);
   });
 
+  it("aborts a running issue and keeps it from redispatching", async () => {
+    vi.useFakeTimers();
+    const issue = createIssue();
+    const control = { resolveAbort: null as null | (() => void) };
+    const agentRunner = {
+      runAttempt: vi.fn(async ({ signal }: { signal: AbortSignal }): Promise<RunOutcome> => {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              control.resolveAbort = resolve;
+            },
+            { once: true },
+          );
+        });
+        return {
+          kind: "cancelled",
+          errorCode: String(signal.reason ?? "cancelled"),
+          errorMessage: "cancelled",
+          threadId: null,
+          turnId: null,
+          turnCount: 0,
+        };
+      }),
+    } as unknown as AgentRunner;
+    const linearClient = {
+      fetchCandidateIssues: vi.fn(async () => [issue]),
+      fetchIssueStatesByIds: vi.fn(async () => [issue]),
+      fetchIssuesByStates: vi.fn(async () => []),
+    } as unknown as LinearClient;
+    const workspaceManager = {
+      ensureWorkspace: vi.fn(async () => ({
+        path: "/tmp/symphony/MT-42",
+        workspaceKey: "MT-42",
+        createdNow: true,
+      })),
+      removeWorkspace: vi.fn(async () => undefined),
+    } as unknown as WorkspaceManager;
+
+    const orchestrator = new Orchestrator({
+      attemptStore: createAttemptStore(),
+      configStore: createConfigStore(createConfig()),
+      linearClient,
+      workspaceManager,
+      agentRunner,
+      logger: createLogger(),
+    });
+
+    await orchestrator.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    const abortResult = orchestrator.abortIssue(issue.identifier);
+    expect(abortResult).toEqual(expect.objectContaining({ ok: true, alreadyStopping: false }));
+    expect(orchestrator.getSnapshot().running).toEqual([
+      expect.objectContaining({
+        identifier: issue.identifier,
+        status: "stopping",
+        message: "stopping in /tmp/symphony/MT-42",
+      }),
+    ]);
+
+    if (typeof control.resolveAbort === "function") {
+      control.resolveAbort();
+    }
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(agentRunner.runAttempt).toHaveBeenCalledTimes(1);
+    expect(orchestrator.getSnapshot().completed).toEqual(
+      expect.arrayContaining([expect.objectContaining({ identifier: issue.identifier, status: "cancelled" })]),
+    );
+
+    await orchestrator.stop();
+  });
+
   it("does not queue retries for hard startup failures", async () => {
     vi.useFakeTimers();
     const issue = createIssue();

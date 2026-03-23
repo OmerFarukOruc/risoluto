@@ -2,32 +2,12 @@ import { rm, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
-import type { ServiceConfig, SymphonyLogger, Workspace } from "../core/types.js";
+import type { Issue, ServiceConfig, SymphonyLogger, Workspace } from "../core/types.js";
+import type { RepoMatch } from "../git/repo-router.js";
+import { buildSafePath, isWithinRoot, sanitizeIdentifier, resolveWorkspacePath } from "./paths.js";
+export { buildSafePath } from "./paths.js";
 
 const TRANSIENT_DIRECTORIES = ["tmp", ".elixir_ls"];
-
-/** Well-known, non-writable system directories allowed in hook PATH. */
-const SAFE_PATH_DIRS = new Set(["/usr/local/bin", "/usr/bin", "/bin", "/usr/local/sbin", "/usr/sbin", "/sbin"]);
-
-/** Filter PATH to only include fixed, non-writable system directories. */
-export function buildSafePath(): string {
-  const current = process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin";
-  const filtered = current.split(":").filter((dir) => SAFE_PATH_DIRS.has(dir));
-  return filtered.length > 0 ? filtered.join(":") : "/usr/local/bin:/usr/bin:/bin";
-}
-
-function isWithinRoot(root: string, candidate: string): boolean {
-  const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-async function ensureDirectory(pathname: string): Promise<void> {
-  await mkdir(pathname, { recursive: true });
-}
-
-function sanitizeIdentifier(identifier: string): string {
-  return identifier.replaceAll(/[^A-Za-z0-9._-]/g, "_");
-}
 
 async function pathIsDirectory(pathname: string): Promise<boolean> {
   try {
@@ -38,31 +18,76 @@ async function pathIsDirectory(pathname: string): Promise<boolean> {
   }
 }
 
-interface ResolvedWorkspacePath {
-  workspaceKey: string;
-  workspacePath: string;
-}
-
-function resolveWorkspacePath(config: ServiceConfig, issueIdentifier: string): ResolvedWorkspacePath {
-  const workspaceKey = sanitizeIdentifier(issueIdentifier);
-  const workspacePath = path.resolve(config.workspace.root, workspaceKey);
-  if (!isWithinRoot(config.workspace.root, workspacePath)) {
-    throw new Error(`workspace path escaped root: ${workspacePath}`);
-  }
-  return { workspaceKey, workspacePath };
+export interface WorkspaceManagerWorktreeDeps {
+  gitManager: {
+    setupWorktree: (
+      route: RepoMatch,
+      baseCloneDir: string,
+      worktreePath: string,
+      issue: Pick<Issue, "identifier" | "branchName">,
+      branchPrefix?: string,
+    ) => Promise<{ branchName: string }>;
+    removeWorktree: (baseCloneDir: string, worktreePath: string, force?: boolean) => Promise<void>;
+    deriveBaseCloneDir: (workspaceRoot: string, repoUrl: string) => string;
+  };
+  repoRouter: {
+    matchIssue: (issue: Issue) => RepoMatch | null;
+  };
 }
 
 export class WorkspaceManager {
+  private readonly worktreeDeps: WorkspaceManagerWorktreeDeps | null;
+
   constructor(
     private readonly getConfig: () => ServiceConfig,
     private readonly logger: SymphonyLogger,
-  ) {}
+    worktreeDeps?: WorkspaceManagerWorktreeDeps,
+  ) {
+    this.worktreeDeps = worktreeDeps ?? null;
+  }
 
-  async ensureWorkspace(issueIdentifier: string): Promise<Workspace> {
+  async ensureWorkspace(issueIdentifier: string, issue?: Issue): Promise<Workspace> {
     const config = this.getConfig();
-    await ensureDirectory(config.workspace.root);
 
-    const { workspaceKey, workspacePath } = resolveWorkspacePath(config, issueIdentifier);
+    if (config.workspace.strategy === "worktree") {
+      return this.ensureWorktreeWorkspace(config, issueIdentifier, issue);
+    }
+    return this.ensureDirectoryWorkspace(config, issueIdentifier);
+  }
+
+  async prepareForAttempt(workspace: Workspace): Promise<void> {
+    this.assertWorkspaceWithinRoot(workspace);
+    for (const transientDirectory of TRANSIENT_DIRECTORIES) {
+      const target = path.resolve(workspace.path, transientDirectory);
+      if (isWithinRoot(workspace.path, target)) {
+        await rm(target, { recursive: true, force: true });
+      }
+    }
+  }
+
+  async runBeforeRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
+    const sanitized = sanitizeIdentifier(issueIdentifier);
+    await this.runHook(this.getConfig().workspace.hooks.beforeRun, workspace, issueIdentifier, sanitized);
+  }
+
+  async runAfterRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
+    const sanitized = sanitizeIdentifier(issueIdentifier);
+    await this.runHook(this.getConfig().workspace.hooks.afterRun, workspace, issueIdentifier, sanitized);
+  }
+
+  async removeWorkspace(issueIdentifier: string, issue?: Issue): Promise<void> {
+    const config = this.getConfig();
+
+    if (config.workspace.strategy === "worktree") {
+      await this.removeWorktreeWorkspace(config, issueIdentifier, issue);
+      return;
+    }
+    await this.removeDirectoryWorkspace(config, issueIdentifier);
+  }
+
+  private async ensureDirectoryWorkspace(config: ServiceConfig, issueIdentifier: string): Promise<Workspace> {
+    await mkdir(config.workspace.root, { recursive: true });
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config.workspace.root, issueIdentifier);
 
     let createdNow = false;
     try {
@@ -93,29 +118,51 @@ export class WorkspaceManager {
     }
   }
 
-  async prepareForAttempt(workspace: Workspace): Promise<void> {
-    this.assertWorkspaceWithinRoot(workspace);
-    for (const transientDirectory of TRANSIENT_DIRECTORIES) {
-      const target = path.resolve(workspace.path, transientDirectory);
-      if (isWithinRoot(workspace.path, target)) {
-        await rm(target, { recursive: true, force: true });
-      }
+  private async ensureWorktreeWorkspace(
+    config: ServiceConfig,
+    issueIdentifier: string,
+    issue?: Issue,
+  ): Promise<Workspace> {
+    if (!issue) {
+      throw new Error("worktree strategy requires the full Issue object");
     }
+    if (!this.worktreeDeps) {
+      throw new Error("worktree strategy requires gitManager and repoRouter deps");
+    }
+
+    const repoMatch = this.worktreeDeps.repoRouter.matchIssue(issue);
+    if (!repoMatch) {
+      throw new Error(
+        `worktree strategy requires a repo match for issue ${issueIdentifier} — no matching repo route found`,
+      );
+    }
+
+    await mkdir(config.workspace.root, { recursive: true });
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config.workspace.root, issueIdentifier);
+    const baseCloneDir = this.worktreeDeps.gitManager.deriveBaseCloneDir(config.workspace.root, repoMatch.repoUrl);
+
+    const worktreeExists = await pathIsDirectory(workspacePath);
+    const createdNow = !worktreeExists;
+
+    if (createdNow) {
+      await this.worktreeDeps.gitManager.setupWorktree(
+        repoMatch,
+        baseCloneDir,
+        workspacePath,
+        issue,
+        config.workspace.branchPrefix,
+      );
+    }
+
+    const workspace = { path: workspacePath, workspaceKey, createdNow };
+    if (createdNow) {
+      await this.runHook(config.workspace.hooks.afterCreate, workspace, issueIdentifier, workspaceKey);
+    }
+    return workspace;
   }
 
-  async runBeforeRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
-    const sanitized = sanitizeIdentifier(issueIdentifier);
-    await this.runHook(this.getConfig().workspace.hooks.beforeRun, workspace, issueIdentifier, sanitized);
-  }
-
-  async runAfterRun(workspace: Workspace, issueIdentifier: string): Promise<void> {
-    const sanitized = sanitizeIdentifier(issueIdentifier);
-    await this.runHook(this.getConfig().workspace.hooks.afterRun, workspace, issueIdentifier, sanitized);
-  }
-
-  async removeWorkspace(issueIdentifier: string): Promise<void> {
-    const config = this.getConfig();
-    const { workspaceKey, workspacePath } = resolveWorkspacePath(config, issueIdentifier);
+  private async removeDirectoryWorkspace(config: ServiceConfig, issueIdentifier: string): Promise<void> {
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config.workspace.root, issueIdentifier);
 
     const workspace = { path: workspacePath, workspaceKey, createdNow: false };
     if (!(await pathIsDirectory(workspacePath))) {
@@ -135,6 +182,55 @@ export class WorkspaceManager {
         "before_remove hook failed; continuing with workspace removal",
       );
     }
+    await rm(workspacePath, { recursive: true, force: true });
+  }
+
+  private async removeWorktreeWorkspace(config: ServiceConfig, issueIdentifier: string, issue?: Issue): Promise<void> {
+    if (!this.worktreeDeps) {
+      throw new Error("worktree strategy requires gitManager and repoRouter deps");
+    }
+
+    const { workspaceKey, workspacePath } = resolveWorkspacePath(config.workspace.root, issueIdentifier);
+
+    if (!(await pathIsDirectory(workspacePath))) {
+      return;
+    }
+
+    const workspace = { path: workspacePath, workspaceKey, createdNow: false };
+    try {
+      await this.runHook(config.workspace.hooks.beforeRemove, workspace, issueIdentifier, workspaceKey);
+    } catch (error) {
+      this.logger.warn(
+        {
+          workspacePath: workspace.path,
+          issueIdentifier,
+          error: error instanceof Error ? error.message : String(error),
+          classification: "before_remove_hook_failed",
+        },
+        "before_remove hook failed; continuing with workspace removal",
+      );
+    }
+
+    if (issue) {
+      const repoMatch = this.worktreeDeps.repoRouter.matchIssue(issue);
+      if (repoMatch) {
+        const baseCloneDir = this.worktreeDeps.gitManager.deriveBaseCloneDir(config.workspace.root, repoMatch.repoUrl);
+        try {
+          await this.worktreeDeps.gitManager.removeWorktree(baseCloneDir, workspacePath, true);
+          return;
+        } catch (error) {
+          this.logger.warn(
+            {
+              workspacePath,
+              issueIdentifier,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "git worktree remove failed; falling back to rm",
+          );
+        }
+      }
+    }
+
     await rm(workspacePath, { recursive: true, force: true });
   }
 

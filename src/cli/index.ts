@@ -22,7 +22,7 @@ async function cleanupTransientWorkspaceDirs(workspaceRoot: string): Promise<voi
   await mkdir(workspaceRoot, { recursive: true });
   const entries = await readdir(workspaceRoot, { withFileTypes: true });
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) {
       continue;
     }
     for (const transientName of ["tmp", ".elixir_ls"]) {

@@ -256,7 +256,10 @@ describe("Orchestrator — advanced scenarios", () => {
     await orchestrator.start();
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
-    expect(workspaceManager.removeWorkspace).toHaveBeenCalledWith("MT-42");
+    expect(workspaceManager.removeWorkspace).toHaveBeenCalledWith(
+      "MT-42",
+      expect.objectContaining({ identifier: "MT-42", state: "Done" }),
+    );
 
     await vi.advanceTimersByTimeAsync(10_000);
     await Promise.resolve();
@@ -448,6 +451,10 @@ describe("Orchestrator — advanced scenarios", () => {
       cloneInto: vi.fn(async () => ({ branchName: "symphony/mt-42" })),
       commitAndPush: vi.fn(async () => ({ committed: true, pushed: true, branchName: "symphony/mt-42" })),
       createPullRequest: vi.fn(async () => ({ html_url: "https://github.com/acme/repo/pull/1" })),
+      setupWorktree: vi.fn(async () => ({ branchName: "symphony/mt-42" })),
+      syncWorktree: vi.fn(async () => undefined),
+      removeWorktree: vi.fn(async () => undefined),
+      deriveBaseCloneDir: vi.fn((workspaceRoot: string, _repoUrl: string) => `${workspaceRoot}/.base/repo.git`),
     };
     const repoRouter = {
       matchIssue: vi.fn(() => ({

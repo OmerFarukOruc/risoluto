@@ -2,7 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { handleWorkerOutcome } from "../../src/orchestrator/worker-outcome.js";
 import { handleWorkerFailure } from "../../src/orchestrator/worker-failure.js";
-import type { Issue, ModelSelection, RunOutcome, ServiceConfig, Workspace } from "../../src/core/types.js";
+import type {
+  Issue,
+  ModelSelection,
+  RunOutcome,
+  RuntimeIssueView,
+  ServiceConfig,
+  Workspace,
+} from "../../src/core/types.js";
+import type { OutcomeContext } from "../../src/orchestrator/context.js";
 import type { RunningEntry } from "../../src/orchestrator/runtime-types.js";
 
 function makeIssue(overrides: Partial<Issue> = {}): Issue {
@@ -91,12 +99,12 @@ function makeCtx(
     latestIssue?: Issue | null;
     config?: ServiceConfig;
   } = {},
-) {
+): OutcomeContext {
   const { isRunning = true, latestIssue = makeIssue(), config = makeConfig() } = overrides;
 
   const runningEntries = new Map<string, RunningEntry>();
-  const completedViews = new Map<string, unknown>();
-  const detailViews = new Map<string, unknown>();
+  const completedViews = new Map<string, RuntimeIssueView>();
+  const detailViews = new Map<string, RuntimeIssueView>();
 
   return {
     runningEntries,
@@ -134,6 +142,12 @@ function makeCtx(
   };
 }
 
+function getCompletedView(ctx: OutcomeContext, identifier = "MT-1"): RuntimeIssueView {
+  const view = ctx.completedViews.get(identifier);
+  expect(view).toBeDefined();
+  return view!;
+}
+
 describe("handleWorkerOutcome - service stopped path", () => {
   it("calls handleServiceStopped and releases claim when not running", async () => {
     const ctx = makeCtx({ isRunning: false });
@@ -163,7 +177,10 @@ describe("handleWorkerOutcome - terminal state path", () => {
 
     await handleWorkerOutcome(ctx, makeOutcome(), entry, makeIssue(), makeWorkspace(), 1);
 
-    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith("MT-1");
+    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith(
+      "MT-1",
+      expect.objectContaining({ identifier: "MT-1", state: "Done" }),
+    );
     expect(ctx.releaseIssueClaim).toHaveBeenCalledWith("issue-1");
     expect(ctx.queueRetry).not.toHaveBeenCalled();
   });
@@ -175,7 +192,10 @@ describe("handleWorkerOutcome - terminal state path", () => {
 
     await handleWorkerOutcome(ctx, makeOutcome(), entry, makeIssue(), makeWorkspace(), 1);
 
-    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith("MT-1");
+    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith(
+      "MT-1",
+      expect.objectContaining({ identifier: "MT-1" }),
+    );
   });
 });
 
@@ -190,7 +210,7 @@ describe("handleWorkerOutcome - inactive (non-terminal) state", () => {
     expect(ctx.deps.workspaceManager.removeWorkspace).not.toHaveBeenCalled();
     expect(ctx.releaseIssueClaim).toHaveBeenCalledWith("issue-1");
     expect(ctx.queueRetry).not.toHaveBeenCalled();
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("paused");
   });
 });
@@ -260,10 +280,10 @@ describe("handleWorkerOutcome - stop signal detection", () => {
         repoUrl: "https://github.com/org/repo",
         defaultBranch: "main",
         identifierPrefix: "MT",
-        label: null,
         githubOwner: "org",
         githubRepo: "repo",
-        githubTokenEnv: null,
+        githubTokenEnv: "GITHUB_TOKEN",
+        matchedBy: "identifier_prefix",
       },
     });
     ctx.runningEntries.set("issue-1", entry);
@@ -272,7 +292,7 @@ describe("handleWorkerOutcome - stop signal detection", () => {
 
     expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_completed" }));
     expect(ctx.queueRetry).not.toHaveBeenCalled();
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("completed");
   });
 
@@ -286,7 +306,7 @@ describe("handleWorkerOutcome - stop signal detection", () => {
     await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
 
     expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_failed" }));
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("paused");
     expect(ctx.deps.attemptStore.updateAttempt).toHaveBeenLastCalledWith(
       "run-abc",
@@ -345,7 +365,8 @@ describe("handleWorkerOutcome - continuation retry", () => {
       1, // attempt 1 → next attempt is 2, delay = 10000 * 2^(2-1) = 20000
     );
 
-    const [, nextAttempt, delayMs] = ctx.queueRetry.mock.calls[0] as [unknown, number, number, unknown];
+    const queueRetryMock = ctx.queueRetry as unknown as ReturnType<typeof vi.fn>;
+    const [, nextAttempt, delayMs] = queueRetryMock.mock.calls[0] as [unknown, number, number, unknown];
     expect(nextAttempt).toBe(2);
     expect(delayMs).toBe(20000);
   });
@@ -366,7 +387,8 @@ describe("handleWorkerOutcome - continuation retry", () => {
       10, // very high attempt → would be huge delay, but capped
     );
 
-    const [, , delayMs] = ctx.queueRetry.mock.calls[0] as [unknown, number, number, unknown];
+    const queueRetryMock = ctx.queueRetry as unknown as ReturnType<typeof vi.fn>;
+    const [, , delayMs] = queueRetryMock.mock.calls[0] as [unknown, number, number, unknown];
     expect(delayMs).toBe(5000);
   });
 });
@@ -385,7 +407,7 @@ describe("handleWorkerOutcome - max continuation cap", () => {
     expect(ctx.queueRetry).not.toHaveBeenCalled();
     expect(ctx.releaseIssueClaim).toHaveBeenCalledWith("issue-1");
     expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_failed" }));
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("failed");
     expect(view.error).toBe("max_continuations_exceeded");
   });
@@ -443,9 +465,10 @@ describe("handleWorkerFailure", () => {
     const releaseIssueClaim = vi.fn();
     const pushEvent = vi.fn();
     const updateAttempt = vi.fn().mockResolvedValue(undefined);
+    const warn = vi.fn();
 
     await handleWorkerFailure(
-      { runningEntries, releaseIssueClaim, pushEvent, deps: { attemptStore: { updateAttempt } } },
+      { runningEntries, releaseIssueClaim, pushEvent, deps: { attemptStore: { updateAttempt }, logger: { warn } } },
       makeIssue(),
       entry,
       new Error("unexpected crash"),
@@ -468,9 +491,15 @@ describe("handleWorkerFailure", () => {
     runningEntries.set("issue-1", entry);
     const pushEvent = vi.fn();
     const updateAttempt = vi.fn().mockResolvedValue(undefined);
+    const warn = vi.fn();
 
     await handleWorkerFailure(
-      { runningEntries, releaseIssueClaim: vi.fn(), pushEvent, deps: { attemptStore: { updateAttempt } } },
+      {
+        runningEntries,
+        releaseIssueClaim: vi.fn(),
+        pushEvent,
+        deps: { attemptStore: { updateAttempt }, logger: { warn } },
+      },
       makeIssue(),
       entry,
       "string error",
@@ -483,19 +512,18 @@ describe("handleWorkerFailure", () => {
 describe("handleWorkerOutcome - git post-run failure", () => {
   it("completes issue despite git post-run failure (non-fatal)", async () => {
     const ctx = makeCtx();
-    (ctx.deps.gitManager as { commitAndPush: ReturnType<typeof vi.fn> }).commitAndPush.mockRejectedValueOnce(
-      new Error("push rejected"),
-    );
+    const gitManagerMock = ctx.deps.gitManager as unknown as { commitAndPush: ReturnType<typeof vi.fn> };
+    gitManagerMock.commitAndPush.mockRejectedValueOnce(new Error("push rejected"));
     const entry = makeEntry({
       lastAgentMessageContent: "SYMPHONY_STATUS: DONE",
       repoMatch: {
         repoUrl: "https://github.com/org/repo",
         defaultBranch: "main",
         identifierPrefix: "MT",
-        label: null,
         githubOwner: "org",
         githubRepo: "repo",
-        githubTokenEnv: null,
+        githubTokenEnv: "GITHUB_TOKEN",
+        matchedBy: "identifier_prefix",
       },
     });
     ctx.runningEntries.set("issue-1", entry);
@@ -504,7 +532,7 @@ describe("handleWorkerOutcome - git post-run failure", () => {
 
     // Git failure is non-fatal — issue should still complete
     expect(ctx.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "worker_completed" }));
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("completed");
     expect(ctx.queueRetry).not.toHaveBeenCalled();
     // Logs the git failure
@@ -549,7 +577,7 @@ describe("detectStopSignal edge cases", () => {
 
     await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
 
-    const view = ctx.completedViews.get("MT-1") as Record<string, unknown>;
+    const view = getCompletedView(ctx);
     expect(view.status).toBe("paused");
   });
 

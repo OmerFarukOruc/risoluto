@@ -27,7 +27,7 @@ bash bin/build-sandbox.sh
 ```bash
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_PROJECT_SLUG="your-linear-project-slug"
-node dist/cli.js ./WORKFLOW.example.md --port 4000
+node dist/cli/index.js ./WORKFLOW.example.md --port 4000
 ```
 
 Open http://127.0.0.1:4000 — the **setup wizard** opens automatically and walks you through:
@@ -134,7 +134,7 @@ export OPENAI_API_KEY="sk-..."
 # 6. Export credentials and start
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_PROJECT_SLUG="your-linear-project-slug"
-node dist/cli.js ./WORKFLOW.md --port 4000
+node dist/cli/index.js ./WORKFLOW.md --port 4000
 ```
 
 > [!TIP]
@@ -193,7 +193,7 @@ bash bin/build-sandbox.sh
 export LINEAR_PROJECT_SLUG="your-linear-project-slug"
 
 # Dry-start the portable workflow
-node dist/cli.js ./WORKFLOW.example.md
+node dist/cli/index.js ./WORKFLOW.example.md
 ```
 
 If `LINEAR_PROJECT_SLUG` is missing, Symphony exits with:
@@ -219,7 +219,7 @@ error code=missing_codex_provider_env msg="codex runtime requires OPENAI_API_KEY
 ## ▶️ Start the Service
 
 ```bash
-node dist/cli.js ./WORKFLOW.example.md --port 4000
+node dist/cli/index.js ./WORKFLOW.example.md --port 4000
 ```
 
 - 🖥️ **Dashboard**: [http://127.0.0.1:4000/](http://127.0.0.1:4000/)
@@ -499,19 +499,48 @@ flowchart LR
 
 Hook execution is bounded by `hooks.timeout_ms`.
 
+### 🌳 Workspace Strategies
+
+Symphony supports two workspace strategies controlled by `workspace.strategy`:
+
+| Strategy    | Description                                     | Disk Usage                  | Default |
+| ----------- | ----------------------------------------------- | --------------------------- | ------- |
+| `directory` | Full clone per issue — independent workspaces   | Higher (full clone each)    | Yes     |
+| `worktree`  | Git worktree per issue from a shared bare clone | Lower (shares object store) | No      |
+
+**Worktree strategy:**
+
+When `workspace.strategy: worktree`, Symphony creates a single bare clone under `workspace.root/.base/<repo-key>.git` and issues get lightweight worktrees that share the same object store.
+
+- Base clone is created automatically on first issue for a given repo route
+- `git fetch` syncs refs before worktree creation — existing worktrees are never reset or rebased
+- On retry, existing worktrees are reused as-is (branch attached if worktree dir was deleted)
+- Successful terminal runs clean up the worktree; hard failures can be preserved for debugging
+- The `.base` directory is excluded from startup transient cleanup
+- Fail-fast: worktree mode requires a matching repo route for every issue
+
+**Configuration:**
+
+```yaml
+workspace:
+  root: ../symphony-workspaces
+  strategy: worktree # "directory" or "worktree"
+  branch_prefix: "symphony/" # prefix for symphony-created branches
+```
+
 ### ⏱️ Timeouts and Retries
 
-| Knob                    | Config Key                        | Purpose                                                          |
-| ----------------------- | --------------------------------- | ---------------------------------------------------------------- |
-| Hook timeout            | `hooks.timeout_ms`                | Max time for any lifecycle hook                                  |
-| Read timeout            | `codex.read_timeout_ms`           | JSON-RPC read timeout                                            |
-| Turn timeout            | `codex.turn_timeout_ms`           | Total time for a single turn                                     |
-| Turn stall timeout      | `codex.stall_timeout_ms`          | Detect long-silent turns (per-turn level)                        |
-| Orchestrator stall      | `agent.stall_timeout_ms`          | Kill agents with no events for this duration (default 1200000 ms = 20 min); set to `0` or negative to disable |
-| Success state           | `agent.success_state`             | Linear state name to transition the issue to on successful completion; null = no transition |
-| Retry backoff           | `agent.max_retry_backoff_ms`      | Ceiling for retry delay                                          |
-| Active states           | `tracker.active_states`           | Which tracker states are eligible for dispatch                   |
-| Terminal states         | `tracker.terminal_states`         | Which states stop work and trigger cleanup                       |
+| Knob               | Config Key                   | Purpose                                                                                                       |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Hook timeout       | `hooks.timeout_ms`           | Max time for any lifecycle hook                                                                               |
+| Read timeout       | `codex.read_timeout_ms`      | JSON-RPC read timeout                                                                                         |
+| Turn timeout       | `codex.turn_timeout_ms`      | Total time for a single turn                                                                                  |
+| Turn stall timeout | `codex.stall_timeout_ms`     | Detect long-silent turns (per-turn level)                                                                     |
+| Orchestrator stall | `agent.stall_timeout_ms`     | Kill agents with no events for this duration (default 1200000 ms = 20 min); set to `0` or negative to disable |
+| Success state      | `agent.success_state`        | Linear state name to transition the issue to on successful completion; null = no transition                   |
+| Retry backoff      | `agent.max_retry_backoff_ms` | Ceiling for retry delay                                                                                       |
+| Active states      | `tracker.active_states`      | Which tracker states are eligible for dispatch                                                                |
+| Terminal states    | `tracker.terminal_states`    | Which states stop work and trigger cleanup                                                                    |
 
 > [!TIP]
 > For safer live proving, set `codex.turn_timeout_ms` to something short like `120000` (2 minutes).
@@ -726,7 +755,7 @@ Use after a targeted UI change to confirm the edit visually:
 
 ```bash
 # 1. Start the dashboard
-node dist/cli.js ./WORKFLOW.example.md --port 4000
+node dist/cli/index.js ./WORKFLOW.example.md --port 4000
 
 # 2. Baseline screenshot
 agent-browser open http://127.0.0.1:4000

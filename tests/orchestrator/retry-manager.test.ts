@@ -221,6 +221,7 @@ describe("revalidateAndLaunchRetry", () => {
           fetchIssueStatesByIds: vi.fn().mockResolvedValue(latestIssue ? [latestIssue] : []),
         },
         workspaceManager: { removeWorkspace: vi.fn().mockResolvedValue(undefined) },
+        logger: { warn: vi.fn() },
       },
       getConfig: () =>
         config as unknown as Parameters<typeof revalidateAndLaunchRetry>[0]["getConfig"] extends () => infer C
@@ -257,7 +258,10 @@ describe("revalidateAndLaunchRetry", () => {
     const ctx = makeCtx({ latestIssue: makeIssue({ state: "Done" }) });
     await revalidateAndLaunchRetry(ctx, "issue-1", 1);
     expect(ctx.clearRetryEntry).toHaveBeenCalledWith("issue-1");
-    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith("MT-1");
+    expect(ctx.deps.workspaceManager.removeWorkspace).toHaveBeenCalledWith(
+      "MT-1",
+      expect.objectContaining({ identifier: "MT-1", state: "Done" }),
+    );
     expect(ctx.launchWorker).not.toHaveBeenCalled();
   });
 

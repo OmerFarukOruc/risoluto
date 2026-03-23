@@ -208,6 +208,7 @@ describe("registerSetupApi — quick start helpers", () => {
       ok: true,
       labelId: "label-1",
       labelName: "symphony",
+      alreadyExists: false,
     });
     expect(getExternalFetchMock()).toHaveBeenCalledTimes(2);
   });

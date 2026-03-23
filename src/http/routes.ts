@@ -17,6 +17,7 @@ import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { handleTransition } from "./transition-handler.js";
 import { handleGetTransitions } from "./transitions-api.js";
+import { handleWorkspaceInventory } from "./workspace-inventory.js";
 import { methodNotAllowed, refreshReason, sanitizeConfigValue, serializeSnapshot } from "./route-helpers.js";
 import type { LinearClient } from "../linear/client.js";
 
@@ -46,6 +47,7 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   registerExtensionApis(app, deps);
   registerGitRoutes(app, deps);
   registerIssueRoutes(app, deps);
+  registerWorkspaceRoutes(app, deps);
 
   app.use((request, response) => {
     if (request.path.startsWith("/api/") || request.path === "/metrics") {
@@ -201,6 +203,24 @@ function registerGitRoutes(app: Express, deps: HttpRouteDeps): void {
           orchestrator: deps.orchestrator,
           configStore: deps.configStore,
           secretsStore: deps.secretsStore,
+        },
+        req,
+        res,
+      );
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+}
+
+function registerWorkspaceRoutes(app: Express, deps: HttpRouteDeps): void {
+  app
+    .route("/api/v1/workspaces")
+    .get(async (req, res) => {
+      await handleWorkspaceInventory(
+        {
+          orchestrator: deps.orchestrator,
+          configStore: deps.configStore,
         },
         req,
         res,

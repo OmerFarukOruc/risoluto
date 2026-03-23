@@ -8,6 +8,7 @@ import type {
   RuntimeInfo,
   RuntimeSnapshot,
   SetupStatus,
+  WorkspaceInventoryResponse,
 } from "./types";
 
 const BASE = "";
@@ -126,4 +127,5 @@ export const api = {
       {},
     ),
   getGitContext: () => get<GitContextResponse>("/api/v1/git/context"),
+  getWorkspaces: () => get<WorkspaceInventoryResponse>("/api/v1/workspaces"),
 };

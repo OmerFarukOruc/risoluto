@@ -23,11 +23,7 @@ export interface WorktreeEntry {
 
 /** Derive a stable filesystem-safe key from a repo URL. */
 function sanitizeChar(ch: string): string {
-  const code = ch.charCodeAt(0);
-  if (code >= 48 && code <= 57) return ch;
-  if (code >= 65 && code <= 90) return ch;
-  if (code >= 97 && code <= 122) return ch;
-  if (ch === "." || ch === "_" || ch === "-") return ch;
+  if (/[\w.-]/.test(ch)) return ch;
   return "-";
 }
 

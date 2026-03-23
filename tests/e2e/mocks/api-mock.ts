@@ -60,6 +60,11 @@ export async function installApiMock(page: Page, overrides: ApiMockOverrides = {
   await page.route("**/api/v1/state", (route) => json(route, snapshot));
   await page.route("**/api/v1/runtime", (route) => json(route, runtimeInfo));
 
+  // Workspaces
+  await page.route("**/api/v1/workspaces", (route) =>
+    json(route, { workspaces: [], generated_at: new Date().toISOString(), total: 0, active: 0, orphaned: 0 }),
+  );
+
   // Refresh
   await page.route("**/api/v1/refresh", (route) =>
     json(route, { queued: true, coalesced: false, requested_at: new Date().toISOString() }),
@@ -101,7 +106,7 @@ export async function installApiMock(page: Page, overrides: ApiMockOverrides = {
 
   // Issue detail — match /api/v1/:identifier but NOT sub-paths
   await page.route(
-    /\/api\/v1\/(?!setup|config|secrets|refresh|transitions|state|runtime|attempts)([^/]+)$/,
+    /\/api\/v1\/(?!setup|config|secrets|refresh|transitions|state|runtime|attempts|workspaces)([^/]+)$/,
     (route) => {
       const url = new URL(route.request().url());
       const segments = url.pathname.split("/");

@@ -17,6 +17,8 @@ function createConfig(): ServiceConfig {
     polling: { intervalMs: 1000 },
     workspace: {
       root: "/tmp/symphony",
+      strategy: "directory",
+      branchPrefix: "symphony/",
       hooks: {
         afterCreate: null,
         beforeRun: null,
@@ -30,6 +32,9 @@ function createConfig(): ServiceConfig {
       maxConcurrentAgentsByState: {},
       maxTurns: 2,
       maxRetryBackoffMs: 10000,
+      maxContinuationAttempts: 1,
+      successState: null,
+      stallTimeoutMs: 0,
     },
     codex: {
       command: "codex app-server",
@@ -61,6 +66,7 @@ function createConfig(): ServiceConfig {
     },
     server: { port: 4000 },
     github: {
+      token: "github-token",
       apiBaseUrl: "https://api.github.com",
     },
     repos: [
@@ -68,6 +74,7 @@ function createConfig(): ServiceConfig {
         repoUrl: "https://github.com/acme/alpha.git",
         defaultBranch: "main",
         identifierPrefix: "API",
+        label: null,
       },
     ],
   };
@@ -104,6 +111,7 @@ describe("runtime providers", () => {
       {
         repoUrl: "https://github.com/acme/beta.git",
         defaultBranch: "develop",
+        identifierPrefix: null,
         label: "mobile",
       },
     ];
@@ -123,6 +131,10 @@ describe("runtime providers", () => {
         commitAndPush: vi.fn(async () => undefined),
         createPullRequest: vi.fn(async () => undefined),
         addPrComment: vi.fn(async () => undefined),
+        setupWorktree: vi.fn(async () => undefined),
+        syncWorktree: vi.fn(async () => undefined),
+        removeWorktree: vi.fn(async () => undefined),
+        deriveBaseCloneDir: vi.fn(() => "/tmp/symphony/.base/repo.git"),
         getPrStatus: vi.fn(async () => ({ apiBaseUrl: deps.apiBaseUrl ?? null })),
       };
     });
@@ -142,6 +154,7 @@ describe("runtime providers", () => {
     });
 
     config.github = {
+      token: "github-token",
       apiBaseUrl: "https://github.example.test/api",
     };
 

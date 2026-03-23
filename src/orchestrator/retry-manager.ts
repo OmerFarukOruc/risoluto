@@ -89,7 +89,7 @@ export async function revalidateAndLaunchRetry(
     runningEntries: Map<string, RunningEntry>;
     deps: {
       linearClient: { fetchIssueStatesByIds: (ids: string[]) => Promise<Issue[]> };
-      workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+      workspaceManager: { removeWorkspace: (identifier: string, issue?: Issue) => Promise<void> };
       logger: { warn: (meta: Record<string, unknown>, message: string) => void };
     };
     getConfig: () => ServiceConfig;
@@ -117,7 +117,7 @@ export async function revalidateAndLaunchRetry(
 
   if (isTerminalState(latestIssue.state, config)) {
     ctx.clearRetryEntry(issueId);
-    await ctx.deps.workspaceManager.removeWorkspace(latestIssue.identifier).catch((error: unknown) => {
+    await ctx.deps.workspaceManager.removeWorkspace(latestIssue.identifier, latestIssue).catch((error: unknown) => {
       ctx.deps.logger.warn(
         { issueId, identifier: latestIssue.identifier, error: String(error) },
         "workspace cleanup failed during retry launch",

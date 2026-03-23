@@ -28,7 +28,18 @@ export function createGitHubToolProvider(
     env?: NodeJS.ProcessEnv;
     createGitManager?: (deps: GitManagerDeps) => GitManager;
   },
-): Pick<GitManager, "cloneInto" | "commitAndPush" | "createPullRequest" | "addPrComment" | "getPrStatus"> {
+): Pick<
+  GitManager,
+  | "cloneInto"
+  | "commitAndPush"
+  | "createPullRequest"
+  | "addPrComment"
+  | "getPrStatus"
+  | "setupWorktree"
+  | "syncWorktree"
+  | "removeWorktree"
+  | "deriveBaseCloneDir"
+> {
   const createGitManager = deps?.createGitManager ?? ((managerDeps: GitManagerDeps) => new GitManager(managerDeps));
   const getManager = () =>
     createGitManager({
@@ -37,10 +48,17 @@ export function createGitHubToolProvider(
     });
 
   return {
-    cloneInto: (route, workspaceDir, issue) => getManager().cloneInto(route, workspaceDir, issue),
+    cloneInto: (route, workspaceDir, issue, branchPrefix) =>
+      getManager().cloneInto(route, workspaceDir, issue, branchPrefix),
     commitAndPush: (workspaceDir, message, branchName) => getManager().commitAndPush(workspaceDir, message, branchName),
     createPullRequest: (route, issue, branchName) => getManager().createPullRequest(route, issue, branchName),
     addPrComment: (input) => getManager().addPrComment(input),
     getPrStatus: (input) => getManager().getPrStatus(input),
+    setupWorktree: (route, baseCloneDir, worktreePath, issue, branchPrefix) =>
+      getManager().setupWorktree(route, baseCloneDir, worktreePath, issue, branchPrefix),
+    syncWorktree: (baseCloneDir) => getManager().syncWorktree(baseCloneDir),
+    removeWorktree: (baseCloneDir, worktreePath, force) =>
+      getManager().removeWorktree(baseCloneDir, worktreePath, force),
+    deriveBaseCloneDir: (workspaceRoot, repoUrl) => getManager().deriveBaseCloneDir(workspaceRoot, repoUrl),
   };
 }

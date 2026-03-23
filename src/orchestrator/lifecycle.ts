@@ -53,7 +53,7 @@ async function reconcileRetries(ctx: ReconcileContext, byId: Map<string, Issue>,
     retryEntry.issue = latest;
     if (isTerminalState(latest.state, config)) {
       ctx.clearRetryEntry(retryEntry.issueId);
-      await ctx.deps.workspaceManager.removeWorkspace(latest.identifier).catch((error: unknown) => {
+      await ctx.deps.workspaceManager.removeWorkspace(latest.identifier, latest).catch((error: unknown) => {
         ctx.deps.logger.warn(
           { issueId: retryEntry.issueId, identifier: latest.identifier, error: String(error) },
           "workspace cleanup failed during retry reconciliation",
@@ -72,7 +72,7 @@ interface ReconcileContext {
       fetchIssueStatesByIds: (ids: string[]) => Promise<Issue[]>;
       fetchIssuesByStates: (states: string[]) => Promise<Issue[]>;
     };
-    workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+    workspaceManager: { removeWorkspace: (identifier: string, issue?: Issue) => Promise<void> };
     logger: { warn: (meta: Record<string, unknown>, message: string) => void };
   };
   getConfig: () => ServiceConfig;
@@ -159,7 +159,7 @@ export async function refreshQueueViews(ctx: {
 export async function cleanupTerminalIssueWorkspaces(ctx: {
   deps: {
     linearClient: { fetchIssuesByStates: (states: string[]) => Promise<Issue[]> };
-    workspaceManager: { removeWorkspace: (identifier: string) => Promise<void> };
+    workspaceManager: { removeWorkspace: (identifier: string, issue?: Issue) => Promise<void> };
     logger: { warn: (meta: Record<string, unknown>, message: string) => void };
   };
   getConfig: () => ServiceConfig;
@@ -168,7 +168,7 @@ export async function cleanupTerminalIssueWorkspaces(ctx: {
     const terminalIssues = await ctx.deps.linearClient.fetchIssuesByStates(ctx.getConfig().tracker.terminalStates);
     await Promise.all(
       terminalIssues.map((issue) =>
-        ctx.deps.workspaceManager.removeWorkspace(issue.identifier).catch((error: unknown) => {
+        ctx.deps.workspaceManager.removeWorkspace(issue.identifier, issue).catch((error: unknown) => {
           ctx.deps.logger.warn(
             { identifier: issue.identifier, error: String(error) },
             "workspace cleanup failed for terminal issue",

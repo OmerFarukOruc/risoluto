@@ -1,8 +1,19 @@
+import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { Issue } from "../core/types.js";
+import type { Issue, SymphonyLogger } from "../core/types.js";
 import type { RepoMatch } from "./repo-router.js";
+import {
+  ensureBaseClone,
+  syncBaseClone,
+  addWorktree,
+  attachWorktree,
+  removeWorktree as removeWorktreePrimitive,
+  branchExists,
+  deriveRepoKey,
+  type WorktreeContext,
+} from "./worktree-manager.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -24,6 +35,7 @@ export interface GitManagerDeps {
   env?: NodeJS.ProcessEnv;
   apiBaseUrl?: string;
   defaultGithubTokenEnv?: string;
+  logger?: SymphonyLogger;
 }
 
 function sanitizeBranchSegment(value: string): string {
@@ -39,12 +51,12 @@ function sanitizeBranchSegment(value: string): string {
   );
 }
 
-function deriveBranchName(issue: Pick<Issue, "identifier" | "branchName">): string {
+function deriveBranchName(issue: Pick<Issue, "identifier" | "branchName">, branchPrefix = "symphony/"): string {
   if (issue.branchName && issue.branchName.trim().length > 0) {
     return issue.branchName.trim();
   }
   const slug = sanitizeBranchSegment(issue.identifier) || "issue";
-  return `symphony/${slug}`;
+  return `${branchPrefix}${slug}`;
 }
 
 function parseGithubRepo(repoUrl: string): { owner: string; repo: string } | null {
@@ -93,6 +105,7 @@ export class GitManager {
   private readonly env: NodeJS.ProcessEnv;
   private readonly apiBaseUrl: string;
   private readonly defaultGithubTokenEnv: string;
+  private readonly logger: SymphonyLogger | null;
 
   constructor(deps: GitManagerDeps = {}) {
     this.runGit =
@@ -108,13 +121,66 @@ export class GitManager {
     this.env = deps.env ?? process.env;
     this.apiBaseUrl = deps.apiBaseUrl ?? "https://api.github.com";
     this.defaultGithubTokenEnv = deps.defaultGithubTokenEnv ?? "GITHUB_TOKEN";
+    this.logger = deps.logger ?? null;
   }
+
+  private getWorktreeContext(): WorktreeContext {
+    return {
+      runGit: this.runGit,
+      env: this.env,
+      logger: this.logger ?? {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        child: () => this.logger ?? ({} as SymphonyLogger),
+      },
+    };
+  }
+
+  deriveBaseCloneDir(workspaceRoot: string, repoUrl: string): string {
+    return path.join(workspaceRoot, ".base", `${deriveRepoKey(repoUrl)}.git`);
+  }
+
+  async setupWorktree(
+    route: RepoMatch,
+    baseCloneDir: string,
+    worktreePath: string,
+    issue: Pick<Issue, "identifier" | "branchName">,
+    branchPrefix?: string,
+  ): Promise<{ branchName: string }> {
+    const ctx = this.getWorktreeContext();
+    await ensureBaseClone(ctx, route.repoUrl, baseCloneDir);
+    await syncBaseClone(ctx, baseCloneDir);
+
+    const branchName = deriveBranchName(issue, branchPrefix);
+    const startPoint = `origin/${route.defaultBranch}`;
+
+    if (await branchExists(ctx, baseCloneDir, branchName)) {
+      await attachWorktree(ctx, baseCloneDir, worktreePath, branchName);
+    } else {
+      await addWorktree(ctx, baseCloneDir, worktreePath, branchName, startPoint);
+    }
+    return { branchName };
+  }
+
+  async syncWorktree(baseCloneDir: string): Promise<void> {
+    const ctx = this.getWorktreeContext();
+    await syncBaseClone(ctx, baseCloneDir);
+  }
+
+  async removeWorktree(baseCloneDir: string, worktreePath: string, force = true): Promise<void> {
+    const ctx = this.getWorktreeContext();
+    await removeWorktreePrimitive(ctx, baseCloneDir, worktreePath, force);
+  }
+
   async cloneInto(
     route: RepoMatch,
     workspaceDir: string,
     issue: Pick<Issue, "identifier" | "branchName">,
+    branchPrefix?: string,
   ): Promise<CloneResult> {
-    const branchName = deriveBranchName(issue);
+    const branchName = deriveBranchName(issue, branchPrefix);
     await this.runGit(["clone", "--branch", route.defaultBranch, "--single-branch", route.repoUrl, "."], {
       cwd: workspaceDir,
       env: this.env,

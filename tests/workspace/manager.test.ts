@@ -21,11 +21,16 @@ function createConfig(root: string): ServiceConfig {
     tracker: {
       kind: "linear",
       apiKey: "linear-token",
+      endpoint: "https://api.linear.app/graphql",
       projectSlug: "EXAMPLE",
+      activeStates: ["Todo", "In Progress"],
+      terminalStates: ["Done"],
     },
     polling: { intervalMs: 30000 },
     workspace: {
       root,
+      strategy: "directory",
+      branchPrefix: "symphony/",
       hooks: {
         afterCreate: "printf 'after_create:%s\\n' \"$SYMPHONY_ISSUE_IDENTIFIER\" >> hook.log",
         beforeRun: "printf 'before_run:%s\\n' \"$SYMPHONY_ISSUE_IDENTIFIER\" >> hook.log",
@@ -36,8 +41,12 @@ function createConfig(root: string): ServiceConfig {
     },
     agent: {
       maxConcurrentAgents: 1,
+      maxConcurrentAgentsByState: {},
       maxTurns: 1,
       maxRetryBackoffMs: 300000,
+      maxContinuationAttempts: 1,
+      successState: null,
+      stallTimeoutMs: 10000,
     },
     codex: {
       command: "codex app-server",
@@ -48,7 +57,24 @@ function createConfig(root: string): ServiceConfig {
       turnSandboxPolicy: { type: "dangerFullAccess" },
       readTimeoutMs: 1000,
       turnTimeoutMs: 10000,
+      drainTimeoutMs: 0,
+      startupTimeoutMs: 0,
       stallTimeoutMs: 10000,
+      auth: {
+        mode: "api_key",
+        sourceHome: "/tmp/auth",
+      },
+      provider: null,
+      sandbox: {
+        image: "symphony-codex:latest",
+        network: "",
+        security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
+        resources: { memory: "4g", memoryReservation: "1g", memorySwap: "4g", cpus: "2.0", tmpfsSize: "512m" },
+        extraMounts: [],
+        envPassthrough: [],
+        logs: { driver: "json-file", maxSize: "50m", maxFile: 3 },
+        egressAllowlist: [],
+      },
     },
     server: { port: 4000 },
   };

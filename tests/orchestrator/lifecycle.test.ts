@@ -209,13 +209,17 @@ describe("reconcileRunningAndRetrying", () => {
           fetchIssuesByStates: vi.fn(),
         },
         workspaceManager: { removeWorkspace },
+        logger: makeMockLogger(),
       },
       getConfig: () => makeConfig(),
       clearRetryEntry,
       pushEvent: vi.fn(),
     });
     expect(clearRetryEntry).toHaveBeenCalledWith("issue-1");
-    expect(removeWorkspace).toHaveBeenCalledWith("MT-1");
+    expect(removeWorkspace).toHaveBeenCalledWith(
+      "MT-1",
+      expect.objectContaining({ identifier: "MT-1", state: "Done" }),
+    );
   });
 
   it("clears retry entry without workspace removal when issue becomes inactive", async () => {
@@ -230,6 +234,7 @@ describe("reconcileRunningAndRetrying", () => {
           fetchIssuesByStates: vi.fn(),
         },
         workspaceManager: { removeWorkspace },
+        logger: makeMockLogger(),
       },
       getConfig: () => makeConfig(),
       clearRetryEntry,
@@ -332,8 +337,8 @@ describe("cleanupTerminalIssueWorkspaces", () => {
       },
       getConfig: () => makeConfig(),
     });
-    expect(removeWorkspace).toHaveBeenCalledWith("MT-1");
-    expect(removeWorkspace).toHaveBeenCalledWith("MT-2");
+    expect(removeWorkspace).toHaveBeenCalledWith("MT-1", expect.objectContaining({ identifier: "MT-1" }));
+    expect(removeWorkspace).toHaveBeenCalledWith("MT-2", expect.objectContaining({ identifier: "MT-2" }));
   });
 
   it("logs warning on fetch error instead of throwing", async () => {
@@ -342,7 +347,6 @@ describe("cleanupTerminalIssueWorkspaces", () => {
       deps: {
         linearClient: { fetchIssuesByStates: vi.fn().mockRejectedValue(new Error("network error")) },
         workspaceManager: { removeWorkspace: vi.fn() },
-        logger: makeMockLogger(),
         logger: { warn },
       },
       getConfig: () => makeConfig(),

@@ -28,6 +28,18 @@ export async function createServices(
   const workspaceManager = new WorkspaceManager(
     () => configStore.getConfig(),
     logger.child({ component: "workspace" }),
+    {
+      gitManager: {
+        setupWorktree: (route, baseCloneDir, worktreePath, issue, branchPrefix) =>
+          gitManager.setupWorktree(route, baseCloneDir, worktreePath, issue, branchPrefix),
+        removeWorktree: (baseCloneDir, worktreePath, force) =>
+          gitManager.removeWorktree(baseCloneDir, worktreePath, force),
+        deriveBaseCloneDir: (workspaceRoot, repoUrl) => gitManager.deriveBaseCloneDir(workspaceRoot, repoUrl),
+      },
+      repoRouter: {
+        matchIssue: (issue) => repoRouter.matchIssue(issue),
+      },
+    },
   );
   const notificationManager = new NotificationManager({ logger: logger.child({ component: "notifications" }) });
   const pathRegistry = PathRegistry.fromEnv();

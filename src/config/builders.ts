@@ -61,6 +61,10 @@ function deriveWorkspaceConfig(
   const rawHookTimeoutMs = asNumber(hooks.timeout_ms, 60000);
   const hookTimeoutMs = rawHookTimeoutMs > 0 ? rawHookTimeoutMs : 60000;
 
+  const rawStrategy = asString(workspace.strategy, "directory");
+  const strategy: ServiceConfig["workspace"]["strategy"] = rawStrategy === "worktree" ? "worktree" : "directory";
+  const branchPrefix = asString(workspace.branch_prefix, "symphony/");
+
   return {
     root: path.resolve(workspaceRoot),
     hooks: {
@@ -70,6 +74,8 @@ function deriveWorkspaceConfig(
       beforeRemove: asString(hooks.before_remove) || null,
       timeoutMs: hookTimeoutMs,
     },
+    strategy,
+    branchPrefix,
   };
 }
 

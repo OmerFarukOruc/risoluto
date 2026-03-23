@@ -21,6 +21,12 @@ polling:
 # Workspaces live as sibling directories of the project repo.
 workspace:
   root: ../symphony-workspaces
+  # Strategy: "directory" (default) or "worktree"
+  # - directory: traditional clone-per-issue workspace
+  # - worktree: git worktree per issue from a shared bare clone (saves disk, shares object store)
+  # strategy: directory
+  # Branch prefix used for symphony-created branches (applies to both strategies).
+  # branch_prefix: "symphony/"
 
 # Every hook runs with the issue workspace as cwd.
 hooks:
@@ -118,6 +124,7 @@ codex:
 server:
   port: 4000
 ---
+
 You are working on Linear issue {{ issue.identifier }}.
 
 If the issue is a smoke test, healthcheck, or end-to-end verification task, prefer a minimal proof that works even in an otherwise empty workspace. In that case, create a file such as `SYMPHONY_SMOKE_RESULT.md` inside the issue workspace with the issue identifier, UTC timestamp, current working directory, and a short summary of what succeeded.

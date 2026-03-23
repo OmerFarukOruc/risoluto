@@ -38,6 +38,8 @@ export function createConfig(): ServiceConfig {
     polling: { intervalMs: 30000 },
     workspace: {
       root: "/tmp/symphony",
+      strategy: "directory",
+      branchPrefix: "symphony/",
       hooks: {
         afterCreate: null,
         beforeRun: null,
@@ -52,6 +54,8 @@ export function createConfig(): ServiceConfig {
       maxTurns: 1,
       maxRetryBackoffMs: 300000,
       maxContinuationAttempts: 5,
+      successState: null,
+      stallTimeoutMs: 10000,
     },
     codex: {
       command: "codex app-server",

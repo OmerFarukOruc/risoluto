@@ -50,6 +50,106 @@ describe("GitManager", () => {
     ]);
   });
 
+  it("sets up a worktree for a new prefixed branch", async () => {
+    const calls: string[][] = [];
+    const runGit: GitRunner = async (args) => {
+      calls.push(args);
+      if (args[0] === "rev-parse" && args[1] === "--git-dir") {
+        return { stdout: ".git\n", stderr: "" };
+      }
+      if (args[0] === "rev-parse" && args[1] === "--verify") {
+        throw new Error("missing branch");
+      }
+      return { stdout: "", stderr: "" };
+    };
+
+    const manager = new GitManager({ runGit, env: {} });
+    const result = await manager.setupWorktree(
+      createRepoMatch(),
+      "/tmp/base/backend.git",
+      "/tmp/worktrees/NIN-42",
+      createIssue(),
+      "feature/",
+    );
+
+    expect(result).toEqual({ branchName: "feature/nin-42" });
+    expect(calls).toEqual([
+      ["rev-parse", "--git-dir"],
+      ["fetch", "origin", "--prune"],
+      ["fetch", "origin", "--prune"],
+      ["rev-parse", "--verify", "refs/heads/feature/nin-42"],
+      ["worktree", "add", "-b", "feature/nin-42", "/tmp/worktrees/NIN-42", "origin/main"],
+    ]);
+  });
+
+  it("attaches an existing worktree branch", async () => {
+    const calls: string[][] = [];
+    const runGit: GitRunner = async (args) => {
+      calls.push(args);
+      if (args[0] === "rev-parse" && args[1] === "--git-dir") {
+        return { stdout: ".git\n", stderr: "" };
+      }
+      if (args[0] === "rev-parse" && args[1] === "--verify") {
+        return { stdout: "refs/heads/symphony/nin-42\n", stderr: "" };
+      }
+      return { stdout: "", stderr: "" };
+    };
+
+    const manager = new GitManager({ runGit, env: {} });
+    const result = await manager.setupWorktree(
+      createRepoMatch(),
+      "/tmp/base/backend.git",
+      "/tmp/worktrees/NIN-42",
+      createIssue(),
+    );
+
+    expect(result).toEqual({ branchName: "symphony/nin-42" });
+    expect(calls).toEqual([
+      ["rev-parse", "--git-dir"],
+      ["fetch", "origin", "--prune"],
+      ["fetch", "origin", "--prune"],
+      ["rev-parse", "--verify", "refs/heads/symphony/nin-42"],
+      ["worktree", "add", "/tmp/worktrees/NIN-42", "symphony/nin-42"],
+    ]);
+  });
+
+  it("syncs a worktree base clone", async () => {
+    const calls: string[][] = [];
+    const runGit: GitRunner = async (args) => {
+      calls.push(args);
+      return { stdout: "", stderr: "" };
+    };
+
+    const manager = new GitManager({ runGit, env: {} });
+    await manager.syncWorktree("/tmp/base/backend.git");
+
+    expect(calls).toEqual([["fetch", "origin", "--prune"]]);
+  });
+
+  it("removes a worktree with force by default", async () => {
+    const calls: string[][] = [];
+    const runGit: GitRunner = async (args) => {
+      calls.push(args);
+      return { stdout: "", stderr: "" };
+    };
+
+    const manager = new GitManager({ runGit, env: {} });
+    await manager.removeWorktree("/tmp/base/backend.git", "/tmp/worktrees/NIN-42");
+
+    expect(calls).toEqual([
+      ["worktree", "remove", "--force", "/tmp/worktrees/NIN-42"],
+      ["worktree", "prune"],
+    ]);
+  });
+
+  it("derives the base clone directory from the repo URL", () => {
+    const manager = new GitManager({ env: {} });
+
+    expect(manager.deriveBaseCloneDir("/tmp/symphony", "https://github.com/acme/backend.git")).toBe(
+      "/tmp/symphony/.base/https-github.com-acme-backend.git",
+    );
+  });
+
   it("skips commit and push when there are no staged changes", async () => {
     const runGit: GitRunner = async (args) => {
       if (args[0] === "status") {

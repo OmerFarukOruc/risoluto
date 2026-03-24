@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { router } from "../router";
 import { registerPageCleanup } from "../utils/page";
+import { createSingleFlight } from "../utils/single-flight";
 import { createSetupDeviceAuthController } from "./setup-openai-controller";
 import {
   buildOpenaiKeyStep as buildOpenaiKeyStepContent,
@@ -42,6 +43,8 @@ interface SetupState {
   labelCreated: boolean;
   labelName: string | null;
   labelError: string | null;
+  createdProjectUrl: string | null;
+  createdProjectName: string | null;
 }
 
 const state: SetupState = {
@@ -74,6 +77,8 @@ const state: SetupState = {
   labelCreated: false,
   labelName: null,
   labelError: null,
+  createdProjectUrl: null,
+  createdProjectName: null,
 };
 
 let container: HTMLElement | null = null;
@@ -115,9 +120,28 @@ function buildStepIndicator(): HTMLElement {
     const stepIdx = order.indexOf(s.key);
     const isDone = currentIdx > stepIdx;
     const isActive = s.key === state.step;
+    const isClickable = true;
 
     const indicator = document.createElement("div");
     indicator.className = `setup-step-indicator${isActive ? " is-active" : ""}${isDone ? " is-done" : ""}`;
+    if (isClickable) {
+      indicator.style.cursor = "pointer";
+      indicator.setAttribute("role", "button");
+      indicator.setAttribute("tabindex", "0");
+      const targetStep = s.key;
+      const handleNav = (): void => {
+        state.step = targetStep;
+        state.error = null;
+        rerender();
+      };
+      indicator.addEventListener("click", handleNav);
+      indicator.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleNav();
+        }
+      });
+    }
 
     const dot = document.createElement("div");
     dot.className = "setup-step-dot";
@@ -143,6 +167,7 @@ function buildStepIndicator(): HTMLElement {
 
 function buildMasterKeyStep(): HTMLElement {
   const el = document.createElement("div");
+  const keyAlreadySet = state.generatedKey === "set";
 
   const title = document.createElement("div");
   title.className = "setup-title";
@@ -150,6 +175,68 @@ function buildMasterKeyStep(): HTMLElement {
 
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
+
+  if (keyAlreadySet) {
+    // Key was set in a previous session — show confirmation with reconfigure option
+    sub.textContent =
+      "Your encryption key was generated during a previous setup. It is stored in .symphony/master.key — make sure you have a backup.";
+
+    const badge = document.createElement("div");
+    badge.className = "setup-callout";
+    badge.innerHTML = "✓ <strong>Master key is configured.</strong> Your stored secrets are encrypted and protected.";
+
+    const actions = document.createElement("div");
+    actions.className = "setup-actions";
+
+    const reconfigure = document.createElement("button");
+    reconfigure.className = "mc-button is-ghost is-sm";
+    reconfigure.textContent = state.loading ? "Resetting…" : "Reconfigure";
+    reconfigure.disabled = state.loading;
+    reconfigure.addEventListener("click", async () => {
+      if (
+        !confirm(
+          "This will clear ALL stored secrets (Linear, OpenAI, GitHub keys) and generate a new encryption key. You will need to re-enter all credentials.\n\nAre you sure?",
+        )
+      )
+        return;
+      state.loading = true;
+      state.error = null;
+      rerender();
+      try {
+        await api.resetSetup();
+        state.generatedKey = null;
+        state.apiKeyInput = "";
+        state.apiKeyVerified = false;
+        state.projects = [];
+        state.selectedProject = null;
+        state.tokenInput = "";
+        state.openaiKeyInput = "";
+        await generateAndSetKey();
+      } catch (error_) {
+        state.error = error_ instanceof Error ? error_.message : String(error_);
+        state.loading = false;
+        rerender();
+      }
+    });
+
+    const next = document.createElement("button");
+    next.className = "mc-button is-primary";
+    next.textContent = "Next →";
+    next.addEventListener("click", () => advanceMasterKey());
+    actions.append(reconfigure, next);
+
+    if (state.error) {
+      const err = document.createElement("div");
+      err.className = "setup-error";
+      err.textContent = state.error;
+      el.append(title, sub, badge, err, actions);
+    } else {
+      el.append(title, sub, badge, actions);
+    }
+    return el;
+  }
+
+  // Key was just generated — show it so the user can copy
   sub.textContent =
     "Symphony uses an encryption key to protect stored credentials on your machine. A key has been generated for you — copy it somewhere safe before continuing.";
 
@@ -211,18 +298,24 @@ function buildMasterKeyStep(): HTMLElement {
   return el;
 }
 
-async function generateAndSetKey(): Promise<void> {
+const generateAndSetKey = createSingleFlight(async (): Promise<void> => {
   setLoading(true);
   state.error = null;
   try {
     const result = await api.postMasterKey();
     state.generatedKey = result.key;
   } catch (err) {
-    state.error = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
+    // 409 means the key already exists — treat as success
+    if (message.includes("already")) {
+      state.generatedKey = "set";
+    } else {
+      state.error = message;
+    }
   } finally {
     setLoading(false);
   }
-}
+});
 
 function advanceMasterKey(): void {
   if (!state.generatedKey) return;
@@ -344,11 +437,80 @@ function buildLinearProjectStep(): HTMLElement {
   }
 
   if (state.apiKeyVerified && state.projects.length > 0) {
+    // Show success banner if we just created a project
+    if (state.createdProjectName) {
+      const successBanner = document.createElement("div");
+      successBanner.className = "setup-callout";
+      successBanner.style.marginTop = "var(--space-4)";
+      const linkHtml = state.createdProjectUrl
+        ? ` <a class="setup-link" href="${state.createdProjectUrl}" target="_blank" rel="noopener">View in Linear →</a>`
+        : "";
+      successBanner.innerHTML =
+        `✓ <strong>Project "${state.createdProjectName}" created successfully!</strong> ` +
+        `It's selected below and ready to use.${linkHtml}`;
+      el.append(successBanner);
+    }
+
     const gridLabel = document.createElement("div");
     gridLabel.className = "setup-label";
     gridLabel.style.marginTop = "var(--space-4)";
     gridLabel.textContent = "Select a project";
     el.append(gridLabel, buildProjectGrid());
+  } else if (state.apiKeyVerified && state.projects.length === 0) {
+    const emptyMsg = document.createElement("div");
+    emptyMsg.className = "setup-callout";
+    emptyMsg.style.marginTop = "var(--space-4)";
+    emptyMsg.innerHTML =
+      "<strong>No projects found.</strong> Create one below or in Linear directly.";
+
+    const createRow = document.createElement("div");
+    createRow.style.display = "flex";
+    createRow.style.gap = "var(--space-2)";
+    createRow.style.marginTop = "var(--space-3)";
+    createRow.style.alignItems = "center";
+
+    const nameInput = document.createElement("input");
+    nameInput.className = "setup-input";
+    nameInput.style.flex = "1";
+    nameInput.placeholder = "Project name (e.g. My App)";
+
+    const createBtn = document.createElement("button");
+    createBtn.className = "mc-button is-primary is-sm";
+    createBtn.textContent = "Create Project";
+    createBtn.disabled = true;
+    nameInput.addEventListener("input", () => {
+      createBtn.disabled = !nameInput.value.trim() || state.loading;
+    });
+
+    createBtn.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      state.loading = true;
+      state.error = null;
+      createBtn.textContent = "Creating…";
+      createBtn.disabled = true;
+      rerender();
+      try {
+        const result = await api.createProject(name);
+        // Show success confirmation before switching to project grid
+        state.projects = [result.project];
+        state.selectedProject = result.project.slugId;
+        state.loading = false;
+        state.error = null;
+
+        // Store the success info for the rerender to pick up
+        state.createdProjectUrl = result.project.url;
+        state.createdProjectName = result.project.name;
+        rerender();
+      } catch (error_) {
+        state.error = error_ instanceof Error ? error_.message : String(error_);
+        state.loading = false;
+        rerender();
+      }
+    });
+
+    createRow.append(nameInput, createBtn);
+    el.append(emptyMsg, createRow);
   }
 
   const actions = document.createElement("div");
@@ -423,6 +585,7 @@ function buildOpenaiKeyStep(): HTMLElement {
     deviceAuthIntervalSeconds: state.deviceAuthIntervalSeconds,
     deviceAuthExpiresAt: state.deviceAuthExpiresAt,
     deviceAuthError: state.deviceAuthError,
+    deviceAuthRemainingSeconds: deviceAuthController.getRemainingSeconds(),
   };
 
   return buildOpenaiKeyStepContent(openaiStepState, {
@@ -438,6 +601,9 @@ function buildOpenaiKeyStep(): HTMLElement {
     },
     onStartDeviceAuth: () => {
       deviceAuthController.startDeviceAuthFlow().catch(() => {});
+    },
+    onCancelDeviceAuth: () => {
+      deviceAuthController.cancelDeviceAuth().catch(() => {});
     },
     onToggleManualAuthFallback: () => {
       state.showManualAuthFallback = !state.showManualAuthFallback;
@@ -925,26 +1091,17 @@ export function createSetupPage(): HTMLElement {
     container = null;
   });
 
-  // Drive step from server state on every load
+  // Always start at step 1 — fetch server status only to pre-fill state.
+  state.step = "master-key";
   api
     .getSetupStatus()
     .then((status) => {
       if (!status.steps.masterKey.done) {
         if (!state.generatedKey) generateAndSetKey().catch(() => {});
-        return;
-      }
-      // Master key exists — always derive correct step from server
-      state.generatedKey = state.generatedKey ?? "set";
-      if (!status.steps.linearProject.done) {
-        state.step = "linear-project";
-      } else if (!status.steps.openaiKey.done) {
-        state.step = "openai-key";
-      } else if (!status.steps.githubToken.done) {
-        state.step = "github-token";
       } else {
-        state.step = "done";
+        state.generatedKey = state.generatedKey ?? "set";
+        rerender();
       }
-      rerender();
     })
     .catch(() => {
       if (!state.generatedKey) generateAndSetKey().catch(() => {});

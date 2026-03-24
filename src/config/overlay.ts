@@ -220,9 +220,24 @@ export class ConfigOverlayStore {
 
   private async persist(): Promise<void> {
     const rendered = YAML.stringify(this.overlay);
-    const temporaryPath = `${this.overlayPath}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporaryPath, rendered, "utf8");
-    await rename(temporaryPath, this.overlayPath);
+    const dir = path.dirname(this.overlayPath);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const temporaryPath = `${this.overlayPath}.tmp-${process.pid}-${Date.now()}`;
+      try {
+        await mkdir(dir, { recursive: true });
+        await writeFile(temporaryPath, rendered, "utf8");
+        await rename(temporaryPath, this.overlayPath);
+        return;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" && attempt === 0) {
+          this.logger.warn({ error: String(error) }, "config overlay persist retrying after ENOENT");
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   private async reloadFromDisk(reason: string, options: { allowMissingFile: boolean }): Promise<void> {

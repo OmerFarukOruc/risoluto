@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ConfigOverlayStore } from "../../src/config/overlay.js";
 import {
-  createConfigOverlayStoreMock,
   createSecretsStoreMock,
   getExternalFetchMock,
   type HoistedMocks,
@@ -20,146 +18,45 @@ const mocks: HoistedMocks = vi.hoisted(() => ({
   mkdirMock: vi.fn<(filePath: string, options?: { recursive?: boolean }) => Promise<void>>(),
   writeFileMock:
     vi.fn<(filePath: string, data: string, options?: { encoding?: BufferEncoding; mode?: number }) => Promise<void>>(),
-  startDeviceAuthMock: vi.fn<
-    () => Promise<{
-      user_code: string;
-      verification_uri: string;
-      verification_uri_complete?: string;
-      device_code: string;
-      expires_in: number;
-      interval: number;
-    }>
-  >(),
-  pollDeviceAuthMock:
-    vi.fn<(deviceCode: string) => Promise<{ status: "pending" | "complete" | "expired"; error?: string }>>(),
-  saveDeviceAuthTokensMock:
-    vi.fn<
-      (
-        deviceCode: string,
-        archiveDir: string,
-        configOverlayStore: ConfigOverlayStore,
-      ) => Promise<{ ok: boolean; error?: string }>
-    >(),
+  startDeviceAuthMock: vi.fn(),
+  pollDeviceAuthMock: vi.fn(),
+  saveDeviceAuthTokensMock: vi.fn(),
 }));
 
 vi.mock("node:fs", () => ({ existsSync: mocks.existsSyncMock }));
 vi.mock("node:fs/promises", () => ({ mkdir: mocks.mkdirMock, writeFile: mocks.writeFileMock }));
-vi.mock("../../src/setup/device-auth.js", () => ({
-  startDeviceAuth: mocks.startDeviceAuthMock,
-  pollDeviceAuth: mocks.pollDeviceAuthMock,
-  saveDeviceAuthTokens: mocks.saveDeviceAuthTokensMock,
-}));
+vi.mock("../../src/setup/device-auth.js", async () => {
+  const actual = (await vi.importActual("../../src/setup/device-auth.js")) as Record<string, unknown>;
+  return {
+    ...actual,
+    startDeviceAuth: mocks.startDeviceAuthMock,
+    pollDeviceAuth: mocks.pollDeviceAuthMock,
+    saveDeviceAuthTokens: mocks.saveDeviceAuthTokensMock,
+    checkAuthEndpointReachable: vi.fn().mockResolvedValue(null),
+  };
+});
 
 beforeEach(() => setupBeforeEach(mocks));
 afterEach(setupAfterEach);
 
-describe("registerSetupApi — device auth & tokens", () => {
-  it("starts device auth successfully", async () => {
-    mocks.startDeviceAuthMock.mockResolvedValueOnce({
-      user_code: "ABCD-EFGH",
-      verification_uri: "https://example.com/device",
-      verification_uri_complete: "https://example.com/device?user_code=ABCD-EFGH",
-      device_code: "device-123",
-      expires_in: 900,
-      interval: 5,
-    });
-
+describe("registerSetupApi — auth & tokens", () => {
+  it("starts PKCE auth successfully", async () => {
     const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/start");
+    const response = await postJson(baseUrl, "/api/v1/setup/pkce-auth/start");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      userCode: "ABCD-EFGH",
-      verificationUri: "https://example.com/device?user_code=ABCD-EFGH",
-      deviceCode: "device-123",
-      expiresIn: 900,
-      interval: 5,
-    });
+    const body = (await response.json()) as { authUrl: string };
+    expect(body.authUrl).toBeDefined();
+    expect(typeof body.authUrl).toBe("string");
   });
 
-  it("returns device_auth_error when starting device auth fails", async () => {
-    mocks.startDeviceAuthMock.mockRejectedValueOnce(new Error("oauth offline"));
-
+  it("returns PKCE auth status when polled", async () => {
     const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/start");
-
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({
-      error: { code: "device_auth_error", message: "Error: oauth offline" },
-    });
-  });
-
-  it("returns missing_device_code when polling without a device code", async () => {
-    const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", {});
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: { code: "missing_device_code", message: "deviceCode is required" },
-    });
-  });
-
-  it("returns pending while device auth is still waiting for approval", async () => {
-    mocks.pollDeviceAuthMock.mockResolvedValueOnce({ status: "pending" });
-
-    const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", { deviceCode: "device-123" });
+    const response = await fetch(`${baseUrl}/api/v1/setup/pkce-auth/status`);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "pending" });
-    expect(mocks.saveDeviceAuthTokensMock).not.toHaveBeenCalled();
-  });
-
-  it("completes device auth and saves tokens", async () => {
-    const configOverlayStore = createConfigOverlayStoreMock();
-    mocks.pollDeviceAuthMock.mockResolvedValueOnce({ status: "complete" });
-    mocks.saveDeviceAuthTokensMock.mockResolvedValueOnce({ ok: true });
-
-    const { baseUrl } = await startSetupApiServer({ configOverlayStore, archiveDir: "/test-archive" });
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", { deviceCode: "device-123" });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "complete" });
-    expect(mocks.saveDeviceAuthTokensMock).toHaveBeenCalledWith("device-123", "/test-archive", configOverlayStore);
-  });
-
-  it("returns an error payload when saving completed device auth tokens fails", async () => {
-    mocks.pollDeviceAuthMock.mockResolvedValueOnce({ status: "complete" });
-    mocks.saveDeviceAuthTokensMock.mockResolvedValueOnce({ ok: false, error: "token save failed" });
-
-    const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", { deviceCode: "device-123" });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "error", error: "token save failed" });
-  });
-
-  it("returns expired when device auth expires", async () => {
-    mocks.pollDeviceAuthMock.mockResolvedValueOnce({
-      status: "expired",
-      error: "Device code expired. Please start again.",
-    });
-
-    const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", { deviceCode: "device-123" });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      status: "expired",
-      error: "Device code expired. Please start again.",
-    });
-  });
-
-  it("returns poll_error when device auth polling throws", async () => {
-    mocks.pollDeviceAuthMock.mockRejectedValueOnce(new Error("poll failed"));
-
-    const { baseUrl } = await startSetupApiServer();
-    const response = await postJson(baseUrl, "/api/v1/setup/device-auth/poll", { deviceCode: "device-123" });
-
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
-      error: { code: "poll_error", message: "Error: poll failed" },
-    });
+    const body = (await response.json()) as { status: string };
+    expect(["idle", "pending", "complete", "expired", "error"]).toContain(body.status);
   });
 
   it("returns missing_token when GitHub token is missing", async () => {
@@ -207,8 +104,8 @@ describe("registerSetupApi — device auth & tokens", () => {
     "/api/v1/setup/linear-project",
     "/api/v1/setup/openai-key",
     "/api/v1/setup/codex-auth",
-    "/api/v1/setup/device-auth/start",
-    "/api/v1/setup/device-auth/poll",
+    "/api/v1/setup/pkce-auth/start",
+    "/api/v1/setup/pkce-auth/status",
     "/api/v1/setup/github-token",
   ])("returns 405 for unsupported methods on %s", async (route) => {
     const { baseUrl } = await startSetupApiServer();

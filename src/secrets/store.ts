@@ -103,7 +103,6 @@ export class SecretsStore {
       throw new Error("MASTER_KEY is required to initialize SecretsStore");
     }
     this.encryptionKey = deriveKey(masterKey);
-
     const source = await this.readEncryptedFile();
     if (source === null) {
       await this.persist();
@@ -124,15 +123,12 @@ export class SecretsStore {
     this.loadCache(decrypted);
   }
 
-  /** Start without a MASTER_KEY — leaves encryptionKey null (degraded/setup mode). */
   async startDeferred(): Promise<void> {
     await mkdir(this.baseDir, { recursive: true });
   }
 
-  /** Initialise the store with a master key after deferred start. */
   async initializeWithKey(masterKey: string): Promise<void> {
     this.encryptionKey = deriveKey(masterKey);
-
     const source = await this.readEncryptedFile();
     if (source === null) {
       await this.persist();
@@ -156,16 +152,19 @@ export class SecretsStore {
     this.loadCache(decrypted);
     this.notify();
   }
-
   isInitialized(): boolean {
     return this.encryptionKey !== null;
   }
 
+  reset(): void {
+    this.cache.clear();
+    this.encryptionKey = null;
+    this.notify();
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+    return () => this.listeners.delete(listener);
   }
 
   list(): string[] {
@@ -240,9 +239,22 @@ export class SecretsStore {
   private async persist(): Promise<void> {
     const serializedSecrets = JSON.stringify(Object.fromEntries(this.cache), null, 2);
     const envelope = encrypt(serializedSecrets, this.requiredKey());
-    const temporaryPath = `${this.secretsPath()}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporaryPath, encodeEnvelope(envelope), "utf8");
-    await rename(temporaryPath, this.secretsPath());
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const temporaryPath = `${this.secretsPath()}.tmp-${process.pid}-${Date.now()}`;
+      try {
+        await writeFile(temporaryPath, encodeEnvelope(envelope), "utf8");
+        await rename(temporaryPath, this.secretsPath());
+        return;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" && attempt === 0) {
+          this.logger.warn({ error: String(error) }, "secrets persist retrying after ENOENT");
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   private secretsPath(): string {

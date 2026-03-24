@@ -20,19 +20,31 @@ interface SetupDeviceAuthDeps {
   moveToGithubStep: () => void;
 }
 
-export function createSetupDeviceAuthController(state: SetupDeviceAuthState, deps: SetupDeviceAuthDeps) {
-  let deviceAuthPollTimer: number | null = null;
+/** Session timeout in milliseconds (3 minutes). */
+const PKCE_TIMEOUT_MS = 3 * 60 * 1000;
 
-  function clearDeviceAuthPollTimer(): void {
-    if (deviceAuthPollTimer === null) {
-      return;
+export function createSetupDeviceAuthController(state: SetupDeviceAuthState, deps: SetupDeviceAuthDeps) {
+  let pkceAuthPollTimer: number | null = null;
+  let countdownTimer: number | null = null;
+  let authPopup: Window | null = null;
+
+  function clearPollTimer(): void {
+    if (pkceAuthPollTimer !== null) {
+      window.clearTimeout(pkceAuthPollTimer);
+      pkceAuthPollTimer = null;
     }
-    window.clearTimeout(deviceAuthPollTimer);
-    deviceAuthPollTimer = null;
+  }
+
+  function clearCountdownTimer(): void {
+    if (countdownTimer !== null) {
+      window.clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
   }
 
   function clearDeviceAuthState(): void {
-    clearDeviceAuthPollTimer();
+    clearPollTimer();
+    clearCountdownTimer();
     state.deviceAuthStatus = "idle";
     state.deviceAuthUserCode = "";
     state.deviceAuthVerificationUri = "";
@@ -40,22 +52,32 @@ export function createSetupDeviceAuthController(state: SetupDeviceAuthState, dep
     state.deviceAuthIntervalSeconds = 0;
     state.deviceAuthExpiresAt = null;
     state.deviceAuthError = null;
+    authPopup = null;
   }
 
-  function scheduleDeviceAuthPoll(): void {
-    if (state.deviceAuthStatus !== "pending" || !state.deviceAuthDeviceCode || state.authMode !== "codex_login") {
-      clearDeviceAuthPollTimer();
-      return;
-    }
-    clearDeviceAuthPollTimer();
-    const delayMs = Math.max(state.deviceAuthIntervalSeconds, 1) * 1000;
-    deviceAuthPollTimer = window.setTimeout(() => {
-      void pollDeviceAuthFlow();
-    }, delayMs);
+  function schedulePoll(): void {
+    clearPollTimer();
+    pkceAuthPollTimer = window.setTimeout(() => {
+      void pollPkceStatus();
+    }, 2000);
+  }
+
+  function startCountdownTimer(): void {
+    clearCountdownTimer();
+    countdownTimer = window.setInterval(() => {
+      deps.rerender();
+    }, 1000);
+  }
+
+  /** Returns the remaining seconds before the session expires, or 0 if expired/not active. */
+  function getRemainingSeconds(): number {
+    if (state.deviceAuthExpiresAt === null) return 0;
+    return Math.max(0, Math.ceil((state.deviceAuthExpiresAt - Date.now()) / 1000));
   }
 
   async function startDeviceAuthFlow(): Promise<void> {
-    clearDeviceAuthPollTimer();
+    clearPollTimer();
+    clearCountdownTimer();
     state.error = null;
     state.deviceAuthStatus = "starting";
     state.deviceAuthError = null;
@@ -63,51 +85,88 @@ export function createSetupDeviceAuthController(state: SetupDeviceAuthState, dep
     deps.rerender();
 
     try {
-      const result = await api.startDeviceAuth();
+      const result = await api.startPkceAuth();
       state.deviceAuthStatus = "pending";
-      state.deviceAuthUserCode = result.userCode;
-      state.deviceAuthVerificationUri = result.verificationUri;
-      state.deviceAuthDeviceCode = result.deviceCode;
-      state.deviceAuthIntervalSeconds = result.interval;
-      state.deviceAuthExpiresAt = Date.now() + result.expiresIn * 1000;
-      scheduleDeviceAuthPoll();
+      state.deviceAuthUserCode = "";
+      state.deviceAuthVerificationUri = result.authUrl;
+      state.deviceAuthDeviceCode = "pkce";
+      state.deviceAuthExpiresAt = Date.now() + PKCE_TIMEOUT_MS;
+
+      // Open the auth URL in a new browser tab
+      authPopup = window.open(result.authUrl, "_blank");
+
+      schedulePoll();
+      startCountdownTimer();
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       state.deviceAuthStatus = "expired";
-      state.deviceAuthError = error instanceof Error ? error.message : String(error);
-      state.showManualAuthFallback = true;
+      state.deviceAuthError = message;
+      // Only show manual fallback for non-network errors — if the auth endpoint
+      // is unreachable, pasting auth.json won't help either.
+      state.showManualAuthFallback = !message.includes("auth.openai.com");
     }
 
     deps.rerender();
   }
 
-  async function pollDeviceAuthFlow(): Promise<void> {
-    if (state.authMode !== "codex_login" || state.deviceAuthStatus !== "pending" || !state.deviceAuthDeviceCode) {
-      clearDeviceAuthPollTimer();
+  async function cancelDeviceAuth(): Promise<void> {
+    clearPollTimer();
+    clearCountdownTimer();
+
+    // Close popup if still open
+    if (authPopup && !authPopup.closed) {
+      authPopup.close();
+    }
+
+    // Tell the backend to clean up
+    try {
+      await api.cancelPkceAuth();
+    } catch {
+      // Best-effort — even if the backend call fails, reset UI
+    }
+
+    clearDeviceAuthState();
+    deps.rerender();
+  }
+
+  async function pollPkceStatus(): Promise<void> {
+    if (state.authMode !== "codex_login" || state.deviceAuthStatus !== "pending") {
+      clearPollTimer();
+      clearCountdownTimer();
       return;
     }
 
+    // Check timeout
     if (state.deviceAuthExpiresAt !== null && Date.now() >= state.deviceAuthExpiresAt) {
       state.deviceAuthStatus = "expired";
-      state.deviceAuthError = "Device code expired. Start the flow again or use the manual auth.json fallback.";
+      state.deviceAuthError = "Authentication timed out. Please try again.";
       state.showManualAuthFallback = true;
-      clearDeviceAuthPollTimer();
+      clearPollTimer();
+      clearCountdownTimer();
       deps.rerender();
       return;
     }
 
     try {
-      const result = await api.pollDeviceAuth(state.deviceAuthDeviceCode);
-      if (result.status === "pending") {
-        state.deviceAuthError = null;
-        scheduleDeviceAuthPoll();
-        deps.rerender();
+      const result = await api.pollPkceAuthStatus();
+
+      if (result.status === "pending" || result.status === "idle") {
+        schedulePoll();
         return;
       }
 
       if (result.status === "complete") {
         state.deviceAuthStatus = "complete";
         state.deviceAuthError = null;
-        clearDeviceAuthPollTimer();
+        clearPollTimer();
+        clearCountdownTimer();
+
+        // Close the popup if still open
+        if (authPopup && !authPopup.closed) {
+          authPopup.close();
+        }
+        authPopup = null;
+
         deps.rerender();
         window.setTimeout(() => {
           if (
@@ -121,16 +180,19 @@ export function createSetupDeviceAuthController(state: SetupDeviceAuthState, dep
         return;
       }
 
+      // error or expired
       state.deviceAuthStatus = "expired";
-      state.deviceAuthError = result.error ?? "Device code expired. Start again or use the manual auth.json fallback.";
+      state.deviceAuthError = result.error ?? "Authentication failed. Please try again.";
       state.showManualAuthFallback = true;
-      clearDeviceAuthPollTimer();
+      clearPollTimer();
+      clearCountdownTimer();
       deps.rerender();
     } catch (error) {
       state.deviceAuthStatus = "expired";
       state.deviceAuthError = error instanceof Error ? error.message : String(error);
       state.showManualAuthFallback = true;
-      clearDeviceAuthPollTimer();
+      clearPollTimer();
+      clearCountdownTimer();
       deps.rerender();
     }
   }
@@ -148,5 +210,7 @@ export function createSetupDeviceAuthController(state: SetupDeviceAuthState, dep
     clearDeviceAuthState,
     selectOpenaiAuthMode,
     startDeviceAuthFlow,
+    cancelDeviceAuth,
+    getRemainingSeconds,
   };
 }

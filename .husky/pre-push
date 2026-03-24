@@ -5,6 +5,20 @@
 
 set -e
 
+# Skip checks when only deleting remote branches (no code is being pushed)
+z40=0000000000000000000000000000000000000000
+all_deletes=true
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" != "$z40" ]; then
+    all_deletes=false
+    break
+  fi
+done
+if [ "$all_deletes" = true ]; then
+  echo "🗑️  Branch delete only — skipping pre-push checks."
+  exit 0
+fi
+
 echo "🔨 Building..."
 npm run build
 

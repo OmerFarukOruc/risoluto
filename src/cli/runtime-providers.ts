@@ -26,6 +26,7 @@ export function createGitHubToolProvider(
   getConfig: () => ServiceConfig,
   deps?: {
     env?: NodeJS.ProcessEnv;
+    resolveSecret?: (name: string) => string | undefined;
     createGitManager?: (deps: GitManagerDeps) => GitManager;
   },
 ): Pick<
@@ -41,11 +42,25 @@ export function createGitHubToolProvider(
   | "deriveBaseCloneDir"
 > {
   const createGitManager = deps?.createGitManager ?? ((managerDeps: GitManagerDeps) => new GitManager(managerDeps));
-  const getManager = () =>
-    createGitManager({
-      env: deps?.env ?? process.env,
-      apiBaseUrl: getConfig().github?.apiBaseUrl ?? DEFAULT_GITHUB_API_BASE_URL,
+  const getManager = () => {
+    const config = getConfig();
+    const env = { ...(deps?.env ?? process.env) };
+    const tokenEnvNames = new Set((config.repos ?? []).map((route) => route.githubTokenEnv || "GITHUB_TOKEN"));
+
+    for (const envName of tokenEnvNames) {
+      if (env[envName] === undefined) {
+        const secretValue = deps?.resolveSecret?.(envName);
+        if (secretValue) {
+          env[envName] = secretValue;
+        }
+      }
+    }
+
+    return createGitManager({
+      env,
+      apiBaseUrl: config.github?.apiBaseUrl ?? DEFAULT_GITHUB_API_BASE_URL,
     });
+  };
 
   return {
     cloneInto: (route, workspaceDir, issue, branchPrefix) =>

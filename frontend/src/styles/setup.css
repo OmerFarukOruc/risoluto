@@ -33,6 +33,16 @@
   color: var(--status-running);
 }
 
+.setup-step-indicator.is-done:hover,
+.setup-step-indicator.is-active:hover {
+  opacity: 0.8;
+}
+
+.setup-step-indicator:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
 .setup-step-dot {
   width: 24px;
   height: 24px;
@@ -437,6 +447,13 @@
 
 .setup-device-auth-badge.is-expired {
   color: var(--status-blocked);
+}
+
+.setup-device-auth-countdown {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-wide);
 }
 
 .setup-device-auth-grid {

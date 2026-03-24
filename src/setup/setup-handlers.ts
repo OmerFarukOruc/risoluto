@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -9,13 +8,24 @@ import type { ConfigOverlayStore } from "../config/overlay.js";
 import {
   buildCreateIssueMutation,
   buildCreateLabelMutation,
+  buildCreateProjectMutation,
   buildProjectLookupQuery,
   buildTeamStatesQuery,
+  buildTeamsQuery,
 } from "../linear/queries.js";
 import type { Orchestrator } from "../orchestrator/orchestrator.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { getErrorMessage, isRecord } from "../utils/type-guards.js";
-import { pollDeviceAuth, saveDeviceAuthTokens, startDeviceAuth } from "./device-auth.js";
+import {
+  checkAuthEndpointReachable,
+  createPkceSession,
+  exchangePkceCode,
+  savePkceAuthTokens,
+  shutdownCallbackServer,
+  startCallbackServer,
+  type PkceSession,
+} from "./device-auth.js";
+import { hasCodexAuthFile, hasLinearCredentials, readProjectSlug } from "./setup-status.js";
 
 export interface SetupApiDeps {
   secretsStore: SecretsStore;
@@ -27,9 +37,9 @@ export interface SetupApiDeps {
 export function handleGetStatus(deps: SetupApiDeps) {
   return (_req: Request, res: Response) => {
     const masterKeyDone = deps.secretsStore.isInitialized();
-    const linearProjectDone = !!(deps.secretsStore.get("LINEAR_API_KEY") || process.env.LINEAR_API_KEY);
+    const linearProjectDone = hasLinearCredentials(deps.secretsStore);
     const hasApiKey = !!(deps.secretsStore.get("OPENAI_API_KEY") || process.env.OPENAI_API_KEY);
-    const hasAuthJson = existsSync(path.join(deps.archiveDir, "codex-auth", "auth.json"));
+    const hasAuthJson = hasCodexAuthFile(deps.archiveDir, deps.configOverlayStore.toMap());
     const openaiKeyDone = hasApiKey || hasAuthJson;
     const githubTokenDone = !!(deps.secretsStore.get("GITHUB_TOKEN") || process.env.GITHUB_TOKEN);
 
@@ -48,12 +58,15 @@ export function handleGetStatus(deps: SetupApiDeps) {
 export function handlePostReset(deps: SetupApiDeps) {
   return async (_req: Request, res: Response) => {
     try {
+      await deps.orchestrator.stop();
       await Promise.all(deps.secretsStore.list().map((key) => deps.secretsStore.delete(key)));
       await Promise.all([
         deps.configOverlayStore.set("codex.auth.mode", ""),
         deps.configOverlayStore.set("codex.auth.source_home", ""),
         deps.configOverlayStore.delete("codex.provider"),
+        writeFile(path.join(deps.archiveDir, "master.key"), "", { encoding: "utf8", mode: 0o600 }),
       ]);
+      deps.secretsStore.reset();
       res.json({ ok: true });
     } catch (error) {
       const message = getErrorMessage(error, "Failed to reset configuration");
@@ -75,6 +88,7 @@ export function handlePostMasterKey(deps: SetupApiDeps) {
 
     try {
       const keyFile = path.join(deps.archiveDir, "master.key");
+      await mkdir(deps.archiveDir, { recursive: true });
       await writeFile(keyFile, key, { encoding: "utf8", mode: 0o600 });
       await deps.secretsStore.initializeWithKey(key);
       res.json({ key });
@@ -212,45 +226,86 @@ export function handlePostCodexAuth(deps: SetupApiDeps) {
   };
 }
 
-export function handlePostDeviceAuthStart() {
+let activePkceSession: PkceSession | null = null;
+
+export function handlePostPkceAuthStart(_deps: SetupApiDeps) {
   return async (_req: Request, res: Response) => {
     try {
-      const result = await startDeviceAuth();
-      res.json({
-        userCode: result.user_code,
-        verificationUri: result.verification_uri_complete || result.verification_uri,
-        deviceCode: result.device_code,
-        expiresIn: result.expires_in,
-        interval: result.interval,
-      });
+      // Pre-flight: verify OpenAI auth endpoint is reachable
+      const reachError = await checkAuthEndpointReachable();
+      if (reachError) {
+        res.status(502).json({ error: { code: "auth_unreachable", message: reachError } });
+        return;
+      }
+
+      // Shut down any previous session
+      if (activePkceSession) {
+        shutdownCallbackServer(activePkceSession);
+      }
+
+      activePkceSession = createPkceSession("");
+      await startCallbackServer(activePkceSession);
+      res.json({ authUrl: activePkceSession.authUrl });
     } catch (error) {
-      res.status(502).json({ error: { code: "device_auth_error", message: String(error) } });
+      const message = activePkceSession?.error ?? String(error);
+      res.status(500).json({ error: { code: "pkce_start_error", message } });
     }
   };
 }
 
-export function handlePostDeviceAuthPoll(deps: SetupApiDeps) {
-  return async (req: Request, res: Response) => {
-    const body = req.body;
-    const deviceCode = isRecord(body) && typeof body.deviceCode === "string" ? body.deviceCode : null;
-    if (!deviceCode) {
-      res.status(400).json({ error: { code: "missing_device_code", message: "deviceCode is required" } });
+export function handleGetPkceAuthStatus(deps: SetupApiDeps) {
+  return async (_req: Request, res: Response) => {
+    if (!activePkceSession) {
+      res.json({ status: "idle" });
       return;
     }
-
-    try {
-      const pollResult = await pollDeviceAuth(deviceCode);
-      if (pollResult.status === "complete") {
-        const saveResult = await saveDeviceAuthTokens(deviceCode, deps.archiveDir, deps.configOverlayStore);
-        if (!saveResult.ok) {
-          res.json({ status: "error", error: saveResult.error });
-          return;
-        }
-      }
-      res.json(pollResult);
-    } catch (error) {
-      res.status(500).json({ error: { code: "poll_error", message: String(error) } });
+    if (activePkceSession.error) {
+      shutdownCallbackServer(activePkceSession);
+      res.json({ status: "error", error: activePkceSession.error });
+      return;
     }
+    if (activePkceSession.complete) {
+      res.json({ status: "complete" });
+      return;
+    }
+    // Check if auth code was received — exchange it for tokens
+    if (activePkceSession.authCode) {
+      await exchangeAndSaveFromSession(activePkceSession, deps, res);
+      return;
+    }
+    // Check if session expired (3 min timeout)
+    if (Date.now() - activePkceSession.createdAt > 3 * 60 * 1000) {
+      activePkceSession.error = "Authentication timed out. Please try again.";
+      shutdownCallbackServer(activePkceSession);
+      res.json({ status: "expired", error: activePkceSession.error });
+      return;
+    }
+    res.json({ status: "pending" });
+  };
+}
+
+async function exchangeAndSaveFromSession(session: PkceSession, deps: SetupApiDeps, res: Response): Promise<void> {
+  try {
+    const tokenData = await exchangePkceCode(session.authCode!, session.codeVerifier, session.redirectUri);
+    await savePkceAuthTokens(tokenData, deps.archiveDir, deps.configOverlayStore);
+    session.complete = true;
+    shutdownCallbackServer(session);
+    res.json({ status: "complete" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    session.error = message;
+    shutdownCallbackServer(session);
+    res.json({ status: "error", error: message });
+  }
+}
+
+export function handlePostPkceAuthCancel(_deps: SetupApiDeps) {
+  return (_req: Request, res: Response) => {
+    if (activePkceSession) {
+      shutdownCallbackServer(activePkceSession);
+      activePkceSession = null;
+    }
+    res.json({ ok: true });
   };
 }
 
@@ -314,11 +369,6 @@ async function callLinearGraphQL(
 
 function getLinearApiKey(deps: SetupApiDeps): string {
   return deps.secretsStore.get("LINEAR_API_KEY") ?? process.env.LINEAR_API_KEY ?? "";
-}
-
-function readProjectSlug(overlay: Record<string, unknown>): string | undefined {
-  const slug = overlay["tracker.project_slug"] ?? (overlay.tracker as Record<string, unknown>)?.project_slug;
-  return typeof slug === "string" ? slug : undefined;
 }
 
 interface ProjectNode {
@@ -462,6 +512,86 @@ export function handlePostCreateLabel(deps: SetupApiDeps) {
       res.json({ ok: true, labelId: id, labelName: name, alreadyExists });
     } catch (error) {
       const message = getErrorMessage(error, "Failed to create label");
+      res.status(502).json({ error: { code: "linear_api_error", message } });
+    }
+  };
+}
+
+interface LinearTeam {
+  id: string;
+  name: string;
+  key: string;
+}
+
+interface ProjectCreateResult {
+  success?: boolean;
+  project?: {
+    id?: string;
+    name?: string;
+    slugId?: string;
+    url?: string;
+    teams?: { nodes?: Array<{ key: string }> };
+  };
+}
+
+async function fetchLinearTeams(apiKey: string): Promise<LinearTeam[]> {
+  const teamsData = await callLinearGraphQL(apiKey, buildTeamsQuery(), {});
+  return (
+    (((teamsData.data as Record<string, unknown>)?.teams as Record<string, unknown>)?.nodes as
+      | LinearTeam[]
+      | undefined) ?? []
+  );
+}
+
+async function createLinearProject(apiKey: string, name: string, teamIds: string[]): Promise<ProjectCreateResult> {
+  const data = await callLinearGraphQL(apiKey, buildCreateProjectMutation(), { name, teamIds });
+  return ((data.data as Record<string, unknown>)?.projectCreate as ProjectCreateResult | undefined) ?? {};
+}
+
+function parseProjectName(body: unknown): string | null {
+  if (!isRecord(body) || typeof body.name !== "string") return null;
+  const name = body.name.trim();
+  return name || null;
+}
+
+export function handlePostCreateProject(deps: SetupApiDeps) {
+  return async (req: Request, res: Response) => {
+    const apiKey = getLinearApiKey(deps);
+    if (!apiKey) {
+      res.status(400).json({ error: { code: "missing_api_key", message: "LINEAR_API_KEY not configured" } });
+      return;
+    }
+
+    const name = parseProjectName(req.body);
+    if (!name) {
+      res.status(400).json({ error: { code: "missing_name", message: "Project name is required" } });
+      return;
+    }
+
+    try {
+      const teams = await fetchLinearTeams(apiKey);
+      if (!teams.length) {
+        res.status(400).json({ error: { code: "no_teams", message: "No teams found in your Linear workspace" } });
+        return;
+      }
+
+      const result = await createLinearProject(apiKey, name, [teams[0].id]);
+      if (!result?.success || !result.project?.slugId) {
+        throw new Error("Linear did not confirm project creation");
+      }
+
+      res.json({
+        ok: true,
+        project: {
+          id: result.project.id,
+          name: result.project.name,
+          slugId: result.project.slugId,
+          url: result.project.url ?? null,
+          teamKey: result.project.teams?.nodes?.[0]?.key ?? teams[0].key,
+        },
+      });
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to create project");
       res.status(502).json({ error: { code: "linear_api_error", message } });
     }
   };

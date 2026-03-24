@@ -4,16 +4,18 @@ import { methodNotAllowed } from "../http/route-helpers.js";
 import type { SetupApiDeps } from "./setup-handlers.js";
 import {
   handleGetLinearProjects,
+  handleGetPkceAuthStatus,
   handleGetStatus,
+  handlePostPkceAuthCancel,
   handlePostCodexAuth,
   handlePostCreateLabel,
+  handlePostCreateProject,
   handlePostCreateTestIssue,
-  handlePostDeviceAuthPoll,
-  handlePostDeviceAuthStart,
   handlePostGithubToken,
   handlePostLinearProject,
   handlePostMasterKey,
   handlePostOpenaiKey,
+  handlePostPkceAuthStart,
   handlePostReset,
 } from "./setup-handlers.js";
 
@@ -56,13 +58,18 @@ export function registerSetupApi(app: Express, deps: SetupApiDeps): void {
     .all((_req, res) => methodNotAllowed(res));
 
   app
-    .route("/api/v1/setup/device-auth/start")
-    .post(handlePostDeviceAuthStart())
+    .route("/api/v1/setup/pkce-auth/start")
+    .post(handlePostPkceAuthStart(deps))
     .all((_req, res) => methodNotAllowed(res));
 
   app
-    .route("/api/v1/setup/device-auth/poll")
-    .post(handlePostDeviceAuthPoll(deps))
+    .route("/api/v1/setup/pkce-auth/status")
+    .get(handleGetPkceAuthStatus(deps))
+    .all((_req, res) => methodNotAllowed(res));
+
+  app
+    .route("/api/v1/setup/pkce-auth/cancel")
+    .post(handlePostPkceAuthCancel(deps))
     .all((_req, res) => methodNotAllowed(res));
 
   app
@@ -78,5 +85,10 @@ export function registerSetupApi(app: Express, deps: SetupApiDeps): void {
   app
     .route("/api/v1/setup/create-label")
     .post(handlePostCreateLabel(deps))
+    .all((_req, res) => methodNotAllowed(res));
+
+  app
+    .route("/api/v1/setup/create-project")
+    .post(handlePostCreateProject(deps))
     .all((_req, res) => methodNotAllowed(res));
 }

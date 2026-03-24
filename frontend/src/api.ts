@@ -108,15 +108,9 @@ export const api = {
   postLinearProject: (slugId: string) => post<{ ok: boolean }>("/api/v1/setup/linear-project", { slugId }),
   postOpenaiKey: (key: string) => post<{ valid: boolean }>("/api/v1/setup/openai-key", { key }),
   postCodexAuth: (authJson: string) => post<{ ok: boolean }>("/api/v1/setup/codex-auth", { authJson }),
-  startDeviceAuth: () =>
-    post<{ userCode: string; verificationUri: string; deviceCode: string; expiresIn: number; interval: number }>(
-      "/api/v1/setup/device-auth/start",
-      {},
-    ),
-  pollDeviceAuth: (deviceCode: string) =>
-    post<{ status: "pending" | "complete" | "expired"; error?: string }>("/api/v1/setup/device-auth/poll", {
-      deviceCode,
-    }),
+  startPkceAuth: () => post<{ authUrl: string }>("/api/v1/setup/pkce-auth/start", {}),
+  pollPkceAuthStatus: () => get<{ status: "idle" | "pending" | "complete" | "expired" | "error"; error?: string }>("/api/v1/setup/pkce-auth/status"),
+  cancelPkceAuth: () => post<{ ok: boolean }>("/api/v1/setup/pkce-auth/cancel", {}),
   postGithubToken: (token: string) => post<{ valid: boolean }>("/api/v1/setup/github-token", { token }),
   resetSetup: () => post<{ ok: boolean }>("/api/v1/setup/reset", {}),
   createTestIssue: () =>
@@ -125,6 +119,11 @@ export const api = {
     post<{ ok: boolean; labelId: string; labelName: string; alreadyExists?: boolean }>(
       "/api/v1/setup/create-label",
       {},
+    ),
+  createProject: (name: string) =>
+    post<{ ok: boolean; project: { id: string; name: string; slugId: string; url: string | null; teamKey: string | null } }>(
+      "/api/v1/setup/create-project",
+      { name },
     ),
   getGitContext: () => get<GitContextResponse>("/api/v1/git/context"),
   getWorkspaces: () => get<WorkspaceInventoryResponse>("/api/v1/workspaces"),

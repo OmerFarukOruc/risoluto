@@ -2,11 +2,16 @@ import type { Page, Locator } from "@playwright/test";
 import { BasePage } from "./base.page";
 
 /**
- * Page Object Model for the Config ("/config") and Secrets ("/secrets") pages.
+ * Page Object Model for the unified Settings page and its legacy aliases.
  */
 export class ConfigPage extends BasePage {
   constructor(page: Page) {
     super(page);
+  }
+
+  async navigateToSettings(): Promise<void> {
+    await this.goto("/settings");
+    await this.waitForPageContent();
   }
 
   async navigateToConfig(): Promise<void> {
@@ -17,6 +22,14 @@ export class ConfigPage extends BasePage {
   async navigateToSecrets(): Promise<void> {
     await this.goto("/secrets");
     await this.waitForPageContent();
+  }
+
+  tabButton(name: "General" | "Credentials" | "Advanced"): Locator {
+    return this.page.getByRole("tab", { name });
+  }
+
+  get activeTab(): Locator {
+    return this.page.locator('[role="tab"][aria-selected="true"]');
   }
 
   // ── Config View ──────────────────────────────────────────────────────

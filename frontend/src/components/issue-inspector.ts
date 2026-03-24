@@ -60,12 +60,12 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   const headerActions = document.createElement("div");
   headerActions.className = "issue-header-actions";
   const logsLink = Object.assign(document.createElement("a"), {
-    className: "mc-button mc-button-ghost is-primary",
+    className: "mc-button is-primary",
     textContent: "Open logs",
   });
   logsLink.setAttribute("aria-label", "Open issue logs");
   const trackerLink = Object.assign(document.createElement("a"), {
-    className: "mc-button mc-button-ghost",
+    className: "mc-button is-ghost",
     target: "_blank",
     rel: "noreferrer",
     textContent: "Open tracker",
@@ -81,7 +81,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   if (options.mode === "drawer") {
     const fullPageButton = document.createElement("button");
     fullPageButton.type = "button";
-    fullPageButton.className = "mc-button mc-button-ghost";
+    fullPageButton.className = "mc-button is-ghost";
     fullPageButton.textContent = "Open full issue";
     fullPageButton.setAttribute("aria-label", "Open full issue page");
     fullPageButton.addEventListener("click", () => {
@@ -92,7 +92,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     headerActions.append(fullPageButton);
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
-    closeBtn.className = "mc-button mc-button-ghost drawer-close-btn";
+    closeBtn.className = "mc-button is-ghost drawer-close-btn";
     closeBtn.setAttribute("aria-label", "Close panel");
     closeBtn.textContent = "✕";
     closeBtn.addEventListener("click", () => options.onClose?.());

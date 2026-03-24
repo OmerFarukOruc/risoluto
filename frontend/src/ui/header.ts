@@ -2,6 +2,7 @@ import { api } from "../api";
 import { createIcon } from "./icons";
 import { toggleTheme } from "./theme";
 import { toast } from "./toast";
+import { createIconButton } from "./buttons.js";
 
 const MOBILE_BREAKPOINT = "(max-width: 760px)";
 
@@ -48,14 +49,14 @@ function syncHeaderNavButton(headerEl: HTMLElement, navButton: HTMLButtonElement
 export function initHeader(headerEl: HTMLElement): void {
   headerEl.replaceChildren();
 
-  const navButton = document.createElement("button");
-  navButton.type = "button";
-  navButton.className = "mc-button is-ghost is-icon-only header-action-btn shell-nav-toggle";
-  navButton.title = "Open navigation";
+  const navButton = createIconButton({
+    iconName: "menu",
+    label: "Open navigation",
+    iconSize: 18,
+    className: ["header-action-btn", "shell-nav-toggle"],
+  });
   navButton.setAttribute("aria-controls", "shell-sidebar");
   navButton.setAttribute("aria-expanded", "false");
-  navButton.setAttribute("aria-label", "Open navigation");
-  navButton.append(createIcon("menu", { size: 18 }));
   navButton.addEventListener("click", () => {
     window.dispatchEvent(new CustomEvent("shell:toggle-sidebar"));
   });
@@ -109,19 +110,17 @@ export function initHeader(headerEl: HTMLElement): void {
   const actions = document.createElement("div");
   actions.className = "header-actions";
 
-  const refreshButton = document.createElement("button");
-  refreshButton.type = "button";
-  refreshButton.className = "mc-button is-ghost is-icon-only header-action-btn";
-  refreshButton.title = "Refresh";
-  refreshButton.setAttribute("aria-label", "Refresh orchestrator state");
-  refreshButton.append(createIcon("refresh", { size: 16 }));
+  const refreshButton = createIconButton({
+    iconName: "refresh",
+    label: "Refresh orchestrator state",
+    className: "header-action-btn",
+  });
 
-  const themeButton = document.createElement("button");
-  themeButton.type = "button";
-  themeButton.className = "mc-button is-ghost is-icon-only header-action-btn";
-  themeButton.title = "Theme";
-  themeButton.setAttribute("aria-label", "Toggle color theme");
-  themeButton.append(createIcon("theme", { size: 16 }));
+  const themeButton = createIconButton({
+    iconName: "theme",
+    label: "Toggle color theme",
+    className: "header-action-btn",
+  });
 
   refreshButton.addEventListener("click", async () => {
     refreshButton.disabled = true;

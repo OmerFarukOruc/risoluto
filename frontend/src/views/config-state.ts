@@ -12,6 +12,8 @@ export interface ConfigState {
   selectedPath: string;
   pathValue: string;
   rawPatch: string;
+  pathValueDirty: boolean;
+  rawPatchDirty: boolean;
   showSchema: boolean;
 }
 
@@ -28,6 +30,8 @@ export function createConfigState(): ConfigState {
     selectedPath: "",
     pathValue: "",
     rawPatch: "{}",
+    pathValueDirty: false,
+    rawPatchDirty: false,
     showSchema: false,
   };
 }

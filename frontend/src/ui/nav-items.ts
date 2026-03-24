@@ -26,20 +26,6 @@ export const navItems: NavItem[] = [
 
   {
     group: "Configure",
-    name: "Config",
-    path: "/config",
-    hotkey: "g c",
-    icon: "config",
-  },
-  {
-    group: "Configure",
-    name: "Credentials",
-    path: "/secrets",
-    hotkey: "g s",
-    icon: "secrets",
-  },
-  {
-    group: "Configure",
     name: "Settings",
     path: "/settings",
     hotkey: "g ,",

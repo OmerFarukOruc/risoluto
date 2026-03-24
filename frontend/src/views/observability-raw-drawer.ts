@@ -11,7 +11,7 @@ export function createRawMetricsDrawer(onClose: () => void): RawMetricsDrawerCon
   header.innerHTML = `<div><h2>Raw /metrics</h2><p class="text-secondary">Prometheus text payload from the latest fetch. Press x to close.</p></div>`;
   const close = document.createElement("button");
   close.type = "button";
-  close.className = "mc-button mc-button-ghost";
+  close.className = "mc-button is-ghost";
   close.textContent = "Close";
   close.addEventListener("click", onClose);
   header.append(close);

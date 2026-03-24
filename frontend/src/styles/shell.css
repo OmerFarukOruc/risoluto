@@ -44,7 +44,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 32px;
+  min-height: 44px;
   padding: var(--space-1) var(--space-2);
   margin-bottom: var(--space-1);
   border: none;
@@ -68,6 +68,11 @@
 .sidebar-group-header:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+.sidebar-group-header:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
 }
 
 .sidebar-group-label,
@@ -112,10 +117,6 @@
   overflow: hidden;
 }
 
-.sidebar-group.is-collapsed .sidebar-item {
-  display: flex;
-}
-
 /* ── Sidebar items ────────────────────────────────────── */
 
 .sidebar-item {
@@ -143,6 +144,11 @@
 .sidebar-item:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+.sidebar-item:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
 }
 
 .sidebar-item.is-active {
@@ -343,6 +349,11 @@
 .sidebar-collapse-toggle:hover {
   color: var(--text-secondary);
   background: var(--bg-elevated);
+}
+
+.sidebar-collapse-toggle:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
 }
 
 .sidebar-collapse-toggle-icon {
@@ -597,7 +608,6 @@
 
 /* Touch-friendly targets */
 @media (pointer: coarse) {
-  .sidebar-item,
   .sidebar-group-header,
   .sidebar-collapse-toggle {
     min-height: 44px;

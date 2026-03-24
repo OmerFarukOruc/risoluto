@@ -56,7 +56,7 @@ export function createModal(options: ModalOptions): ModalController {
 
   const closeButton = document.createElement("button");
   closeButton.type = "button";
-  closeButton.className = "mc-button mc-button-ghost";
+  closeButton.className = "mc-button is-ghost";
   closeButton.setAttribute("aria-label", "Close");
   closeButton.textContent = "Close";
 

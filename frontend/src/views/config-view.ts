@@ -8,10 +8,14 @@ import { getValueAtPath } from "./settings-paths";
 import { createConfigActions } from "./config-actions";
 import { handleConfigKeyboard } from "./config-keyboard";
 import { renderOverlayPanel, renderSchemaPanel, renderDiffPanel, renderEmptyState } from "./config-panels";
-import { createConfigState } from "./config-state";
+import { createConfigState, type ConfigState } from "./config-state";
 
-export function createConfigPage(): HTMLElement {
-  const state = createConfigState();
+interface ConfigPageOptions {
+  state?: ConfigState;
+}
+
+export function createConfigPage(options: ConfigPageOptions = {}): HTMLElement {
+  const state = options.state ?? createConfigState();
   const page = document.createElement("div");
   page.className = "page config-page fade-in";
 
@@ -100,10 +104,15 @@ export function createConfigPage(): HTMLElement {
       state.effective = effective;
       state.overlay = overlayResponse.overlay;
       state.schema = (schema as Record<string, unknown> | null) ?? null;
-      state.rawPatch = prettyJson(state.overlay);
+      if (!state.rawPatchDirty) {
+        state.rawPatch = prettyJson(state.overlay);
+      }
       if (!state.selectedPath) {
         const first = flattenConfig(state.overlay, "overlay")[0]?.path ?? "";
         state.selectedPath = first;
+      }
+      if (state.selectedPath && !state.pathValueDirty) {
+        state.pathValue = prettyJson(getValueAtPath(state.overlay, state.selectedPath) ?? "");
       }
     } catch (error) {
       state.error = error instanceof Error ? error.message : "Failed to load config.";
@@ -142,6 +151,7 @@ export function createConfigPage(): HTMLElement {
         state.mode = "path";
         // Extract value from effective config
         state.pathValue = prettyJson(getValueAtPath(state.effective, path) ?? "");
+        state.pathValueDirty = false;
         render();
       },
     });
@@ -164,6 +174,7 @@ export function createConfigPage(): HTMLElement {
         onSelectPath: (path) => {
           state.selectedPath = path;
           state.pathValue = prettyJson(getValueAtPath(state.overlay, path) ?? "");
+          state.pathValueDirty = false;
           render();
         },
         onSavePath: () => {
@@ -178,9 +189,11 @@ export function createConfigPage(): HTMLElement {
         },
         onValueInput: (value) => {
           state.pathValue = value;
+          state.pathValueDirty = true;
         },
         onRawInput: (value) => {
           state.rawPatch = value;
+          state.rawPatchDirty = true;
         },
       }),
     );
@@ -197,12 +210,12 @@ export function createConfigPage(): HTMLElement {
     modal.footer.replaceChildren();
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.className = "mc-button mc-button-ghost";
+    cancel.className = "mc-button is-ghost";
     cancel.textContent = "Cancel";
     cancel.addEventListener("click", () => modal.close());
     const confirm = document.createElement("button");
     confirm.type = "button";
-    confirm.className = "mc-button mc-button-danger";
+    confirm.className = "mc-button is-danger";
     confirm.textContent = "Remove";
     confirm.addEventListener("click", async () => {
       await actions.deletePath(path);
@@ -224,6 +237,7 @@ export function createConfigPage(): HTMLElement {
         state.mode = "path";
         state.selectedPath = "";
         state.pathValue = "";
+        state.pathValueDirty = false;
         render();
       },
       onDelete: openDelete,

@@ -1,4 +1,5 @@
 import { flashDiff, setTextWithDiff } from "../utils/diff";
+import { buttonClassName, type ButtonTone } from "../ui/buttons.js";
 
 export function kv(label: string, value: string): HTMLElement {
   const item = document.createElement("div");
@@ -12,10 +13,10 @@ export function kv(label: string, value: string): HTMLElement {
   return item;
 }
 
-export function button(label: string, onClick: () => void, variant = "mc-button-ghost"): HTMLButtonElement {
+export function button(label: string, onClick: () => void, variant: ButtonTone = "ghost"): HTMLButtonElement {
   const element = document.createElement("button");
   element.type = "button";
-  element.className = `mc-button ${variant}`;
+  element.className = buttonClassName({ tone: variant });
   element.textContent = label;
   element.addEventListener("click", onClick);
   return element;

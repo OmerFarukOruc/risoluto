@@ -80,7 +80,7 @@ export function createRunsCompare(
   text.append(title, subtitle);
   const clearButton = document.createElement("button");
   clearButton.type = "button";
-  clearButton.className = "mc-button mc-button-ghost";
+  clearButton.className = "mc-button is-ghost";
   clearButton.textContent = "Clear selection";
   clearButton.addEventListener("click", onClear);
   header.append(text, clearButton);

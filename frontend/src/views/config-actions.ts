@@ -18,6 +18,8 @@ export function createConfigActions(state: ConfigState, render: () => void, load
       });
       state.overlay = response.overlay;
       state.rawPatch = prettyJson(state.overlay);
+      state.pathValueDirty = false;
+      state.rawPatchDirty = false;
       toast("Overlay path saved.", "success");
       await load();
     } catch (error) {
@@ -35,6 +37,8 @@ export function createConfigActions(state: ConfigState, render: () => void, load
       const patch = JSON.parse(state.rawPatch) as Record<string, unknown>;
       const response = await api.putConfigOverlay({ patch });
       state.overlay = response.overlay;
+      state.rawPatchDirty = false;
+      state.pathValueDirty = false;
       toast("Overlay patch saved.", "success");
       await load();
     } catch (error) {
@@ -48,6 +52,8 @@ export function createConfigActions(state: ConfigState, render: () => void, load
   async function deletePath(path: string): Promise<void> {
     try {
       await api.deleteConfigOverlayPath(path);
+      state.pathValueDirty = false;
+      state.rawPatchDirty = false;
       toast("Overlay path removed.", "success");
       await load();
     } catch (error) {

@@ -11,7 +11,7 @@ import { renderAsyncState } from "../utils/render-guards.js";
 import { buildSettingsSections, getSectionById } from "./settings-helpers.js";
 import { createSettingsKeyboardHandler } from "./settings-keyboard.js";
 import { buildSectionPatchPlan } from "./settings-patches.js";
-import { createSettingsState } from "./settings-state.js";
+import { createSettingsState, type SettingsState } from "./settings-state.js";
 import {
   isSettingsPageData,
   renderLoadedSettings,
@@ -19,8 +19,12 @@ import {
   updateSettingsHeader,
 } from "./settings-view-render.js";
 
-export function createSettingsPage(): HTMLElement {
-  const state = createSettingsState();
+interface SettingsPageOptions {
+  state?: SettingsState;
+}
+
+export function createSettingsPage(options: SettingsPageOptions = {}): HTMLElement {
+  const state = options.state ?? createSettingsState();
   const loadState = createAsyncState<SettingsPageData>();
   const page = document.createElement("div");
   page.className = "page settings-page fade-in";
@@ -36,12 +40,13 @@ export function createSettingsPage(): HTMLElement {
   shell.className = "settings-layout";
   const rail = document.createElement("aside");
   rail.className = "settings-rail";
-  const content = document.createElement("main");
+  const content = document.createElement("div");
   content.className = "settings-content";
   const searchInput = Object.assign(document.createElement("input"), {
     className: "mc-input",
     placeholder: "Search settings…",
   });
+  searchInput.setAttribute("aria-label", "Search settings");
   shell.append(rail, content);
   page.append(header, shell);
 

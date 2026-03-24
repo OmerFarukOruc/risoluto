@@ -224,7 +224,7 @@ function buildQuickLinksRail(githubAvailable: boolean): HTMLElement[] {
       el(
         "p",
         "git-empty-hint",
-        "No GitHub token configured. Add a GITHUB_TOKEN via Secrets to see PRs, commits, and repo details.",
+        "No GitHub token configured. Add a GITHUB_TOKEN in Settings → Credentials to see PRs, commits, and repo details.",
       ),
     );
     items.push(notice);
@@ -237,9 +237,9 @@ function buildQuickLinksRail(githubAvailable: boolean): HTMLElement[] {
   queueBtn.type = "button";
   queueBtn.addEventListener("click", () => router.navigate("/queue"));
   links.append(queueBtn);
-  const configBtn = el("button", "git-quick-link-btn", "Repo config");
+  const configBtn = el("button", "git-quick-link-btn", "Advanced settings");
   configBtn.type = "button";
-  configBtn.addEventListener("click", () => router.navigate("/config"));
+  configBtn.addEventListener("click", () => router.navigate("/settings#advanced"));
   links.append(configBtn);
   linksSection.append(links);
   items.push(linksSection);
@@ -257,8 +257,8 @@ function renderGitContext(page: HTMLElement, data: GitContextResponse): void {
       createEmptyState(
         "No repositories configured",
         "Add repos to your workflow YAML to see git context here. Each repo entry maps a Linear identifier prefix to a GitHub repository.",
-        "Open config",
-        () => router.navigate("/config"),
+        "Open advanced settings",
+        () => router.navigate("/settings#advanced"),
       ),
     );
     return;

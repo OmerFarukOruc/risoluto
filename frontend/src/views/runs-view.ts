@@ -33,7 +33,7 @@ export function createRunsPage(issueId: string): HTMLElement {
   actions.className = "mc-actions";
   const backButton = document.createElement("button");
   backButton.type = "button";
-  backButton.className = "mc-button mc-button-ghost";
+  backButton.className = "mc-button is-ghost";
   backButton.textContent = "Back to issue";
   backButton.addEventListener("click", () => router.navigate(`/issues/${state.issueIdentifier}`));
   actions.append(backButton);

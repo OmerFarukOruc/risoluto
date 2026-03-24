@@ -42,7 +42,11 @@ export function renderSettingsLayout(
 }
 
 /** Section IDs that are grouped under "Advanced" in the rail navigation. */
-const ADVANCED_SECTION_IDS: ReadonlySet<string> = new Set([SECTION_IDS.WORKFLOW_STAGES, SECTION_IDS.FEATURE_FLAGS, SECTION_IDS.RUNTIME_PATHS]);
+const ADVANCED_SECTION_IDS: ReadonlySet<string> = new Set([
+  SECTION_IDS.WORKFLOW_STAGES,
+  SECTION_IDS.FEATURE_FLAGS,
+  SECTION_IDS.RUNTIME_PATHS,
+]);
 
 function renderRail(
   rail: HTMLElement,
@@ -53,9 +57,10 @@ function renderRail(
   rail.replaceChildren();
   const card = document.createElement("section");
   card.className = "mc-panel settings-rail-card";
-  const railH2 = document.createElement("h2");
-  railH2.textContent = "Settings";
-  card.append(railH2);
+  const railLabel = document.createElement("span");
+  railLabel.className = "settings-rail-label";
+  railLabel.textContent = "Settings";
+  card.append(railLabel);
 
   const basicSections = sections.filter((section) => !ADVANCED_SECTION_IDS.has(section.id));
   const advancedSections = sections.filter((section) => ADVANCED_SECTION_IDS.has(section.id));
@@ -261,6 +266,7 @@ function createGroupElement(
 
     const summary = document.createElement("summary");
     summary.textContent = group.title;
+    summary.setAttribute("aria-label", group.title);
     if (group.description) {
       summary.dataset.description = group.description;
     }

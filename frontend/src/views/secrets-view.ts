@@ -1,16 +1,20 @@
 import { api } from "../api";
 import { createButton } from "../components/forms";
 import { createPageHeader } from "../components/page-header";
+import { registerKeyboardScope } from "../ui/keyboard-scope.js";
 import { toast } from "../ui/toast";
-import { isTypingTarget } from "../utils/dom.js";
 import { registerPageCleanup } from "../utils/page";
 import { handleSecretsKeyboard } from "./secrets-keyboard";
 import { openAddSecretModal, openDeleteSecretModal } from "./secrets-modals";
-import { createSecretsState } from "./secrets-state";
+import { createSecretsState, type SecretsState } from "./secrets-state";
 import { renderSecretsTable } from "./secrets-table";
 
-export function createSecretsPage(): HTMLElement {
-  const state = createSecretsState();
+interface SecretsPageOptions {
+  state?: SecretsState;
+}
+
+export function createSecretsPage(options: SecretsPageOptions = {}): HTMLElement {
+  const state = options.state ?? createSecretsState();
   const page = document.createElement("div");
   page.className = "page secrets-page fade-in";
   const addButton = createButton("New secret", "primary");
@@ -143,12 +147,11 @@ export function createSecretsPage(): HTMLElement {
   addButton.addEventListener("click", openAddModal);
 
   function onKey(event: KeyboardEvent): void {
-    const isTyping = isTypingTarget(event.target);
     handleSecretsKeyboard(event, {
       selectedKey: state.selectedKey,
       addOpen: closeAddModal !== null,
       deleteOpen: closeDeleteModal !== null,
-      isTyping,
+      isTyping: false,
       onNew: openAddModal,
       onDelete: () => {
         state.deleteConfirm = "";
@@ -161,12 +164,11 @@ export function createSecretsPage(): HTMLElement {
     });
   }
 
-  window.addEventListener("keydown", onKey);
+  registerKeyboardScope(onKey, { scope: page });
   void load();
   registerPageCleanup(page, () => {
     closeAddModal?.();
     closeDeleteModal?.();
-    window.removeEventListener("keydown", onKey);
   });
   return page;
 }

@@ -11,6 +11,8 @@ export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl
 
   const sidebarEl = document.createElement("aside");
   sidebarEl.className = "shell-sidebar";
+  sidebarEl.setAttribute("role", "navigation");
+  sidebarEl.setAttribute("aria-label", "Primary navigation");
 
   const contentEl = document.createElement("div");
   contentEl.className = "shell-content";

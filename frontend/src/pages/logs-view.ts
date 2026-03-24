@@ -4,8 +4,8 @@ import { registerPageCleanup } from "../utils/page";
 import { eventMatchesSearch, eventTypeLabel } from "../utils/events";
 import type { RecentEvent } from "../types";
 import { loadArchiveLogs, loadLiveLogs } from "./logs-data";
-import { createIcon } from "../ui/icons";
 import { stringifyPayload } from "../utils/events";
+import { createIconButton } from "../ui/buttons.js";
 
 type Mode = "live" | "archive";
 type Density = "compact" | "comfortable";
@@ -14,14 +14,13 @@ function copyEvents(events: RecentEvent[]): Promise<void> {
   return navigator.clipboard.writeText(events.map((event) => `${event.at} ${event.event} ${event.message}`).join("\n"));
 }
 
-function makeIconBtn(iconName: Parameters<typeof createIcon>[0], label: string): HTMLButtonElement {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "mc-button mc-button-ghost is-icon-only logs-icon-btn";
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  btn.appendChild(createIcon(iconName, { size: 15 }));
-  return btn;
+function makeIconBtn(iconName: Parameters<typeof createIconButton>[0]["iconName"], label: string): HTMLButtonElement {
+  return createIconButton({
+    iconName,
+    label,
+    iconSize: 15,
+    className: "logs-icon-btn",
+  });
 }
 
 export function createLogsPage(id: string): HTMLElement {
@@ -85,7 +84,7 @@ export function createLogsPage(id: string): HTMLElement {
 
   const indicator = document.createElement("button");
   indicator.type = "button";
-  indicator.className = "mc-button mc-button-ghost logs-new-indicator";
+  indicator.className = "mc-button is-ghost logs-new-indicator";
   indicator.hidden = true;
   indicator.textContent = "↓ New events";
   indicator.addEventListener("click", () => {

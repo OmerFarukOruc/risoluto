@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { EventEmitter, Readable } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
-import { waitForStartup, buildDynamicTools } from "../../src/agent-runner/session-helpers.js";
+import { waitForStartup, buildDynamicTools, StartupTimeoutError } from "../../src/agent-runner/session-helpers.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,26 +20,30 @@ function makeFakeChild(): ChildProcessWithoutNullStreams {
 describe("waitForStartup", () => {
   it("resolves immediately when timeoutMs is 0", async () => {
     const child = makeFakeChild();
-    await expect(waitForStartup(child, 0, new AbortController().signal)).resolves.toBeUndefined();
+    const result = await waitForStartup(child, 0, new AbortController().signal);
+    expect(result).toEqual({ stderrOutput: "" });
   });
 
   it("resolves immediately when timeoutMs is negative", async () => {
     const child = makeFakeChild();
-    await expect(waitForStartup(child, -1, new AbortController().signal)).resolves.toBeUndefined();
+    const result = await waitForStartup(child, -1, new AbortController().signal);
+    expect(result).toEqual({ stderrOutput: "" });
   });
 
   it("resolves when stdout emits data", async () => {
     const child = makeFakeChild();
     const promise = waitForStartup(child, 5000, new AbortController().signal);
     child.stdout.push("ready");
-    await expect(promise).resolves.toBeUndefined();
+    const result = await promise;
+    expect(result.stderrOutput).toBe("");
   });
 
   it("resolves when stderr emits data", async () => {
     const child = makeFakeChild();
     const promise = waitForStartup(child, 5000, new AbortController().signal);
     child.stderr.push("warning output");
-    await expect(promise).resolves.toBeUndefined();
+    const result = await promise;
+    expect(result.stderrOutput).toContain("warning output");
   });
 
   it("rejects when child exits before readiness", async () => {
@@ -57,12 +61,30 @@ describe("waitForStartup", () => {
     await expect(promise).rejects.toThrow("startup readiness interrupted");
   });
 
-  it("rejects on timeout", async () => {
+  it("rejects with StartupTimeoutError on timeout", async () => {
     vi.useFakeTimers();
     const child = makeFakeChild();
     const promise = waitForStartup(child, 100, new AbortController().signal);
     vi.advanceTimersByTime(101);
+    await expect(promise).rejects.toThrow(StartupTimeoutError);
     await expect(promise).rejects.toThrow("startup readiness timed out after 100ms");
+  });
+
+  it("includes diagnostic hint in StartupTimeoutError when no output captured", async () => {
+    vi.useFakeTimers();
+    const child = makeFakeChild();
+    const promise = waitForStartup(child, 100, new AbortController().signal);
+    vi.advanceTimersByTime(101);
+    try {
+      await promise;
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(StartupTimeoutError);
+      expect((error as StartupTimeoutError).stderrOutput).toBe("");
+      expect((error as StartupTimeoutError).message).toContain(
+        "no stderr output captured (container may have produced no output)",
+      );
+    }
   });
 
   it("only settles once even if multiple events arrive", async () => {
@@ -70,7 +92,8 @@ describe("waitForStartup", () => {
     const promise = waitForStartup(child, 5000, new AbortController().signal);
     child.stdout.push("first");
     // First data event resolves; subsequent events are ignored
-    await expect(promise).resolves.toBeUndefined();
+    const result = await promise;
+    expect(result.stderrOutput).toBe("");
   });
 });
 

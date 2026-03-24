@@ -1,7 +1,11 @@
 import os from "node:os";
 import { describe, expect, it, afterEach } from "vitest";
 
-import { buildDockerRunArgs, type DockerRunInput } from "../../src/docker/spawn.js";
+import {
+  buildDockerRunArgs,
+  buildInitCacheVolumeArgs as _buildInitCacheVolumeArgs,
+  type DockerRunInput,
+} from "../../src/docker/spawn.js";
 import { PathRegistry } from "../../src/workspace/path-registry.js";
 import type { SandboxConfig } from "../../src/core/types.js";
 
@@ -149,7 +153,17 @@ describe("buildDockerRunArgs", () => {
     expect(result.args[imageIdx + 3]).toContain(
       'printf "%s" "$SYMPHONY_CODEX_CONFIG_TOML" > "$CODEX_HOME/config.toml"',
     );
+    expect(result.args[imageIdx + 3]).toContain('echo "symphony:container_ready"');
     expect(result.args[imageIdx + 3]).toContain('exec bash -lc "$SYMPHONY_CODEX_COMMAND"');
+  });
+
+  it("emits symphony:container_ready marker before exec in entrypoint", () => {
+    const result = buildDockerRunArgs(baseInput());
+    const entrypoint = result.args.at(-1)!;
+    const readyIdx = entrypoint.indexOf('echo "symphony:container_ready"');
+    const execIdx = entrypoint.indexOf('exec bash -lc "$SYMPHONY_CODEX_COMMAND"');
+    expect(readyIdx).toBeGreaterThan(-1);
+    expect(execIdx).toBeGreaterThan(readyIdx);
   });
 
   it("passes through env vars from host", () => {
@@ -265,5 +279,35 @@ describe("buildDockerRunArgs", () => {
     expect(envArgs).not.toEqual(expect.arrayContaining([expect.stringContaining("SYMPHONY_EGRESS_ALLOWLIST")]));
     const bashScript = result.args[result.args.length - 1];
     expect(bashScript).not.toContain("iptables");
+  });
+});
+
+describe("_buildInitCacheVolumeArgs", () => {
+  it("returns docker run command with chown to initialize volume ownership", () => {
+    const result = _buildInitCacheVolumeArgs({ volumeName: "symphony-cache-test", uid: 1000, gid: 1000 });
+    expect(result.program).toBe("docker");
+    expect(result.args).toEqual([
+      "run",
+      "--rm",
+      "-v",
+      "symphony-cache-test:/mnt",
+      "alpine:3.21",
+      "chown",
+      "1000:1000",
+      "/mnt",
+    ]);
+  });
+
+  it("uses the provided uid and gid", () => {
+    const result = _buildInitCacheVolumeArgs({ volumeName: "test-volume", uid: 500, gid: 600 });
+    expect(result.args).toContain("500:600");
+    const chownIdx = result.args.indexOf("chown");
+    expect(result.args[chownIdx + 1]).toBe("500:600");
+  });
+
+  it("mounts the volume at /mnt", () => {
+    const result = _buildInitCacheVolumeArgs({ volumeName: "my-volume", uid: 1000, gid: 1000 });
+    const mountIdx = result.args.indexOf("-v");
+    expect(result.args[mountIdx + 1]).toBe("my-volume:/mnt");
   });
 });

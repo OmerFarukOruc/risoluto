@@ -147,7 +147,7 @@ function buildEntrypointScript(egressAllowlist: string[], options?: { unsetApiKe
     steps.push("unset OPENAI_API_KEY 2>/dev/null || true");
   }
 
-  steps.push('exec bash -lc "$SYMPHONY_CODEX_COMMAND"');
+  steps.push('echo "symphony:container_ready"', 'exec bash -lc "$SYMPHONY_CODEX_COMMAND"');
 
   return steps.join("; ");
 }
@@ -201,4 +201,45 @@ export function buildDockerRunArgs(input: DockerRunInput): DockerRunResult {
   );
 
   return { program: "docker", args, containerName, cacheVolumeName };
+}
+
+/**
+ * Initialize a Docker named volume with correct ownership for the host user.
+ *
+ * Docker creates new named volumes with root ownership by default. When the
+ * container runs as a non-root user (via --user uid:gid), it cannot write
+ * to the volume root. This function runs a one-shot init container as root
+ * to chown the volume to the specified uid/gid before the main container
+ * starts.
+ */
+export interface InitCacheVolumeInput {
+  volumeName: string;
+  uid: number;
+  gid: number;
+}
+
+export interface InitCacheVolumeResult {
+  program: string;
+  args: string[];
+}
+
+/**
+ * Build the Docker command to initialize a cache volume with correct ownership.
+ *
+ * @param input - Volume name and target uid/gid
+ * @returns Docker command and args for the init container
+ */
+export function buildInitCacheVolumeArgs(input: InitCacheVolumeInput): InitCacheVolumeResult {
+  const args: string[] = [
+    "run",
+    "--rm",
+    "-v",
+    `${input.volumeName}:/mnt`,
+    "alpine:3.21",
+    "chown",
+    `${input.uid}:${input.gid}`,
+    "/mnt",
+  ];
+
+  return { program: "docker", args };
 }

@@ -1,16 +1,45 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
+/** Maximum bytes of stderr to buffer during startup for diagnostics. */
+const MAX_STDERR_BUFFER = 4096;
+
+/** Error thrown when container startup readiness times out. */
+export class StartupTimeoutError extends Error {
+  readonly stderrOutput: string;
+  constructor(timeoutMs: number, stderrOutput: string) {
+    const hint = stderrOutput
+      ? ` — captured stderr:\n${stderrOutput}`
+      : " — no stderr output captured (container may have produced no output)";
+    super(`startup readiness timed out after ${timeoutMs}ms${hint}`);
+    this.name = "StartupTimeoutError";
+    this.stderrOutput = stderrOutput;
+  }
+}
+
+export interface StartupResult {
+  /** Any stderr output captured during startup (for diagnostics). */
+  stderrOutput: string;
+}
+
 export function waitForStartup(
   child: ChildProcessWithoutNullStreams,
   timeoutMs: number,
   signal: AbortSignal,
-): Promise<void> {
+): Promise<StartupResult> {
   if (timeoutMs <= 0) {
-    return Promise.resolve();
+    return Promise.resolve({ stderrOutput: "" });
   }
 
   return new Promise((resolve, reject) => {
     let settled = false;
+    const stderrChunks: Buffer[] = [];
+    let stderrBytes = 0;
+
+    const collectStderr = () => {
+      const combined = Buffer.concat(stderrChunks).toString("utf8").trim();
+      return combined.slice(0, MAX_STDERR_BUFFER);
+    };
+
     const settle = (fn: () => void) => {
       if (settled) return;
       settled = true;
@@ -18,23 +47,32 @@ export function waitForStartup(
       fn();
     };
 
-    const onData = () => settle(resolve);
+    const onStderrData = (chunk: Buffer) => {
+      if (stderrBytes < MAX_STDERR_BUFFER) {
+        stderrChunks.push(chunk);
+        stderrBytes += chunk.length;
+      }
+    };
+
+    const onData = () => settle(() => resolve({ stderrOutput: collectStderr() }));
     const onExit = (code: number | null) =>
       settle(() => reject(new Error(`child exited with code ${code} before startup readiness`)));
     const onAbort = () => settle(() => reject(new Error("startup readiness interrupted")));
     const timer = setTimeout(
-      () => settle(() => reject(new Error(`startup readiness timed out after ${timeoutMs}ms`))),
+      () => settle(() => reject(new StartupTimeoutError(timeoutMs, collectStderr()))),
       timeoutMs,
     );
 
     const cleanup = () => {
       child.stdout.removeListener("data", onData);
+      child.stderr.removeListener("data", onStderrData);
       child.stderr.removeListener("data", onData);
       child.removeListener("exit", onExit);
       signal.removeEventListener("abort", onAbort);
       clearTimeout(timer);
     };
 
+    child.stderr.on("data", onStderrData);
     child.stdout.once("data", onData);
     child.stderr.once("data", onData);
     child.once("exit", onExit);

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { Buffer } from "node:buffer";
 
 import type { CodexConfig, CodexProviderConfig } from "../core/types.js";
-import { normalizeCodexAuthJson } from "./auth-file.js";
+import { normalizeCodexAuthJson, readCodexAuthTokens } from "./auth-file.js";
 import { isTokenExpired, refreshAccessToken } from "./token-refresh.js";
 
 const DIRECT_OPENAI_PROVIDER_ID = "symphony_openai_api";
@@ -155,6 +155,16 @@ export async function prepareCodexRuntimeConfig(config: CodexConfig): Promise<Pr
       authJson = await refreshAccessToken(authJsonPath);
     }
     authJson = normalizeCodexAuthJson(authJson);
+
+    // Validate that the auth.json contains usable PKCE tokens
+    const parsed = JSON.parse(authJson) as Record<string, unknown>;
+    if (!readCodexAuthTokens(parsed)) {
+      throw new Error(
+        `auth.json at ${authJsonPath} does not contain valid OpenAI PKCE tokens (missing access_token). ` +
+          "Please re-authenticate via 'codex login' or the setup wizard.",
+      );
+    }
+
     authJsonBase64 = Buffer.from(authJson, "utf8").toString("base64");
   }
 

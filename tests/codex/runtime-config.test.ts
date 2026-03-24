@@ -101,7 +101,7 @@ describe("buildConfigToml", () => {
 describe("prepareCodexRuntimeConfig", () => {
   it("reads auth.json for openai_login mode without creating a host runtime home", async () => {
     const sourceHome = await createTempDir();
-    await writeFile(path.join(sourceHome, "auth.json"), '{"OPENAI_API_KEY":"token"}\n', "utf8");
+    await writeFile(path.join(sourceHome, "auth.json"), '{"access_token":"test-token"}\n', "utf8");
 
     const runtimeConfig = await prepareCodexRuntimeConfig(
       baseConfig({
@@ -166,6 +166,26 @@ describe("prepareCodexRuntimeConfig", () => {
         }),
       ),
     ).rejects.toThrow(`codex auth.json unavailable at ${path.join(sourceHome, "auth.json")}`);
+  });
+
+  it("throws when auth.json has no valid PKCE tokens", async () => {
+    const sourceHome = await createTempDir();
+    await writeFile(
+      path.join(sourceHome, "auth.json"),
+      JSON.stringify({ auth_mode: "chatgpt", OPENAI_API_KEY: "sk-test" }),
+      "utf8",
+    );
+
+    await expect(
+      prepareCodexRuntimeConfig(
+        baseConfig({
+          auth: {
+            mode: "openai_login",
+            sourceHome,
+          },
+        }),
+      ),
+    ).rejects.toThrow("does not contain valid OpenAI PKCE tokens");
   });
 });
 

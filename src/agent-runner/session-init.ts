@@ -1,7 +1,7 @@
 import type { Liquid } from "liquidjs";
 
 import { authIsRequired, extractRateLimits, extractThreadId, hasUsableAccount } from "./helpers.js";
-import { waitForStartup, buildDynamicTools } from "./session-helpers.js";
+import { waitForStartup, StartupTimeoutError, buildDynamicTools } from "./session-helpers.js";
 import type { DockerSession } from "./docker-session.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
 import { createLifecycleEvent, toErrorMessage } from "../orchestrator/lifecycle-events.js";
@@ -40,7 +40,26 @@ export async function initializeSession(
   const turnId: string | null = null;
   const turnCount = 0;
 
-  await waitForStartup(session.child, input.startupTimeoutMs, input.signal);
+  try {
+    await waitForStartup(session.child, input.startupTimeoutMs, input.signal);
+  } catch (error) {
+    if (error instanceof StartupTimeoutError) {
+      const isRunning = await session.inspectRunning().catch(() => null);
+      input.onEvent(
+        createLifecycleEvent({
+          issue: input.issue,
+          event: "container_startup_timeout",
+          message: `Container startup readiness timed out after ${input.startupTimeoutMs}ms`,
+          metadata: {
+            containerName: session.containerName,
+            containerRunning: isRunning,
+            stderrOutput: error.stderrOutput || null,
+          },
+        }),
+      );
+    }
+    throw error;
+  }
 
   const containerFailure = await confirmContainerRunning(session, input);
   if (containerFailure) {

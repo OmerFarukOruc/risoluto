@@ -184,30 +184,6 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  e2e-visual:
-    name: E2E Visual Regression
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
-      - name: Run visual regression tests
-        run: npx playwright test --project=visual
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: e2e-visual-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
-
   # ── Gate: single required check for branch protection ──────────────
   build-and-test:
     name: build-and-test

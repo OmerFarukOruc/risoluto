@@ -22,6 +22,10 @@ export async function createServices(
   archiveDir: string,
   logger: ReturnType<typeof createLogger>,
 ) {
+  const persistedGithubToken = secretsStore.get("GITHUB_TOKEN");
+  if (persistedGithubToken) {
+    process.env.GITHUB_TOKEN = persistedGithubToken;
+  }
   const attemptStore = new AttemptStore(archiveDir, logger.child({ component: "attempt-store" }));
   await attemptStore.start();
   const linearClient = new LinearClient(() => configStore.getConfig(), logger.child({ component: "linear" }));
@@ -44,7 +48,10 @@ export async function createServices(
   const notificationManager = new NotificationManager({ logger: logger.child({ component: "notifications" }) });
   const pathRegistry = PathRegistry.fromEnv();
   const repoRouter = createRepoRouterProvider(() => configStore.getConfig());
-  const gitManager = createGitHubToolProvider(() => configStore.getConfig(), { env: process.env });
+  const gitManager = createGitHubToolProvider(() => configStore.getConfig(), {
+    env: process.env,
+    resolveSecret: (name) => secretsStore.get(name) ?? undefined,
+  });
 
   // Dispatch mode: remote (data plane) or local (in-process)
   const dispatchMode = process.env.DISPATCH_MODE ?? "local";

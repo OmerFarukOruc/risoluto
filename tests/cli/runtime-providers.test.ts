@@ -182,4 +182,37 @@ describe("runtime providers", () => {
       }),
     );
   });
+
+  it("hydrates missing GitHub token env vars from secrets on each call", async () => {
+    const config = createConfig();
+    const createGitManager = vi.fn((deps: { env?: NodeJS.ProcessEnv }) => {
+      return {
+        cloneInto: vi.fn(async () => undefined),
+        commitAndPush: vi.fn(async () => undefined),
+        createPullRequest: vi.fn(async () => undefined),
+        addPrComment: vi.fn(async () => undefined),
+        setupWorktree: vi.fn(async () => undefined),
+        syncWorktree: vi.fn(async () => undefined),
+        removeWorktree: vi.fn(async () => undefined),
+        deriveBaseCloneDir: vi.fn(() => "/tmp/symphony/.base/repo.git"),
+        getPrStatus: vi.fn(async () => ({ token: deps.env?.GITHUB_TOKEN ?? null })),
+      };
+    });
+
+    const provider = createGitHubToolProvider(() => config, {
+      env: {},
+      resolveSecret: (name) => (name === "GITHUB_TOKEN" ? "ghs_from_secret" : undefined),
+      createGitManager: createGitManager as never,
+    });
+
+    await expect(
+      provider.getPrStatus({
+        owner: "acme",
+        repo: "repo",
+        pullNumber: 1,
+      }),
+    ).resolves.toEqual({
+      token: "ghs_from_secret",
+    });
+  });
 });

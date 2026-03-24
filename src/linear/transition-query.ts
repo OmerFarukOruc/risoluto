@@ -15,7 +15,7 @@ export function buildIssueCommentMutation(): string {
 
 export function buildIssueTransitionMutation(): string {
   return `
-    mutation SymphonyIssueTransition($issueId: String!, $stateId: String!) {
+    mutation SymphonyIssueTransition($issueId: String!, $stateId: String) {
       issueUpdate(id: $issueId, input: { stateId: $stateId }) {
         success
         issue {

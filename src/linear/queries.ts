@@ -156,7 +156,7 @@ export function buildTeamStatesQuery(): string {
 
 export function buildCreateIssueMutation(): string {
   return `
-    mutation SymphonyCreateIssue($teamId: String!, $projectId: String!, $title: String!, $description: String, $stateId: String) {
+    mutation SymphonyCreateIssue($teamId: String!, $projectId: String, $title: String!, $description: String, $stateId: String) {
       issueCreate(input: { teamId: $teamId, projectId: $projectId, title: $title, description: $description, stateId: $stateId }) {
         success
         issue {
@@ -171,12 +171,47 @@ export function buildCreateIssueMutation(): string {
 
 export function buildCreateLabelMutation(): string {
   return `
-    mutation SymphonyCreateLabel($teamId: String!, $name: String!, $color: String) {
+    mutation SymphonyCreateLabel($teamId: String, $name: String!, $color: String) {
       issueLabelCreate(input: { teamId: $teamId, name: $name, color: $color }) {
         success
         issueLabel {
           id
           name
+        }
+      }
+    }
+  `;
+}
+
+export function buildTeamsQuery(): string {
+  return `
+    query SymphonyTeams {
+      teams(first: 50) {
+        nodes {
+          id
+          name
+          key
+        }
+      }
+    }
+  `;
+}
+
+export function buildCreateProjectMutation(): string {
+  return `
+    mutation SymphonyCreateProject($name: String!, $teamIds: [String!]!) {
+      projectCreate(input: { name: $name, teamIds: $teamIds }) {
+        success
+        project {
+          id
+          name
+          slugId
+          url
+          teams(first: 1) {
+            nodes {
+              key
+            }
+          }
         }
       }
     }

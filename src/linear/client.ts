@@ -29,7 +29,7 @@ interface ResolvedWorkflowStates {
 
 function buildWorkflowStateLookupQuery(includeTeamFilter: boolean): string {
   return `
-    query SymphonyWorkflowStates${includeTeamFilter ? "($teamId: String!)" : ""} {
+    query SymphonyWorkflowStates${includeTeamFilter ? "($teamId: ID)" : ""} {
       workflowStates(first: 250${includeTeamFilter ? ", filter: { team: { id: { eq: $teamId } } }" : ""}) {
         nodes {
           id

@@ -1,6 +1,7 @@
 import type { WorkflowColumn } from "../types";
 import type { QueueFilters } from "./queue-state";
 import { createIcon } from "../ui/icons.js";
+import { createIconButton } from "../ui/buttons.js";
 
 function chip(label: string, onClick: () => void): HTMLButtonElement {
   const button = document.createElement("button");
@@ -16,12 +17,11 @@ function iconButton(
   tooltip: string,
   onClick: () => void,
 ): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "mc-btn toolbar-icon-btn";
-  button.title = tooltip;
-  button.setAttribute("aria-label", tooltip);
-  button.append(createIcon(iconName, { size: 16 }));
+  const button = createIconButton({
+    iconName,
+    label: tooltip,
+    className: "toolbar-icon-btn",
+  });
   button.addEventListener("click", onClick);
   return button;
 }

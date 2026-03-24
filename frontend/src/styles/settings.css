@@ -23,7 +23,8 @@
   border-radius: var(--radius-lg);
 }
 
-.settings-rail-card h2 {
+.settings-rail-label {
+  display: block;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -126,7 +127,7 @@
 }
 
 .settings-toolbar .mc-input {
-  max-width: 280px;
+  max-width: 100%;
 }
 
 .settings-toolbar .text-secondary {
@@ -429,7 +430,7 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgb(0 0 0 / 0.45);
+  background: color-mix(in srgb, var(--bg-canvas) 72%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -443,7 +444,7 @@
   border: 1px solid var(--border-subtle, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-xl, 0 12px 40px rgb(0 0 0 / 0.3));
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
 }
 

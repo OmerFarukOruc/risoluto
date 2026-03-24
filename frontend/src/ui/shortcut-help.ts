@@ -17,7 +17,7 @@ const SECTIONS: ShortcutSection[] = [
       { keys: "?", description: "Open keyboard shortcuts help" },
       { keys: "Ctrl/Cmd + K", description: "Open the command palette" },
       { keys: "g then o / q", description: "Jump to Overview or Board" },
-      { keys: "g then c / s / ,", description: "Jump to Config, Credentials, or Settings" },
+      { keys: "g then , / c / s", description: "Jump to Settings, Advanced, or Credentials" },
       { keys: "g then m / n / g / d / w", description: "Jump to Observe pages" },
       { keys: "g then r", description: "Open runs for the current issue context" },
       { keys: "Esc", description: "Close the active overlay or modal" },
@@ -117,7 +117,7 @@ function getModal(): ModalController {
 
   const doneButton = document.createElement("button");
   doneButton.type = "button";
-  doneButton.className = "mc-button mc-button-ghost";
+  doneButton.className = "mc-button is-ghost";
   doneButton.textContent = "Done";
   doneButton.addEventListener("click", () => modal?.close());
   modal.footer.append(doneButton);

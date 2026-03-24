@@ -71,7 +71,7 @@ function buildStateBox(config: StateBoxConfig): HTMLElement {
   if (config.actionLabel && config.onAction) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "mc-button mc-button-ghost is-primary";
+    button.className = "mc-button is-primary";
     button.textContent = config.actionLabel;
     button.addEventListener("click", config.onAction);
     box.append(button);
@@ -79,7 +79,7 @@ function buildStateBox(config: StateBoxConfig): HTMLElement {
 
   if (config.secondaryActionLabel && config.secondaryActionHref) {
     const link = document.createElement("a");
-    link.className = "mc-button mc-button-ghost";
+    link.className = "mc-button is-ghost";
     link.href = config.secondaryActionHref;
     link.textContent = config.secondaryActionLabel;
     box.append(link);
@@ -135,7 +135,7 @@ export function createErrorState(title: string, message: string, retryAction?: (
     actions.className = "error-state-actions";
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "mc-button mc-button-ghost";
+    button.className = "mc-button is-ghost";
     button.textContent = "Retry";
     button.addEventListener("click", retryAction);
     actions.append(button);
@@ -145,7 +145,7 @@ export function createErrorState(title: string, message: string, retryAction?: (
   return box;
 }
 
-function createNetworkErrorState(retryAction?: () => void): HTMLElement {
+export function createNetworkErrorState(retryAction?: () => void): HTMLElement {
   return createErrorState(
     "Connection issue",
     "Unable to connect to the server. Please check your network connection and try again.",

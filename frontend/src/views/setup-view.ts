@@ -495,7 +495,8 @@ function buildGithubTokenStep(): HTMLElement {
 
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
-  sub.textContent = "Add a token to enable automatic PR creation. You can skip this and add it later from Credentials.";
+  sub.textContent =
+    "Add a token to enable automatic PR creation. You can skip this and add it later from Settings → Credentials.";
 
   const optionWrap = document.createElement("div");
   optionWrap.style.cssText =

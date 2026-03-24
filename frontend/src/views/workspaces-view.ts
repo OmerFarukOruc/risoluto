@@ -1,10 +1,12 @@
-import { api } from "../api";
-import { createEmptyState } from "../components/empty-state";
-import { createPageHeader } from "../components/page-header";
-import { router } from "../router";
-import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types";
-import { registerPageCleanup } from "../utils/page";
-import { formatBytes, formatRelativeTime } from "../utils/format";
+import { api } from "../api.js";
+import { createEmptyState } from "../components/empty-state.js";
+import { createPageHeader } from "../components/page-header.js";
+import { router } from "../router.js";
+import { statusChip } from "../ui/status-chip.js";
+import { skeletonLine } from "../ui/skeleton.js";
+import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types.js";
+import { registerPageCleanup } from "../utils/page.js";
+import { formatBytes, formatRelativeTime } from "../utils/format.js";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -21,12 +23,18 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
-function badge(text: string, variant: string): HTMLSpanElement {
-  return el("span", `ws-badge ws-badge--${variant}`, text);
+function statusBadge(status: string): HTMLElement {
+  return statusChip(status);
 }
 
-function statusDot(status: string): HTMLSpanElement {
-  return el("span", `ws-status-dot ws-status-dot--${status}`);
+function toMcStatus(status: string): string {
+  const map: Record<string, string> = {
+    running: "is-status-running",
+    retrying: "is-status-retrying",
+    completed: "is-status-completed",
+    orphaned: "is-status-blocked",
+  };
+  return map[status] ?? "";
 }
 
 /* ------------------------------------------------------------------ */
@@ -34,10 +42,9 @@ function statusDot(status: string): HTMLSpanElement {
 /* ------------------------------------------------------------------ */
 
 function buildStatCard(label: string, value: string | number, accent?: string): HTMLElement {
-  const card = el("div", "ws-stat-card");
-  const val = el("span", "ws-stat-value", String(value));
-  if (accent) val.classList.add(`ws-stat-value--${accent}`);
-  card.append(val, el("span", "ws-stat-label", label));
+  const card = el("div", "mc-stat-card" + (accent ? ` is-${accent}` : ""));
+  const val = el("span", "heading-display", String(value));
+  card.append(val, el("span", "mc-stat-card-label", label));
   return card;
 }
 
@@ -45,7 +52,7 @@ function buildStatsRow(data: WorkspaceInventoryResponse): HTMLElement {
   const row = el("div", "ws-stats-row");
   row.append(
     buildStatCard("Total", data.total),
-    buildStatCard("Active", data.active, data.active > 0 ? "active" : undefined),
+    buildStatCard("Active", data.active, data.active > 0 ? "live" : undefined),
     buildStatCard("Orphaned", data.orphaned, data.orphaned > 0 ? "warning" : undefined),
     buildStatCard("Disk", formatBytes(data.workspaces.reduce((sum, w) => sum + (w.disk_bytes ?? 0), 0))),
   );
@@ -56,26 +63,13 @@ function buildStatsRow(data: WorkspaceInventoryResponse): HTMLElement {
 /*  Workspace row                                                      */
 /* ------------------------------------------------------------------ */
 
-function statusVariant(status: string): string {
-  switch (status) {
-    case "running":
-      return "active";
-    case "retrying":
-      return "warning";
-    case "completed":
-      return "muted";
-    case "orphaned":
-      return "danger";
-    default:
-      return "muted";
-  }
-}
-
-function buildWorkspaceRow(ws: WorkspaceInventoryEntry, onRemove: (key: string) => void): HTMLElement {
-  const row = el("div", "ws-row");
+function buildWorkspaceRow(ws: WorkspaceInventoryEntry, index: number, onRemove: (key: string) => void): HTMLElement {
+  const mcStatus = toMcStatus(ws.status);
+  const row = el("div", `mc-strip ws-row ${mcStatus} stagger-item`);
+  row.style.setProperty("--stagger-index", String(index));
 
   const key = el("div", "ws-row-key");
-  key.append(statusDot(ws.status), el("span", "text-mono", ws.workspace_key));
+  key.append(el("span", "text-identifier", ws.workspace_key));
   row.append(key);
 
   const info = el("div", "ws-row-info");
@@ -90,9 +84,11 @@ function buildWorkspaceRow(ws: WorkspaceInventoryEntry, onRemove: (key: string) 
   row.append(info);
 
   const meta = el("div", "ws-row-meta");
-  meta.append(badge(ws.status, statusVariant(ws.status)));
+  meta.append(statusBadge(ws.status));
   if (ws.disk_bytes !== null) {
-    meta.append(badge(formatBytes(ws.disk_bytes), "muted"));
+    const disk = el("span", "mc-badge is-sm");
+    disk.textContent = formatBytes(ws.disk_bytes);
+    meta.append(disk);
   }
   row.append(meta);
 
@@ -101,7 +97,7 @@ function buildWorkspaceRow(ws: WorkspaceInventoryEntry, onRemove: (key: string) 
 
   if (ws.status === "orphaned" || ws.status === "completed") {
     const actions = el("div", "ws-row-actions");
-    const removeBtn = el("button", "ws-row-remove", "Remove");
+    const removeBtn = el("button", "mc-button is-sm ws-row-remove", "Remove");
     removeBtn.type = "button";
     removeBtn.addEventListener("click", () => onRemove(ws.workspace_key));
     actions.append(removeBtn);
@@ -119,8 +115,10 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
   const section = el("section", "ws-section");
 
   const header = el("div", "ws-section-header");
-  header.append(el("h2", "ws-section-title", "Workspaces"));
-  header.append(badge(String(data.total), "accent"));
+  header.append(el("h2", "heading-section", "Workspaces"));
+  const count = el("span", "mc-badge is-sm is-status");
+  count.textContent = String(data.total);
+  header.append(count);
   section.append(header);
 
   if (data.workspaces.length === 0) {
@@ -131,9 +129,9 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
   }
 
   const list = el("div", "ws-list");
-  for (const ws of data.workspaces) {
-    list.append(buildWorkspaceRow(ws, onRemove));
-  }
+  data.workspaces.forEach((ws, index) => {
+    list.append(buildWorkspaceRow(ws, index, onRemove));
+  });
   section.append(list);
 
   return section;
@@ -152,6 +150,39 @@ function renderWorkspaces(page: HTMLElement, data: WorkspaceInventoryResponse, o
 }
 
 /* ------------------------------------------------------------------ */
+/*  Loading skeleton                                                   */
+/* ------------------------------------------------------------------ */
+
+function buildLoadingSkeleton(): HTMLElement {
+  const shell = document.createElement("div");
+  shell.setAttribute("aria-hidden", "true");
+
+  const statsRow = el("div", "ws-stats-row");
+  Array.from({ length: 4 }).forEach(() => {
+    const card = el("div", "mc-stat-card");
+    card.append(skeletonLine("60%"), skeletonLine("40%"));
+    statsRow.append(card);
+  });
+  shell.append(statsRow);
+
+  const listWrap = el("div", "ws-section");
+  const sectionHeader = el("div", "ws-section-header");
+  sectionHeader.append(skeletonLine("140px"));
+  listWrap.append(sectionHeader);
+
+  const list = el("div", "ws-list");
+  Array.from({ length: 5 }).forEach(() => {
+    const row = el("div", "mc-strip ws-row ws-row--skeleton");
+    row.append(skeletonLine("40%"), skeletonLine("55%"), skeletonLine("80px"), skeletonLine("60px"));
+    list.append(row);
+  });
+  listWrap.append(list);
+  shell.append(listWrap);
+
+  return shell;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page export                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -164,9 +195,7 @@ export function createWorkspacesPage(): HTMLElement {
   );
 
   const body = el("section", "ws-page-body");
-  const loading = el("div", "ws-loading");
-  loading.append(el("p", "ws-empty-hint", "Loading workspace inventory…"));
-  body.append(loading);
+  body.append(buildLoadingSkeleton());
 
   page.append(header, body);
 

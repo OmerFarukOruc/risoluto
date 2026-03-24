@@ -57,7 +57,7 @@ function renderLoading(): HTMLElement {
 function createLinkButton(label: string, path: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "mc-button mc-button-ghost";
+  button.className = "mc-button is-ghost";
   button.textContent = label;
   button.addEventListener("click", () => router.navigate(path));
   return button;

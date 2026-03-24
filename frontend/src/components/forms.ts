@@ -6,6 +6,7 @@ import {
   isTextEntryControl,
   syncFieldError,
 } from "./form-controls.js";
+import { buttonClassName, type ButtonTone } from "../ui/buttons.js";
 
 export interface FieldOptions {
   label: string;
@@ -34,7 +35,7 @@ export function createField(options: FieldOptions, control: HTMLElement): HTMLEl
   if (isFieldControl(control)) {
     applyFieldConstraints(control, options);
     if (!control.id) {
-      control.id = `field-${Math.random().toString(36).slice(2)}`;
+      control.id = `field-${crypto.randomUUID()}`;
     }
     label.htmlFor = control.id;
   }
@@ -150,12 +151,12 @@ export function createSelectControl(options: {
 
 export function createButton(
   label: string,
-  variant = "ghost",
+  variant: ButtonTone = "ghost",
   type: "button" | "submit" = "button",
 ): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = type;
-  button.className = `mc-button ${variant === "primary" ? "mc-button-ghost is-primary" : "mc-button-ghost"}`;
+  button.className = buttonClassName({ tone: variant });
   button.textContent = label;
   return button;
 }

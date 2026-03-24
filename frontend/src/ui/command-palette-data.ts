@@ -1,6 +1,6 @@
 import { api } from "../api";
 import { router } from "../router";
-import type { RuntimeIssueView, RuntimeSnapshot } from "../types";
+import type { RuntimeIssueView } from "../types";
 import { collectUniqueIssues } from "./sidebar-badges.js";
 import { openShortcutHelp } from "./shortcut-help.js";
 import { navItems } from "./nav-items";
@@ -24,7 +24,7 @@ interface CreateBasePaletteEntriesOptions {
 }
 
 function buildNavigationEntries(): PaletteEntry[] {
-  return navItems.map((item) => ({
+  const entries = navItems.map((item) => ({
     id: `nav:${item.path}`,
     name: item.name,
     description: `Open ${item.name}`,
@@ -34,6 +34,31 @@ function buildNavigationEntries(): PaletteEntry[] {
     keywords: [item.group, item.path, item.name],
     run: () => router.navigate(item.path),
   }));
+
+  entries.push(
+    {
+      id: "nav:/settings#credentials",
+      name: "Credentials",
+      description: "Open Settings · Credentials",
+      meta: "g s",
+      group: "Navigation",
+      icon: "secrets",
+      keywords: ["configure", "credentials", "secret", "secrets", "/secrets", "/settings#credentials"],
+      run: () => router.navigate("/settings#credentials"),
+    },
+    {
+      id: "nav:/settings#advanced",
+      name: "Advanced settings",
+      description: "Open Settings · Advanced",
+      meta: "g c",
+      group: "Navigation",
+      icon: "config",
+      keywords: ["configure", "config", "advanced", "override", "/config", "/settings#advanced"],
+      run: () => router.navigate("/settings#advanced"),
+    },
+  );
+
+  return entries;
 }
 
 function buildQuickActionEntries(options: CreateBasePaletteEntriesOptions): PaletteEntry[] {

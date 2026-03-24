@@ -369,6 +369,18 @@
   border-color: var(--color-copper-500);
 }
 
+/* Button variants — destructive */
+.mc-button.is-danger {
+  background: var(--status-blocked);
+  border-color: var(--status-blocked);
+  color: var(--color-danger-50);
+}
+
+.mc-button.is-danger:hover {
+  background: color-mix(in srgb, var(--status-blocked) 88%, black);
+  border-color: color-mix(in srgb, var(--status-blocked) 88%, black);
+}
+
 /* Button variants — ghost */
 .mc-button.is-ghost {
   background: transparent;

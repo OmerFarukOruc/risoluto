@@ -34,7 +34,7 @@ export function renderRunsSummary(attempt: AttemptSummary, detail: AttemptRecord
 
   const openButton = document.createElement("button");
   openButton.type = "button";
-  openButton.className = "mc-button mc-button-ghost";
+  openButton.className = "mc-button is-ghost";
   openButton.textContent = "Open attempt detail";
   openButton.addEventListener("click", () => router.navigate(`/attempts/${attempt.attemptId}`));
   header.append(titleWrap, openButton);

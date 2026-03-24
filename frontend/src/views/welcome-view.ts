@@ -28,13 +28,13 @@ export function createWelcomePage(): HTMLElement {
     {
       n: "2",
       title: "Add your credentials",
-      desc: "Add your Linear API key and AI provider keys in Credentials.",
+      desc: "Add your Linear API key and AI provider keys from Settings → Credentials.",
       link: "Open Credentials",
     },
     {
       n: "3",
       title: "Review settings",
-      desc: "Adjust sandbox mode, polling interval, and agent limits.",
+      desc: "Adjust sandbox mode, polling interval, and agent limits from Settings.",
       link: "Open Settings",
     },
     {
@@ -77,8 +77,8 @@ export function createWelcomePage(): HTMLElement {
       linkEl.addEventListener("click", (e) => {
         e.preventDefault();
         const paths: Record<string, string> = {
-          "View example": "/config",
-          "Open Credentials": "/secrets",
+          "View example": "/settings#advanced",
+          "Open Credentials": "/settings#credentials",
           "Open Settings": "/settings",
         };
         if (paths[step.link!]) {

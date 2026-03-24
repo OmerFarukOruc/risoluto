@@ -163,7 +163,7 @@ function createTeachingEmptyState(
   if (actionLabel && onAction) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "mc-button mc-button-secondary";
+    button.className = "mc-button";
     button.textContent = actionLabel;
     button.addEventListener("click", onAction);
     box.append(button);

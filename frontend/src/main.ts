@@ -93,8 +93,6 @@ const runs = lazyPage(() => import("./pages/runs"));
 const logs = lazyPage(() => import("./pages/logs"));
 const attempt = lazyPage(() => import("./pages/attempt"));
 
-const config = lazyPage(() => import("./pages/config"));
-const secrets = lazyPage(() => import("./pages/secrets"));
 const observability = lazyPage(() => import("./pages/observability"));
 const settings = lazyPage(() => import("./pages/settings"));
 const notifications = lazyPage(() => import("./pages/notifications"));
@@ -103,6 +101,19 @@ const workspaces = lazyPage(() => import("./pages/workspaces"));
 const containers = lazyPage(() => import("./pages/containers"));
 const welcome = lazyPage(() => import("./pages/welcome"));
 const setup = lazyPage(() => import("./pages/setup"));
+
+function aliasSettingsRoute(
+  target: string,
+  render: ReturnType<typeof lazyPage>,
+): (params?: Record<string, string>) => HTMLElement {
+  return (params) => {
+    const current = `${window.location.pathname}${window.location.hash}`;
+    if (current !== target) {
+      window.history.replaceState({}, "", target);
+    }
+    return render(params);
+  };
+}
 
 router.register("/", overview);
 router.register("/queue", queue);
@@ -113,8 +124,8 @@ router.register("/issues/:id/logs", logs);
 router.register("/logs/:id", logs);
 router.register("/attempts/:id", attempt);
 
-router.register("/config", config);
-router.register("/secrets", secrets);
+router.register("/config", aliasSettingsRoute("/settings#advanced", settings));
+router.register("/secrets", aliasSettingsRoute("/settings#credentials", settings));
 router.register("/observability", observability);
 router.register("/settings", settings);
 router.register("/notifications", notifications);

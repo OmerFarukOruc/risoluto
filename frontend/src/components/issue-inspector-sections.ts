@@ -154,7 +154,7 @@ export function buildActivitySection(detail: IssueDetail): HTMLElement {
     list.append(...rows);
   }
   const link = document.createElement("a");
-  link.className = "mc-button mc-button-ghost";
+  link.className = "mc-button is-ghost";
   link.href = `/issues/${detail.identifier}/logs`;
   link.textContent = "Open logs";
   section.append(list, link);

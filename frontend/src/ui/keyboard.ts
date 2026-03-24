@@ -24,11 +24,50 @@ function dispatchKeyEvent(name: string): void {
   window.dispatchEvent(new CustomEvent(name));
 }
 
+function handlePrefixKey(event: KeyboardEvent, router: Router, options: KeyboardOptions): void {
+  const nextKey = event.key.toLowerCase();
+  const runsPath = options.resolveRunHistoryPath?.();
+  const destinations: Record<string, string> = {
+    o: "/",
+    q: "/queue",
+    c: "/settings#advanced",
+    s: "/settings#credentials",
+    m: "/observability",
+    n: "/notifications",
+    g: "/git",
+    d: "/containers",
+    w: "/workspaces",
+    i: "/welcome",
+    ",": "/settings",
+  };
+  resetPrefix();
+  if (nextKey === "r") {
+    if (runsPath) {
+      event.preventDefault();
+      router.navigate(runsPath);
+    }
+    return;
+  }
+  if (destinations[nextKey]) {
+    event.preventDefault();
+    router.navigate(destinations[nextKey]);
+  }
+}
+
+function handlePlainKey(event: KeyboardEvent): void {
+  if (event.key === "j") dispatchKeyEvent("keyboard:j");
+  if (event.key === "k") dispatchKeyEvent("keyboard:k");
+  if (event.key === "Enter" && event.shiftKey) {
+    dispatchKeyEvent("keyboard:shift-enter");
+  } else if (event.key === "Enter") {
+    dispatchKeyEvent("keyboard:enter");
+  }
+  if (event.key === "Escape") dispatchKeyEvent("keyboard:escape");
+}
+
 export function initKeyboard(router: Router, options: KeyboardOptions = {}): void {
   window.addEventListener("keydown", (event) => {
-    if (shouldIgnoreTarget(event.target)) {
-      return;
-    }
+    if (shouldIgnoreTarget(event.target)) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       dispatchKeyEvent("palette:open");
@@ -46,49 +85,9 @@ export function initKeyboard(router: Router, options: KeyboardOptions = {}): voi
       return;
     }
     if (prefixActive) {
-      const nextKey = event.key.toLowerCase();
-      const runsPath = options.resolveRunHistoryPath?.();
-      const destinations: Record<string, string> = {
-        o: "/",
-        q: "/queue",
-
-        c: "/config",
-        s: "/secrets",
-        m: "/observability",
-        n: "/notifications",
-        g: "/git",
-        d: "/containers",
-        w: "/workspaces",
-        i: "/welcome",
-        ",": "/settings",
-      };
-      resetPrefix();
-      if (nextKey === "r") {
-        if (runsPath) {
-          event.preventDefault();
-          router.navigate(runsPath);
-        }
-        return;
-      }
-      if (destinations[nextKey]) {
-        event.preventDefault();
-        router.navigate(destinations[nextKey]);
-      }
+      handlePrefixKey(event, router, options);
       return;
     }
-    if (event.key === "j") {
-      dispatchKeyEvent("keyboard:j");
-    }
-    if (event.key === "k") {
-      dispatchKeyEvent("keyboard:k");
-    }
-    if (event.key === "Enter" && event.shiftKey) {
-      dispatchKeyEvent("keyboard:shift-enter");
-    } else if (event.key === "Enter") {
-      dispatchKeyEvent("keyboard:enter");
-    }
-    if (event.key === "Escape") {
-      dispatchKeyEvent("keyboard:escape");
-    }
+    handlePlainKey(event);
   });
 }

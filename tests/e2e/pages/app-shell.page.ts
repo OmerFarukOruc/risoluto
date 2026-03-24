@@ -72,10 +72,14 @@ export class AppShellPage extends BasePage {
   }
 
   async gotoConfig(): Promise<void> {
-    await this.navigateViaSidebar("/config");
+    await this.navigateViaSidebar("/settings");
   }
 
   async gotoSecrets(): Promise<void> {
-    await this.navigateViaSidebar("/secrets");
+    await this.navigateViaSidebar("/settings");
+  }
+
+  async gotoSettings(): Promise<void> {
+    await this.navigateViaSidebar("/settings");
   }
 }

@@ -42,7 +42,7 @@
 }
 
 .queue-layout.has-panel > .queue-main-pane > .kanban-board-wrap {
-  border-right: 1px solid color-mix(in srgb, var(--border-stitch) 58%, transparent);
+  border-right: none;
 }
 
 .queue-board {
@@ -540,7 +540,7 @@
   max-width: none;
   height: 100%;
   min-height: 0;
-  border-left: none;
+  border-left: 1px solid color-mix(in srgb, var(--border-stitch) 55%, transparent);
   background: color-mix(in srgb, var(--bg-surface) 88%, var(--bg-elevated));
   overflow: hidden;
   animation: panelSlideIn var(--motion-medium) var(--ease-out-quart);

@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import type { SecretBackend } from "@symphony/shared";
 import { normalizeCodexAuthJson } from "../codex/auth-file.js";
 import type { ConfigOverlayStore } from "../config/overlay.js";
 import {
@@ -15,7 +16,6 @@ import {
   buildTeamsQuery,
 } from "../linear/queries.js";
 import type { Orchestrator } from "../orchestrator/orchestrator.js";
-import type { SecretsStore } from "../secrets/store.js";
 import { getErrorMessage, isRecord } from "../utils/type-guards.js";
 import {
   checkAuthEndpointReachable,
@@ -30,7 +30,7 @@ import { hasCodexAuthFile, hasLinearCredentials, hasRepoRoutes, readProjectSlug 
 import { DEFAULT_PROMPT_TEMPLATE } from "../workflow/loader.js";
 
 export interface SetupApiDeps {
-  secretsStore: SecretsStore;
+  secretsStore: SecretBackend;
   configOverlayStore: ConfigOverlayStore;
   orchestrator: Orchestrator;
   archiveDir: string;
@@ -189,7 +189,7 @@ export function handlePostOpenaiKey(deps: SetupApiDeps) {
 
     if (valid) {
       await Promise.all([
-        deps.secretsStore.set("OPENAI_API_KEY", key),
+        deps.secretsStore.store("OPENAI_API_KEY", key),
         deps.configOverlayStore.setBatch([
           { path: "codex.auth.mode", value: "api_key" },
           { path: "codex.provider.name", value: "CLIProxyAPI" },
@@ -348,7 +348,7 @@ export function handlePostGithubToken(deps: SetupApiDeps) {
     }
 
     if (valid) {
-      await deps.secretsStore.set("GITHUB_TOKEN", token);
+      await deps.secretsStore.store("GITHUB_TOKEN", token);
       process.env.GITHUB_TOKEN = token;
     }
 

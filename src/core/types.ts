@@ -363,3 +363,17 @@ export interface SymphonyLogger {
   error(meta: unknown, message?: string): void;
   child(meta: Record<string, unknown>): SymphonyLogger;
 }
+
+export interface WorkflowDefinition {
+  config: Record<string, unknown>;
+  promptTemplate: string;
+}
+
+export interface RetryEntry {
+  issueId: string;
+  identifier: string;
+  attempt: number;
+  dueAtMs: number;
+  error: string | null;
+  timer: NodeJS.Timeout | null;
+}

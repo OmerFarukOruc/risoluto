@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 
 import { asStringRecord, isRecord } from "../utils/type-guards.js";
 import type { SymphonyLogger } from "../core/types.js";
+import type { SecretBackend } from "@symphony/shared";
+
 import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
 import { secretAuditRows, secretStateRows } from "../persistence/sqlite/schema.js";
 
@@ -88,7 +90,7 @@ function decrypt(envelope: SecretsEnvelope, key: Buffer): string {
   return plaintext.toString("utf8");
 }
 
-export class SecretsStore {
+export class SecretsStore implements SecretBackend {
   private readonly cache = new Map<string, string>();
   private readonly listeners = new Set<() => void>();
   private encryptionKey: Buffer | null = null;
@@ -176,7 +178,7 @@ export class SecretsStore {
     return this.cache.get(key) ?? null;
   }
 
-  async set(key: string, value: string): Promise<void> {
+  async store(key: string, value: string): Promise<void> {
     if (!key.trim()) {
       throw new Error("secret key must not be empty");
     }
@@ -184,6 +186,10 @@ export class SecretsStore {
     await this.persist();
     await this.appendAuditEntry("set", key);
     this.notify();
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    await this.store(key, value);
   }
 
   async delete(key: string): Promise<boolean> {

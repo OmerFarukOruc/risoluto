@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import type { SecretsStore } from "../secrets/store.js";
+import type { SecretBackend } from "@symphony/shared";
 import { isRecord } from "../utils/type-guards.js";
 
 const GITHUB_URL_RE = /^https:\/\/(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/iu;
@@ -8,7 +8,7 @@ const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_FALLBACK = "main";
 
 export interface DetectDefaultBranchDeps {
-  secretsStore: SecretsStore;
+  secretsStore: Pick<SecretBackend, "get">;
   fetchImpl?: typeof fetch;
 }
 

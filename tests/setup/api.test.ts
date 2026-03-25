@@ -106,7 +106,7 @@ describe("registerSetupApi", () => {
   it("resets setup state successfully", async () => {
     const secretsStore = createSecretsStoreMock();
     const configOverlayStore = createConfigOverlayStoreMock();
-    vi.spyOn(secretsStore, "list").mockReturnValue(["GITHUB_TOKEN", "LINEAR_API_KEY"]);
+    vi.mocked(secretsStore.list).mockReturnValue(["GITHUB_TOKEN", "LINEAR_API_KEY"]);
     process.env.GITHUB_TOKEN = "gh-from-env";
 
     const { baseUrl } = await startSetupApiServer({ secretsStore, configOverlayStore });
@@ -129,7 +129,7 @@ describe("registerSetupApi", () => {
 
   it("returns reset_failed when reset throws", async () => {
     const secretsStore = createSecretsStoreMock();
-    vi.spyOn(secretsStore, "list").mockReturnValue(["OPENAI_API_KEY"]);
+    vi.mocked(secretsStore.list).mockReturnValue(["OPENAI_API_KEY"]);
     vi.spyOn(secretsStore, "delete").mockRejectedValue(new Error("delete failed"));
 
     const { baseUrl } = await startSetupApiServer({ secretsStore });
@@ -301,7 +301,7 @@ describe("registerSetupApi", () => {
     expect(getExternalFetchMock()).toHaveBeenCalledWith("https://api.openai.com/v1/models", {
       headers: { authorization: "Bearer sk-valid" },
     });
-    expect(secretsStore.set).toHaveBeenCalledWith("OPENAI_API_KEY", "sk-valid");
+    expect(vi.mocked(secretsStore.store)).toHaveBeenCalledWith("OPENAI_API_KEY", "sk-valid");
   });
 
   it("rejects an invalid OpenAI key", async () => {
@@ -313,7 +313,7 @@ describe("registerSetupApi", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ valid: false });
-    expect(secretsStore.set).not.toHaveBeenCalled();
+    expect(vi.mocked(secretsStore.store)).not.toHaveBeenCalled();
   });
 
   it("returns missing_auth_json when Codex auth payload is missing", async () => {

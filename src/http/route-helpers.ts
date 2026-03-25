@@ -3,14 +3,76 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { RuntimeSnapshot } from "../core/types.js";
 import { redactSensitiveValue } from "../core/content-sanitizer.js";
 import { isRecord } from "../utils/type-guards.js";
+import type { ErrorEnvelope } from "./openapi.js";
+
+/**
+ * Error codes used across the API.
+ *
+ * Standard codes:
+ * - method_not_allowed: HTTP 405 - Method not allowed on this endpoint
+ * - not_found: HTTP 404 - Resource not found
+ * - invalid_model: HTTP 400 - Invalid model parameter
+ * - invalid_reasoning_effort: HTTP 400 - Invalid reasoning_effort value
+ * - invalid_secret_key: HTTP 400 - Secret key format invalid
+ * - invalid_secret_value: HTTP 400 - Secret value must be non-empty string
+ * - secret_not_found: HTTP 404 - Secret key not found
+ * - missing_target_state: HTTP 400 - target_state parameter required
+ * - unavailable: HTTP 503 - Service/component unavailable
+ */
+export type ErrorCode =
+  | "method_not_allowed"
+  | "not_found"
+  | "invalid_model"
+  | "invalid_reasoning_effort"
+  | "invalid_secret_key"
+  | "invalid_secret_value"
+  | "secret_not_found"
+  | "missing_target_state"
+  | "unavailable";
+
+export function createError(code: ErrorCode, message: string): ErrorEnvelope {
+  return {
+    error: {
+      code,
+      message,
+    },
+  };
+}
 
 export function methodNotAllowed(reply: FastifyReply): void {
-  reply.status(405).send({
-    error: {
-      code: "method_not_allowed",
-      message: "Method Not Allowed",
-    },
-  });
+  reply.status(405).send(createError("method_not_allowed", "Method Not Allowed"));
+}
+
+export function notFound(reply: FastifyReply, message = "Unknown issue identifier"): void {
+  reply.status(404).send(createError("not_found", message));
+}
+
+export function invalidModel(reply: FastifyReply, message = "model is required"): void {
+  reply.status(400).send(createError("invalid_model", message));
+}
+
+export function invalidReasoningEffort(reply: FastifyReply, message: string): void {
+  reply.status(400).send(createError("invalid_reasoning_effort", message));
+}
+
+export function invalidSecretKey(reply: FastifyReply): void {
+  reply.status(400).send(createError("invalid_secret_key", "secret key must match /^[A-Za-z0-9._:-]+$/"));
+}
+
+export function invalidSecretValue(reply: FastifyReply): void {
+  reply.status(400).send(createError("invalid_secret_value", "secret value must be a non-empty string"));
+}
+
+export function secretNotFound(reply: FastifyReply): void {
+  reply.status(404).send(createError("secret_not_found", "secret key not found"));
+}
+
+export function missingTargetState(reply: FastifyReply): void {
+  reply.status(400).send(createError("missing_target_state", "target_state is required"));
+}
+
+export function unavailable(reply: FastifyReply, message: string): void {
+  reply.status(503).send(createError("unavailable", message));
 }
 
 export function serializeSnapshot(snapshot: RuntimeSnapshot & Record<string, unknown>): Record<string, unknown> {

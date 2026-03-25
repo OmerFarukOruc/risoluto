@@ -153,6 +153,7 @@ function buildStepIndicator(): HTMLElement {
 
   const row = document.createElement("div");
   row.className = "setup-steps";
+  row.setAttribute("aria-label", `Setup progress: step ${Math.min(currentIdx + 1, steps.length)} of ${steps.length}`);
 
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
@@ -161,12 +162,18 @@ function buildStepIndicator(): HTMLElement {
     const isActive = s.key === state.step;
     const isClickable = true;
 
-    const indicator = document.createElement("div");
+    const indicator = document.createElement("button");
+    indicator.type = "button";
     indicator.className = `setup-step-indicator${isActive ? " is-active" : ""}${isDone ? " is-done" : ""}`;
+    indicator.setAttribute(
+      "aria-label",
+      `${isDone ? "Completed" : isActive ? "Current" : "Open"} step ${s.n}: ${s.label}`,
+    );
+    if (isActive) {
+      indicator.setAttribute("aria-current", "step");
+    }
+
     if (isClickable) {
-      indicator.style.cursor = "pointer";
-      indicator.setAttribute("role", "button");
-      indicator.setAttribute("tabindex", "0");
       const targetStep = s.key;
       const handleNav = (): void => {
         state.step = targetStep;
@@ -174,27 +181,32 @@ function buildStepIndicator(): HTMLElement {
         rerender();
       };
       indicator.addEventListener("click", handleNav);
-      indicator.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleNav();
-        }
-      });
     }
 
     const dot = document.createElement("div");
     dot.className = "setup-step-dot";
     dot.textContent = isDone ? "✓" : s.n;
+    dot.setAttribute("aria-hidden", "true");
+
+    const copy = document.createElement("span");
+    copy.className = "setup-step-copy";
+
+    const meta = document.createElement("span");
+    meta.className = "setup-step-meta";
+    meta.textContent = `Step ${s.n.padStart(2, "0")}`;
 
     const label = document.createElement("span");
+    label.className = "setup-step-label";
     label.textContent = s.label;
 
-    indicator.append(dot, label);
+    copy.append(meta, label);
+    indicator.append(dot, copy);
     row.append(indicator);
 
     if (i < steps.length - 1) {
       const connector = document.createElement("div");
-      connector.className = "setup-step-connector";
+      connector.className = `setup-step-connector${currentIdx > i ? " is-complete" : ""}`;
+      connector.setAttribute("aria-hidden", "true");
       row.append(connector);
     }
   }
@@ -272,7 +284,7 @@ function buildMasterKeyStep(): HTMLElement {
     const next = document.createElement("button");
     next.className = "mc-button is-primary";
     next.type = "button";
-    next.textContent = "Next →";
+    next.textContent = "Next";
     next.addEventListener("click", () => advanceMasterKey());
     actions.append(reconfigure, next);
 
@@ -338,7 +350,7 @@ function buildMasterKeyStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Next →";
+  next.textContent = state.loading ? "Saving…" : "Next";
   next.disabled = state.loading || !state.generatedKey;
   next.addEventListener("click", () => advanceMasterKey());
 
@@ -639,7 +651,7 @@ function buildLinearProjectStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Next →";
+  next.textContent = state.loading ? "Saving…" : "Next";
   next.disabled = state.loading || !state.selectedProject;
   next.addEventListener("click", () => {
     advanceLinearProject().catch(() => {});
@@ -1453,21 +1465,36 @@ function buildStepContent(): HTMLElement {
 
 function buildPage(): HTMLElement {
   const wrap = document.createElement("div");
+  wrap.className = "setup-shell";
 
   if (state.step === "master-key") {
     const intro = document.createElement("div");
     intro.className = "setup-intro";
 
-    const introHeading = document.createElement("h2");
+    const introEyebrow = document.createElement("div");
+    introEyebrow.className = "setup-intro-eyebrow";
+    introEyebrow.textContent = "Setup sequence";
+
+    const introHeading = document.createElement("h1");
     introHeading.className = "setup-intro-heading";
-    introHeading.textContent = "Welcome to Symphony";
+    introHeading.textContent = "Bring Symphony online";
 
     const introSub = document.createElement("p");
     introSub.className = "setup-intro-sub";
     introSub.textContent =
-      "This takes about 3–5 minutes. You'll connect Symphony to your project tracker and add the credentials it needs.";
+      "Connect Linear, secure local credentials, and define how sandboxed agents turn tracked work into pull requests.";
 
-    intro.append(introHeading, introSub);
+    const introMeta = document.createElement("div");
+    introMeta.className = "setup-intro-meta";
+
+    for (const label of ["Local control plane", "Encrypted secrets", "Sandboxed execution"]) {
+      const tag = document.createElement("span");
+      tag.className = "setup-intro-tag";
+      tag.textContent = label;
+      introMeta.append(tag);
+    }
+
+    intro.append(introEyebrow, introHeading, introSub, introMeta);
     wrap.append(intro);
   }
 

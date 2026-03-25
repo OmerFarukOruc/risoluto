@@ -1,13 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
-import { SecretsStore } from "./store.js";
+import type { SecretBackend } from "@symphony/shared";
 import { isRecord } from "../utils/type-guards.js";
 
 function isValidSecretKey(value: string): boolean {
-  return /^[A-Za-z0-9._:-]+$/.test(value);
+  return /^[\w.:=-]+$/.test(value);
 }
 
-/** Returns false and sends a 400 response when the key param is invalid. */
 function validateSecretKeyOrReject(key: string | undefined, reply: FastifyReply): key is string {
   if (!key || !isValidSecretKey(key)) {
     reply.status(400).send({
@@ -22,14 +21,12 @@ function validateSecretKeyOrReject(key: string | undefined, reply: FastifyReply)
 }
 
 interface SecretsApiDeps {
-  secretsStore: SecretsStore;
+  secretsStore: SecretBackend;
 }
 
 export function registerSecretsApi(app: FastifyInstance, deps: SecretsApiDeps): void {
   app.get("/api/v1/secrets", (_request, reply) => {
-    reply.send({
-      keys: deps.secretsStore.list(),
-    });
+    reply.send({ keys: deps.secretsStore.list() });
   });
 
   app.post(
@@ -49,7 +46,7 @@ export function registerSecretsApi(app: FastifyInstance, deps: SecretsApiDeps): 
         return;
       }
 
-      await deps.secretsStore.set(request.params.key, rawValue);
+      await deps.secretsStore.store(request.params.key, rawValue);
       reply.status(204).send();
     },
   );

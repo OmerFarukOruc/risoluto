@@ -82,7 +82,7 @@ describe("registerSetupApi — auth & tokens", () => {
     expect(getExternalFetchMock()).toHaveBeenCalledWith("https://api.github.com/user", {
       headers: { authorization: "token ghp_valid", "user-agent": "Symphony-Orchestrator" },
     });
-    expect(secretsStore.set).toHaveBeenCalledWith("GITHUB_TOKEN", "ghp_valid");
+    expect(vi.mocked(secretsStore.store)).toHaveBeenCalledWith("GITHUB_TOKEN", "ghp_valid");
     expect(process.env.GITHUB_TOKEN).toBe("ghp_valid");
   });
 
@@ -95,7 +95,7 @@ describe("registerSetupApi — auth & tokens", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ valid: false });
-    expect(secretsStore.set).not.toHaveBeenCalled();
+    expect(vi.mocked(secretsStore.store)).not.toHaveBeenCalled();
   });
 
   it.each([

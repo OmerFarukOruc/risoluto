@@ -67,7 +67,7 @@ export class HttpServer {
     await this.app.register(fastifyStatic, {
       root: staticRoot,
       prefix: "/",
-      wildcard: false,
+      wildcard: true,
     });
 
     // SPA fallback — serve index.html for non-API routes

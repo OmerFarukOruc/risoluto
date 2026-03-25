@@ -1,5 +1,5 @@
 import type { RunAttemptDispatcher } from "../dispatch/types.js";
-import { AttemptStore } from "../core/attempt-store.js";
+import type { AttemptStore } from "@symphony/shared";
 import { ConfigStore } from "../config/store.js";
 import type { GitManager } from "../git/manager.js";
 import { LinearClient } from "../linear/client.js";

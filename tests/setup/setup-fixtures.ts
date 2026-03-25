@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { vi } from "vitest";
 
 import { ConfigOverlayStore } from "../../src/config/overlay.js";
-import { AttemptStore } from "../../src/core/attempt-store.js";
+import { FileAttemptStore } from "../../src/core/attempt-store.js";
 import type { RunAttemptDispatcher } from "../../src/dispatch/types.js";
 import { ConfigStore } from "../../src/config/store.js";
 import { LinearClient } from "../../src/linear/client.js";
@@ -40,7 +40,8 @@ export function createSecretsStoreMock(): SecretsStore {
   vi.spyOn(store, "start").mockResolvedValue(undefined);
   vi.spyOn(store, "startDeferred").mockResolvedValue(undefined);
   vi.spyOn(store, "initializeWithKey").mockResolvedValue(undefined);
-  vi.spyOn(store, "set").mockResolvedValue(undefined);
+  vi.spyOn(store, "list").mockReturnValue([]);
+  vi.spyOn(store, "store").mockResolvedValue(undefined);
   vi.spyOn(store, "delete").mockResolvedValue(true);
   return store;
 }
@@ -68,7 +69,7 @@ export function createAgentRunnerMock(): RunAttemptDispatcher {
 export function createOrchestratorMock(): Orchestrator {
   const logger = createMockLogger();
   const orchestrator = new Orchestrator({
-    attemptStore: new AttemptStore("/attempt-store", logger),
+    attemptStore: new FileAttemptStore("/attempt-store", logger),
     configStore: new ConfigStore("/workflow.md", logger),
     linearClient: new LinearClient(() => {
       throw new Error("not used in setup api tests");

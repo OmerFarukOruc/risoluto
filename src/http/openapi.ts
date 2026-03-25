@@ -1,11 +1,13 @@
-import { Type } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 
-const ErrorEnvelopeSchema = Type.Object({
+export const ErrorEnvelopeSchema = Type.Object({
   error: Type.Object({
     code: Type.String(),
     message: Type.String(),
   }),
 });
+
+export type ErrorEnvelope = Static<typeof ErrorEnvelopeSchema>;
 
 const RuntimeResponseSchema = Type.Object({
   version: Type.String(),

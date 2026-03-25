@@ -1,4 +1,4 @@
-import type { AttemptEvent, AttemptRecord } from "../../../src/core/types.js";
+import type { AttemptEvent, AttemptRecord } from "./types.js";
 
 /**
  * Attempt persistence interface.
@@ -7,7 +7,7 @@ import type { AttemptEvent, AttemptRecord } from "../../../src/core/types.js";
  * satisfies this shape; extracting it lets consumers depend on the
  * interface without pulling in SQLite or filesystem dependencies.
  */
-export interface AttemptStoreInterface {
+export interface AttemptStore {
   getAttempt(attemptId: string): AttemptRecord | null;
   getAllAttempts(): AttemptRecord[];
   getEvents(attemptId: string): AttemptEvent[];

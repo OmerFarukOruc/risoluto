@@ -3,7 +3,8 @@ import path from "node:path";
 
 import { asc, eq } from "drizzle-orm";
 
-import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "./types.js";
+import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "@symphony/shared";
+import type { AttemptStore } from "@symphony/shared";
 import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
 import { attemptEventRows, attemptRows } from "../persistence/sqlite/schema.js";
 
@@ -11,7 +12,7 @@ function sortAttemptsDesc(left: AttemptRecord, right: AttemptRecord): number {
   return right.startedAt.localeCompare(left.startedAt);
 }
 
-export class AttemptStore {
+export class FileAttemptStore implements AttemptStore {
   private readonly attempts = new Map<string, AttemptRecord>();
   private readonly attemptsByIssue = new Map<string, string[]>();
   private readonly eventsByAttempt = new Map<string, AttemptEvent[]>();
@@ -309,3 +310,6 @@ export class AttemptStore {
     });
   }
 }
+
+/** @deprecated Use FileAttemptStore directly or depend on AttemptStore interface */
+export { FileAttemptStore as AttemptStore };

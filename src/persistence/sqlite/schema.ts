@@ -1,11 +1,15 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const attemptRows = sqliteTable("attempt_rows", {
-  attemptId: text("attempt_id").primaryKey(),
-  issueIdentifier: text("issue_identifier").notNull(),
-  startedAt: text("started_at").notNull(),
-  payload: text("payload").notNull(),
-});
+export const attemptRows = sqliteTable(
+  "attempt_rows",
+  {
+    attemptId: text("attempt_id").primaryKey(),
+    issueIdentifier: text("issue_identifier").notNull(),
+    startedAt: text("started_at").notNull(),
+    payload: text("payload").notNull(),
+  },
+  (table) => [index("issue_identifier_idx").on(table.issueIdentifier)],
+);
 
 export const attemptEventRows = sqliteTable("attempt_event_rows", {
   id: integer("id").primaryKey({ autoIncrement: true }),

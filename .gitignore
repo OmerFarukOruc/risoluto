@@ -32,3 +32,9 @@ docs/archive/dogfood-output/
 # CocoIndex Code (ccc)
 /.cocoindex_code/
 .gstack/
+
+# Shared package build artifacts
+packages/shared/src/*.d.ts
+packages/shared/src/*.d.ts.map
+packages/shared/src/*.js
+packages/shared/src/*.js.map

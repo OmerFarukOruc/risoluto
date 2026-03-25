@@ -67,7 +67,6 @@ function useSseInvalidation(queryClient: QueryClient): void {
     const source = new EventSource("/api/v1/events");
     source.onmessage = () => {
       queryClient.invalidateQueries({ queryKey: ["setup-status"] });
-      window.dispatchEvent(new CustomEvent("state:invalidate"));
     };
     return () => {
       source.close();

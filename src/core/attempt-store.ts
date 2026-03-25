@@ -188,18 +188,39 @@ export class AttemptStore {
   private async loadAttemptArchive(fileName: string): Promise<void> {
     const attemptPath = path.join(this.attemptsDir(), fileName);
     const attempt = JSON.parse(await readFile(attemptPath, "utf8")) as AttemptRecord;
+    const alreadyInDb = this.attempts.has(attempt.attemptId);
     this.attempts.set(attempt.attemptId, attempt);
     this.indexAttempt(attempt);
-    await this.persistAttemptToDb(attempt);
+    if (!alreadyInDb) {
+      try {
+        await this.persistAttemptToDb(attempt);
+      } catch (error) {
+        this.logger.warn(
+          { attemptId: attempt.attemptId, error: String(error) },
+          "db persist failed during archive load",
+        );
+      }
+    }
 
     try {
       const events = await this.loadEventArchive(attempt.attemptId);
       this.eventsByAttempt.set(attempt.attemptId, events);
-      await this.replaceEventsInDb(attempt.attemptId, events);
+      if (!alreadyInDb) {
+        try {
+          await this.replaceEventsInDb(attempt.attemptId, events);
+        } catch (error) {
+          this.logger.warn(
+            { attemptId: attempt.attemptId, error: String(error) },
+            "db event persist failed during archive load",
+          );
+        }
+      }
     } catch (error) {
       if (error instanceof Error && "code" in error && error.code === "ENOENT") {
         this.eventsByAttempt.set(attempt.attemptId, []);
-        await this.replaceEventsInDb(attempt.attemptId, []);
+        if (!alreadyInDb) {
+          await this.replaceEventsInDb(attempt.attemptId, []);
+        }
         return;
       }
       this.logger.warn(
@@ -207,7 +228,9 @@ export class AttemptStore {
         "attempt event archive corrupt or unreadable",
       );
       this.eventsByAttempt.set(attempt.attemptId, []);
-      await this.replaceEventsInDb(attempt.attemptId, []);
+      if (!alreadyInDb) {
+        await this.replaceEventsInDb(attempt.attemptId, []);
+      }
     }
   }
 

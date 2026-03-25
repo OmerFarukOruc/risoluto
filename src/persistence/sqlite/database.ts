@@ -14,6 +14,8 @@ function applySchema(database: Database.Database): void {
       started_at TEXT NOT NULL,
       payload TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS issue_identifier_idx
+      ON attempt_rows(issue_identifier);
     CREATE TABLE IF NOT EXISTS attempt_event_rows (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       attempt_id TEXT NOT NULL,

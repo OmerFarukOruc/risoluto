@@ -273,7 +273,16 @@ export class SecretsStore {
   }
 
   private async loadFromEnvelopeSource(source: string, sourceLabel: "file" | "sqlite"): Promise<void> {
-    const envelope = parseEnvelope(source);
+    let envelope: ReturnType<typeof parseEnvelope>;
+    try {
+      envelope = parseEnvelope(source);
+    } catch (error) {
+      this.logger.error(
+        { error: String(error), source: sourceLabel, secretsPath: this.secretsPath() },
+        "corrupted secrets envelope — cannot parse JSON",
+      );
+      throw new Error("secrets envelope is not valid JSON; the stored envelope may be corrupted", { cause: error });
+    }
     let decrypted: string;
     try {
       decrypted = decrypt(envelope, this.requiredKey());

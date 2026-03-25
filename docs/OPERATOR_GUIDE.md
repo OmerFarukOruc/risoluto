@@ -18,7 +18,7 @@ Symphony polls Linear for candidate issues, creates a workspace per issue, launc
 
 ```bash
 git clone <repo-url> && cd symphony-orchestrator
-npm install && npm run build
+pnpm install && pnpm build
 bash bin/build-sandbox.sh
 ```
 
@@ -38,7 +38,10 @@ Open http://127.0.0.1:4000 — the **setup wizard** opens automatically and walk
 4. **Add GitHub** — paste a GitHub PAT (optional)
 
 **3. Verify it works**
-Set a Linear issue to "In Progress". Within one poll cycle (default: 30s), Symphony picks it up and the dashboard shows it running.
+Set a Linear issue to "In Progress". Within one poll cycle (default: 30s), Symphony picks it up and the dashboard shows it running. The control plane also exposes:
+
+- `GET /openapi.json` — machine-readable control-plane contract
+- `GET /api/v1/events` — server-sent invalidation feed for the React dashboard
 
 ---
 
@@ -115,7 +118,7 @@ This is transparent — Symphony rewrites host-bound provider URLs in the genera
 # 1. Install Node.js 22+ and Docker
 # 2. Clone the repo and install
 git clone <repo-url> && cd symphony-orchestrator
-npm install && npm run build
+pnpm install && pnpm build
 
 # 3. Build the sandbox image
 bash bin/build-sandbox.sh
@@ -178,13 +181,13 @@ export LINEAR_PROJECT_SLUG="symphony-test-e1e26e4576d1"
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run the deterministic test suite
-npm test
+pnpm test
 
 # Build the project
-npm run build
+pnpm build
 
 # Build the Docker sandbox image
 bash bin/build-sandbox.sh

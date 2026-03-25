@@ -1,6 +1,8 @@
-import http from "node:http";
+import { randomUUID } from "node:crypto";
 
-import express, { type Express } from "express";
+import Fastify, { type FastifyInstance } from "fastify";
+import fastifyExpress from "@fastify/express";
+import express from "express";
 import type { ConfigStore } from "../config/store.js";
 import { registerHttpRoutes } from "./routes.js";
 import { Orchestrator } from "../orchestrator/orchestrator.js";
@@ -11,10 +13,11 @@ import type { SymphonyLogger } from "../core/types.js";
 import { globalMetrics } from "../observability/metrics.js";
 import { tracingMiddleware } from "../observability/tracing.js";
 import type { LinearClient } from "../linear/client.js";
+import { buildOpenApiDocument } from "./openapi.js";
 
 export class HttpServer {
-  private readonly app: Express;
-  private server: http.Server | null = null;
+  private readonly app: FastifyInstance;
+  private expressBridgeReady = false;
 
   constructor(
     private readonly deps: {
@@ -29,64 +32,82 @@ export class HttpServer {
       archiveDir?: string;
     },
   ) {
-    this.app = express();
-    this.app.disable("x-powered-by");
-    this.app.use(tracingMiddleware);
-    this.app.use((request, response, next) => {
-      const startedAt = process.hrtime.bigint();
-      response.once("finish", () => {
-        const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
-        globalMetrics.httpRequestsTotal.increment({
-          method: request.method,
-          status: String(response.statusCode),
-        });
-        globalMetrics.httpRequestDurationSeconds.observe(durationSeconds, {
-          method: request.method,
-          status: String(response.statusCode),
-        });
-      });
-      next();
+    // eslint-disable-next-line sonarjs/no-async-constructor
+    this.app = Fastify({
+      logger: false,
+      disableRequestLogging: true,
     });
-    this.app.use(express.json());
-    registerHttpRoutes(this.app, this.deps);
+    this.registerCoreHooks();
+    this.registerFastifyRoutes();
+  }
+
+  private registerCoreHooks(): void {
+    this.app.addHook("onRequest", (request, reply, done) => {
+      const incoming = request.headers["x-request-id"];
+      const requestId = typeof incoming === "string" && incoming.length > 0 ? incoming : randomUUID();
+      reply.header("X-Request-ID", requestId);
+      const raw = request.raw as { requestId?: string; startedAt?: bigint };
+      raw.requestId = requestId;
+      raw.startedAt = process.hrtime.bigint();
+      done();
+    });
+    this.app.addHook("onResponse", (request, reply, done) => {
+      const raw = request.raw as { startedAt?: bigint };
+      const startedAt = raw.startedAt ?? process.hrtime.bigint();
+      const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+      globalMetrics.httpRequestsTotal.increment({
+        method: request.method,
+        status: String(reply.statusCode),
+      });
+      globalMetrics.httpRequestDurationSeconds.observe(durationSeconds, {
+        method: request.method,
+        status: String(reply.statusCode),
+      });
+      done();
+    });
+  }
+
+  private registerFastifyRoutes(): void {
+    this.app.get("/openapi.json", async () => buildOpenApiDocument());
+    this.app.get("/api/v1/events", async (_request, reply) => {
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      });
+      reply.hijack();
+      const writeMessage = () => {
+        reply.raw.write(`data: ${JSON.stringify({ type: "invalidate", at: new Date().toISOString() })}\n\n`);
+      };
+      writeMessage();
+      const interval = setInterval(writeMessage, 5_000);
+      reply.raw.on("close", () => {
+        clearInterval(interval);
+      });
+    });
   }
 
   async start(port: number): Promise<{ port: number }> {
-    if (this.server) {
-      throw new Error("http server already started");
+    if (!this.expressBridgeReady) {
+      await this.app.register(fastifyExpress);
+      const expressApp = express();
+      expressApp.disable("x-powered-by");
+      expressApp.use(tracingMiddleware);
+      expressApp.use(express.json());
+      registerHttpRoutes(expressApp, this.deps);
+      this.app.use(expressApp);
+      this.expressBridgeReady = true;
     }
-    let startedServer: http.Server | null = null;
-    await new Promise<void>((resolve, reject) => {
-      const host = process.env.SYMPHONY_BIND ?? "127.0.0.1";
-      const server = this.app.listen(port, host, () => {
-        startedServer = server;
-        resolve();
-      });
-      server.on("error", reject);
-    });
-    this.server = startedServer;
-    if (startedServer) {
-      const address = (startedServer as { address?: () => { port: number } | string | null }).address?.();
-      if (address && typeof address === "object") {
-        return { port: address.port };
-      }
+    const host = process.env.SYMPHONY_BIND ?? "127.0.0.1";
+    const address = await this.app.listen({ port, host });
+    const matched = /:(\d+)$/.exec(address);
+    if (matched) {
+      return { port: Number(matched[1]) };
     }
     return { port };
   }
 
   async stop(): Promise<void> {
-    if (!this.server) {
-      return;
-    }
-    await new Promise<void>((resolve, reject) => {
-      this.server?.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
-    this.server = null;
+    await this.app.close();
   }
 }

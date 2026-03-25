@@ -10,6 +10,7 @@
     "dev": "pnpm run dev:vanilla",
     "dev:vanilla": "vite --config ../../frontend/vite.config.ts",
     "dev:react": "vite --config ./vite.config.ts",
+    "typecheck:react": "tsc --noEmit -p ./tsconfig.json",
     "typecheck:vanilla": "tsc --noEmit -p ../../frontend/tsconfig.json"
   }
 }

@@ -39,6 +39,7 @@ function compileRoute(path: string): Pick<InternalRoute, "pattern" | "keys"> {
 class Router {
   private routes: InternalRoute[] = [];
   private guard: ((path: string) => string | null) | null = null;
+  private externalNavigate: ((path: string) => void) | null = null;
 
   register(path: string, render: (params: Record<string, string>) => HTMLElement): void {
     const compiled = compileRoute(path);
@@ -52,10 +53,26 @@ class Router {
   navigate(path: string): void {
     const redirect = this.guard?.(path) ?? null;
     const target = redirect ?? path;
+    if (this.externalNavigate) {
+      this.externalNavigate(target);
+      return;
+    }
     if (window.location.pathname !== target) {
       window.history.pushState({}, "", target);
     }
     this.renderCurrent();
+  }
+
+  setExternalNavigator(navigate: ((path: string) => void) | null): void {
+    this.externalNavigate = navigate;
+  }
+
+  dispatchNavigation(path: string, params: Record<string, string>, title: string): void {
+    window.dispatchEvent(
+      new CustomEvent("router:navigate", {
+        detail: { path, params, title } satisfies RouterNavigateDetail,
+      }),
+    );
   }
 
   init(): void {
@@ -92,11 +109,7 @@ class Router {
     const rendered = decoratePageRoot(matched.route.render(matched.params));
     outlet.replaceChildren(rendered);
     const title = getRouteTitle(rendered);
-    window.dispatchEvent(
-      new CustomEvent("router:navigate", {
-        detail: { path: window.location.pathname, params: matched.params, title } satisfies RouterNavigateDetail,
-      }),
-    );
+    this.dispatchNavigation(window.location.pathname, matched.params, title);
   }
 }
 

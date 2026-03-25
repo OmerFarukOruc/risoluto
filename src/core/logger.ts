@@ -1,75 +1,68 @@
-import winston from "winston";
+import pino, { type Logger } from "pino";
 
 import type { SymphonyLogger } from "./types.js";
 
-function normalizeArgs(meta: unknown, message?: string): { message?: string; meta?: unknown } {
+function normalizeArgs(meta: unknown, message?: string): { message?: string; meta?: Record<string, unknown> } {
   if (typeof meta === "string" && message === undefined) {
     return { message: meta };
   }
 
-  return { message, meta };
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    return { message, meta: meta as Record<string, unknown> };
+  }
+
+  if (meta === undefined) {
+    return { message };
+  }
+
+  return {
+    message,
+    meta: {
+      value: meta,
+    },
+  };
 }
 
-class WinstonSymphonyLogger implements SymphonyLogger {
-  constructor(private readonly logger: winston.Logger) {}
+class PinoSymphonyLogger implements SymphonyLogger {
+  constructor(private readonly logger: Logger) {}
 
   debug(meta: unknown, message?: string): void {
     const normalized = normalizeArgs(meta, message);
-    this.logger.debug(normalized.message ?? "", normalized.meta);
+    this.logger.debug(normalized.meta ?? {}, normalized.message ?? "");
   }
 
   info(meta: unknown, message?: string): void {
     const normalized = normalizeArgs(meta, message);
-    this.logger.info(normalized.message ?? "", normalized.meta);
+    this.logger.info(normalized.meta ?? {}, normalized.message ?? "");
   }
 
   warn(meta: unknown, message?: string): void {
     const normalized = normalizeArgs(meta, message);
-    this.logger.warn(normalized.message ?? "", normalized.meta);
+    this.logger.warn(normalized.meta ?? {}, normalized.message ?? "");
   }
 
   error(meta: unknown, message?: string): void {
     const normalized = normalizeArgs(meta, message);
-    this.logger.error(normalized.message ?? "", normalized.meta);
+    this.logger.error(normalized.meta ?? {}, normalized.message ?? "");
   }
 
   child(meta: Record<string, unknown>): SymphonyLogger {
-    return new WinstonSymphonyLogger(this.logger.child(meta));
+    return new PinoSymphonyLogger(this.logger.child(meta));
   }
 }
 
 export function createLogger(): SymphonyLogger {
-  const logger = winston.createLogger({
+  const logger = pino({
     level: process.env.LOG_LEVEL ?? "info",
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.errors({ stack: true }),
-      winston.format.printf((info) => {
-        const parts = [`level=${info.level}`];
-        if (info.message) {
-          parts.push(`msg=${JSON.stringify(info.message)}`);
-        }
-        if (info.timestamp) {
-          parts.push(`time=${info.timestamp}`);
-        }
-
-        const rest = { ...info } as Record<string, unknown>;
-        delete rest.level;
-        delete rest.message;
-        delete rest.timestamp;
-
-        for (const [key, value] of Object.entries(rest)) {
-          if (value === undefined) {
-            continue;
-          }
-          parts.push(`${key}=${JSON.stringify(value)}`);
-        }
-
-        return parts.join(" ");
-      }),
-    ),
-    transports: [new winston.transports.Console()],
+    base: undefined,
+    timestamp: pino.stdTimeFunctions.isoTime,
+    formatters: {
+      level(label) {
+        return { level: label };
+      },
+    },
+    messageKey: "msg",
   });
 
-  return new WinstonSymphonyLogger(logger);
+  return new PinoSymphonyLogger(logger);
 }

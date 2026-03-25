@@ -1,85 +1,28 @@
+import { Counter, Gauge, Histogram, Registry } from "prom-client";
+
 type Labels = Record<string, string>;
 
-function labelKey(labels: Labels): string {
-  return Object.entries(labels)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}="${v}"`)
-    .join(",");
-}
-
-/** Shared serializer for Counter and Gauge (same format, different TYPE string). */
-function serializeKeyValue(name: string, help: string, typeName: string, values: Map<string, number>): string {
-  const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} ${typeName}`];
-  if (values.size === 0) {
-    lines.push(`${name} 0`);
-  } else {
-    for (const [key, value] of values) {
-      const suffix = key ? `{${key}}` : "";
-      lines.push(`${name}${suffix} ${value}`);
-    }
-  }
-  return lines.join("\n");
-}
-
-class Counter {
-  private readonly values = new Map<string, number>();
+export class CounterMetric {
+  constructor(private readonly counter: Counter<string>) {}
 
   increment(labels: Labels = {}): void {
-    const key = labelKey(labels);
-    this.values.set(key, (this.values.get(key) ?? 0) + 1);
-  }
-
-  serialize(name: string, help: string): string {
-    return serializeKeyValue(name, help, "counter", this.values);
+    this.counter.inc(labels, 1);
   }
 }
 
-class Histogram {
-  private readonly observations = new Map<string, number[]>();
-  private readonly buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+export class HistogramMetric {
+  constructor(private readonly histogram: Histogram<string>) {}
 
   observe(value: number, labels: Labels = {}): void {
-    const key = labelKey(labels);
-    const existing = this.observations.get(key) ?? [];
-    existing.push(value);
-    this.observations.set(key, existing);
-  }
-
-  serialize(name: string, help: string): string {
-    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} histogram`];
-    for (const [key, values] of this.observations) {
-      const suffix = key ? `{${key},` : "{";
-      const sorted = [...values].sort((a, b) => a - b);
-      const sum = values.reduce((a, b) => a + b, 0);
-      const count = values.length;
-
-      for (const bucket of this.buckets) {
-        const le = sorted.filter((v) => v <= bucket).length;
-        lines.push(`${name}_bucket${suffix}le="${bucket}"} ${le}`);
-      }
-      const keySuffix = key ? `{${key}}` : "";
-      lines.push(
-        `${name}_bucket${suffix}le="+Inf"} ${count}`,
-        `${name}_sum${keySuffix} ${sum}`,
-        `${name}_count${keySuffix} ${count}`,
-      );
-    }
-    if (this.observations.size === 0) {
-      lines.push(`${name}_bucket{le="+Inf"} 0`, `${name}_sum 0`, `${name}_count 0`);
-    }
-    return lines.join("\n");
+    this.histogram.observe(labels, value);
   }
 }
 
-class Gauge {
-  private readonly values = new Map<string, number>();
+export class GaugeMetric {
+  constructor(private readonly gauge: Gauge<string>) {}
 
   set(value: number, labels: Labels = {}): void {
-    this.values.set(labelKey(labels), value);
-  }
-
-  serialize(name: string, help: string): string {
-    return serializeKeyValue(name, help, "gauge", this.values);
+    this.gauge.set(labels, value);
   }
 }
 
@@ -91,25 +34,101 @@ class Gauge {
  * Expose via `GET /metrics`.
  */
 export class MetricsCollector {
-  readonly httpRequestsTotal = new Counter();
-  readonly httpRequestDurationSeconds = new Histogram();
-  readonly orchestratorPollsTotal = new Counter();
-  readonly agentRunsTotal = new Counter();
-  readonly containerCpuPercent = new Gauge();
-  readonly containerMemoryPercent = new Gauge();
+  private readonly registry = new Registry();
 
-  serialize(): string {
-    return [
-      this.httpRequestsTotal.serialize("symphony_http_requests_total", "Total HTTP requests"),
-      this.httpRequestDurationSeconds.serialize(
-        "symphony_http_request_duration_seconds",
-        "HTTP request duration in seconds",
-      ),
-      this.orchestratorPollsTotal.serialize("symphony_orchestrator_polls_total", "Orchestrator poll cycles"),
-      this.agentRunsTotal.serialize("symphony_agent_runs_total", "Agent run completions by status"),
-      this.containerCpuPercent.serialize("symphony_container_cpu_percent", "Container CPU usage percentage"),
-      this.containerMemoryPercent.serialize("symphony_container_memory_percent", "Container memory usage percentage"),
-    ].join("\n\n");
+  readonly httpRequestsTotal = new CounterMetric(
+    new Counter({
+      name: "symphony_http_requests_total",
+      help: "Total HTTP requests",
+      labelNames: ["method", "status"],
+      registers: [this.registry],
+    }),
+  );
+
+  readonly httpRequestDurationSeconds = new HistogramMetric(
+    new Histogram({
+      name: "symphony_http_request_duration_seconds",
+      help: "HTTP request duration in seconds",
+      labelNames: ["method", "status"],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+      registers: [this.registry],
+    }),
+  );
+
+  readonly orchestratorPollsTotal = new CounterMetric(
+    new Counter({
+      name: "symphony_orchestrator_polls_total",
+      help: "Orchestrator poll cycles",
+      labelNames: ["status"],
+      registers: [this.registry],
+    }),
+  );
+
+  readonly agentRunsTotal = new CounterMetric(
+    new Counter({
+      name: "symphony_agent_runs_total",
+      help: "Agent run completions by status",
+      labelNames: ["outcome"],
+      registers: [this.registry],
+    }),
+  );
+
+  readonly containerCpuPercent = new GaugeMetric(
+    new Gauge({
+      name: "symphony_container_cpu_percent",
+      help: "Container CPU usage percentage",
+      labelNames: ["issue"],
+      registers: [this.registry],
+    }),
+  );
+
+  readonly containerMemoryPercent = new GaugeMetric(
+    new Gauge({
+      name: "symphony_container_memory_percent",
+      help: "Container memory usage percentage",
+      labelNames: ["issue"],
+      registers: [this.registry],
+    }),
+  );
+
+  async serialize(): Promise<string> {
+    const output = await this.registry.metrics();
+    const sections = [
+      {
+        marker: /^symphony_http_requests_total\b/m,
+        fallback: "symphony_http_requests_total 0",
+      },
+      {
+        marker: /^symphony_http_request_duration_seconds_count\b/m,
+        fallback: [
+          'symphony_http_request_duration_seconds_bucket{le="+Inf"} 0',
+          "symphony_http_request_duration_seconds_sum 0",
+          "symphony_http_request_duration_seconds_count 0",
+        ].join("\n"),
+      },
+      {
+        marker: /^symphony_orchestrator_polls_total\b/m,
+        fallback: "symphony_orchestrator_polls_total 0",
+      },
+      {
+        marker: /^symphony_agent_runs_total\b/m,
+        fallback: "symphony_agent_runs_total 0",
+      },
+      {
+        marker: /^symphony_container_cpu_percent\b/m,
+        fallback: "symphony_container_cpu_percent 0",
+      },
+      {
+        marker: /^symphony_container_memory_percent\b/m,
+        fallback: "symphony_container_memory_percent 0",
+      },
+    ];
+
+    const missingSections = sections
+      .filter((section) => !section.marker.test(output))
+      .map((section) => section.fallback);
+
+    return missingSections.length > 0 ? `${output}\n${missingSections.join("\n")}\n` : output;
   }
 }
 

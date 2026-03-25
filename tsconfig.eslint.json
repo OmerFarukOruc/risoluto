@@ -17,6 +17,7 @@
     "frontend/src/**/*",
     "frontend/*.ts",
     "packages/**/*.ts",
+    "packages/**/*.tsx",
     "playwright.config.ts"
   ]
 }

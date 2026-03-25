@@ -15,6 +15,7 @@ import type { SecretsStore } from "../secrets/store.js";
 import { handleAttemptDetail } from "./attempt-handler.js";
 import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
+import { buildOpenApiDocument } from "./openapi.js";
 import { handleTransition } from "./transition-handler.js";
 import { handleGetTransitions } from "./transitions-api.js";
 import { handleWorkspaceInventory, handleWorkspaceRemove } from "./workspace-inventory.js";
@@ -44,6 +45,7 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   app.use("/api/", apiLimiter);
   app.use("/metrics", apiLimiter);
   registerStateAndMetricsRoutes(app, deps);
+  registerStreamingAndDocsRoutes(app);
   registerExtensionApis(app, deps);
   registerGitRoutes(app, deps);
   registerWorkspaceRoutes(app, deps);
@@ -85,9 +87,9 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
 
   app
     .route("/metrics")
-    .get((_req, res) => {
+    .get(async (_req, res) => {
       res.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8");
-      res.send(globalMetrics.serialize());
+      res.send(await globalMetrics.serialize());
     })
     .all((_req, res) => {
       methodNotAllowed(res);
@@ -107,6 +109,38 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
     .route("/api/v1/transitions")
     .get((req, res) => {
       handleGetTransitions({ orchestrator: deps.orchestrator, configStore: deps.configStore }, req, res);
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+}
+
+function registerStreamingAndDocsRoutes(app: Express): void {
+  app
+    .route("/openapi.json")
+    .get((_req, res) => {
+      res.json(buildOpenApiDocument());
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+
+  app
+    .route("/api/v1/events")
+    .get((_req, res) => {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+
+      const writeMessage = () => {
+        res.write(`data: ${JSON.stringify({ type: "invalidate", at: new Date().toISOString() })}\n\n`);
+      };
+
+      writeMessage();
+      const interval = setInterval(writeMessage, 5_000);
+      res.on("close", () => {
+        clearInterval(interval);
+      });
     })
     .all((_req, res) => {
       methodNotAllowed(res);

@@ -1,6 +1,11 @@
 let outletEl: HTMLElement | null = null;
 let routeAnnouncerEl: HTMLElement | null = null;
 
+export function bindShellElements(outlet: HTMLElement | null, routeAnnouncer: HTMLElement | null): void {
+  outletEl = outlet;
+  routeAnnouncerEl = routeAnnouncer;
+}
+
 export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl: HTMLElement } {
   root.innerHTML = "";
 

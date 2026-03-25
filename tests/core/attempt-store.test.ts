@@ -106,7 +106,7 @@ describe("AttemptStore", () => {
       "MT-42": [attempt.attemptId],
     });
 
-    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json"]);
+    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json", "symphony.db"]);
     expect(await readdir(path.join(baseDir, "attempts"))).toEqual([`${attempt.attemptId}.json`]);
     expect(await readdir(path.join(baseDir, "events"))).toEqual([`${attempt.attemptId}.jsonl`]);
   });
@@ -169,7 +169,7 @@ describe("AttemptStore", () => {
       "MT-42": ["attempt-2", "attempt-1"],
     });
 
-    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json"]);
+    expect((await readdir(baseDir)).sort()).toEqual(["attempts", "events", "issue-index.json", "symphony.db"]);
 
     await rm(issueIndexPath, { force: true });
 

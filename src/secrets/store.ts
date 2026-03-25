@@ -2,8 +2,12 @@ import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises
 import path from "node:path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
+import { eq } from "drizzle-orm";
+
 import { asStringRecord, isRecord } from "../utils/type-guards.js";
 import type { SymphonyLogger } from "../core/types.js";
+import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
+import { secretAuditRows, secretStateRows } from "../persistence/sqlite/schema.js";
 
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const IV_BYTE_LENGTH = 12;
@@ -88,6 +92,7 @@ export class SecretsStore {
   private readonly cache = new Map<string, string>();
   private readonly listeners = new Set<() => void>();
   private encryptionKey: Buffer | null = null;
+  private database: ReturnType<typeof openSymphonyDatabase> | null = null;
 
   constructor(
     private readonly baseDir: string,
@@ -97,6 +102,7 @@ export class SecretsStore {
 
   async start(): Promise<void> {
     await mkdir(this.baseDir, { recursive: true });
+    this.database = openSymphonyDatabase(this.baseDir);
 
     const masterKey = this.options?.masterKey ?? process.env.MASTER_KEY ?? "";
     if (!masterKey) {
@@ -105,31 +111,26 @@ export class SecretsStore {
     this.encryptionKey = deriveKey(masterKey);
     const source = await this.readEncryptedFile();
     if (source === null) {
+      const sqliteEnvelope = await this.readEnvelopeFromDb();
+      if (sqliteEnvelope !== null) {
+        await this.loadFromEnvelopeSource(sqliteEnvelope, "sqlite");
+        return;
+      }
       await this.persist();
       return;
     }
 
-    const envelope = parseEnvelope(source);
-    let decrypted: string;
-    try {
-      decrypted = decrypt(envelope, this.requiredKey());
-    } catch (error) {
-      this.logger.error(
-        { error: String(error), secretsPath: this.secretsPath() },
-        "failed to decrypt secrets.enc — refusing to overwrite existing secret store",
-      );
-      throw new Error("failed to decrypt secrets.enc; MASTER_KEY may not match the existing archive", { cause: error });
-    }
-    this.loadCache(decrypted);
+    await this.loadFromEnvelopeSource(source, "file");
   }
 
   async startDeferred(): Promise<void> {
     await mkdir(this.baseDir, { recursive: true });
+    this.database = openSymphonyDatabase(this.baseDir);
   }
 
   async initializeWithKey(masterKey: string): Promise<void> {
     this.encryptionKey = deriveKey(masterKey);
-    const source = await this.readEncryptedFile();
+    const source = (await this.readEncryptedFile()) ?? (await this.readEnvelopeFromDb());
     if (source === null) {
       await this.persist();
       this.notify();
@@ -211,12 +212,16 @@ export class SecretsStore {
   }
 
   private async appendAuditEntry(operation: "set" | "delete", key: string): Promise<void> {
-    const line = JSON.stringify({
+    const entry = {
       at: new Date().toISOString(),
       operation,
       key,
-    });
+    };
+    const line = JSON.stringify(entry);
     await appendFile(this.auditPath(), `${line}\n`, "utf8");
+    if (this.database) {
+      await this.database.db.insert(secretAuditRows).values(entry);
+    }
   }
 
   private async readEncryptedFile(): Promise<string | null> {
@@ -239,12 +244,14 @@ export class SecretsStore {
   private async persist(): Promise<void> {
     const serializedSecrets = JSON.stringify(Object.fromEntries(this.cache), null, 2);
     const envelope = encrypt(serializedSecrets, this.requiredKey());
+    const encodedEnvelope = encodeEnvelope(envelope);
 
     for (let attempt = 0; attempt < 2; attempt++) {
       const temporaryPath = `${this.secretsPath()}.tmp-${process.pid}-${Date.now()}`;
       try {
-        await writeFile(temporaryPath, encodeEnvelope(envelope), "utf8");
+        await writeFile(temporaryPath, encodedEnvelope, "utf8");
         await rename(temporaryPath, this.secretsPath());
+        await this.persistEnvelopeToDb(encodedEnvelope);
         return;
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
@@ -263,5 +270,49 @@ export class SecretsStore {
 
   private auditPath(): string {
     return path.join(this.baseDir, "secrets.audit.log");
+  }
+
+  private async loadFromEnvelopeSource(source: string, sourceLabel: "file" | "sqlite"): Promise<void> {
+    const envelope = parseEnvelope(source);
+    let decrypted: string;
+    try {
+      decrypted = decrypt(envelope, this.requiredKey());
+    } catch (error) {
+      this.logger.error(
+        { error: String(error), source: sourceLabel, secretsPath: this.secretsPath() },
+        "failed to decrypt secrets.enc — refusing to overwrite existing secret store",
+      );
+      throw new Error("failed to decrypt secrets.enc; MASTER_KEY may not match the existing archive", { cause: error });
+    }
+    this.loadCache(decrypted);
+    await this.persistEnvelopeToDb(source);
+  }
+
+  private async readEnvelopeFromDb(): Promise<string | null> {
+    if (!this.database) {
+      return null;
+    }
+    const row = await this.database.db.query.secretStateRows.findFirst({
+      where: eq(secretStateRows.id, 1),
+    });
+    return row?.envelope ?? null;
+  }
+
+  private async persistEnvelopeToDb(envelope: string): Promise<void> {
+    if (!this.database) {
+      return;
+    }
+    await this.database.db
+      .insert(secretStateRows)
+      .values({
+        id: 1,
+        envelope,
+      })
+      .onConflictDoUpdate({
+        target: secretStateRows.id,
+        set: {
+          envelope,
+        },
+      });
   }
 }

@@ -1,7 +1,11 @@
 import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { asc, eq } from "drizzle-orm";
+
 import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "./types.js";
+import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
+import { attemptEventRows, attemptRows } from "../persistence/sqlite/schema.js";
 
 function sortAttemptsDesc(left: AttemptRecord, right: AttemptRecord): number {
   return right.startedAt.localeCompare(left.startedAt);
@@ -11,6 +15,7 @@ export class AttemptStore {
   private readonly attempts = new Map<string, AttemptRecord>();
   private readonly attemptsByIssue = new Map<string, string[]>();
   private readonly eventsByAttempt = new Map<string, AttemptEvent[]>();
+  private database: ReturnType<typeof openSymphonyDatabase> | null = null;
 
   constructor(
     private readonly baseDir: string,
@@ -20,59 +25,13 @@ export class AttemptStore {
   async start(): Promise<void> {
     await mkdir(this.attemptsDir(), { recursive: true });
     await mkdir(this.eventsDir(), { recursive: true });
+    this.database = openSymphonyDatabase(this.baseDir);
 
-    const entries = await readdir(this.attemptsDir(), { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-
-      try {
-        const attemptPath = path.join(this.attemptsDir(), entry.name);
-        const attempt = JSON.parse(await readFile(attemptPath, "utf8")) as AttemptRecord;
-        this.attempts.set(attempt.attemptId, attempt);
-        this.indexAttempt(attempt);
-
-        const eventsPath = this.eventsPath(attempt.attemptId);
-        try {
-          const lines = (await readFile(eventsPath, "utf8"))
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
-          const events = lines.map((line) => JSON.parse(line) as AttemptEvent);
-
-          // Legacy migration check: Are these events newest-first?
-          if (
-            events.length > 1 &&
-            new Date(events[0].at).getTime() > new Date(events[events.length - 1].at).getTime()
-          ) {
-            events.reverse();
-            // Asynchronously rewrite the archive in chronological order
-            const serialized = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
-            writeFile(eventsPath, serialized, "utf8").catch((err) => {
-              this.logger.warn(
-                { attemptId: attempt.attemptId, error: String(err) },
-                "failed to migrate legacy archive order",
-              );
-            });
-          }
-
-          this.eventsByAttempt.set(attempt.attemptId, events);
-        } catch (error) {
-          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-            this.eventsByAttempt.set(attempt.attemptId, []);
-          } else {
-            this.logger.warn(
-              { attemptId: attempt.attemptId, error: String(error) },
-              "attempt event archive corrupt or unreadable",
-            );
-            this.eventsByAttempt.set(attempt.attemptId, []);
-          }
-        }
-      } catch (error) {
-        this.logger.warn({ entry: entry.name, error: String(error) }, "attempt archive entry could not be loaded");
-      }
+    if (await this.loadFromSqlite()) {
+      return;
     }
+
+    await this.loadFromFilesystem();
     await this.persistIssueIndex();
   }
 
@@ -101,7 +60,9 @@ export class AttemptStore {
     this.indexAttempt(attempt);
     this.eventsByAttempt.set(attempt.attemptId, []);
     await this.persistAttempt(attempt);
+    await this.persistAttemptToDb(attempt);
     await writeFile(this.eventsPath(attempt.attemptId), "", "utf8");
+    await this.replaceEventsInDb(attempt.attemptId, []);
     await this.persistIssueIndex();
   }
 
@@ -115,6 +76,7 @@ export class AttemptStore {
     this.attempts.set(attemptId, next);
     this.reindexAttempt(current, next);
     await this.persistAttempt(next);
+    await this.persistAttemptToDb(next);
   }
 
   async appendEvent(event: AttemptEvent): Promise<void> {
@@ -123,6 +85,7 @@ export class AttemptStore {
     this.eventsByAttempt.set(event.attemptId, events);
     const serialized = `${JSON.stringify(event)}\n`;
     await appendFile(this.eventsPath(event.attemptId), serialized, "utf8");
+    await this.persistEventToDb(event, events.length - 1);
   }
 
   private async persistAttempt(attempt: AttemptRecord): Promise<void> {
@@ -173,5 +136,145 @@ export class AttemptStore {
       index[identifier] = [...attemptIds];
     }
     await writeFile(path.join(this.baseDir, "issue-index.json"), JSON.stringify(index, null, 2) + "\n", "utf8");
+  }
+
+  private async loadFromSqlite(): Promise<boolean> {
+    if (!this.database) {
+      return false;
+    }
+
+    const sqliteAttempts = await this.database.db.select().from(attemptRows);
+    if (sqliteAttempts.length === 0) {
+      return false;
+    }
+
+    for (const row of sqliteAttempts) {
+      const attempt = JSON.parse(row.payload) as AttemptRecord;
+      this.attempts.set(attempt.attemptId, attempt);
+      this.indexAttempt(attempt);
+    }
+
+    const sqliteEvents = await this.database.db
+      .select()
+      .from(attemptEventRows)
+      .orderBy(asc(attemptEventRows.attemptId), asc(attemptEventRows.position));
+    for (const row of sqliteEvents) {
+      const event = JSON.parse(row.payload) as AttemptEvent;
+      const events = this.eventsByAttempt.get(row.attemptId) ?? [];
+      events.push(event);
+      this.eventsByAttempt.set(row.attemptId, events);
+    }
+    await this.persistIssueIndex();
+    return true;
+  }
+
+  private async loadFromFilesystem(): Promise<void> {
+    const entries = await readdir(this.attemptsDir(), { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".json")) {
+        continue;
+      }
+
+      try {
+        await this.loadAttemptArchive(entry.name);
+      } catch (error) {
+        this.logger.warn({ entry: entry.name, error: String(error) }, "attempt archive entry could not be loaded");
+      }
+    }
+  }
+
+  private async loadAttemptArchive(fileName: string): Promise<void> {
+    const attemptPath = path.join(this.attemptsDir(), fileName);
+    const attempt = JSON.parse(await readFile(attemptPath, "utf8")) as AttemptRecord;
+    this.attempts.set(attempt.attemptId, attempt);
+    this.indexAttempt(attempt);
+    await this.persistAttemptToDb(attempt);
+
+    try {
+      const events = await this.loadEventArchive(attempt.attemptId);
+      this.eventsByAttempt.set(attempt.attemptId, events);
+      await this.replaceEventsInDb(attempt.attemptId, events);
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        this.eventsByAttempt.set(attempt.attemptId, []);
+        await this.replaceEventsInDb(attempt.attemptId, []);
+        return;
+      }
+      this.logger.warn(
+        { attemptId: attempt.attemptId, error: String(error) },
+        "attempt event archive corrupt or unreadable",
+      );
+      this.eventsByAttempt.set(attempt.attemptId, []);
+      await this.replaceEventsInDb(attempt.attemptId, []);
+    }
+  }
+
+  private async loadEventArchive(attemptId: string): Promise<AttemptEvent[]> {
+    const eventsPath = this.eventsPath(attemptId);
+    const lines = (await readFile(eventsPath, "utf8"))
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const events = lines.map((line) => JSON.parse(line) as AttemptEvent);
+
+    if (events.length > 1 && new Date(events[0].at).getTime() > new Date(events[events.length - 1].at).getTime()) {
+      events.reverse();
+      const serialized = events.map((event) => JSON.stringify(event)).join("\n") + "\n";
+      writeFile(eventsPath, serialized, "utf8").catch((error) => {
+        this.logger.warn({ attemptId, error: String(error) }, "failed to migrate legacy archive order");
+      });
+    }
+
+    return events;
+  }
+
+  private async persistAttemptToDb(attempt: AttemptRecord): Promise<void> {
+    if (!this.database) {
+      return;
+    }
+    await this.database.db
+      .insert(attemptRows)
+      .values({
+        attemptId: attempt.attemptId,
+        issueIdentifier: attempt.issueIdentifier,
+        startedAt: attempt.startedAt,
+        payload: JSON.stringify(attempt),
+      })
+      .onConflictDoUpdate({
+        target: attemptRows.attemptId,
+        set: {
+          issueIdentifier: attempt.issueIdentifier,
+          startedAt: attempt.startedAt,
+          payload: JSON.stringify(attempt),
+        },
+      });
+  }
+
+  private async replaceEventsInDb(attemptId: string, events: AttemptEvent[]): Promise<void> {
+    if (!this.database) {
+      return;
+    }
+    await this.database.db.delete(attemptEventRows).where(eq(attemptEventRows.attemptId, attemptId));
+    if (events.length === 0) {
+      return;
+    }
+    await this.database.db.insert(attemptEventRows).values(
+      events.map((event, index) => ({
+        attemptId,
+        position: index,
+        payload: JSON.stringify(event),
+      })),
+    );
+  }
+
+  private async persistEventToDb(event: AttemptEvent, position: number): Promise<void> {
+    if (!this.database) {
+      return;
+    }
+    await this.database.db.insert(attemptEventRows).values({
+      attemptId: event.attemptId,
+      position,
+      payload: JSON.stringify(event),
+    });
   }
 }

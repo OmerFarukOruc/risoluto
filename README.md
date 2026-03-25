@@ -113,7 +113,7 @@ Set a Linear issue to "In Progress". Within one poll cycle (~30s), Symphony pick
 <summary>📦 <strong>Development Setup</strong> — without Docker</summary>
 
 ```bash
-npm install && npm run build && bash bin/build-sandbox.sh
+pnpm install && pnpm build && bash bin/build-sandbox.sh
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_PROJECT_SLUG="your-linear-project-slug"
 node dist/cli/index.js ./WORKFLOW.example.md --port 4000
@@ -153,9 +153,12 @@ codex login                       # ChatGPT/Codex subscription path
 <td width="50%" valign="top">
 
 ### 🖥️ Dashboard & API
-- **📊 Real-time dashboard** — Board and overview views at `localhost:4000`
+- **⚡ Fastify control plane** — Fastify serves the control-plane transport while preserving the existing API surface
+- **⚛️ React 19 dashboard** — React Router owns the shell and routes while existing page renderers are mounted inside the new app
 - **📡 Full JSON API** — 30+ endpoints under `/api/v1/*`
 - **📈 Prometheus metrics** — `GET /metrics` for scrape-friendly monitoring
+- **📘 OpenAPI surface** — `GET /openapi.json` exposes the control-plane contract
+- **📶 SSE invalidation feed** — `GET /api/v1/events` streams dashboard invalidation events
 - **⚙️ Setup wizard** — Guided credential setup via web UI
 - **🔧 Config overlay** — Persistent operator config with encrypted secrets
 
@@ -173,9 +176,9 @@ codex login                       # ChatGPT/Codex subscription path
 <td width="50%" valign="top">
 
 ### 🛡️ Operations
-- **💾 Archived attempts** — Durable event timelines under `.symphony/`
+- **💾 SQLite-backed archives** — Durable attempt/event history stored in `symphony.db` with mirrored archive files under `.symphony/`
 - **🔎 `symphony-logs` CLI** — Archive-first issue and attempt inspection
-- **🔐 Encrypted secrets** — AES-encrypted credential storage
+- **🔐 Encrypted secrets** — AES-encrypted credential storage mirrored into SQLite-backed state
 - **✅ Strict TypeScript** — Full type safety with Vitest unit tests and Playwright E2E coverage
 
 </td>
@@ -344,9 +347,9 @@ Symphony exposes a full JSON API at `http://localhost:4000/api/v1/`. Here are th
 ## 🧪 Testing
 
 ```bash
-npm test                  # Deterministic unit tests (Vitest, 783 tests)
-npm run test:watch        # Watch mode for local iteration
-npm run test:integration  # Opt-in live integration (requires credentials)
+pnpm test                 # Deterministic unit tests (Vitest)
+pnpm run test:watch       # Watch mode for local iteration
+pnpm run test:integration # Opt-in live integration (requires credentials)
 ```
 
 ### Playwright E2E Tests

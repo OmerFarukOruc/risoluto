@@ -2,9 +2,12 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import chokidar, { type FSWatcher } from "chokidar";
+import { eq } from "drizzle-orm";
 import YAML from "yaml";
 
 import type { SymphonyLogger } from "../core/types.js";
+import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
+import { configOverlayRows } from "../persistence/sqlite/schema.js";
 import { isRecord } from "../utils/type-guards.js";
 
 const dangerousKeys = new Set(["__proto__", "constructor", "prototype"]);
@@ -126,6 +129,7 @@ export class ConfigOverlayStore {
   private overlay: Record<string, unknown> = {};
   private readonly listeners = new Set<() => void>();
   private watcher: FSWatcher | null = null;
+  private database: ReturnType<typeof openSymphonyDatabase> | null = null;
 
   constructor(
     private readonly overlayPath: string,
@@ -134,7 +138,19 @@ export class ConfigOverlayStore {
 
   async start(): Promise<void> {
     await mkdir(path.dirname(this.overlayPath), { recursive: true });
-    await this.reloadFromDisk("startup", { allowMissingFile: true });
+    this.database = openSymphonyDatabase(path.dirname(path.dirname(this.overlayPath)));
+    const fileSource = await this.readOverlaySource({ allowMissingFile: true }, "startup:file");
+    if (fileSource !== null) {
+      await this.applySource(fileSource, "startup:file");
+    } else {
+      const sqliteRow = await this.database.db.query.configOverlayRows.findFirst({
+        where: eq(configOverlayRows.id, 1),
+      });
+      if (sqliteRow) {
+        this.overlay = JSON.parse(sqliteRow.payload) as Record<string, unknown>;
+        await this.persist();
+      }
+    }
 
     this.watcher = chokidar.watch(this.overlayPath, {
       ignoreInitial: true,
@@ -207,6 +223,7 @@ export class ConfigOverlayStore {
 
     this.overlay = structuredClone(nextMap) as Record<string, unknown>;
     await this.persist();
+    await this.persistToDb();
     this.logger.info({ reason, overlayPath: this.overlayPath }, "config overlay updated");
     this.notify();
     return true;
@@ -241,22 +258,30 @@ export class ConfigOverlayStore {
   }
 
   private async reloadFromDisk(reason: string, options: { allowMissingFile: boolean }): Promise<void> {
-    let source: string | null;
+    const source = await this.readOverlaySource(options, reason);
+    if (source === null) {
+      return;
+    }
+    await this.applySource(source, reason);
+  }
+
+  private async readOverlaySource(options: { allowMissingFile: boolean }, reason: string): Promise<string | null> {
     try {
-      source = await readFile(this.overlayPath, "utf8");
+      return await readFile(this.overlayPath, "utf8");
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === "ENOENT" && options.allowMissingFile) {
-        source = null;
-      } else {
-        this.logger.warn({ error: String(error), reason }, "config overlay read failed");
-        return;
+        return null;
       }
+      this.logger.warn({ error: String(error), reason }, "config overlay read failed");
+      return null;
     }
+  }
 
+  private async applySource(source: string, reason: string): Promise<void> {
     let nextMap: unknown;
     try {
-      const parsed = source === null ? {} : YAML.parse(source);
+      const parsed = YAML.parse(source);
       nextMap = parsed === null ? {} : parsed;
     } catch (error) {
       this.logger.warn({ reason, overlayPath: this.overlayPath, error: String(error) }, "config overlay parse failed");
@@ -272,7 +297,26 @@ export class ConfigOverlayStore {
     }
 
     this.overlay = structuredClone(nextMap) as Record<string, unknown>;
+    await this.persistToDb();
     this.logger.info({ reason, overlayPath: this.overlayPath }, "config overlay reloaded");
     this.notify();
+  }
+
+  private async persistToDb(): Promise<void> {
+    if (!this.database) {
+      return;
+    }
+    await this.database.db
+      .insert(configOverlayRows)
+      .values({
+        id: 1,
+        payload: JSON.stringify(this.overlay),
+      })
+      .onConflictDoUpdate({
+        target: configOverlayRows.id,
+        set: {
+          payload: JSON.stringify(this.overlay),
+        },
+      });
   }
 }

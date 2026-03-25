@@ -42,7 +42,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- --reporter=verbose --coverage.enabled
+      - run: pnpm exec vitest run --reporter=verbose --coverage.enabled
       - name: Dead code analysis
         run: pnpm exec knip
       - name: Duplicate code analysis

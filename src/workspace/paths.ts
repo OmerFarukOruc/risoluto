@@ -10,7 +10,11 @@ export function buildSafePath(): string {
 
 export function isWithinRoot(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  if (relative === "") return true;
+  if (path.isAbsolute(relative)) return false;
+  // Check for actual path traversal segments (..), not just names starting with ".."
+  // e.g., "../foo" or "..\foo" are traversals, but ".._" is a valid directory name
+  return !relative.split(path.sep).some((segment) => segment === "..");
 }
 
 export function sanitizeIdentifier(identifier: string): string {

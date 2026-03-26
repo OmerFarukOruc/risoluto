@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSettingsSections, sectionGroups } from "../../frontend/src/views/settings-helpers";
+import {
+  buildSettingsSections,
+  getSectionGroup,
+  SECTION_GROUPS,
+  sectionGroups,
+} from "../../frontend/src/views/settings-helpers";
 
 describe("buildSettingsSections", () => {
   it("uses clearer tracker labels and hints in the default schema-limited view", () => {
@@ -61,5 +66,40 @@ describe("sectionGroups", () => {
       { title: "Authentication", advanced: true },
       { title: "Provider routing", advanced: true },
     ]);
+  });
+});
+
+describe("SECTION_GROUPS", () => {
+  it("has 4 entries with valid id, label, and icon fields", () => {
+    const groups = Object.values(SECTION_GROUPS);
+    expect(groups).toHaveLength(4);
+    for (const group of groups) {
+      expect(group.id).toBeTruthy();
+      expect(group.label).toBeTruthy();
+      expect(group.icon).toBeTruthy();
+    }
+  });
+});
+
+describe("getSectionGroup", () => {
+  it("returns SETUP for tracker", () => {
+    expect(getSectionGroup("tracker")).toEqual(SECTION_GROUPS.SETUP);
+  });
+
+  it("returns AGENT for sandbox", () => {
+    expect(getSectionGroup("sandbox")).toEqual(SECTION_GROUPS.AGENT);
+  });
+
+  it("returns undefined for unknown section id", () => {
+    expect(getSectionGroup("unknown")).toBeUndefined();
+  });
+
+  it("assigns a valid groupId to every default section", () => {
+    const validGroupIds = new Set(Object.values(SECTION_GROUPS).map((g) => g.id));
+    const sections = buildSettingsSections(null, {});
+    for (const section of sections) {
+      expect(section.groupId).toBeDefined();
+      expect(validGroupIds.has(section.groupId!)).toBe(true);
+    }
   });
 });

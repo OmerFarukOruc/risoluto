@@ -1,3 +1,4 @@
+import type { IconName } from "../ui/icons";
 import { REASONING_EFFORT_OPTIONS } from "../types";
 import { buildDiffText, prettyJson, redactPath } from "./config-helpers";
 import { buildSectionPatchPlan } from "./settings-patches";
@@ -14,6 +15,23 @@ export const SECTION_IDS = {
   WORKFLOW_STAGES: "workflow-stages",
   FEATURE_FLAGS: "feature-flags",
   RUNTIME_PATHS: "runtime-paths",
+} as const;
+
+export const SECTION_GROUPS = {
+  SETUP: { id: "setup", label: "Setup", icon: "config" as IconName, description: "Connect to external services" },
+  AGENT: {
+    id: "agent-config",
+    label: "Agent",
+    icon: "settings" as IconName,
+    description: "Configure how Symphony works",
+  },
+  NOTIFICATIONS: {
+    id: "notify",
+    label: "Notifications",
+    icon: "notifications" as IconName,
+    description: "Stay informed",
+  },
+  SYSTEM: { id: "system", label: "System", icon: "secrets" as IconName, description: "Advanced & security" },
 } as const;
 
 export interface SettingsFieldOption {
@@ -47,6 +65,10 @@ export interface SettingsSectionDefinition {
   fields: SettingsFieldDefinition[];
   prefixes: string[];
   saveLabel: string;
+  /** References SECTION_GROUPS[*].id */
+  groupId?: string;
+  /** Visual emphasis for onboarding */
+  startHere?: boolean;
 }
 
 export interface SettingsFieldGroup {
@@ -157,7 +179,8 @@ export function buildSectionDiffPreview(
   const previewOverlay = structuredClone(overlay) as Record<string, unknown>;
   const plan = buildSectionPatchPlan(section, drafts, effective);
   if (plan.errors.length > 0) {
-    return `Fix invalid fields before previewing a diff:\n${plan.errors.map((error) => `- ${error.message}`).join("\n")}`;
+    const errorLines = plan.errors.map((error) => "- " + error.message).join("\n");
+    return `Fix invalid fields before previewing a diff:\n${errorLines}`;
   }
   plan.entries.forEach((entry) => {
     setValueAtPath(previewOverlay, entry.path, entry.value);
@@ -198,6 +221,23 @@ export function getSectionById(
   sectionId: string,
 ): SettingsSectionDefinition | undefined {
   return buildSettingsSections(schema, effective).find((section) => section.id === sectionId);
+}
+
+/** Static map from section ID to group, derived from SECTION_GROUPS and SECTION_IDS. */
+const SECTION_TO_GROUP: ReadonlyMap<string, (typeof SECTION_GROUPS)[keyof typeof SECTION_GROUPS]> = new Map([
+  [SECTION_IDS.TRACKER, SECTION_GROUPS.SETUP],
+  [SECTION_IDS.REPOSITORIES_GITHUB, SECTION_GROUPS.SETUP],
+  [SECTION_IDS.MODEL_PROVIDER_AUTH, SECTION_GROUPS.AGENT],
+  [SECTION_IDS.SANDBOX, SECTION_GROUPS.AGENT],
+  [SECTION_IDS.AGENT, SECTION_GROUPS.AGENT],
+  [SECTION_IDS.NOTIFICATIONS, SECTION_GROUPS.NOTIFICATIONS],
+  [SECTION_IDS.WORKFLOW_STAGES, SECTION_GROUPS.SYSTEM],
+  [SECTION_IDS.FEATURE_FLAGS, SECTION_GROUPS.SYSTEM],
+  [SECTION_IDS.RUNTIME_PATHS, SECTION_GROUPS.SYSTEM],
+]);
+
+export function getSectionGroup(sectionId: string): (typeof SECTION_GROUPS)[keyof typeof SECTION_GROUPS] | undefined {
+  return SECTION_TO_GROUP.get(sectionId);
 }
 
 export function sectionGroups(section: SettingsSectionDefinition): SettingsFieldGroup[] {
@@ -282,6 +322,8 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Start here",
       prefixes: ["tracker"],
       saveLabel: "Save tracker",
+      groupId: SECTION_GROUPS.SETUP.id,
+      startHere: true,
       fields: [
         {
           path: "tracker.kind",
@@ -336,6 +378,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Core runtime",
       prefixes: ["codex.model", "codex.reasoning_effort", "codex.auth", "codex.provider"],
       saveLabel: "Save provider settings",
+      groupId: SECTION_GROUPS.AGENT.id,
       fields: [
         {
           path: "codex.model",
@@ -435,6 +478,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Execution safety",
       prefixes: ["codex.approval_policy", "codex.thread_sandbox", "codex.turn_sandbox_policy", "codex.sandbox"],
       saveLabel: "Save sandbox",
+      groupId: SECTION_GROUPS.AGENT.id,
       fields: [
         {
           path: "codex.approval_policy",
@@ -513,6 +557,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Core runtime",
       prefixes: ["agent"],
       saveLabel: "Save agent settings",
+      groupId: SECTION_GROUPS.AGENT.id,
       fields: [
         {
           path: "agent.max_concurrent_agents",
@@ -547,6 +592,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Integration",
       prefixes: ["repos", "github"],
       saveLabel: "Save repository settings",
+      groupId: SECTION_GROUPS.SETUP.id,
       fields: [
         { path: "repos", label: "Repository routing", kind: "json", hint: "JSON array of repo routing rules." },
         { path: "github.api_base_url", label: "GitHub API base URL", kind: "text" },
@@ -566,6 +612,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Integration",
       prefixes: ["notifications"],
       saveLabel: "Save notifications",
+      groupId: SECTION_GROUPS.NOTIFICATIONS.id,
       fields: [
         {
           path: "notifications.slack.verbosity",
@@ -589,6 +636,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Advanced",
       prefixes: ["state_machine"],
       saveLabel: "Save workflow stages",
+      groupId: SECTION_GROUPS.SYSTEM.id,
       fields: [
         { path: "state_machine.stages", label: "Stages", kind: "json", hint: "JSON array of stage definitions." },
         {
@@ -606,6 +654,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Runtime dependent",
       prefixes: [featureFlagPath],
       saveLabel: "Save flags",
+      groupId: SECTION_GROUPS.SYSTEM.id,
       fields: [
         getValueAtPath(effective, featureFlagPath) === undefined
           ? {
@@ -631,6 +680,7 @@ function buildDefaultSections(effective: Record<string, unknown>): SettingsSecti
       badge: "Runtime info",
       prefixes: ["workspace", "hooks", "polling", "server", "runtime"],
       saveLabel: "Save runtime settings",
+      groupId: SECTION_GROUPS.SYSTEM.id,
       fields: [
         { path: "workspace.root", label: "Workspace root", kind: "text" },
         { path: "hooks.timeout_ms", label: "Hook timeout (ms)", kind: "number" },

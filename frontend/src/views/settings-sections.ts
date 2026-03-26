@@ -1,9 +1,11 @@
 import { createEmptyState } from "../components/empty-state";
+import { createIcon } from "../ui/icons";
 
 import {
   buildSectionDiffPreview,
   buildUnderlyingPaths,
   ensureSectionDrafts,
+  SECTION_GROUPS,
   sectionGroups,
   sectionMatchesFilter,
   SECTION_IDS,
@@ -22,6 +24,9 @@ interface SettingsRenderOptions {
   onFieldAction?: (sectionId: string, fieldPath: string, actionKind: string) => void;
 }
 
+/** AbortController for cleaning up event listeners between renders. */
+let renderAbortController: AbortController | null = null;
+
 export function renderSettingsLayout(
   rail: HTMLElement,
   content: HTMLElement,
@@ -30,29 +35,27 @@ export function renderSettingsLayout(
   sections: SettingsSectionDefinition[],
   options: SettingsRenderOptions,
 ): SettingsSectionDefinition[] {
+  renderAbortController?.abort();
+  renderAbortController = new AbortController();
+  const signal = renderAbortController.signal;
+
   const visibleSections = sections.filter((section) =>
     sectionMatchesFilter(section, state.filter, state.drafts[section.id]),
   );
   if (!visibleSections.some((section) => section.id === state.selectedSectionId)) {
     state.selectedSectionId = visibleSections[0]?.id ?? state.selectedSectionId;
   }
-  renderRail(rail, visibleSections, state, options);
-  renderContent(content, searchInput, visibleSections, state, options);
+  renderRail(rail, visibleSections, state, options, signal);
+  renderContent(content, searchInput, visibleSections, state, options, signal);
   return visibleSections;
 }
-
-/** Section IDs that are grouped under "Advanced" in the rail navigation. */
-const ADVANCED_SECTION_IDS: ReadonlySet<string> = new Set([
-  SECTION_IDS.WORKFLOW_STAGES,
-  SECTION_IDS.FEATURE_FLAGS,
-  SECTION_IDS.RUNTIME_PATHS,
-]);
 
 function renderRail(
   rail: HTMLElement,
   sections: SettingsSectionDefinition[],
   state: SettingsState,
   options: SettingsRenderOptions,
+  signal: AbortSignal,
 ): void {
   rail.replaceChildren();
   const card = document.createElement("section");
@@ -62,25 +65,22 @@ function renderRail(
   railLabel.textContent = "Settings";
   card.append(railLabel);
 
-  const basicSections = sections.filter((section) => !ADVANCED_SECTION_IDS.has(section.id));
-  const advancedSections = sections.filter((section) => ADVANCED_SECTION_IDS.has(section.id));
+  for (const group of Object.values(SECTION_GROUPS)) {
+    const groupSections = sections.filter((section) => section.groupId === group.id);
+    if (groupSections.length === 0) continue;
 
-  basicSections.forEach((section) => {
-    card.append(createNavItem(section, state, options));
-  });
+    const header = document.createElement("div");
+    header.className = "settings-nav-group-header";
+    header.append(createIcon(group.icon, { size: 14 }));
+    const headerLabel = document.createElement("span");
+    headerLabel.textContent = group.label;
+    header.append(headerLabel);
+    card.append(header);
 
-  if (basicSections.length > 0 && advancedSections.length > 0) {
-    const separator = document.createElement("div");
-    separator.className = "settings-nav-separator";
-    const advancedLabel = document.createElement("div");
-    advancedLabel.className = "settings-nav-group-label";
-    advancedLabel.textContent = "Advanced";
-    card.append(separator, advancedLabel);
+    for (const section of groupSections) {
+      card.append(createNavItem(section, state, options, signal));
+    }
   }
-
-  advancedSections.forEach((section) => {
-    card.append(createNavItem(section, state, options));
-  });
 
   rail.append(card);
 }
@@ -89,6 +89,7 @@ function createNavItem(
   section: SettingsSectionDefinition,
   state: SettingsState,
   options: SettingsRenderOptions,
+  signal: AbortSignal,
 ): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
@@ -104,12 +105,27 @@ function createNavItem(
 
   topRow.append(title);
 
+  if (section.startHere) {
+    const badge = document.createElement("span");
+    badge.className = "settings-start-here";
+    badge.textContent = "Start here";
+    topRow.append(badge);
+  }
+
   const desc = document.createElement("span");
   desc.className = "settings-nav-desc";
-  desc.textContent = section.description.length > 44 ? `${section.description.slice(0, 44)}…` : section.description;
+  desc.textContent =
+    section.description.length > 44 ? `${section.description.slice(0, 44)}\u2026` : section.description;
 
   button.append(topRow, desc);
-  button.addEventListener("click", () => options.onSelectSection(section.id));
+  button.addEventListener(
+    "click",
+    () => {
+      options.onSelectSection(section.id);
+      document.getElementById(`settings-${section.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    },
+    { signal },
+  );
   return button;
 }
 
@@ -119,6 +135,7 @@ function renderContent(
   sections: SettingsSectionDefinition[],
   state: SettingsState,
   options: SettingsRenderOptions,
+  signal: AbortSignal,
 ): void {
   content.replaceChildren();
   const toolbar = document.createElement("section");
@@ -154,15 +171,38 @@ function renderContent(
     return;
   }
 
+  content.append(buildSectionCard(selectedSection, state, options, signal));
+}
+
+function buildSectionCard(
+  section: SettingsSectionDefinition,
+  state: SettingsState,
+  options: SettingsRenderOptions,
+  signal: AbortSignal,
+): HTMLElement {
   const stack = document.createElement("div");
   stack.className = "settings-stack";
 
-  const section = selectedSection;
   const drafts = ensureSectionDrafts(state.drafts, section, state.effective);
   const card = document.createElement("section");
   card.className = "mc-panel settings-card";
   card.id = `settings-${section.id}`;
 
+  card.append(buildSectionHeader(section));
+
+  const groups = sectionGroups(section);
+  groups.forEach((group, index) => {
+    card.append(createGroupElement(section, group, drafts, state, options, index === 0));
+  });
+
+  card.append(buildSectionActions(section, state, options, signal));
+  card.append(buildDevTools(section, drafts, state, options, signal));
+
+  stack.append(card);
+  return stack;
+}
+
+function buildSectionHeader(section: SettingsSectionDefinition): HTMLElement {
   const header = document.createElement("div");
   header.className = "settings-section-header";
 
@@ -189,17 +229,32 @@ function renderContent(
   if (nextStep) {
     header.append(nextStep);
   }
+  return header;
+}
 
-  const groups = sectionGroups(section);
-
+function buildSectionActions(
+  section: SettingsSectionDefinition,
+  state: SettingsState,
+  options: SettingsRenderOptions,
+  signal: AbortSignal,
+): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "form-actions settings-actions";
 
-  const save = createSectionAction(state.savingSectionId === section.id ? "Saving…" : section.saveLabel, true);
+  const save = createSectionAction(state.savingSectionId === section.id ? "Saving\u2026" : section.saveLabel, true);
   save.disabled = state.savingSectionId === section.id || section.fields.every((field) => field.editable === false);
-  save.addEventListener("click", () => options.onSaveSection(section.id));
+  save.addEventListener("click", () => options.onSaveSection(section.id), { signal });
   actions.append(save);
+  return actions;
+}
 
+function buildDevTools(
+  section: SettingsSectionDefinition,
+  drafts: Record<string, string>,
+  state: SettingsState,
+  options: SettingsRenderOptions,
+  signal: AbortSignal,
+): HTMLElement {
   const devTools = document.createElement("details");
   devTools.className = "settings-dev-tools";
   devTools.open = state.expandedDiffs.has(section.id) || state.expandedPaths.has(section.id);
@@ -215,10 +270,10 @@ function renderContent(
   devActions.className = "settings-dev-actions";
 
   const pathToggle = createSectionAction(state.expandedPaths.has(section.id) ? "Hide paths" : "View config paths");
-  pathToggle.addEventListener("click", () => options.onTogglePaths(section.id));
+  pathToggle.addEventListener("click", () => options.onTogglePaths(section.id), { signal });
 
   const diffToggle = createSectionAction(state.expandedDiffs.has(section.id) ? "Hide diff" : "Show diff");
-  diffToggle.addEventListener("click", () => options.onToggleDiff(section.id));
+  diffToggle.addEventListener("click", () => options.onToggleDiff(section.id), { signal });
 
   devActions.append(pathToggle, diffToggle);
   devBody.append(devActions);
@@ -243,13 +298,7 @@ function renderContent(
   }
 
   devTools.append(devBody);
-  card.append(header);
-  groups.forEach((group, index) => {
-    card.append(createGroupElement(section, group, drafts, state, options, index === 0));
-  });
-  card.append(actions, devTools);
-  stack.append(card);
-  content.append(stack);
+  return devTools;
 }
 
 function createGroupElement(

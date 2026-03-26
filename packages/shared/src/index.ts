@@ -2,7 +2,10 @@
 export * from "../../../src/core/types.js";
 
 // TypeBox API contracts
+import * as schemaExports from "./schemas/index.js";
+
 export * from "./contracts.js";
+export const schemas = schemaExports;
 
 export * from "./config-schema.js";
 

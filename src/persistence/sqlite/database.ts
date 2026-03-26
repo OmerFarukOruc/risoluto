@@ -4,6 +4,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
+import { resolveDatabasePath } from "../../db/connection.js";
 import * as schema from "./schema.js";
 
 function applySchema(database: Database.Database): void {
@@ -50,12 +51,14 @@ const connectionCache = new Map<string, SymphonyDatabase>();
 
 export function openSymphonyDatabase(baseDir: string): SymphonyDatabase {
   mkdirSync(baseDir, { recursive: true });
-  const dbPath = path.join(baseDir, "symphony.db");
+  const dbPath = resolveDatabasePath(baseDir);
+  mkdirSync(path.dirname(dbPath), { recursive: true });
   const existing = connectionCache.get(dbPath);
   if (existing) {
     return existing;
   }
   const sqlite = new Database(dbPath);
+  sqlite.pragma("foreign_keys = ON");
   applySchema(sqlite);
   const instance: SymphonyDatabase = {
     sqlite,
@@ -66,7 +69,7 @@ export function openSymphonyDatabase(baseDir: string): SymphonyDatabase {
 }
 
 export function closeSymphonyDatabase(baseDir: string): void {
-  const dbPath = path.join(baseDir, "symphony.db");
+  const dbPath = resolveDatabasePath(baseDir);
   const instance = connectionCache.get(dbPath);
   if (instance) {
     instance.sqlite.close();

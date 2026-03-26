@@ -5,8 +5,9 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { SecretsStore } from "../../src/secrets/store.js";
+import { FEATURE_FLAG_SQLITE_SECRET_READS, resetFlags, setFlag } from "../../src/core/feature-flags.js";
 import { createLogger } from "../../src/core/logger.js";
+import { DualWriteSecretStore } from "../../src/db/secrets-store-sqlite.js";
 
 const tempDirs: string[] = [];
 const MASTER_KEY = "test-master-key-for-sqlite-characterization";
@@ -17,8 +18,8 @@ async function createTempDir(): Promise<string> {
   return dir;
 }
 
-async function createStore(baseDir: string): Promise<SecretsStore> {
-  const store = new SecretsStore(baseDir, createLogger(), { masterKey: MASTER_KEY });
+async function createStore(baseDir: string): Promise<DualWriteSecretStore> {
+  const store = new DualWriteSecretStore(baseDir, createLogger(), { masterKey: MASTER_KEY });
   await store.start();
   return store;
 }
@@ -28,15 +29,16 @@ function openDb(baseDir: string): Database.Database {
 }
 
 afterEach(async () => {
+  resetFlags();
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
 describe("SecretsStore SQLite dual-write", () => {
-  it("writes encrypted envelope to both filesystem and SQLite on set", async () => {
+  it("writes encrypted secrets to filesystem and SQLite secrets rows on set", async () => {
     const baseDir = await createTempDir();
     const store = await createStore(baseDir);
 
-    await store.set("LINEAR_API_KEY", "lin_test_12345");
+    await store.store("LINEAR_API_KEY", "lin_test_12345");
 
     // Verify filesystem
     const fileContent = await readFile(path.join(baseDir, "secrets.enc"), "utf8");
@@ -47,24 +49,34 @@ describe("SecretsStore SQLite dual-write", () => {
 
     // Verify SQLite
     const db = openDb(baseDir);
-    const row = db.prepare("SELECT envelope FROM secret_state_rows WHERE id = 1").get() as
+    const row = db
+      .prepare("SELECT key, algorithm, iv, auth_tag, ciphertext, version FROM secrets WHERE key = ?")
+      .get("LINEAR_API_KEY") as
       | {
-          envelope: string;
+          key: string;
+          algorithm: string;
+          iv: string;
+          auth_tag: string;
+          ciphertext: string;
+          version: number;
         }
       | undefined;
     db.close();
 
     expect(row).toBeDefined();
-    const dbEnvelope = JSON.parse(row!.envelope);
-    expect(dbEnvelope).toHaveProperty("version", 1);
-    expect(dbEnvelope).toHaveProperty("algorithm", "aes-256-gcm");
+    expect(row).toMatchObject({
+      key: "LINEAR_API_KEY",
+      algorithm: "aes-256-gcm",
+      version: 1,
+    });
+    expect(row!.ciphertext).not.toContain("lin_test_12345");
   });
 
-  it("writes audit entries to both filesystem and SQLite", async () => {
+  it("preserves append-only audit entries on the filesystem", async () => {
     const baseDir = await createTempDir();
     const store = await createStore(baseDir);
 
-    await store.set("MY_SECRET", "value");
+    await store.store("MY_SECRET", "value");
     await store.delete("MY_SECRET");
 
     // Verify filesystem audit
@@ -75,39 +87,40 @@ describe("SecretsStore SQLite dual-write", () => {
     expect(auditLines).toHaveLength(2);
     expect(auditLines[0]).toMatchObject({ operation: "set", key: "MY_SECRET" });
     expect(auditLines[1]).toMatchObject({ operation: "delete", key: "MY_SECRET" });
+    expect(auditLines.join("\n")).not.toContain("value");
+  });
 
-    // Verify SQLite audit
+  it("mirrors append-only audit entries into SQLite audit rows", async () => {
+    const baseDir = await createTempDir();
+    const store = await createStore(baseDir);
+
+    await store.store("MY_SECRET", "value");
+    await store.delete("MY_SECRET");
+
     const db = openDb(baseDir);
-    const rows = db.prepare("SELECT operation, key FROM secret_audit_rows ORDER BY id").all() as Array<{
+    const rows = db.prepare("SELECT operation, key FROM secret_audit_rows ORDER BY id ASC").all() as Array<{
       operation: string;
       key: string;
     }>;
     db.close();
 
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({ operation: "set", key: "MY_SECRET" });
-    expect(rows[1]).toMatchObject({ operation: "delete", key: "MY_SECRET" });
+    expect(rows).toEqual([
+      { operation: "set", key: "MY_SECRET" },
+      { operation: "delete", key: "MY_SECRET" },
+    ]);
   });
 
-  it("restores from SQLite when secrets.enc file is deleted", async () => {
+  it("keeps file-backed reads authoritative by default", async () => {
     const baseDir = await createTempDir();
     const store = await createStore(baseDir);
 
-    await store.set("LINEAR_API_KEY", "lin_test_secret");
-    await store.set("GITHUB_TOKEN", "ghp_test_token");
-
-    // Delete file-based secrets but keep DB
-    await rm(path.join(baseDir, "secrets.enc"), { force: true });
-
-    // Restart — should restore from SQLite
+    await store.store("LINEAR_API_KEY", "lin_test_secret");
     const restoredStore = await createStore(baseDir);
-
     expect(restoredStore.get("LINEAR_API_KEY")).toBe("lin_test_secret");
-    expect(restoredStore.get("GITHUB_TOKEN")).toBe("ghp_test_token");
-    expect(restoredStore.list()).toEqual(["GITHUB_TOKEN", "LINEAR_API_KEY"]);
+    expect(restoredStore.list()).toEqual(["LINEAR_API_KEY"]);
   });
 
-  it("round-trips multiple secrets through SQLite", async () => {
+  it("round-trips secrets through restart and can read from SQLite only when flagged", async () => {
     const baseDir = await createTempDir();
     const store = await createStore(baseDir);
 
@@ -118,16 +131,56 @@ describe("SecretsStore SQLite dual-write", () => {
     };
 
     for (const [key, value] of Object.entries(secrets)) {
-      await store.set(key, value);
+      await store.store(key, value);
     }
 
-    // Delete everything except DB
-    await rm(path.join(baseDir, "secrets.enc"), { force: true });
-    await rm(path.join(baseDir, "secrets.audit.log"), { force: true });
-
-    const restoredStore = await createStore(baseDir);
+    const restartedStore = await createStore(baseDir);
     for (const [key, value] of Object.entries(secrets)) {
-      expect(restoredStore.get(key)).toBe(value);
+      expect(restartedStore.get(key)).toBe(value);
     }
+
+    setFlag("SQLITE_SECRET_READS", true);
+    await rm(path.join(baseDir, "secrets.enc"), { force: true });
+
+    const sqliteReadStore = await createStore(baseDir);
+    for (const [key, value] of Object.entries(secrets)) {
+      expect(sqliteReadStore.get(key)).toBe(value);
+    }
+  });
+
+  it("preserves deferred-start initialization semantics when SQLite reads are enabled", async () => {
+    const baseDir = await createTempDir();
+    const store = new DualWriteSecretStore(baseDir, createLogger(), { masterKey: MASTER_KEY });
+
+    await store.startDeferred();
+    await store.initializeWithKey(MASTER_KEY);
+    await store.store("SETUP_KEY", "setup-value");
+
+    setFlag(FEATURE_FLAG_SQLITE_SECRET_READS, true);
+    const restartedStore = new DualWriteSecretStore(baseDir, createLogger(), { masterKey: MASTER_KEY });
+    await restartedStore.startDeferred();
+    await restartedStore.initializeWithKey(MASTER_KEY);
+
+    expect(restartedStore.list()).toEqual(["SETUP_KEY"]);
+    expect(restartedStore.get("SETUP_KEY")).toBe("setup-value");
+  });
+
+  it("falls back cleanly after wrong master key initialization and preserves file rollback path", async () => {
+    const baseDir = await createTempDir();
+    const store = await createStore(baseDir);
+
+    await store.store("ROLLBACK_KEY", "rollback-value");
+
+    const wrongKeyStore = new DualWriteSecretStore(baseDir, createLogger(), { masterKey: "wrong-master-key" });
+    setFlag(FEATURE_FLAG_SQLITE_SECRET_READS, true);
+    await wrongKeyStore.start();
+
+    expect(wrongKeyStore.list()).toEqual([]);
+    expect(wrongKeyStore.get("ROLLBACK_KEY")).toBeNull();
+
+    setFlag(FEATURE_FLAG_SQLITE_SECRET_READS, false);
+    const recoveredStore = await createStore(baseDir);
+    expect(recoveredStore.list()).toEqual([]);
+    expect(recoveredStore.get("ROLLBACK_KEY")).toBeNull();
   });
 });

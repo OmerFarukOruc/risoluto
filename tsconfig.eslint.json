@@ -18,6 +18,8 @@
     "frontend/*.ts",
     "packages/**/*.ts",
     "packages/**/*.tsx",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "drizzle.config.ts",
+    "scripts/**/*"
   ]
 }

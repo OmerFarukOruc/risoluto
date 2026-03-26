@@ -78,7 +78,14 @@ describe("property: isWithinRoot", () => {
     fc.assert(
       fc.property(rootArb, childArb, (root, suffix) => {
         const candidate = path.resolve(root, "..", suffix);
-        expect(isWithinRoot(root, candidate)).toBe(false);
+        // Only assert false when the path actually escapes (candidate !== root)
+        // Edge case: path.resolve("/v", "..", "v") === "/v" (returns to root, doesn't escape)
+        if (candidate !== root) {
+          expect(isWithinRoot(root, candidate)).toBe(false);
+        } else {
+          // When candidate equals root (edge case), isWithinRoot should return true
+          expect(isWithinRoot(root, candidate)).toBe(true);
+        }
       }),
     );
   });

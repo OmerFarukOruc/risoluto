@@ -1,8 +1,16 @@
-import type { Express } from "express";
+import type { Express, Response } from "express";
 
 import { ConfigOverlayStore } from "./overlay.js";
-import { methodNotAllowed } from "../http/route-helpers.js";
 import { isRecord } from "../utils/type-guards.js";
+
+function methodNotAllowed(response: Response): void {
+  response.status(405).json({
+    error: {
+      code: "method_not_allowed",
+      message: "Method Not Allowed",
+    },
+  });
+}
 
 const DEFAULT_CONFIG_SCHEMA = {
   overlay_put_body_examples: [

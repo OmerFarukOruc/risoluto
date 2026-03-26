@@ -48,6 +48,7 @@ export class NotificationManager {
         skippedDuplicate: true,
       };
     }
+    this.remember(dedupeKey);
 
     const deliveredChannels: string[] = [];
     const failedChannels: Array<{ channel: string; error: string }> = [];
@@ -73,10 +74,6 @@ export class NotificationManager {
         }
       }),
     );
-
-    if (deliveredChannels.length > 0) {
-      this.remember(dedupeKey);
-    }
 
     return {
       deliveredChannels: [...deliveredChannels].sort((left, right) => left.localeCompare(right)),

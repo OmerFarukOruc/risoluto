@@ -1,0 +1,420 @@
+.page {
+  max-width: 56rem;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+
+.intro,
+.panel,
+.noticeSuccess,
+.noticeError,
+.state {
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.intro {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.introEyebrow,
+.stepMeta,
+.requiredBadge,
+.optionalBadge,
+.stepDot,
+.state {
+  font-family: var(--font-mono);
+}
+
+.introEyebrow,
+.stepMeta,
+.requiredBadge,
+.optionalBadge {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.introTitle,
+.title,
+.sectionTitle,
+.doneTitle {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.introTitle,
+.doneTitle {
+  font-size: var(--text-2xl);
+}
+
+.introText,
+.subtitle,
+.sectionDescription,
+.statusText,
+.successText,
+.state {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.introTags,
+.inlineActions,
+.actionsRow,
+.titleRow,
+.createProjectRow,
+.routeInfo {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.introTag,
+.requiredBadge,
+.optionalBadge,
+.prefixChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-xs);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+}
+
+.requiredBadge {
+  color: var(--status-retrying);
+  border-color: color-mix(in srgb, var(--status-retrying) 35%, var(--border-default));
+}
+
+.optionalBadge {
+  color: var(--text-muted);
+}
+
+.noticeSuccess,
+.noticeError {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.noticeSuccess,
+.successText,
+.doneIcon {
+  color: var(--status-running);
+}
+
+.noticeSuccess {
+  border-color: color-mix(in srgb, var(--status-running) 35%, var(--border-default));
+}
+
+.noticeError {
+  color: var(--status-blocked);
+  border-color: color-mix(in srgb, var(--status-blocked) 35%, var(--border-default));
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.stepShell {
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
+
+.stepButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height-xl);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepButtonActive {
+  color: var(--text-primary);
+}
+
+.stepButtonDone {
+  color: var(--status-running);
+}
+
+.stepDot {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.stepButtonActive .stepDot {
+  border-color: var(--text-accent);
+  background: color-mix(in srgb, var(--text-accent) 12%, var(--bg-elevated));
+  color: var(--text-accent);
+}
+
+.stepButtonDone .stepDot {
+  border-color: var(--status-running);
+  background: color-mix(in srgb, var(--status-running) 10%, var(--bg-elevated));
+  color: var(--status-running);
+}
+
+.stepCopy,
+.contentStack,
+.field,
+.projectGrid,
+.quickStartGrid,
+.flowStep,
+.quickActionCard,
+.createProjectPanel,
+.routeList,
+.routeListSection {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.stepConnector {
+  flex: 1;
+  height: 2px;
+  margin: 0 var(--space-2);
+  background: color-mix(in srgb, var(--border-stitch) 72%, transparent);
+}
+
+.stepConnectorDone {
+  background: color-mix(in srgb, var(--status-running) 44%, var(--border-stitch));
+}
+
+.panel {
+  border-left: 2px solid color-mix(in srgb, var(--text-accent) 82%, var(--border-stitch));
+}
+
+.callout,
+.quickActionCard,
+.createProjectPanel,
+.routeRow {
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.callout {
+  border-left: 2px solid var(--status-retrying);
+}
+
+.fieldLabel,
+.authCardTitle,
+.projectName,
+.flowLabel {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+.input,
+.textarea,
+.primaryButton,
+.secondaryButton,
+.projectCard,
+.authCard {
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.input,
+.primaryButton,
+.secondaryButton,
+.projectCard,
+.authCard {
+  min-height: var(--control-height-md);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0 var(--space-3);
+}
+
+.textarea {
+  min-height: 8rem;
+  padding: var(--space-3);
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.primaryButton,
+.secondaryButton,
+.projectCard,
+.authCard,
+.inlineLink {
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
+    color var(--motion-fast) var(--ease-out-quart);
+}
+
+.primaryButton,
+.secondaryButton {
+  padding: 0 var(--space-4);
+}
+
+.primaryButton {
+  border-color: var(--interactive-primary);
+  background: var(--interactive-primary);
+  color: var(--interactive-primary-text);
+}
+
+.projectGrid,
+.authGrid,
+.quickStartGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.projectCard,
+.authCard {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  text-align: left;
+}
+
+.projectCardSelected,
+.authCardSelected {
+  border-color: var(--text-accent);
+  background: color-mix(in srgb, var(--text-accent) 8%, var(--bg-elevated));
+}
+
+.projectSlug,
+.authCardDescription,
+.flowSublabel,
+.routeUrl,
+.routePrefix,
+.keyValue,
+.prefixChip {
+  font-family: var(--font-mono);
+}
+
+.projectSlug,
+.authCardDescription,
+.flowSublabel,
+.routeUrl,
+.routePrefix {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.routeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.routeRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.routePrefix {
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.prefixChip,
+.keyValue {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-muted);
+}
+
+.flowDiagram {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.flowStep {
+  min-width: 8rem;
+}
+
+.flowIcon,
+.doneIcon,
+.quickActionIcon {
+  font-size: var(--text-xl);
+}
+
+.flowArrow {
+  color: var(--text-muted);
+}
+
+.inlineLink {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.actionsRow {
+  justify-content: space-between;
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.input:focus-visible,
+.textarea:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.projectCard:focus-visible,
+.authCard:focus-visible,
+.stepButton:focus-visible,
+.inlineLink:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .stepRow,
+  .flowDiagram {
+    display: grid;
+  }
+
+  .stepShell {
+    width: 100%;
+  }
+
+  .stepConnector {
+    display: none;
+  }
+
+  .projectGrid,
+  .authGrid,
+  .quickStartGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,3 @@
-import "../../../frontend/src/agentation-island";
 import "../../../frontend/src/styles/tokens.css";
 import "../../../frontend/src/styles/polish-tokens.css";
 import "../../../frontend/src/styles/animations.css";
@@ -16,28 +15,43 @@ import "../../../frontend/src/styles/hardening.css";
 import "../../../frontend/src/styles/kanban.css";
 import "../../../frontend/src/styles/container-queries.css";
 import "../../../frontend/src/styles/git.css";
+import "../../../frontend/src/styles/queue.css";
+import "../../../frontend/src/styles/issue.css";
+import "../../../frontend/src/styles/issue-inspector-rail.css";
+import "../../../frontend/src/styles/queue-dnd.css";
+import "../../../frontend/src/styles/runs.css";
+import "../../../frontend/src/styles/logs.css";
+import "../../../frontend/src/styles/attempt.css";
+import "../../../frontend/src/styles/observability.css";
+import "../../../frontend/src/styles/workspace.css";
+import "../../../frontend/src/styles/welcome.css";
+import "../../../frontend/src/styles/setup.css";
+import "../../../frontend/src/styles/settings.css";
+import "../../../frontend/src/styles/config.css";
+import "../../../frontend/src/styles/secrets.css";
+import "../../../frontend/src/styles/unified-settings.css";
+import "./base.css";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 
-import { App } from "./react-app";
+import { App } from "./App.js";
+import { createQueryClient } from "./hooks/query-client.js";
 
 const root = document.getElementById("app");
 if (!root) {
   throw new Error("#app root not found");
 }
 
-root.classList.add("shell-app");
-
-const queryClient = new QueryClient();
+const queryClient = createQueryClient();
 
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App queryClient={queryClient} />
+        <App />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

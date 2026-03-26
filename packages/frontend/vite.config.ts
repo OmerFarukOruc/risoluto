@@ -1,23 +1,37 @@
-import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
+import { defineConfig } from "vite";
+
+const frontendRoot = import.meta.dirname;
+const repoRoot = resolve(frontendRoot, "../..");
+
 export default defineConfig({
-  root: import.meta.dirname,
+  root: frontendRoot,
+  css: {
+    modules: {
+      localsConvention: "camelCaseOnly",
+    },
+  },
   resolve: {
     alias: {
-      "@symphony/shared": resolve(import.meta.dirname, "../shared/src/index.ts"),
+      "@symphony/shared": resolve(frontendRoot, "../shared/src/index.ts"),
     },
   },
   build: {
-    outDir: resolve(import.meta.dirname, "../../dist/frontend"),
+    outDir: resolve(repoRoot, "dist/frontend"),
     emptyOutDir: true,
+    rollupOptions: {
+      input: resolve(frontendRoot, "index.html"),
+    },
   },
   server: {
+    host: "127.0.0.1",
     port: 4001,
     proxy: {
-      "/api": "http://localhost:4000",
-      "/metrics": "http://localhost:4000",
-      "/openapi.json": "http://localhost:4000",
+      "/api/v1": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
     },
   },
 });

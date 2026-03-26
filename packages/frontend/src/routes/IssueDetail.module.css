@@ -1,0 +1,274 @@
+.page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.panel,
+.summaryStrip,
+.metaGrid,
+.formGrid,
+.eventList,
+.header,
+.headerMeta,
+.actions,
+.attemptsTableWrap {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.panel {
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.headerMeta,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.eyebrow,
+.label,
+.statusBadge,
+.eventType {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.eyebrow,
+.label,
+.helperText,
+.updatedAt,
+.emptyState,
+.errorState {
+  color: var(--text-muted);
+}
+
+.issueTitle,
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-heading);
+}
+
+.issueTitle {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.issueIdentifier {
+  color: var(--text-accent);
+}
+
+.summaryStrip,
+.metaGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.statCard,
+.metaCard {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.value,
+.metaValue {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: var(--font-features-mono-num);
+}
+
+.sectionTitle {
+  font-size: var(--text-sm-plus);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-snug);
+}
+
+.description,
+.eventMessage,
+.eventContent,
+.helperText,
+.emptyState,
+.errorState,
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.description,
+.eventContent,
+.note {
+  color: var(--text-secondary);
+}
+
+.buttonRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.button,
+.linkButton,
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.submitButton,
+.statusBadge[data-status="running"] {
+  border-color: color-mix(in srgb, var(--status-running) 45%, var(--border-default));
+}
+
+.submitButton {
+  background: color-mix(in srgb, var(--status-running) 12%, var(--bg-surface));
+}
+
+.linkButton,
+.statusBadge[data-status="queued"],
+.statusBadge[data-status="pending"] {
+  border-color: color-mix(in srgb, var(--status-queued) 45%, var(--border-default));
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.statusBadge[data-status="failed"],
+.statusBadge[data-status="error"],
+.statusBadge[data-status="blocked"] {
+  border-color: color-mix(in srgb, var(--status-blocked) 45%, var(--border-default));
+}
+
+.statusBadge[data-status="retrying"],
+.statusBadge[data-status="stalled"] {
+  border-color: color-mix(in srgb, var(--status-retrying) 45%, var(--border-default));
+}
+
+.statusBadge[data-status="completed"],
+.statusBadge[data-status="success"] {
+  border-color: color-mix(in srgb, var(--status-running) 30%, var(--border-default));
+}
+
+.formGrid {
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.input,
+.select {
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.attemptsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.attemptsTable th,
+.attemptsTable td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  text-align: left;
+  vertical-align: top;
+  font-size: var(--text-sm);
+}
+
+.attemptRow {
+  cursor: pointer;
+}
+
+.attemptRow[data-selected="true"] {
+  background: color-mix(in srgb, var(--text-accent) 10%, var(--bg-elevated));
+}
+
+.eventList {
+  gap: var(--space-2);
+}
+
+.eventRow {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.eventMeta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.eventType {
+  color: var(--text-accent);
+}
+
+.eventContent {
+  padding: var(--space-3);
+  background: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.errorState {
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--status-blocked) 40%, var(--border-default));
+  background: color-mix(in srgb, var(--status-blocked) 10%, var(--bg-surface));
+}
+
+@media (max-width: 960px) {
+  .summaryStrip,
+  .metaGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

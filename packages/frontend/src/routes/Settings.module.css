@@ -1,0 +1,260 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.heroCopy,
+.heroActions,
+.sections {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.eyebrow,
+.railMeta {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title,
+.sectionTitle,
+.stateTitle {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.title {
+  font-size: var(--text-2xl);
+}
+
+.description,
+.heroHint,
+.sectionDescription,
+.fieldDescription,
+.stateText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.heroActions {
+  align-content: start;
+  justify-items: start;
+  max-width: 18rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out-quart),
+    border-color var(--motion-fast) var(--ease-out-quart),
+    color var(--motion-fast) var(--ease-out-quart);
+}
+
+.primaryButton {
+  border-color: var(--interactive-primary);
+  background: var(--interactive-primary);
+  color: var(--interactive-primary-text);
+}
+
+.primaryButton:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.secondaryButton {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.railLink {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  color: inherit;
+  text-decoration: none;
+}
+
+.railLink:hover {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.railTitle,
+.fieldLabel {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+.sectionCard,
+.noticeSuccess,
+.noticeError,
+.state {
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.noticeSuccess,
+.noticeError {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.noticeSuccess {
+  color: var(--status-running);
+  border-color: color-mix(in srgb, var(--status-running) 35%, var(--border-default));
+}
+
+.noticeError,
+.fieldError {
+  color: var(--status-blocked);
+}
+
+.noticeError {
+  border-color: color-mix(in srgb, var(--status-blocked) 35%, var(--border-default));
+}
+
+.sectionHeader {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldTopline {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--border-stitch);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.input,
+.select {
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+}
+
+.textarea {
+  min-height: 7rem;
+  padding: var(--space-3);
+  resize: vertical;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+.overrideBadge,
+.defaultBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-xs);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.overrideBadge {
+  color: var(--text-accent);
+  border-color: color-mix(in srgb, var(--text-accent) 35%, var(--border-default));
+}
+
+.defaultBadge {
+  color: var(--text-muted);
+}
+
+.fieldError {
+  font-size: var(--text-xs);
+}
+
+.state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+@media (max-width: 1080px) {
+  .layout,
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    display: grid;
+  }
+
+  .rail {
+    position: static;
+  }
+}

@@ -1,0 +1,665 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+
+.heroBand,
+.tokenSection,
+.recentSection,
+.terminalSection,
+.quickActions,
+.healthSection,
+.stallSection,
+.runtimeSection {
+  display: grid;
+  gap: var(--space-4);
+  border: var(--stroke-default) solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.heroBand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--stroke-accent) solid var(--text-accent);
+}
+
+.heroLabel,
+.liveLabel,
+.attentionKicker,
+.attentionCount,
+.attentionBodyLabel,
+.attentionStatus,
+.kicker,
+.healthLabel,
+.eventTime,
+.stallIssue,
+.stallKilledAt,
+.healthCheckedAt,
+.smallText {
+  font-family: var(--font-mono);
+}
+
+.heroLabel,
+.liveLabel,
+.attentionKicker,
+.attentionCount,
+.attentionBodyLabel,
+.attentionStatus,
+.kicker,
+.healthLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.heroLabel,
+.liveLabel,
+.attentionBodyLabel,
+.attentionStatus,
+.eventTime,
+.stallKilledAt,
+.healthCheckedAt,
+.smallText {
+  color: var(--text-secondary);
+}
+
+.heroMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, max-content));
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.tokenGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.liveMetric {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.liveValue {
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-feature-settings: var(--font-features-tabular);
+  font-size: var(--dashboard-number-lg);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.6fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.attentionZone {
+  display: grid;
+  min-height: calc(var(--dashboard-panel-min-height) + var(--space-16));
+  border: var(--stroke-default) solid var(--surface-primary-border);
+  border-top: var(--stroke-accent) solid var(--surface-primary-border-accent);
+  background: var(--surface-primary-bg);
+}
+
+.attentionHeader {
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: var(--stroke-default) solid var(--border-default);
+  background: color-mix(in srgb, var(--surface-primary-bg) 82%, var(--bg-muted));
+}
+
+.attentionCopy,
+.attentionBody,
+.secondary,
+.scrollList,
+.stallList {
+  display: grid;
+}
+
+.attentionCopy,
+.attentionBody,
+.secondary,
+.stallList {
+  gap: var(--space-3);
+}
+
+.attentionKicker,
+.attentionCount,
+.kicker {
+  color: var(--text-accent);
+}
+
+.sectionHeader,
+.attentionHeadingRow,
+.attentionTopline,
+.attentionFooter,
+.rowMeta,
+.eventMeta,
+.stallMeta,
+.stallDetail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sectionHeader {
+  justify-content: flex-start;
+}
+
+.sectionTitle,
+.emptyTitle,
+.teachingTitle,
+.gettingStartedTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.sectionTitle {
+  font-size: var(--text-lg);
+}
+
+.attentionZone .sectionTitle {
+  font-size: var(--text-xl);
+}
+
+.attentionDetail,
+.attentionBodyHint,
+.attentionTitle,
+.attentionState,
+.attentionSignal,
+.teachingDetail,
+.emptyDetail,
+.gettingStartedDesc,
+.eventMessage,
+.healthMessage,
+.stallAgent {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.attentionDetail {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.attentionBody {
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.attentionBodyHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--stroke-default) solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.attentionList,
+.scrollList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.secondary {
+  gap: var(--space-5);
+}
+
+.tokenSection,
+.recentSection,
+.terminalSection,
+.quickActions,
+.healthSection,
+.stallSection,
+.runtimeSection {
+  padding: var(--space-4);
+}
+
+.quickActionButton,
+.emptyAction,
+.issueButton,
+.gettingStartedDismiss {
+  color: inherit;
+  font: inherit;
+}
+
+.quickActionButton,
+.emptyAction,
+.issueButton {
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
+    color var(--motion-fast) var(--ease-out-quart);
+}
+
+.quickActionButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--stroke-default) solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.quickActionButton:hover,
+.emptyAction:hover,
+.issueButton:hover {
+  border-color: var(--border-strong);
+}
+
+.quickActionButton:hover,
+.emptyAction:hover {
+  background: var(--bg-muted);
+}
+
+.issueButton {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border: var(--stroke-default) solid var(--border-stitch);
+  background: var(--bg-elevated);
+  text-align: left;
+}
+
+.attentionItem {
+  padding-left: var(--space-4);
+  border-left: var(--stroke-emphasis) solid var(--status-queued);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--surface-primary-bg));
+}
+
+.attentionItem[data-status="blocked"] {
+  border-left-color: var(--status-blocked);
+  background: color-mix(in srgb, var(--tone-danger-bg) 55%, var(--bg-elevated));
+}
+
+.attentionItem[data-status="retrying"] {
+  border-left-color: var(--status-retrying);
+  background: color-mix(in srgb, var(--tone-warning-bg) 42%, var(--bg-elevated));
+}
+
+.attentionItem[data-status="running"] {
+  border-left-color: var(--status-running);
+}
+
+.attentionItem[data-signal="pending"] {
+  border-left-color: var(--text-accent);
+}
+
+.attentionItem[data-status="blocked"] .attentionStatus {
+  color: var(--status-blocked);
+}
+
+.attentionItem[data-status="retrying"] .attentionStatus {
+  color: var(--status-retrying);
+}
+
+.attentionItem[data-status="running"] .attentionStatus {
+  color: var(--status-running);
+}
+
+.attentionItem[data-signal="pending"] .attentionStatus {
+  color: var(--text-accent);
+}
+
+.attentionBodyline {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.attentionIdent {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  font-feature-settings: var(--font-features-tabular);
+}
+
+.attentionSignal {
+  text-align: right;
+}
+
+.terminalItem {
+  background: var(--bg-muted);
+}
+
+.smallText,
+.eventTime,
+.stallKilledAt,
+.healthCheckedAt {
+  font-size: var(--text-xs);
+}
+
+.emptyState,
+.teachingEmpty {
+  display: grid;
+  gap: var(--space-3);
+  min-height: calc(var(--dashboard-panel-min-height) - var(--space-4));
+  place-content: center;
+  padding: var(--space-5);
+  border: var(--stroke-default) dashed var(--border-default);
+  background: color-mix(in srgb, var(--bg-muted) 72%, var(--bg-surface));
+}
+
+.emptyKicker {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+.emptyTitle,
+.teachingTitle {
+  font-size: var(--text-lg);
+}
+
+.emptyAction {
+  justify-self: start;
+  padding: var(--space-2) var(--space-3);
+  border: var(--stroke-default) solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.eventRow {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--stroke-default) solid var(--border-muted);
+  background: var(--bg-elevated);
+}
+
+.eventTime,
+.healthCheckedAt,
+.stallKilledAt,
+.stallIssue,
+.stallAgent {
+  font-feature-settings: var(--font-features-tabular);
+}
+
+.eventChip,
+.stallDuration,
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-xs);
+  padding: 0 var(--space-2);
+  border: var(--stroke-default) solid currentColor;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.eventChipAgent {
+  color: var(--status-running);
+}
+
+.eventChipSystem {
+  color: var(--status-queued);
+}
+
+.eventChipError {
+  color: var(--status-blocked);
+}
+
+.eventChipStateChange,
+.stallDuration {
+  color: var(--status-retrying);
+}
+
+.eventChipTool {
+  color: var(--text-accent);
+}
+
+.eventChipUsage {
+  color: var(--text-secondary);
+}
+
+.healthBadge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--stroke-default) solid transparent;
+  background: var(--bg-muted);
+}
+
+.healthDot {
+  width: var(--space-2);
+  height: var(--space-2);
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+}
+
+.healthHealthy .healthDot {
+  background: var(--status-running);
+}
+
+.healthDegraded {
+  border-color: color-mix(in srgb, var(--status-retrying) 20%, transparent);
+  background: color-mix(in srgb, var(--status-retrying) 6%, var(--bg-muted));
+}
+
+.healthDegraded .healthDot,
+.healthDegraded .healthLabel {
+  background: var(--status-retrying);
+  color: var(--status-retrying);
+}
+
+.healthCritical {
+  border-color: color-mix(in srgb, var(--status-blocked) 20%, transparent);
+  background: color-mix(in srgb, var(--status-blocked) 6%, var(--bg-muted));
+}
+
+.healthCritical .healthDot,
+.healthCritical .healthLabel {
+  background: var(--status-blocked);
+  color: var(--status-blocked);
+}
+
+.healthLabel {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.healthMessage {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.healthCheckedAt {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.runtimeGrid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.runtimeRow {
+  display: grid;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--stroke-default) solid var(--border-subtle);
+}
+
+.runtimeRow:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.runtimeLabel {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.runtimeValue {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  word-break: break-word;
+}
+
+.stallRow {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-left: var(--stroke-emphasis) solid var(--status-retrying);
+  background: var(--bg-muted);
+}
+
+.stallAgent {
+  color: var(--text-muted);
+}
+
+.stallEmpty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.lowerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.skeleton {
+  min-height: calc(var(--dashboard-panel-min-height) - var(--space-10));
+  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--bg-elevated) 50%, var(--bg-muted) 100%);
+  background-size: 200% 100%;
+  animation: shimmer var(--motion-slow) infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.gettingStarted {
+  position: relative;
+  padding: var(--space-5) var(--space-6);
+  border: var(--stroke-default) solid var(--border-stitch);
+  border-left: var(--stroke-emphasis) solid var(--text-accent);
+  background: var(--bg-muted);
+}
+
+.gettingStartedDismiss {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  padding: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.gettingStartedTitle {
+  font-size: var(--text-md);
+  margin-bottom: var(--space-2);
+}
+
+.gettingStartedDesc {
+  margin: 0 0 var(--space-4);
+}
+
+.gettingStartedSteps {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.gettingStartedStep {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gettingStartedStepNumber {
+  display: grid;
+  width: var(--space-5);
+  height: var(--space-5);
+  place-items: center;
+  border: var(--stroke-default) solid var(--text-accent);
+  color: var(--text-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+}
+
+@media (max-width: 1100px) {
+  .mainGrid,
+  .lowerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tokenGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .heroBand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .heroMetrics,
+  .tokenGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .liveMetric {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .attentionHeader,
+  .attentionBody,
+  .gettingStarted {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}

@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRouteRenderKey, resolveSetupRoutingState } from "../../packages/frontend/src/routing";
+import { resolveSetupRoutingState } from "../../packages/frontend/src/hooks/query-client";
+import { buildRouteRenderKey } from "../../packages/frontend/src/hooks/route-helpers";
 
 describe("react routing helpers", () => {
   it("keeps routing pending until setup status has loaded", () => {
-    expect(resolveSetupRoutingState(undefined, false)).toBe("pending");
+    expect(resolveSetupRoutingState(undefined, false)).toBe("checking");
     expect(resolveSetupRoutingState({ configured: false }, false)).toBe("setup-required");
-    expect(resolveSetupRoutingState({ configured: true }, false)).toBe("configured");
-    expect(resolveSetupRoutingState(undefined, true)).toBe("configured");
+    expect(resolveSetupRoutingState({ configured: true }, false)).toBe("ready");
+    expect(resolveSetupRoutingState(undefined, true)).toBe("ready");
   });
 
   it("builds a stable route render key for identical params", () => {

@@ -18,13 +18,14 @@ export function issueRef(issue: Issue) {
   return { id: issue.id, identifier: issue.identifier, title: issue.title, state: issue.state, url: issue.url };
 }
 
+const STATUS_MAP: Record<RunOutcome["kind"], string> = {
+  normal: "completed",
+  timed_out: "timed_out",
+  stalled: "stalled",
+  cancelled: "cancelled",
+  failed: "failed",
+};
+
 export function outcomeToStatus(kind: RunOutcome["kind"]): string {
-  const statusMap: Record<RunOutcome["kind"], string> = {
-    normal: "completed",
-    timed_out: "timed_out",
-    stalled: "stalled",
-    cancelled: "cancelled",
-    failed: "failed",
-  };
-  return statusMap[kind];
+  return STATUS_MAP[kind];
 }

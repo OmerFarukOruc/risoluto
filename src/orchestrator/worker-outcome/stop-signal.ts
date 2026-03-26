@@ -66,6 +66,5 @@ export async function handleStopSignal(
     ctx.releaseIssueClaim(issue.id);
   }
 
-  // Write completion back to tracker (non-blocking).
   void writeCompletionWriteback(ctx, { issue, entry, attempt, stopSignal, pullRequestUrl });
 }

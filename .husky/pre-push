@@ -38,4 +38,7 @@ npm run knip
 echo "🔍 Checking for duplicate code..."
 npm run jscpd
 
+echo "🔒 Running Semgrep security scan..."
+semgrep scan --config auto --config p/typescript --error
+
 echo "✅ All pre-push checks passed!"

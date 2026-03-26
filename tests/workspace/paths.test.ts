@@ -118,10 +118,12 @@ describe("resolveWorkspacePath", () => {
     expect(result.workspacePath).toBe(path.resolve("/workspaces", "project-1.0"));
   });
 
-  it("throws on identifiers that produce a path starting with '..'", () => {
-    // "../../etc" sanitizes to ".._.._etc" which starts with ".." and
-    // fails the isWithinRoot check, triggering the escape guard
-    expect(() => resolveWorkspacePath("/workspaces", "../../etc")).toThrow("workspace path escaped root");
+  it("sanitizes traversal attempts into safe directory names", () => {
+    // "../../etc" sanitizes to ".._.._etc" which is a safe directory name
+    // (not a path traversal segment), so it stays within root
+    const result = resolveWorkspacePath("/workspaces", "../../etc");
+    expect(result.workspaceKey).toBe(".._.._etc");
+    expect(isWithinRoot("/workspaces", result.workspacePath)).toBe(true);
   });
 
   it("does not throw for safe identifiers", () => {

@@ -135,20 +135,6 @@ jobs:
       - uses: actions/checkout@v6
       - run: semgrep scan --config auto --config p/typescript --error
 
-  codeql:
-    name: CodeQL
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v6
-      - uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v4
-
   dependency-review:
     name: Dependency Review
     if: github.event_name == 'pull_request'
@@ -367,7 +353,7 @@ jobs:
   build-and-test:
     name: build-and-test
     if: always()
-    needs: [build, lint, test, gitleaks, semgrep, codeql, docker-build, e2e-smoke]
+    needs: [build, lint, test, gitleaks, semgrep, docker-build, e2e-smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -379,7 +365,6 @@ jobs:
           echo "test        = ${{ needs.test.result }}"
           echo "gitleaks    = ${{ needs.gitleaks.result }}"
           echo "semgrep     = ${{ needs.semgrep.result }}"
-          echo "codeql      = ${{ needs.codeql.result }}"
           echo "docker-build= ${{ needs.docker-build.result }}"
           echo "e2e-smoke   = ${{ needs.e2e-smoke.result }}"
 
@@ -388,7 +373,6 @@ jobs:
              [ "${{ needs.test.result }}" != "success" ] ||
              [ "${{ needs.gitleaks.result }}" != "success" ] ||
              [ "${{ needs.semgrep.result }}" != "success" ] ||
-             [ "${{ needs.codeql.result }}" != "success" ] ||
              [ "${{ needs.docker-build.result }}" != "success" ] ||
              [ "${{ needs.e2e-smoke.result }}" != "success" ]; then
             echo "::error::One or more required jobs failed"

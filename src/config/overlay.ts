@@ -1,111 +1,29 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import chokidar, { type FSWatcher } from "chokidar";
-import { eq } from "drizzle-orm";
-import YAML from "yaml";
 
 import type { SymphonyLogger } from "../core/types.js";
-import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
-import { configOverlayRows } from "../persistence/sqlite/schema.js";
+import { FEATURE_FLAG_SQLITE_CONFIG_READS, isEnabled } from "../core/feature-flags.js";
+import {
+  ConfigStoreSqlite,
+  DualWriteConfigStore,
+  type ConfigOverlayPersistenceStore,
+} from "../db/config-store-sqlite.js";
+import { FileConfigStore } from "./file-config-store.js";
+import {
+  flattenOverlayMap,
+  isDangerousKey,
+  isOverlayEqual,
+  normalizeOverlayPath,
+  removeOverlayValue,
+  setOverlayValue,
+} from "./overlay-map.js";
+import type { ConfigOverlayEntry } from "./overlay-map.js";
 import { isRecord } from "../utils/type-guards.js";
 
-const dangerousKeys = new Set(["__proto__", "constructor", "prototype"]);
-
-function isDangerousKey(key: string): boolean {
-  return dangerousKeys.has(key);
-}
-
-function normalizePath(pathExpression: string): string[] {
-  return pathExpression
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-}
-
-function sortForStableStringify(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortForStableStringify);
-  }
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  const sorted: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
-  for (const key of Object.keys(value).sort((left, right) => left.localeCompare(right))) {
-    sorted[key] = sortForStableStringify(value[key]);
-  }
-  return sorted;
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortForStableStringify(value));
-}
-
-function isDeepEqual(left: unknown, right: unknown): boolean {
-  return stableStringify(left) === stableStringify(right);
-}
-
-function removeAtPath(target: Record<string, unknown>, segments: string[]): boolean {
-  if (segments.length === 0) {
-    return false;
-  }
-
-  const [head, ...tail] = segments;
-  if (isDangerousKey(head)) {
-    throw new TypeError(`Refusing to traverse dangerous key: ${head}`);
-  }
-  if (head === "__proto__" || head === "constructor" || head === "prototype") {
-    return false;
-  }
-  if (tail.length === 0) {
-    if (!Object.hasOwn(target, head)) {
-      return false;
-    }
-    delete target[head];
-    return true;
-  }
-
-  const child = Object.hasOwn(target, head) ? target[head] : undefined;
-  if (!isRecord(child)) {
-    return false;
-  }
-
-  const removed = removeAtPath(child, tail);
-  if (removed && Object.keys(child).length === 0) {
-    delete target[head];
-  }
-  return removed;
-}
-
-function setAtPath(target: Record<string, unknown>, segments: string[], value: unknown): void {
-  let cursor = target;
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const key = segments[index];
-    if (isDangerousKey(key)) {
-      throw new TypeError(`Refusing to traverse dangerous key: ${key}`);
-    }
-    if (key === "__proto__" || key === "constructor" || key === "prototype") {
-      return;
-    }
-    const child = Object.hasOwn(cursor, key) ? cursor[key] : undefined;
-    if (!isRecord(child)) {
-      const next: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
-      cursor[key] = next;
-      cursor = next;
-      continue;
-    }
-    cursor = child;
-  }
-
-  const leafKey = segments.at(-1)!;
-  if (isDangerousKey(leafKey)) {
-    throw new TypeError(`Refusing to set dangerous key: ${leafKey}`);
-  }
-  if (leafKey === "__proto__" || leafKey === "constructor" || leafKey === "prototype") {
-    return;
-  }
-  cursor[leafKey] = value;
+function cloneOverlayMap(map: Record<string, unknown>): Record<string, unknown> {
+  return structuredClone(map) as Record<string, unknown>;
 }
 
 function mergeDeep(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
@@ -129,34 +47,27 @@ export class ConfigOverlayStore {
   private overlay: Record<string, unknown> = {};
   private readonly listeners = new Set<() => void>();
   private watcher: FSWatcher | null = null;
-  private database: ReturnType<typeof openSymphonyDatabase> | null = null;
+  private readonly fileStore: FileConfigStore;
+  private readonly sqliteStore: ConfigStoreSqlite;
+  private readonly writeStore: ConfigOverlayPersistenceStore;
 
   constructor(
     private readonly overlayPath: string,
     private readonly logger: SymphonyLogger,
-  ) {}
+  ) {
+    const archiveDir = path.dirname(path.dirname(this.overlayPath));
+    this.fileStore = new FileConfigStore(this.overlayPath, this.logger);
+    this.sqliteStore = new ConfigStoreSqlite(archiveDir, this.logger.child({ component: "config-overlay-sqlite" }));
+    this.writeStore = new DualWriteConfigStore(this.fileStore, this.sqliteStore, this.logger);
+  }
 
   async start(): Promise<void> {
     await mkdir(path.dirname(this.overlayPath), { recursive: true });
-    this.database = openSymphonyDatabase(path.dirname(path.dirname(this.overlayPath)));
     const fileSource = await this.readOverlaySource({ allowMissingFile: true }, "startup:file");
     if (fileSource !== null) {
-      await this.applySource(fileSource, "startup:file");
+      await this.applySource("startup:file");
     } else {
-      const sqliteRow = await this.database.db.query.configOverlayRows.findFirst({
-        where: eq(configOverlayRows.id, 1),
-      });
-      if (sqliteRow) {
-        try {
-          this.overlay = JSON.parse(sqliteRow.payload) as Record<string, unknown>;
-          await this.persist();
-        } catch (error) {
-          this.logger.warn(
-            { error: String(error) },
-            "corrupted config overlay row in SQLite, starting with empty overlay",
-          );
-        }
-      }
+      this.overlay = await this.loadReadMap("startup");
     }
 
     this.watcher = chokidar.watch(this.overlayPath, {
@@ -176,6 +87,7 @@ export class ConfigOverlayStore {
       await this.watcher.close();
       this.watcher = null;
     }
+    this.writeStore.close?.();
   }
 
   subscribe(listener: () => void): () => void {
@@ -186,7 +98,7 @@ export class ConfigOverlayStore {
   }
 
   toMap(): Record<string, unknown> {
-    return structuredClone(this.overlay) as Record<string, unknown>;
+    return cloneOverlayMap(this.overlay);
   }
 
   async replace(nextMap: Record<string, unknown>): Promise<boolean> {
@@ -198,24 +110,24 @@ export class ConfigOverlayStore {
   }
 
   async set(pathExpression: string, value: unknown): Promise<boolean> {
-    const segments = normalizePath(pathExpression);
+    const segments = normalizeOverlayPath(pathExpression);
     if (segments.length === 0) {
       throw new Error("overlay path must contain at least one segment");
     }
 
     const next = this.toMap();
-    setAtPath(next, segments, value);
+    setOverlayValue(next, segments, value);
     return this.commit(next, `set:${pathExpression}`);
   }
 
   async delete(pathExpression: string): Promise<boolean> {
-    const segments = normalizePath(pathExpression);
+    const segments = normalizeOverlayPath(pathExpression);
     if (segments.length === 0) {
       throw new Error("overlay path must contain at least one segment");
     }
 
     const next = this.toMap();
-    const removed = removeAtPath(next, segments);
+    const removed = removeOverlayValue(next, segments);
     if (!removed) {
       return false;
     }
@@ -234,19 +146,19 @@ export class ConfigOverlayStore {
     const next = this.toMap();
 
     for (const entry of entries) {
-      const segments = normalizePath(entry.path);
+      const segments = normalizeOverlayPath(entry.path);
       if (segments.length === 0) {
         throw new Error("overlay path must contain at least one segment");
       }
-      setAtPath(next, segments, entry.value);
+      setOverlayValue(next, segments, entry.value);
     }
 
     for (const pathExpression of deletions ?? []) {
-      const segments = normalizePath(pathExpression);
+      const segments = normalizeOverlayPath(pathExpression);
       if (segments.length === 0) {
         throw new Error("overlay path must contain at least one segment");
       }
-      removeAtPath(next, segments);
+      removeOverlayValue(next, segments);
     }
 
     const paths = entries.map((e) => e.path);
@@ -257,13 +169,12 @@ export class ConfigOverlayStore {
   }
 
   private async commit(nextMap: Record<string, unknown>, reason: string): Promise<boolean> {
-    if (isDeepEqual(nextMap, this.overlay)) {
+    if (isOverlayEqual(nextMap, this.overlay)) {
       return false;
     }
 
-    this.overlay = structuredClone(nextMap) as Record<string, unknown>;
-    await this.persist();
-    await this.persistToDb();
+    await this.writeStore.replaceAll?.(this.toEntries(nextMap));
+    this.overlay = await this.loadReadMap(reason, nextMap);
     this.logger.info({ reason, overlayPath: this.overlayPath }, "config overlay updated");
     this.notify();
     return true;
@@ -275,34 +186,12 @@ export class ConfigOverlayStore {
     }
   }
 
-  private async persist(): Promise<void> {
-    const rendered = YAML.stringify(this.overlay);
-    const dir = path.dirname(this.overlayPath);
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const temporaryPath = `${this.overlayPath}.tmp-${process.pid}-${Date.now()}`;
-      try {
-        await mkdir(dir, { recursive: true });
-        await writeFile(temporaryPath, rendered, "utf8");
-        await rename(temporaryPath, this.overlayPath);
-        return;
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code === "ENOENT" && attempt === 0) {
-          this.logger.warn({ error: String(error) }, "config overlay persist retrying after ENOENT");
-          continue;
-        }
-        throw error;
-      }
-    }
-  }
-
   private async reloadFromDisk(reason: string, options: { allowMissingFile: boolean }): Promise<void> {
     const source = await this.readOverlaySource(options, reason);
     if (source === null) {
       return;
     }
-    await this.applySource(source, reason);
+    await this.applySource(reason);
   }
 
   private async readOverlaySource(options: { allowMissingFile: boolean }, reason: string): Promise<string | null> {
@@ -318,45 +207,47 @@ export class ConfigOverlayStore {
     }
   }
 
-  private async applySource(source: string, reason: string): Promise<void> {
-    let nextMap: unknown;
+  private async applySource(reason: string): Promise<void> {
+    let fileMap: Record<string, unknown>;
     try {
-      const parsed = YAML.parse(source);
-      nextMap = parsed === null ? {} : parsed;
+      fileMap = await this.fileStore.load();
     } catch (error) {
       this.logger.warn({ reason, overlayPath: this.overlayPath, error: String(error) }, "config overlay parse failed");
       return;
     }
-    if (!isRecord(nextMap)) {
-      this.logger.warn({ reason, overlayPath: this.overlayPath }, "config overlay root must be a YAML map");
+
+    if (isOverlayEqual(this.overlay, fileMap)) {
       return;
     }
 
-    if (isDeepEqual(this.overlay, nextMap)) {
-      return;
-    }
-
-    this.overlay = structuredClone(nextMap) as Record<string, unknown>;
-    await this.persistToDb();
+    await this.syncSqlite(fileMap, reason);
+    this.overlay = await this.loadReadMap(reason, fileMap);
     this.logger.info({ reason, overlayPath: this.overlayPath }, "config overlay reloaded");
     this.notify();
   }
 
-  private async persistToDb(): Promise<void> {
-    if (!this.database) {
-      return;
+  private toEntries(map: Record<string, unknown>): ConfigOverlayEntry[] {
+    return flattenOverlayMap(map);
+  }
+
+  private async loadReadMap(reason: string, fallbackMap?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const readStore = isEnabled(FEATURE_FLAG_SQLITE_CONFIG_READS) ? this.sqliteStore : this.fileStore;
+    try {
+      return cloneOverlayMap(await readStore.load());
+    } catch (error) {
+      if (fallbackMap === undefined) {
+        throw error;
+      }
+      this.logger.warn({ reason, error: String(error) }, "config overlay read backend failed; using file snapshot");
+      return cloneOverlayMap(fallbackMap);
     }
-    await this.database.db
-      .insert(configOverlayRows)
-      .values({
-        id: 1,
-        payload: JSON.stringify(this.overlay),
-      })
-      .onConflictDoUpdate({
-        target: configOverlayRows.id,
-        set: {
-          payload: JSON.stringify(this.overlay),
-        },
-      });
+  }
+
+  private async syncSqlite(map: Record<string, unknown>, reason: string): Promise<void> {
+    try {
+      await this.sqliteStore.replaceAll?.(this.toEntries(map));
+    } catch (error) {
+      this.logger.warn({ reason, error: String(error) }, "config overlay SQLite sync failed");
+    }
   }
 }

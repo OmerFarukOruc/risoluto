@@ -1,93 +1,20 @@
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 
-import { asStringRecord, isRecord } from "../utils/type-guards.js";
-import type { SymphonyLogger } from "../core/types.js";
 import type { SecretBackend } from "@symphony/shared";
 
+import type { SymphonyLogger } from "../core/types.js";
 import { openSymphonyDatabase } from "../persistence/sqlite/database.js";
 import { secretAuditRows, secretStateRows } from "../persistence/sqlite/schema.js";
+import { asStringRecord } from "../utils/type-guards.js";
+import { decryptText, deriveKey, encodeEnvelope, encryptText, parseEnvelope } from "./crypto.js";
 
-const ENCRYPTION_ALGORITHM = "aes-256-gcm";
-const IV_BYTE_LENGTH = 12;
-
-interface SecretsEnvelope {
-  version: number;
-  algorithm: string;
-  iv: string;
-  authTag: string;
-  ciphertext: string;
-}
-
-function deriveKey(masterKey: string): Buffer {
-  return createHash("sha256").update(masterKey, "utf8").digest();
-}
-
-function encodeEnvelope(envelope: SecretsEnvelope): string {
-  return `${JSON.stringify(envelope, null, 2)}\n`;
-}
-
-function parseEnvelope(source: string): SecretsEnvelope {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(source) as unknown;
-  } catch {
-    throw new Error("secrets envelope is not valid JSON");
-  }
-  if (!isRecord(parsed)) {
-    throw new Error("secrets envelope must be a JSON object");
-  }
-
-  const version = parsed.version;
-  const algorithm = parsed.algorithm;
-  const iv = parsed.iv;
-  const authTag = parsed.authTag;
-  const ciphertext = parsed.ciphertext;
-
-  if (version !== 1) {
-    throw new Error(`unsupported secrets envelope version: ${String(version)}`);
-  }
-  if (algorithm !== ENCRYPTION_ALGORITHM) {
-    throw new Error(`unsupported secrets algorithm: ${String(algorithm)}`);
-  }
-  if (typeof iv !== "string" || typeof authTag !== "string" || typeof ciphertext !== "string") {
-    throw new TypeError("secrets envelope contains invalid binary fields");
-  }
-
-  return {
-    version,
-    algorithm,
-    iv,
-    authTag,
-    ciphertext,
-  };
-}
-
-function encrypt(plaintext: string, key: Buffer): SecretsEnvelope {
-  const iv = randomBytes(IV_BYTE_LENGTH);
-  const cipher = createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-
-  return {
-    version: 1,
-    algorithm: ENCRYPTION_ALGORITHM,
-    iv: iv.toString("base64"),
-    authTag: authTag.toString("base64"),
-    ciphertext: ciphertext.toString("base64"),
-  };
-}
-
-function decrypt(envelope: SecretsEnvelope, key: Buffer): string {
-  const decipher = createDecipheriv(ENCRYPTION_ALGORITHM, key, Buffer.from(envelope.iv, "base64"), {
-    authTagLength: 16,
-  });
-  decipher.setAuthTag(Buffer.from(envelope.authTag, "base64"));
-  const plaintext = Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, "base64")), decipher.final()]);
-  return plaintext.toString("utf8");
+export interface SecretsStoreOptions {
+  masterKey?: string;
+  auditLog?: boolean;
+  notifySubscribers?: boolean;
 }
 
 export class SecretsStore implements SecretBackend {
@@ -99,30 +26,23 @@ export class SecretsStore implements SecretBackend {
   constructor(
     private readonly baseDir: string,
     private readonly logger: SymphonyLogger,
-    private readonly options?: { masterKey?: string },
+    private readonly options?: SecretsStoreOptions,
   ) {}
 
   async start(): Promise<void> {
-    await mkdir(this.baseDir, { recursive: true });
-    this.database = openSymphonyDatabase(this.baseDir);
-
+    await this.startDeferred();
     const masterKey = this.options?.masterKey ?? process.env.MASTER_KEY ?? "";
     if (!masterKey) {
       throw new Error("MASTER_KEY is required to initialize SecretsStore");
     }
     this.encryptionKey = deriveKey(masterKey);
-    const source = await this.readEncryptedFile();
+    const source = await this.readPersistedEnvelope();
     if (source === null) {
-      const sqliteEnvelope = await this.readEnvelopeFromDb();
-      if (sqliteEnvelope !== null) {
-        await this.loadFromEnvelopeSource(sqliteEnvelope, "sqlite");
-        return;
-      }
       await this.persist();
       return;
     }
 
-    await this.loadFromEnvelopeSource(source, "file");
+    await this.loadFromEnvelopeSource(source.value, source.sourceLabel);
   }
 
   async startDeferred(): Promise<void> {
@@ -131,18 +51,19 @@ export class SecretsStore implements SecretBackend {
   }
 
   async initializeWithKey(masterKey: string): Promise<void> {
+    await this.startDeferred();
     this.encryptionKey = deriveKey(masterKey);
-    const source = (await this.readEncryptedFile()) ?? (await this.readEnvelopeFromDb());
+    const source = await this.readPersistedEnvelope();
     if (source === null) {
       await this.persist();
       this.notify();
       return;
     }
 
-    const envelope = parseEnvelope(source);
+    const envelope = parseEnvelope(source.value);
     let decrypted: string;
     try {
-      decrypted = decrypt(envelope, this.requiredKey());
+      decrypted = decryptText(envelope, this.requiredKey());
     } catch (error) {
       this.logger.warn(
         { error: String(error) },
@@ -155,6 +76,7 @@ export class SecretsStore implements SecretBackend {
     this.loadCache(decrypted);
     this.notify();
   }
+
   isInitialized(): boolean {
     return this.encryptionKey !== null;
   }
@@ -204,6 +126,22 @@ export class SecretsStore implements SecretBackend {
     return true;
   }
 
+  snapshot(): Record<string, string> {
+    return Object.fromEntries(this.cache);
+  }
+
+  async replaceAll(snapshot: Record<string, string>): Promise<void> {
+    this.cache.clear();
+    for (const [key, value] of Object.entries(snapshot)) {
+      this.cache.set(key, value);
+    }
+    await this.persist();
+  }
+
+  async hasPersistedSource(): Promise<boolean> {
+    return (await this.readEncryptedFile()) !== null || (await this.readEnvelopeFromDb()) !== null;
+  }
+
   private requiredKey(): Buffer {
     if (!this.encryptionKey) {
       throw new Error("SecretsStore has not been started");
@@ -212,12 +150,18 @@ export class SecretsStore implements SecretBackend {
   }
 
   private notify(): void {
+    if (this.options?.notifySubscribers === false) {
+      return;
+    }
     for (const listener of this.listeners) {
       listener();
     }
   }
 
   private async appendAuditEntry(operation: "set" | "delete", key: string): Promise<void> {
+    if (this.options?.auditLog === false) {
+      return;
+    }
     const entry = {
       at: new Date().toISOString(),
       operation,
@@ -239,6 +183,20 @@ export class SecretsStore implements SecretBackend {
     }
   }
 
+  private async readPersistedEnvelope(): Promise<{ value: string; sourceLabel: "file" | "sqlite" } | null> {
+    const fileEnvelope = await this.readEncryptedFile();
+    if (fileEnvelope !== null) {
+      return { value: fileEnvelope, sourceLabel: "file" };
+    }
+
+    const sqliteEnvelope = await this.readEnvelopeFromDb();
+    if (sqliteEnvelope !== null) {
+      return { value: sqliteEnvelope, sourceLabel: "sqlite" };
+    }
+
+    return null;
+  }
+
   private loadCache(decrypted: string): void {
     const secrets = asStringRecord(JSON.parse(decrypted) as unknown);
     this.cache.clear();
@@ -249,7 +207,7 @@ export class SecretsStore implements SecretBackend {
 
   private async persist(): Promise<void> {
     const serializedSecrets = JSON.stringify(Object.fromEntries(this.cache), null, 2);
-    const envelope = encrypt(serializedSecrets, this.requiredKey());
+    const envelope = encryptText(serializedSecrets, this.requiredKey());
     const encodedEnvelope = encodeEnvelope(envelope);
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -291,7 +249,7 @@ export class SecretsStore implements SecretBackend {
     }
     let decrypted: string;
     try {
-      decrypted = decrypt(envelope, this.requiredKey());
+      decrypted = decryptText(envelope, this.requiredKey());
     } catch (error) {
       this.logger.error(
         { error: String(error), source: sourceLabel, secretsPath: this.secretsPath() },

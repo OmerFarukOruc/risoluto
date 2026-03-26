@@ -95,6 +95,11 @@
   }
 }
 
+.settings-shell-tab:focus-visible {
+  outline: 2px solid var(--interactive-primary);
+  outline-offset: 2px;
+}
+
 @media (max-width: 760px) {
   .settings-shell-page {
     gap: var(--space-4);

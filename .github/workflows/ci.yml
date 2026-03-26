@@ -1,24 +1,30 @@
 name: CI
+
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".vscode/**"]
   pull_request:
     branches: [main]
   schedule:
     - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions: {}
 
 jobs:
-  # ── Phase 1: Build & Lint ──────────────────────────────────────────
+  # ── Phase 1: Install, Build & Cache ──────────────────────────────────
+  # Single npm ci + build. All downstream jobs restore from cache.
   build:
-    name: Build & Lint
-    runs-on: ubuntu-latest
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -27,38 +33,83 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npm run lint
-      - run: npm run format:check
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
 
-  # ── Phase 2: Test & Coverage ───────────────────────────────────────
-  test:
-    name: Test & Coverage
+  # ── Phase 2: Quality Gates (parallel, all use cached build) ──────────
+  lint:
+    name: Lint & Format
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
+      - run: npm run lint
+      - run: npm run format:check
+
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
           cache: npm
+      # Node 24: restore cached build. Node 22: fresh install for native compat.
+      - uses: actions/cache/restore@v4
+        if: matrix.node-version == 24
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
       - run: npm ci
+        if: matrix.node-version == 22
       - run: npm test -- --reporter=verbose --coverage
       - name: Dead code analysis
+        if: matrix.node-version == 24
         run: npx knip
       - name: Duplicate code analysis
+        if: matrix.node-version == 24
         run: npx jscpd
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && matrix.node-version == 24
         with:
           name: coverage-report
           path: coverage/
-          retention-days: 7
+          retention-days: 14
 
-  # ── Phase 3: Security & Quality (parallel) ─────────────────────────
+  # ── Phase 2: Security (parallel, independent of build) ───────────────
   gitleaks:
     name: Gitleaks
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -69,8 +120,10 @@ jobs:
 
   semgrep:
     name: Semgrep
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
     container:
       image: semgrep/semgrep
     steps:
@@ -79,9 +132,10 @@ jobs:
 
   codeql:
     name: CodeQL
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
+      contents: read
       security-events: write
     steps:
       - uses: actions/checkout@v6
@@ -90,10 +144,28 @@ jobs:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v4
 
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/dependency-review-action@v4
+
+  # ── Phase 3: Quality Reporting (needs coverage artifact) ─────────────
   sonarcloud:
     name: SonarCloud
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    # Non-blocking: visible as a separate PR check but does not gate merges.
+    # Remove continue-on-error once SONAR_TOKEN is stable and always available.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v6
@@ -107,36 +179,14 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # ── Phase 4: Verify (main only) ───────────────────────────────────
-  docker-build:
-    name: Docker Build
-    needs: [test, gitleaks, semgrep]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - run: docker build -t symphony-orchestrator-service .
-
-  integration:
-    name: Integration Tests
-    if: github.ref == 'refs/heads/main'
-    needs: [test, gitleaks, semgrep]
-    runs-on: ubuntu-latest
-    env:
-      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run test:integration
-
-  # ── Phase 5: E2E Tests ───────────────────────────────────────────────
+  # ── Phase 3: E2E Smoke Tests (parallel, uses cached build) ──────────
   e2e-smoke:
-    name: E2E Smoke (${{ matrix.shard }}/${{ strategy.job-total }})
+    name: E2E Smoke (${{ matrix.shard }}/3)
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -146,12 +196,26 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
       - name: Install Playwright chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install Playwright system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Run E2E smoke tests (shard ${{ matrix.shard }})
-        run: npx playwright test --project=smoke --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: npx playwright test --project=smoke --shard=${{ matrix.shard }}/3
       - name: Upload blob report
         if: always()
         uses: actions/upload-artifact@v7
@@ -162,16 +226,23 @@ jobs:
 
   e2e-smoke-report:
     name: E2E Smoke Report
-    if: always()
+    if: always() && needs.e2e-smoke.result != 'skipped'
     needs: e2e-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
       - name: Download all blob reports
         uses: actions/download-artifact@v8
         with:
@@ -186,38 +257,136 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # ── Phase 6: Mutation Testing (weekly only) ─────────────────────────
-  mutation:
-    name: Mutation Testing
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    continue-on-error: true
+  # ── Phase 4: Docker Build & Verify ───────────────────────────────────
+  docker-build:
+    name: Docker Build & Smoke
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t symphony-orchestrator-service .
+      - name: Verify container structure
+        run: |
+          docker run --rm --entrypoint sh symphony-orchestrator-service -c "
+            node --version &&
+            test -f dist/cli/index.js &&
+            test -d node_modules &&
+            echo 'Container structure verified'
+          "
+
+  # ── Phase 4: Integration (main only) ────────────────────────────────
+  integration:
+    name: Integration Tests
+    if: github.ref == 'refs/heads/main'
+    needs: [test, gitleaks, semgrep]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
+      - run: npm run test:integration
+
+  # ── Phase 5: Mutation Testing (weekly schedule only) ─────────────────
+  mutation:
+    name: Mutation Testing
+    if: github.event_name == 'schedule'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
       - run: npm run test:mutation
 
-  # ── Gate: single required check for branch protection ──────────────
+  # ── Phase 6: Docker Push to GHCR (main only, after gate) ────────────
+  docker-push:
+    name: Push to GHCR
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Gate: single required check for branch protection ────────────────
   build-and-test:
     name: build-and-test
     if: always()
-    needs: [build, test, gitleaks, semgrep, codeql, docker-build, e2e-smoke]
-    runs-on: ubuntu-latest
+    needs: [build, lint, test, gitleaks, semgrep, codeql, docker-build, e2e-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
     steps:
-      - name: Check all jobs passed
+      - name: Check all required jobs passed
         run: |
+          echo "build       = ${{ needs.build.result }}"
+          echo "lint        = ${{ needs.lint.result }}"
+          echo "test        = ${{ needs.test.result }}"
+          echo "gitleaks    = ${{ needs.gitleaks.result }}"
+          echo "semgrep     = ${{ needs.semgrep.result }}"
+          echo "codeql      = ${{ needs.codeql.result }}"
+          echo "docker-build= ${{ needs.docker-build.result }}"
+          echo "e2e-smoke   = ${{ needs.e2e-smoke.result }}"
+
           if [ "${{ needs.build.result }}" != "success" ] ||
+             [ "${{ needs.lint.result }}" != "success" ] ||
              [ "${{ needs.test.result }}" != "success" ] ||
              [ "${{ needs.gitleaks.result }}" != "success" ] ||
              [ "${{ needs.semgrep.result }}" != "success" ] ||
              [ "${{ needs.codeql.result }}" != "success" ] ||
              [ "${{ needs.docker-build.result }}" != "success" ] ||
              [ "${{ needs.e2e-smoke.result }}" != "success" ]; then
-            echo "❌ One or more required jobs failed"
+            echo "::error::One or more required jobs failed"
             exit 1
           fi
-          echo "✅ All required jobs passed"
+          echo "All required jobs passed"

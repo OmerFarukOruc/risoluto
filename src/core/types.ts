@@ -308,27 +308,13 @@ export interface CodexProviderConfig {
   queryParams: Record<string, string>;
 }
 
-export interface WorkspaceWriteSandboxPolicy {
-  type: "workspaceWrite";
-  writableRoots: string[];
-  networkAccess: boolean;
-  readOnlyAccess: { type: string };
-}
-
-export interface GenericSandboxPolicy {
-  type: string;
-  [key: string]: unknown;
-}
-
-export type TurnSandboxPolicy = WorkspaceWriteSandboxPolicy | GenericSandboxPolicy;
-
 export interface CodexConfig {
   command: string;
   model: string;
   reasoningEffort: ReasoningEffort | null;
   approvalPolicy: string | Record<string, unknown>;
   threadSandbox: string;
-  turnSandboxPolicy: TurnSandboxPolicy;
+  turnSandboxPolicy: { type: string; [key: string]: unknown };
   readTimeoutMs: number;
   turnTimeoutMs: number;
   drainTimeoutMs: number;

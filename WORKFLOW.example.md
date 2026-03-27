@@ -6,13 +6,12 @@ tracker:
   project_slug: $LINEAR_PROJECT_SLUG
   # endpoint: https://api.linear.app/graphql
   # active_states:
+  #   - Backlog
+  #   - Todo
   #   - In Progress
   # terminal_states:
   #   - Done
-  #   - Completed
   #   - Canceled
-  #   - Cancelled
-  #   - Duplicate
 
 # The polling loop never overlaps; the next pass is scheduled only after the current pass completes.
 polling:

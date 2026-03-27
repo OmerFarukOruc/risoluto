@@ -83,7 +83,7 @@ describe("registerSetupApi — auth & tokens", () => {
       headers: { authorization: "token ghp_valid", "user-agent": "Symphony-Orchestrator" },
     });
     expect(secretsStore.set).toHaveBeenCalledWith("GITHUB_TOKEN", "ghp_valid");
-    expect(process.env.GITHUB_TOKEN).toBe("ghp_valid");
+    expect(process.env.GITHUB_TOKEN).toBeUndefined();
   });
 
   it("rejects an invalid GitHub token", async () => {

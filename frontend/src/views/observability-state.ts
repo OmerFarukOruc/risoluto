@@ -38,11 +38,13 @@ export function pushSnapshotTrend(state: ObservabilityState, snapshot: RuntimeSn
     generatedAt: snapshot.generated_at,
     running: snapshot.counts.running,
     retrying: snapshot.counts.retrying,
-    queueDepth: snapshot.queued.length,
-    totalTokens: snapshot.codex_totals.total_tokens,
+    queueDepth: (snapshot.queued ?? []).length,
+    totalTokens: snapshot.codex_totals?.total_tokens ?? 0,
     terminalCount:
-      snapshot.completed.length ||
-      snapshot.workflow_columns.filter((column) => column.terminal).reduce((total, column) => total + column.count, 0),
+      (snapshot.completed ?? []).length ||
+      (snapshot.workflow_columns ?? [])
+        .filter((column) => column.terminal)
+        .reduce((total, column) => total + column.count, 0),
   };
   const previous = state.trends[state.trends.length - 1];
   if (previous?.generatedAt === point.generatedAt) {

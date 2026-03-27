@@ -174,8 +174,8 @@ describe("config store", () => {
     expect(store.getConfig().workspace.root).toBe(path.resolve("../symphony-workspaces"));
     expect(store.getConfig().workspace.hooks.timeoutMs).toBe(60000);
     expect(store.getConfig().tracker.endpoint).toBe("https://api.linear.app/graphql");
-    expect(store.getConfig().tracker.activeStates).toEqual(["Todo", "In Progress"]);
-    expect(store.getConfig().tracker.terminalStates).toEqual(["Done", "Completed", "Closed", "Canceled", "Duplicate"]);
+    expect(store.getConfig().tracker.activeStates).toEqual(["Backlog", "Todo", "In Progress"]);
+    expect(store.getConfig().tracker.terminalStates).toEqual(["Done", "Canceled"]);
 
     await store.stop();
   });

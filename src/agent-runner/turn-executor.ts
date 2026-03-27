@@ -16,7 +16,7 @@ import type {
   AgentRunnerTurnExecutionInput,
   AgentRunnerTurnExecutionState,
   TurnResult,
-} from "./turn-executor.types.js";
+} from "./turn-executor-types.js";
 import type { RunOutcome } from "../core/types.js";
 
 const CONTINUATION_PROMPT =

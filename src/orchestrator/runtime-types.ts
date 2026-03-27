@@ -3,7 +3,7 @@ import type { AttemptStorePort } from "../core/attempt-store-port.js";
 import { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
-import type { GitManager } from "../git/manager.js";
+import type { GitIntegrationPort } from "../git/port.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { NotificationManager } from "../notification/manager.js";
 import type { RepoMatch, RepoRouter } from "../git/repo-router.js";
@@ -48,15 +48,6 @@ export interface OrchestratorDeps {
   eventBus?: TypedEventBus<SymphonyEventMap>;
   notificationManager?: NotificationManager;
   repoRouter?: Pick<RepoRouter, "matchIssue">;
-  gitManager?: Pick<
-    GitManager,
-    | "cloneInto"
-    | "commitAndPush"
-    | "createPullRequest"
-    | "setupWorktree"
-    | "syncWorktree"
-    | "removeWorktree"
-    | "deriveBaseCloneDir"
-  >;
+  gitManager?: GitIntegrationPort;
   logger: SymphonyLogger;
 }

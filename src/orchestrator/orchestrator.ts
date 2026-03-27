@@ -17,13 +17,14 @@ import {
   buildSnapshot,
 } from "./snapshot-builder.js";
 import { buildCtx, cleanupTerminalWorkspaces, type OrchestratorState } from "./orchestrator-delegates.js";
+import type { OrchestratorPort } from "./port.js";
 import type { OrchestratorDeps } from "./runtime-types.js";
 import { nowIso } from "./views.js";
 import type { ModelSelection, ReasoningEffort, RuntimeSnapshot } from "../core/types.js";
 import { toErrorString } from "../utils/type-guards.js";
 import { globalMetrics } from "../observability/metrics.js";
 
-export class Orchestrator {
+export class Orchestrator implements OrchestratorPort {
   private readonly _state: OrchestratorState;
   private tickInFlight = false;
   private nextTickTimer: NodeJS.Timeout | null = null;

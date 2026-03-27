@@ -60,7 +60,7 @@ export async function installApiMock(page: Page, overrides: ApiMockOverrides = {
   );
   await page.route("**/api/v1/setup/linear-project", (route) => json(route, { ok: true }));
   await page.route("**/api/v1/setup/repo-routes", (route) => json(route, { routes: [] }));
-  await page.route("**/api/v1/setup/repo-route", (route) => json(route, { ok: true }));
+  await page.route("**/api/v1/setup/repo-route/*", (route) => json(route, { ok: true }));
   await page.route("**/api/v1/setup/openai-key", (route) => json(route, { valid: true }));
   await page.route("**/api/v1/setup/codex-auth", (route) => json(route, { ok: true }));
   await page.route("**/api/v1/setup/github-token", (route) => json(route, { valid: true }));

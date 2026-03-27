@@ -3,23 +3,13 @@ import { createEmptyState } from "../components/empty-state";
 import { createPageHeader } from "../components/page-header";
 import { router } from "../router";
 import type { ActiveBranchView, GitCommitView, GitContextResponse, GitPullView, GitRepoView } from "../types";
+import { el } from "../utils/dom";
 import { registerPageCleanup } from "../utils/page";
 import { formatRelativeTime } from "../utils/format";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text) element.textContent = text;
-  return element;
-}
 
 function externalLink(url: string, text: string, className?: string): HTMLAnchorElement {
   const a = el("a", className, text);

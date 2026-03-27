@@ -5,12 +5,17 @@
 
 import type { IconName } from "../ui/icons";
 
+/** Controls which settings are visible: "simple" hides power-user sections and expert fields. */
+export type SettingsMode = "simple" | "advanced";
+
 /** Section IDs used throughout settings for navigation and conditional logic. */
 export const SECTION_IDS = {
   TRACKER: "tracker",
   MODEL_PROVIDER_AUTH: "model-provider-auth",
   SANDBOX: "sandbox",
   AGENT: "agent",
+  CODEX_TIMEOUTS: "codex-timeouts",
+  WORKSPACE: "workspace",
   REPOSITORIES_GITHUB: "repositories-github",
   NOTIFICATIONS: "notifications",
   WORKFLOW_STAGES: "workflow-stages",
@@ -41,6 +46,16 @@ export interface SettingsFieldOption {
   label: string;
 }
 
+export type SettingsFieldTier = "essential" | "standard" | "expert";
+
+export interface SettingsFieldValidation {
+  min?: number;
+  max?: number;
+  pattern?: RegExp;
+  required?: boolean;
+  message?: string;
+}
+
 export interface SettingsFieldDefinition {
   path: string;
   label: string;
@@ -57,6 +72,14 @@ export interface SettingsFieldDefinition {
   actionLabel?: string;
   /** Identifier used by the settings renderer to wire up the correct action handler. */
   actionKind?: string;
+  /** The default value from builders/schemas. Shown persistently in hint text. */
+  defaultValue?: string;
+  /** Disclosure tier: essential (always), standard (below separator), expert (behind toggle). */
+  tier?: SettingsFieldTier;
+  /** For number fields: unit suffix, e.g. "ms" — triggers human-readable conversion. */
+  unit?: string;
+  /** Validation rules for the field. */
+  validation?: SettingsFieldValidation;
 }
 
 export interface SettingsSectionDefinition {
@@ -71,6 +94,8 @@ export interface SettingsSectionDefinition {
   groupId?: string;
   /** Visual emphasis for onboarding */
   startHere?: boolean;
+  /** When set to "advanced", this section is hidden in Simple mode. */
+  mode?: "advanced";
 }
 
 export interface SettingsFieldGroup {
@@ -78,5 +103,7 @@ export interface SettingsFieldGroup {
   title: string;
   description?: string;
   advanced: boolean;
+  /** Resolved disclosure tier for the group (derived from field tiers). */
+  tier: SettingsFieldTier;
   fields: SettingsFieldDefinition[];
 }

@@ -23,7 +23,7 @@ describe("trackerConfigSchema", () => {
     expect(result.endpoint).toBe("https://api.linear.app/graphql");
     expect(result.apiKey).toBe("");
     expect(result.projectSlug).toBe(null);
-    expect(result.activeStates).toEqual(["Todo", "In Progress"]);
+    expect(result.activeStates).toEqual(["Backlog", "Todo", "In Progress"]);
     expect(result.terminalStates).toContain("Done");
   });
 

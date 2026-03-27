@@ -1,9 +1,9 @@
-import type { GitManager } from "../git/manager.js";
+import type { GitPostRunPort } from "../git/port.js";
 import type { RepoMatch } from "../git/repo-router.js";
 import type { Issue, Workspace } from "../core/types.js";
 
 export async function executeGitPostRun(
-  gitManager: Pick<GitManager, "commitAndPush" | "createPullRequest">,
+  gitManager: GitPostRunPort,
   workspace: Workspace,
   issue: Issue,
   repoMatch: RepoMatch,

@@ -6,6 +6,7 @@ import { executeTurns } from "./turn-executor.js";
 import { createDockerSession, type DockerSessionDeps, type PrecomputedRuntimeConfig } from "./docker-session.js";
 import { initializeSession } from "./session-init.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
+import type { RunAttemptDispatcher } from "../dispatch/types.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
 import type { LinearClient } from "../linear/client.js";
 import type { TrackerPort } from "../tracker/port.js";
@@ -19,7 +20,7 @@ export { extractItemContent } from "./helpers.js";
 
 export type { AgentRunnerEventHandler } from "./contracts.js";
 
-export class AgentRunner {
+export class AgentRunner implements RunAttemptDispatcher {
   private readonly liquid = new Liquid({ strictFilters: true, strictVariables: true });
   private readonly turnState = createTurnState();
 

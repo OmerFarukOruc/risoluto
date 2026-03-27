@@ -97,6 +97,10 @@ export function registerSetupApi(app: Express, deps: SetupApiDeps): void {
   app
     .route("/api/v1/setup/repo-route")
     .post(handlePostRepoRoute({ configOverlayStore: deps.configOverlayStore }))
+    .all((_req, res) => methodNotAllowed(res));
+
+  app
+    .route("/api/v1/setup/repo-route/:index")
     .delete(handleDeleteRepoRoute({ configOverlayStore: deps.configOverlayStore }))
     .all((_req, res) => methodNotAllowed(res));
 

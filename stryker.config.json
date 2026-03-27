@@ -7,15 +7,28 @@
     "src/config/coercion.ts",
     "src/config/validators.ts",
     "src/state/policy.ts",
+    "src/state/machine.ts",
     "src/workspace/path-registry.ts",
-    "src/core/content-sanitizer.ts"
+    "src/workspace/paths.ts",
+    "src/core/content-sanitizer.ts",
+    "src/orchestrator/retry-failure.ts",
+    "src/orchestrator/retry-manager.ts",
+    "src/utils/type-guards.ts",
+    "src/workflow/columns.ts",
+    "src/workflow/loader.ts"
   ],
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json",
   "thresholds": {
     "high": 80,
     "low": 60,
     "break": 70
   },
   "reporters": ["html", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/stryker-report.html"
+  },
   "timeoutMS": 60000,
-  "ignorePatterns": [".agents", ".claude", "docs", "skills", "dist", "frontend"]
+  "concurrency": 4,
+  "ignorePatterns": [".agents", ".claude", "docs", "skills", "dist", "frontend", "reports"]
 }

@@ -1,4 +1,5 @@
 import { GitManager, type GitManagerDeps } from "../git/manager.js";
+import type { GitIntegrationPort } from "../git/port.js";
 import { RepoRouter, type RepoRoute } from "../git/repo-router.js";
 import type { ServiceConfig } from "../core/types.js";
 
@@ -27,20 +28,9 @@ export function createGitHubToolProvider(
   deps?: {
     env?: NodeJS.ProcessEnv;
     resolveSecret?: (name: string) => string | undefined;
-    createGitManager?: (deps: GitManagerDeps) => GitManager;
+    createGitManager?: (deps: GitManagerDeps) => GitIntegrationPort;
   },
-): Pick<
-  GitManager,
-  | "cloneInto"
-  | "commitAndPush"
-  | "createPullRequest"
-  | "addPrComment"
-  | "getPrStatus"
-  | "setupWorktree"
-  | "syncWorktree"
-  | "removeWorktree"
-  | "deriveBaseCloneDir"
-> {
+): GitIntegrationPort {
   const createGitManager = deps?.createGitManager ?? ((managerDeps: GitManagerDeps) => new GitManager(managerDeps));
   const getManager = () => {
     const config = getConfig();

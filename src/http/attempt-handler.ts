@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 
-import type { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 
-export function handleAttemptDetail(orchestrator: Orchestrator, request: Request, response: Response): void {
+export function handleAttemptDetail(orchestrator: OrchestratorPort, request: Request, response: Response): void {
   const attempt = orchestrator.getAttemptDetail(String(request.params.attempt_id));
   if (!attempt) {
     response.status(404).json({

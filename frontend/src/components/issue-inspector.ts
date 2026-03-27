@@ -2,9 +2,11 @@ import { api } from "../api";
 import type { IssueDetail } from "../types";
 import { router } from "../router";
 import { statusChip } from "../ui/status-chip";
+import { toast } from "../ui/toast";
 import { skeletonCard } from "../ui/skeleton";
 import { flashDiff, setTextWithDiff } from "../utils/diff";
 import { formatCompactNumber, computeDurationSeconds, formatDuration, formatTimestamp } from "../utils/format";
+import { createEmptyState } from "./empty-state";
 import { createSummaryStat } from "./issue-inspector-common.js";
 import { buildRetrySection } from "./issue-inspector-retry-section.js";
 import {
@@ -133,12 +135,28 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     content.replaceChildren(skeletonCard(), skeletonCard(), skeletonCard());
   }
 
+  function renderError(message: string): void {
+    headerActions.hidden = true;
+    summary.hidden = true;
+    content.replaceChildren(
+      createEmptyState(
+        "Issue unavailable",
+        message,
+        "Retry",
+        () => {
+          void refresh();
+        },
+        "error",
+      ),
+    );
+  }
+
   function render(detail: IssueDetail, preserveScroll = false): void {
     const bodyScrollTop = preserveScroll ? content.scrollTop : 0;
     const previousTitle = title.textContent ?? "";
     setTextWithDiff(identifier, detail.identifier);
     setTextWithDiff(title, detail.title);
-    setTextWithDiff(updatedAt, `Updated ${formatTimestamp(detail.updated_at ?? detail.updatedAt)}`);
+    setTextWithDiff(updatedAt, `Updated ${formatTimestamp(detail.updatedAt)}`);
     const nextStatus = statusChip(detail.status);
     statusSlot.replaceChildren(nextStatus);
     logsLink.href = `/issues/${detail.identifier}/logs`;
@@ -151,9 +169,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     summaryStats.priority.update(String(detail.priority ?? "—"));
     summaryStats.model.update(detail.model ?? "—");
     summaryStats.tokens.update(formatCompactNumber(detail.tokenUsage?.totalTokens ?? null));
-    summaryStats.duration.update(
-      formatDuration(computeDurationSeconds(detail.startedAt, detail.updated_at ?? detail.updatedAt)),
-    );
+    summaryStats.duration.update(formatDuration(computeDurationSeconds(detail.startedAt, detail.updatedAt)));
 
     const isActive = detail.status === "running" || detail.status === "retrying";
     const liveLogSection = isActive ? buildLiveLogSection(liveLog.el) : null;
@@ -191,12 +207,21 @@ export function createIssueInspector(options: IssueInspectorOptions): {
       return;
     }
     const preserveScroll = hydrated;
-    if (!hydrated) {
+    if (!hydrated && content.children.length === 0) {
       renderLoading();
     }
-    const [detail, attempts] = await Promise.all([api.getIssue(currentId), api.getAttempts(currentId)]);
-    hydrated = true;
-    render({ ...detail, attempts: attempts.attempts, currentAttemptId: attempts.current_attempt_id }, preserveScroll);
+    try {
+      const [detail, attempts] = await Promise.all([api.getIssue(currentId), api.getAttempts(currentId)]);
+      hydrated = true;
+      render({ ...detail, attempts: attempts.attempts, currentAttemptId: attempts.current_attempt_id }, preserveScroll);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load issue details.";
+      if (hydrated) {
+        toast(message, "error");
+      } else {
+        renderError(message);
+      }
+    }
   }
 
   async function load(id: string): Promise<void> {
@@ -208,8 +233,9 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     liveLog.clear();
     unsubscribeEvents?.();
     unsubscribeEvents = subscribeIssueEvents(id, (entry) => liveLog.append(entry));
-    await refresh();
     window.clearInterval(poll);
+    poll = 0;
+    await refresh();
     poll = window.setInterval(() => {
       void refresh();
     }, 10_000);

@@ -9,7 +9,7 @@ import { HttpServer } from "../http/server.js";
 import { createLogger } from "../core/logger.js";
 import { getErrorTracker, initErrorTracking } from "../core/error-tracking.js";
 import { loadFlags } from "../core/feature-flags.js";
-import { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 import { SecretsStore } from "../secrets/store.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { ValidationError } from "../core/types.js";
@@ -168,7 +168,7 @@ function buildShutdown({
   logger,
 }: {
   httpServer: HttpServer;
-  orchestrator: Orchestrator;
+  orchestrator: OrchestratorPort;
   configStore: ConfigStore;
   overlayStore: ConfigOverlayStore;
   eventBus: TypedEventBus<SymphonyEventMap>;

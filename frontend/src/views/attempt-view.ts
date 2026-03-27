@@ -113,11 +113,11 @@ function renderAttemptPage(attempt: AttemptRecord, issue: IssueDetail | null): H
   workspaceGrid.append(
     createMetaItem("Workspace path", attempt.workspacePath ?? "Not archived", true),
     createMetaItem("Workspace key", attempt.workspaceKey ?? "—", true),
-    createMetaItem("Branch", issue?.branch_name ?? "—", true),
+    createMetaItem("Branch", issue?.branchName ?? "—", true),
     createMetaItem(
       "Pull request",
-      issue?.pull_request_url ? createValueLink(issue.pull_request_url, issue.pull_request_url) : "—",
-      !issue?.pull_request_url,
+      issue?.pullRequestUrl ? createValueLink(issue.pullRequestUrl, issue.pullRequestUrl) : "—",
+      !issue?.pullRequestUrl,
     ),
   );
   workspace.append(workspaceGrid);

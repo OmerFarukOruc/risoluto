@@ -11,7 +11,6 @@ export function handlePostReset(deps: SetupApiDeps) {
     try {
       await deps.orchestrator.stop();
       await Promise.all(deps.secretsStore.list().map((key) => deps.secretsStore.delete(key)));
-      delete process.env.GITHUB_TOKEN;
       await Promise.all([
         deps.configOverlayStore.set("codex.auth.mode", ""),
         deps.configOverlayStore.set("codex.auth.source_home", ""),

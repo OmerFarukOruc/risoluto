@@ -60,11 +60,11 @@ export function buildWorkspaceSection(detail: IssueDetail): HTMLElement {
   grid.append(
     kv("Workspace", detail.workspacePath ?? detail.workspaceKey ?? "—"),
     kv("Branch", detail.branchName ?? "—"),
-    kv("Pull request", detail.pull_request_url ?? "—"),
+    kv("Pull request", detail.pullRequestUrl ?? "—"),
     kv("Tokens", formatCompactNumber(detail.tokenUsage?.totalTokens ?? null)),
     kv("Cost", formatCostUsd(computeIssueCostUsd(detail))),
-    kv("Duration", formatDuration(computeDurationSeconds(detail.startedAt, detail.updated_at ?? detail.updatedAt))),
-    kv("Last event", formatTimestamp(detail.lastEventAt ?? detail.updated_at ?? detail.updatedAt)),
+    kv("Duration", formatDuration(computeDurationSeconds(detail.startedAt, detail.updatedAt))),
+    kv("Last event", formatTimestamp(detail.lastEventAt ?? detail.updatedAt)),
   );
   const actions = document.createElement("div");
   actions.className = "mc-actions";

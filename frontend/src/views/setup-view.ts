@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { router } from "../router";
+import type { LinearProject } from "../types";
 import { registerPageCleanup } from "../utils/page";
 import { createSingleFlight } from "../utils/single-flight";
 import { buildRepoConfigStep, type RepoConfigStepActions, type RepoConfigStepState } from "./setup-repo-step";
@@ -21,7 +22,7 @@ interface SetupState {
   generatedKey: string | null;
   apiKeyInput: string;
   apiKeyVerified: boolean;
-  projects: Array<{ id: unknown; name: unknown; slugId: string; teamKey: unknown }>;
+  projects: LinearProject[];
   selectedProject: string | null;
   teamKey: string | null;
   repoUrlInput: string;
@@ -385,7 +386,7 @@ function buildProjectGrid(projectGridLabelId: string): HTMLElement {
 
     const name = document.createElement("div");
     name.className = "setup-project-name";
-    name.textContent = String(p.name);
+    name.textContent = p.name;
 
     const slug = document.createElement("div");
     slug.className = "setup-project-slug";
@@ -651,7 +652,7 @@ async function advanceLinearProject(): Promise<void> {
   try {
     await api.postLinearProject(state.selectedProject);
     const selectedProj = state.projects.find((p) => p.slugId === state.selectedProject);
-    state.teamKey = selectedProj?.teamKey ? String(selectedProj.teamKey) : null;
+    state.teamKey = selectedProj?.teamKey ?? null;
     state.step = "repo-config";
   } catch (err) {
     state.error = err instanceof Error ? err.message : String(err);

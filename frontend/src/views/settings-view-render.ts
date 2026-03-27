@@ -3,6 +3,7 @@ import type { AsyncState } from "../utils/async-state.js";
 import { buildSettingsSections, isSchemaLimited } from "./settings-helpers.js";
 import { renderSettingsLayout } from "./settings-sections.js";
 import type { SettingsState } from "./settings-state.js";
+import type { SettingsMode } from "./settings-types.js";
 
 export interface SettingsPageData {
   effective: Record<string, unknown>;
@@ -16,6 +17,7 @@ interface RenderLoadedSettingsOptions {
   onToggleDiff: (sectionId: string) => void;
   onTogglePaths: (sectionId: string) => void;
   onSaveSection: (sectionId: string) => void;
+  onSetMode?: (mode: SettingsMode) => void;
   onBrowseLinearProjects: (fieldPath: string) => void;
 }
 
@@ -70,6 +72,7 @@ export function renderLoadedSettings(
     onToggleDiff: options.onToggleDiff,
     onTogglePaths: options.onTogglePaths,
     onSaveSection: options.onSaveSection,
+    onSetMode: options.onSetMode,
     onFieldAction: (_sectionId, fieldPath, actionKind) => {
       if (actionKind === "browse-linear-projects") {
         options.onBrowseLinearProjects(fieldPath);

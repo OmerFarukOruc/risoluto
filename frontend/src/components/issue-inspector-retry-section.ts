@@ -3,7 +3,7 @@ import { formatCountdown, formatRelativeTime, formatTimestamp } from "../utils/f
 import { applyStagger, createSummaryStat, kv } from "./issue-inspector-common.js";
 
 function retryDueAt(detail: IssueDetail): string | null {
-  return detail.nextRetryDueAt ?? detail.next_retry_due_at ?? null;
+  return detail.nextRetryDueAt ?? null;
 }
 
 function retryError(detail: IssueDetail): string {
@@ -60,7 +60,7 @@ export function buildRetrySection(detail: IssueDetail): HTMLElement | null {
   const nextRetryItem = kv("Next retry", retryScheduleLabel(nextRetryDueAt));
   const errorItem = kv("Error reason", retryError(detail));
   const attemptItem = kv("Attempt", retryAttempt(detail));
-  const lastUpdateItem = kv("Last update", formatTimestamp(detail.updated_at ?? detail.updatedAt));
+  const lastUpdateItem = kv("Last update", formatTimestamp(detail.updatedAt));
   applyStagger([nextRetryItem, errorItem, attemptItem, lastUpdateItem]);
 
   const grid = document.createElement("div");

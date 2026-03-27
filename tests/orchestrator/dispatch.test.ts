@@ -11,7 +11,7 @@ function createConfig(): ServiceConfig {
       endpoint: "https://api.linear.app/graphql",
       projectSlug: "EXAMPLE",
       activeStates: ["Todo", "In Progress"],
-      terminalStates: ["Done", "Completed", "Canceled", "Cancelled", "Duplicate"],
+      terminalStates: ["Done", "Canceled"],
     },
     polling: { intervalMs: 30000 },
     workspace: {
@@ -152,7 +152,7 @@ describe("dispatch helpers", () => {
       identifier: "MT-1",
       blockedBy: [
         { id: "blk-1", identifier: "MT-0", state: "Done" },
-        { id: "blk-2", identifier: "MT-3", state: "Cancelled" },
+        { id: "blk-2", identifier: "MT-3", state: "Canceled" },
       ],
     });
 

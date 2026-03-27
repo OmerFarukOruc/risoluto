@@ -1,4 +1,4 @@
-import type { RecentEvent, RuntimeIssueView, WorkflowColumn } from "../types";
+import type { RuntimeIssueView, WorkflowColumn } from "../types";
 
 const PRIORITY_ORDER: Record<string, number> = {
   urgent: 0,
@@ -76,7 +76,7 @@ export function sortIssues(issues: RuntimeIssueView[], mode: string): RuntimeIss
 }
 
 export function buildAttentionList(columns: WorkflowColumn[]): RuntimeIssueView[] {
-  const issues = columns.flatMap((column) => column.issues);
+  const issues = columns.flatMap((column) => column.issues ?? []);
   return [...issues]
     .filter((issue) => issue.status !== "completed")
     .sort((left, right) => {
@@ -102,8 +102,4 @@ export function buildAttentionList(columns: WorkflowColumn[]): RuntimeIssueView[
 
 export function latestTerminalIssues(completed: RuntimeIssueView[]): RuntimeIssueView[] {
   return [...completed].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)).slice(0, 8);
-}
-
-function recentEventKey(event: RecentEvent): string {
-  return `${event.at}:${event.issue_identifier}:${event.event}:${event.message}`;
 }

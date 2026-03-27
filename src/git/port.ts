@@ -1,0 +1,48 @@
+import type { Issue } from "../core/types.js";
+import type { GithubApiToolClient } from "./github-api-tool.js";
+import type { RepoMatch } from "./repo-router.js";
+
+export interface GitCloneResult {
+  branchName: string;
+}
+
+export interface GitCommitAndPushResult {
+  committed: boolean;
+  pushed: boolean;
+  branchName: string;
+}
+
+export interface GitWorktreePort {
+  deriveBaseCloneDir(workspaceRoot: string, repoUrl: string): string;
+  setupWorktree(
+    route: RepoMatch,
+    baseCloneDir: string,
+    worktreePath: string,
+    issue: Pick<Issue, "identifier" | "branchName">,
+    branchPrefix?: string,
+  ): Promise<GitCloneResult>;
+  syncWorktree(baseCloneDir: string): Promise<void>;
+  removeWorktree(baseCloneDir: string, worktreePath: string, force?: boolean): Promise<void>;
+  cloneInto(
+    route: RepoMatch,
+    workspaceDir: string,
+    issue: Pick<Issue, "identifier" | "branchName">,
+    branchPrefix?: string,
+  ): Promise<GitCloneResult>;
+}
+
+export interface GitPostRunPort {
+  commitAndPush(
+    workspaceDir: string,
+    message: string,
+    branchName?: string,
+    tokenEnvName?: string,
+  ): Promise<GitCommitAndPushResult>;
+  createPullRequest(
+    route: RepoMatch,
+    issue: Pick<Issue, "identifier" | "title" | "url">,
+    branchName: string,
+  ): Promise<unknown>;
+}
+
+export interface GitIntegrationPort extends GitWorktreePort, GitPostRunPort, GithubApiToolClient {}

@@ -19,7 +19,7 @@ test.describe("Queue / Issue Smoke", () => {
     const queue = new QueuePage(page);
     await queue.navigate();
 
-    // Mock provides 4 columns: Backlog, Todo, In Progress, Done
+    // Mock provides 5 columns: Backlog, Todo, In Progress, Done, Canceled
     await expect(queue.columnByLabel("Todo")).toBeVisible({ timeout: 5000 });
     await expect(queue.columnByLabel("In Progress")).toBeVisible({ timeout: 5000 });
     await expect(queue.columnByLabel("Done")).toBeVisible({ timeout: 5000 });

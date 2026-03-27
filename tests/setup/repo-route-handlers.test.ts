@@ -137,10 +137,8 @@ describe("repo route handlers", () => {
     });
 
     const { baseUrl } = await startSetupApiServer({ configOverlayStore });
-    const response = await fetch(`${baseUrl}/api/v1/setup/repo-route`, {
+    const response = await fetch(`${baseUrl}/api/v1/setup/repo-route/0`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ index: 0 }),
     });
 
     expect(response.status).toBe(200);
@@ -159,10 +157,8 @@ describe("repo route handlers", () => {
     vi.spyOn(configOverlayStore, "toMap").mockReturnValue({ repos: [] });
 
     const { baseUrl } = await startSetupApiServer({ configOverlayStore });
-    const response = await fetch(`${baseUrl}/api/v1/setup/repo-route`, {
+    const response = await fetch(`${baseUrl}/api/v1/setup/repo-route/5`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ index: 5 }),
     });
 
     expect(response.status).toBe(400);

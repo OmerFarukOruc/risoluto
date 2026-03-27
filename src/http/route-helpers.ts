@@ -26,8 +26,8 @@ export function serializeSnapshot(snapshot: RuntimeSnapshot & Record<string, unk
       label: column.label,
       kind: column.kind,
       terminal: Boolean(column.terminal),
-      count: column.count,
-      issues: column.issues,
+      count: column.count ?? column.issues?.length ?? 0,
+      issues: column.issues ?? [],
     })),
     codex_totals: {
       input_tokens: snapshot.codexTotals.inputTokens,

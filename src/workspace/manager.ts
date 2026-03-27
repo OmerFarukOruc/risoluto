@@ -1,3 +1,4 @@
+// Single-concern: workspace lifecycle management across clone, worktree, cleanup, and path safety.
 import { rm, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";

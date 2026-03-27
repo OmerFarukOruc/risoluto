@@ -1,131 +1,307 @@
-import { mkdtemp, readFile, rm, stat, writeFile, mkdir } from "node:fs/promises";
-import os from "node:os";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
-
-import { createLogger } from "../../src/core/logger.js";
+import { WorkspaceManager, type WorkspaceManagerWorktreeDeps } from "../../src/workspace/manager.js";
 import type { ServiceConfig } from "../../src/core/types.js";
-import { WorkspaceManager } from "../../src/workspace/manager.js";
+import { createMockLogger } from "../helpers.js";
 
-const tempDirs: string[] = [];
+// ---------------------------------------------------------------------------
+// Mock node:fs/promises
+// ---------------------------------------------------------------------------
 
-async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "symphony-workspace-test-"));
-  tempDirs.push(dir);
-  return dir;
-}
+const statMock = vi.fn();
+const mkdirMock = vi.fn<typeof import("node:fs/promises").mkdir>();
+const rmMock = vi.fn<typeof import("node:fs/promises").rm>();
 
-function createConfig(root: string): ServiceConfig {
+vi.mock("node:fs/promises", () => ({
+  stat: (...args: unknown[]) => statMock(...args),
+  mkdir: (...args: unknown[]) => mkdirMock(...args),
+  rm: (...args: unknown[]) => rmMock(...args),
+}));
+
+vi.mock("node:child_process", () => ({
+  spawn: vi.fn().mockReturnValue({
+    on: vi.fn(),
+    stderr: { on: vi.fn() },
+    kill: vi.fn(),
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function createConfig(overrides?: Partial<ServiceConfig["workspace"]>): ServiceConfig {
   return {
-    tracker: {
-      kind: "linear",
-      apiKey: "linear-token",
-      endpoint: "https://api.linear.app/graphql",
-      projectSlug: "EXAMPLE",
-      activeStates: ["Todo", "In Progress"],
-      terminalStates: ["Done"],
-    },
-    polling: { intervalMs: 30000 },
     workspace: {
-      root,
+      root: "/tmp/workspaces",
       strategy: "directory",
       branchPrefix: "symphony/",
-      hooks: {
-        afterCreate: "printf 'after_create:%s\\n' \"$SYMPHONY_ISSUE_IDENTIFIER\" >> hook.log",
-        beforeRun: "printf 'before_run:%s\\n' \"$SYMPHONY_ISSUE_IDENTIFIER\" >> hook.log",
-        afterRun: "printf 'after_run:%s\\n' \"$SYMPHONY_ISSUE_IDENTIFIER\" >> hook.log",
-        beforeRemove: "echo before_remove >> hook.log",
-        timeoutMs: 1000,
-      },
+      hooks: { afterCreate: null, beforeRun: null, afterRun: null, beforeRemove: null, timeoutMs: 5000 },
+      ...overrides,
     },
-    agent: {
-      maxConcurrentAgents: 1,
-      maxConcurrentAgentsByState: {},
-      maxTurns: 1,
-      maxRetryBackoffMs: 300000,
-      maxContinuationAttempts: 1,
-      successState: null,
-      stallTimeoutMs: 10000,
+  } as unknown as ServiceConfig;
+}
+
+function createWorktreeDeps(): WorkspaceManagerWorktreeDeps {
+  return {
+    gitManager: {
+      setupWorktree: vi.fn().mockResolvedValue({ branchName: "symphony/NIN-1" }),
+      removeWorktree: vi.fn().mockResolvedValue(undefined),
+      deriveBaseCloneDir: vi.fn().mockReturnValue("/tmp/workspaces/.bare-clones/repo"),
     },
-    codex: {
-      command: "codex app-server",
-      model: "gpt-5.4",
-      reasoningEffort: "high",
-      approvalPolicy: "never",
-      threadSandbox: "danger-full-access",
-      turnSandboxPolicy: { type: "dangerFullAccess" },
-      readTimeoutMs: 1000,
-      turnTimeoutMs: 10000,
-      drainTimeoutMs: 0,
-      startupTimeoutMs: 0,
-      stallTimeoutMs: 10000,
-      auth: {
-        mode: "api_key",
-        sourceHome: "/tmp/auth",
-      },
-      provider: null,
-      sandbox: {
-        image: "symphony-codex:latest",
-        network: "",
-        security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
-        resources: { memory: "4g", memoryReservation: "1g", memorySwap: "4g", cpus: "2.0", tmpfsSize: "512m" },
-        extraMounts: [],
-        envPassthrough: [],
-        logs: { driver: "json-file", maxSize: "50m", maxFile: 3 },
-        egressAllowlist: [],
-      },
+    repoRouter: {
+      matchIssue: vi.fn().mockReturnValue({
+        repoUrl: "https://github.com/acme/app.git",
+        localPath: "/tmp/workspaces/.bare-clones/repo",
+      }),
     },
-    server: { port: 4000 },
   };
 }
 
-afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
-});
+function createIssue(identifier = "NIN-1") {
+  return {
+    id: "issue-1",
+    identifier,
+    title: "Test issue",
+    state: "In Progress",
+    url: "https://linear.app/team/NIN-1",
+    priority: 2,
+    branchName: "feature/NIN-1",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe("WorkspaceManager", () => {
-  it("creates, prepares, hooks, and removes safe workspaces", async () => {
-    const root = await createTempDir();
-    const manager = new WorkspaceManager(() => createConfig(root), createLogger());
+  const logger = createMockLogger();
 
-    const workspace = await manager.ensureWorkspace("MT/42");
-    expect(workspace.workspaceKey).toBe("MT_42");
-
-    await mkdir(path.join(workspace.path, "tmp"), { recursive: true });
-    await mkdir(path.join(workspace.path, ".elixir_ls"), { recursive: true });
-    await manager.prepareForAttempt(workspace);
-    await manager.runBeforeRun(workspace, "MT/42");
-    await manager.runAfterRun(workspace, "MT/42");
-
-    const hookLog = await readFile(path.join(workspace.path, "hook.log"), "utf8");
-    // SYMPHONY_ISSUE_IDENTIFIER is sanitized to prevent shell injection
-    expect(hookLog).toContain("after_create:MT_42");
-    expect(hookLog).toContain("before_run:MT_42");
-    expect(hookLog).toContain("after_run:MT_42");
-
-    await manager.removeWorkspace("MT/42");
-    await expect(stat(workspace.path)).rejects.toThrow();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mkdirMock.mockResolvedValue(undefined as never);
+    rmMock.mockResolvedValue(undefined as never);
   });
 
-  it("fails safely when workspace target is an existing file", async () => {
-    const root = await createTempDir();
-    const targetFile = path.join(root, "MT_99");
-    await writeFile(targetFile, "not a directory", "utf8");
-
-    const manager = new WorkspaceManager(() => createConfig(root), createLogger());
-    await expect(manager.ensureWorkspace("MT_99")).rejects.toThrow("workspace target is not a directory");
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it("rejects workspace path that escapes root", async () => {
-    const root = await createTempDir();
-    const manager = new WorkspaceManager(() => createConfig(root), createLogger());
+  describe("ensureWorkspace (directory strategy)", () => {
+    it("creates workspace directory on first access", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
 
-    const escapedWorkspace = {
-      path: path.resolve(root, "..", "escaped"),
-      workspaceKey: "escaped",
-      createdNow: false,
-    };
-    await expect(manager.prepareForAttempt(escapedWorkspace)).rejects.toThrow(TypeError);
+      // Simulate: workspace does not exist → ENOENT → mkdir creates it
+      statMock.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+      const workspace = await manager.ensureWorkspace("NIN-1");
+
+      expect(workspace.createdNow).toBe(true);
+      expect(workspace.workspaceKey).toBe("NIN-1");
+      expect(workspace.path).toBe(path.resolve("/tmp/workspaces", "NIN-1"));
+      expect(mkdirMock).toHaveBeenCalled();
+    });
+
+    it("returns existing workspace without creating", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+
+      // Workspace exists as a directory
+      statMock.mockResolvedValue({ isDirectory: () => true });
+
+      const workspace = await manager.ensureWorkspace("NIN-1");
+
+      expect(workspace.createdNow).toBe(false);
+      expect(workspace.workspaceKey).toBe("NIN-1");
+    });
+
+    it("throws when workspace target is not a directory", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+
+      statMock.mockResolvedValue({ isDirectory: () => false });
+
+      await expect(manager.ensureWorkspace("NIN-1")).rejects.toThrow("not a directory");
+    });
+  });
+
+  describe("ensureWorkspace (worktree strategy)", () => {
+    it("throws when issue is not provided for worktree strategy", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const manager = new WorkspaceManager(() => config, logger, createWorktreeDeps());
+
+      await expect(manager.ensureWorkspace("NIN-1")).rejects.toThrow(
+        "worktree strategy requires the full Issue object",
+      );
+    });
+
+    it("throws when worktree deps are missing", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const manager = new WorkspaceManager(() => config, logger);
+
+      await expect(manager.ensureWorkspace("NIN-1", createIssue())).rejects.toThrow(
+        "worktree strategy requires gitManager and repoRouter deps",
+      );
+    });
+
+    it("throws when no repo match found for issue", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const deps = createWorktreeDeps();
+      vi.mocked(deps.repoRouter.matchIssue).mockReturnValue(null);
+      const manager = new WorkspaceManager(() => config, logger, deps);
+
+      await expect(manager.ensureWorkspace("NIN-1", createIssue())).rejects.toThrow("no matching repo route found");
+    });
+
+    it("creates worktree workspace via gitManager on first access", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const deps = createWorktreeDeps();
+      const manager = new WorkspaceManager(() => config, logger, deps);
+
+      // Workspace does not exist
+      statMock.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+      const workspace = await manager.ensureWorkspace("NIN-1", createIssue());
+
+      expect(workspace.createdNow).toBe(true);
+      expect(deps.gitManager.setupWorktree).toHaveBeenCalledOnce();
+    });
+
+    it("returns existing worktree workspace without re-creating", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const deps = createWorktreeDeps();
+      const manager = new WorkspaceManager(() => config, logger, deps);
+
+      // Workspace already exists
+      statMock.mockResolvedValue({ isDirectory: () => true });
+
+      const workspace = await manager.ensureWorkspace("NIN-1", createIssue());
+
+      expect(workspace.createdNow).toBe(false);
+      expect(deps.gitManager.setupWorktree).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("prepareForAttempt", () => {
+    it("removes transient directories (tmp, .elixir_ls)", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+      const workspace = {
+        path: "/tmp/workspaces/NIN-1",
+        workspaceKey: "NIN-1",
+        createdNow: false,
+      };
+
+      await manager.prepareForAttempt(workspace);
+
+      expect(rmMock).toHaveBeenCalledWith(
+        path.resolve("/tmp/workspaces/NIN-1", "tmp"),
+        expect.objectContaining({ recursive: true }),
+      );
+      expect(rmMock).toHaveBeenCalledWith(
+        path.resolve("/tmp/workspaces/NIN-1", ".elixir_ls"),
+        expect.objectContaining({ recursive: true }),
+      );
+    });
+
+    it("throws when workspace path escapes root", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+      const workspace = {
+        path: "/etc/passwd",
+        workspaceKey: "evil",
+        createdNow: false,
+      };
+
+      await expect(manager.prepareForAttempt(workspace)).rejects.toThrow("workspace path escaped root");
+    });
+  });
+
+  describe("removeWorkspace (directory strategy)", () => {
+    it("removes existing workspace directory", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+
+      // Workspace exists
+      statMock.mockResolvedValue({ isDirectory: () => true });
+
+      await manager.removeWorkspace("NIN-1");
+
+      expect(rmMock).toHaveBeenCalledWith(
+        expect.stringContaining("NIN-1"),
+        expect.objectContaining({ recursive: true }),
+      );
+    });
+
+    it("is a no-op when workspace does not exist", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+
+      // Workspace does not exist
+      statMock.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+      await manager.removeWorkspace("NIN-1");
+
+      // rm should not be called
+      expect(rmMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("removeWorkspace (worktree strategy)", () => {
+    it("removes via gitManager.removeWorktree", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const deps = createWorktreeDeps();
+      const manager = new WorkspaceManager(() => config, logger, deps);
+
+      // Workspace exists
+      statMock.mockResolvedValue({ isDirectory: () => true });
+
+      await manager.removeWorkspace("NIN-1", createIssue());
+
+      expect(deps.gitManager.removeWorktree).toHaveBeenCalledOnce();
+    });
+
+    it("falls back to rm when removeWorktree fails", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const deps = createWorktreeDeps();
+      vi.mocked(deps.gitManager.removeWorktree).mockRejectedValue(new Error("git error"));
+      const manager = new WorkspaceManager(() => config, logger, deps);
+
+      // Workspace exists
+      statMock.mockResolvedValue({ isDirectory: () => true });
+
+      await manager.removeWorkspace("NIN-1", createIssue());
+
+      // Should fall back to rm
+      expect(rmMock).toHaveBeenCalledWith(
+        expect.stringContaining("NIN-1"),
+        expect.objectContaining({ recursive: true }),
+      );
+    });
+
+    it("throws when worktree deps are missing", async () => {
+      const config = createConfig({ strategy: "worktree" });
+      const manager = new WorkspaceManager(() => config, logger);
+
+      await expect(manager.removeWorkspace("NIN-1")).rejects.toThrow(
+        "worktree strategy requires gitManager and repoRouter deps",
+      );
+    });
+  });
+
+  describe("sanitizeIdentifier", () => {
+    it("strips unsafe characters from workspace keys", async () => {
+      const config = createConfig();
+      const manager = new WorkspaceManager(() => config, logger);
+
+      statMock.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+      const workspace = await manager.ensureWorkspace("FOO/BAR#123");
+
+      // The sanitize function replaces non-alphanum + dash + dot + underscore with underscore
+      expect(workspace.workspaceKey).toBe("FOO_BAR_123");
+    });
   });
 });

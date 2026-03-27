@@ -1,6 +1,6 @@
 import { failureOutcome } from "./abort-outcomes.js";
 import { inspectOomKilled } from "../docker/lifecycle.js";
-import type { AgentRunnerTurnExecutionInput, AgentRunnerTurnExecutionState } from "./turn-executor.types.js";
+import type { AgentRunnerTurnExecutionInput, AgentRunnerTurnExecutionState } from "./turn-executor-types.js";
 import type { RunOutcome } from "../core/types.js";
 
 export async function classifyExitState(

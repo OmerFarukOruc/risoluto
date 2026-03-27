@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 
-import type { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { ModelUpdateBody } from "./request-schemas.js";
 
 /**
@@ -10,7 +10,7 @@ import type { ModelUpdateBody } from "./request-schemas.js";
  * validated and attached the parsed body to `req.body`.
  */
 export async function handleModelUpdate(
-  orchestrator: Orchestrator,
+  orchestrator: OrchestratorPort,
   request: Request,
   response: Response,
 ): Promise<void> {

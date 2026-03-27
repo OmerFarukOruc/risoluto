@@ -3,7 +3,7 @@ import { ConfigPage } from "../../pages/config.page";
 
 /**
  * Complements config-secrets.smoke.spec.ts and settings-interactions.smoke.spec.ts
- * by covering the unified page load, General tab section rendering, and a11y.
+ * by covering the unified page load, rail navigation, section rendering, and a11y.
  * Credential / Advanced / Legacy-redirect tests live in those sibling specs.
  */
 test.describe("Settings Unified View Smoke", () => {
@@ -21,26 +21,31 @@ test.describe("Settings Unified View Smoke", () => {
     await expect(page.locator("h1, .page-title").first()).toContainText("Settings");
   });
 
-  test("settings page renders all three tab controls", async ({ page }) => {
+  test("settings page renders sidebar rail with navigation items", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
-    await expect(settings.tabButton("General")).toBeVisible({ timeout: 5000 });
-    await expect(settings.tabButton("Credentials")).toBeVisible({ timeout: 5000 });
-    await expect(settings.tabButton("Advanced")).toBeVisible({ timeout: 5000 });
+    await expect(settings.settingsRail).toBeVisible({ timeout: 5000 });
+
+    // The rail should contain multiple navigation items (Tracker, Agent, etc.)
+    const navItems = settings.railNavItems;
+    const count = await navItems.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 
-  // ── General Tab Section Content ────────────────────────────────────
+  // ── Rail Section Content ──────────────────────────────────────────
 
-  test("general tab is selected by default and shows Tracker section", async ({ page }) => {
+  test("first section is selected by default and shows Tracker section", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
-    await expect(settings.tabButton("General")).toHaveAttribute("aria-selected", "true");
+    // The first nav item in the rail should be selected
+    const firstNavItem = settings.railNavItems.first();
+    await expect(firstNavItem).toHaveClass(/is-selected/);
     await expect(page.getByText("Tracker").first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("general tab renders settings section title elements", async ({ page }) => {
+  test("settings page renders section title elements", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
@@ -53,13 +58,13 @@ test.describe("Settings Unified View Smoke", () => {
 
   // ── Accessibility ──────────────────────────────────────────────────
 
-  test("tab controls are keyboard-focusable", async ({ page }) => {
+  test("rail navigation items are keyboard-focusable", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
-    const generalTab = settings.tabButton("General");
-    await expect(generalTab).toBeVisible({ timeout: 5000 });
-    await generalTab.focus();
-    await expect(generalTab).toBeFocused();
+    const firstNavItem = settings.railNavItems.first();
+    await expect(firstNavItem).toBeVisible({ timeout: 5000 });
+    await firstNavItem.focus();
+    await expect(firstNavItem).toBeFocused();
   });
 });

@@ -258,6 +258,14 @@ describe("listWorkflowStages", () => {
     expect(inProgressStage?.kind).toBe("active");
   });
 
+  it("marks backlog state with kind 'backlog'", () => {
+    const config = createConfig({ activeStates: ["Backlog", "Todo", "In Progress"] });
+    const stages = listWorkflowStages(config);
+    const backlogStage = stages.find((s) => s.label === "Backlog");
+    expect(backlogStage?.kind).toBe("backlog");
+    expect(backlogStage?.terminal).toBe(false);
+  });
+
   it("deduplicates stages when same state appears in active and terminal", () => {
     const config = createConfig({
       activeStates: ["In Progress"],

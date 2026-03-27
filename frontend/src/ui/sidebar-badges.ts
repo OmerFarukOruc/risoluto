@@ -9,11 +9,11 @@ export interface SidebarBadgeCounts {
 export function collectUniqueIssues(snapshot: RuntimeSnapshot): RuntimeIssueView[] {
   const issues = new Map<string, RuntimeIssueView>();
   const groups = [
-    snapshot.queued,
-    snapshot.running,
-    snapshot.retrying,
-    snapshot.completed,
-    ...snapshot.workflow_columns.map((column) => column.issues),
+    snapshot.queued ?? [],
+    snapshot.running ?? [],
+    snapshot.retrying ?? [],
+    snapshot.completed ?? [],
+    ...(snapshot.workflow_columns ?? []).map((column) => column.issues ?? []),
   ];
 
   for (const group of groups) {
@@ -31,7 +31,7 @@ export function collectUniqueIssues(snapshot: RuntimeSnapshot): RuntimeIssueView
 }
 
 function getPendingCount(snapshot: RuntimeSnapshot): number {
-  const workflowCount = snapshot.workflow_columns.reduce((total, column) => {
+  const workflowCount = (snapshot.workflow_columns ?? []).reduce((total, column) => {
     return column.terminal ? total : total + column.count;
   }, 0);
 
@@ -39,14 +39,14 @@ function getPendingCount(snapshot: RuntimeSnapshot): number {
     return workflowCount;
   }
 
-  return snapshot.queued.length + snapshot.running.length + snapshot.retrying.length;
+  return (snapshot.queued ?? []).length + (snapshot.running ?? []).length + (snapshot.retrying ?? []).length;
 }
 
 export function buildSidebarBadgeCounts(snapshot: RuntimeSnapshot): SidebarBadgeCounts {
   const issues = collectUniqueIssues(snapshot);
   return {
     "/queue": getPendingCount(snapshot),
-    "/notifications": snapshot.recent_events.length,
+    "/notifications": (snapshot.recent_events ?? []).length,
     "/git": issues.filter((issue) => Boolean(issue.branchName)).length,
   };
 }

@@ -9,12 +9,14 @@ import {
   SECTION_GROUPS,
   sectionGroups,
   sectionMatchesFilter,
+  sectionVisibleInMode,
   SECTION_IDS,
   type SettingsSectionDefinition,
 } from "./settings-helpers";
 import { createSectionAction, createSettingsField } from "./settings-forms";
 import { getValueAtPath } from "./settings-paths";
 import type { SettingsState } from "./settings-state";
+import type { SettingsMode } from "./settings-types";
 
 interface SettingsRenderOptions {
   onFilter: (value: string) => void;
@@ -22,12 +24,22 @@ interface SettingsRenderOptions {
   onToggleDiff: (sectionId: string) => void;
   onTogglePaths: (sectionId: string) => void;
   onSaveSection: (sectionId: string) => void;
+  /** Called when the user switches between Simple and Power User modes. */
+  onSetMode?: (mode: SettingsMode) => void;
   /** Called when a field-level action button is clicked (e.g. "Browse" for project slug). */
   onFieldAction?: (sectionId: string, fieldPath: string, actionKind: string) => void;
 }
 
 /** AbortController for cleaning up event listeners between renders. */
 let renderAbortController: AbortController | null = null;
+
+/**
+ * When a rail click triggers `scrollIntoView({ behavior: "smooth" })`, the
+ * scroll spy would fire on every frame and flash through intermediate sections.
+ * While `true`, scroll events are ignored. Cleared via debounce after scroll settles.
+ */
+let scrollSpySuppressed = false;
+let scrollSettleTimer = 0;
 
 export function renderSettingsLayout(
   rail: HTMLElement,
@@ -41,15 +53,98 @@ export function renderSettingsLayout(
   renderAbortController = new AbortController();
   const signal = renderAbortController.signal;
 
-  const visibleSections = sections.filter((section) =>
-    sectionMatchesFilter(section, state.filter, state.drafts[section.id]),
-  );
+  // Sort sections by sidebar group order so content and rail stay aligned.
+  const groupOrder = Object.values(SECTION_GROUPS).map((g) => g.id);
+  const visibleSections = sections
+    .filter(
+      (section) =>
+        sectionVisibleInMode(section, state.mode) &&
+        sectionMatchesFilter(section, state.filter, state.drafts[section.id]),
+    )
+    .sort((a, b) => {
+      const aGroup = groupOrder.indexOf(a.groupId ?? "");
+      const bGroup = groupOrder.indexOf(b.groupId ?? "");
+      return aGroup - bGroup;
+    });
   if (!visibleSections.some((section) => section.id === state.selectedSectionId)) {
     state.selectedSectionId = visibleSections[0]?.id ?? state.selectedSectionId;
   }
   renderRail(rail, visibleSections, state, options, signal);
   renderContent(content, searchInput, visibleSections, state, options, signal);
+
+  // Scroll spy: sync rail highlight with content scroll position.
+  // Deferred to next frame because `content` may not be in the DOM yet
+  // (renderAsyncState calls renderContent to build nodes, then appends them).
+  requestAnimationFrame(() => {
+    if (signal.aborted) return;
+    const scrollRoot = content.closest<HTMLElement>(".shell-outlet");
+    if (!scrollRoot) return;
+
+    let rafId = 0;
+    const updateActiveSection = () => {
+      const rootTop = scrollRoot.getBoundingClientRect().top;
+      const anchor = rootTop + scrollRoot.clientHeight * 0.2;
+      let activeId = visibleSections[0]?.id;
+
+      // At bottom of scroll — always select last section
+      const atBottom = scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight < 2;
+      if (atBottom && visibleSections.length > 0) {
+        activeId = visibleSections.at(-1)!.id;
+      } else {
+        for (const section of visibleSections) {
+          const el = document.getElementById(`settings-${section.id}`);
+          if (!el) continue;
+          if (el.getBoundingClientRect().top <= anchor) {
+            activeId = section.id;
+          }
+        }
+      }
+
+      if (activeId && activeId !== state.selectedSectionId) {
+        state.selectedSectionId = activeId;
+        highlightRailItem(rail, activeId);
+      }
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(rafId);
+      if (scrollSpySuppressed) {
+        // While suppressed, keep resetting the settle timer.
+        // Once scroll events stop for 150ms, re-enable spy and do final sync.
+        clearTimeout(scrollSettleTimer);
+        scrollSettleTimer = window.setTimeout(() => {
+          scrollSpySuppressed = false;
+          updateActiveSection();
+        }, 150);
+        return;
+      }
+      rafId = requestAnimationFrame(updateActiveSection);
+    };
+
+    scrollRoot.addEventListener("scroll", onScroll, { signal, passive: true });
+    signal.addEventListener("abort", () => cancelAnimationFrame(rafId));
+    // Initial sync
+    requestAnimationFrame(updateActiveSection);
+  });
+
   return visibleSections;
+}
+
+/** Toggle `.is-selected` on rail buttons to match the active section. */
+function highlightRailItem(rail: HTMLElement, sectionId: string): void {
+  for (const btn of rail.querySelectorAll<HTMLElement>(".settings-nav-item")) {
+    const active = btn.dataset.sectionId === sectionId;
+    btn.classList.toggle("is-selected", active);
+    if (active) {
+      // Scroll within the rail only — avoid scrollIntoView which scrolls
+      // all ancestors and fights with the content scroll spy.
+      const railRect = rail.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      if (btnRect.top < railRect.top || btnRect.bottom > railRect.bottom) {
+        rail.scrollTop += btnRect.top - railRect.top - railRect.height / 2 + btnRect.height / 2;
+      }
+    }
+  }
 }
 
 function renderRail(
@@ -60,12 +155,9 @@ function renderRail(
   signal: AbortSignal,
 ): void {
   rail.replaceChildren();
-  const card = document.createElement("section");
-  card.className = "mc-panel settings-rail-card";
-  const railLabel = document.createElement("span");
-  railLabel.className = "settings-rail-label";
-  railLabel.textContent = "Settings";
-  card.append(railLabel);
+
+  // ── Mode toggle: Simple / Power User ──────────────────
+  rail.append(createModeToggle(state, options, signal));
 
   for (const group of Object.values(SECTION_GROUPS)) {
     const groupSections = sections.filter((section) => section.groupId === group.id);
@@ -73,18 +165,39 @@ function renderRail(
 
     const header = document.createElement("div");
     header.className = "settings-nav-group-header";
-    header.append(createIcon(group.icon, { size: 14 }));
-    const headerLabel = document.createElement("span");
-    headerLabel.textContent = group.label;
-    header.append(headerLabel);
-    card.append(header);
+    header.append(
+      createIcon(group.icon, { size: 14, className: "settings-nav-group-icon" }),
+      document.createTextNode(group.label),
+    );
+    rail.append(header);
 
     for (const section of groupSections) {
-      card.append(createNavItem(section, state, options, signal));
+      rail.append(createNavItem(section, state, options, signal));
     }
   }
+}
 
-  rail.append(card);
+function createModeToggle(state: SettingsState, options: SettingsRenderOptions, signal: AbortSignal): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "settings-mode-toggle";
+
+  const simpleBtn = document.createElement("button");
+  simpleBtn.type = "button";
+  simpleBtn.className = "settings-mode-btn";
+  simpleBtn.classList.toggle("is-active", state.mode === "simple");
+  simpleBtn.textContent = "Simple";
+
+  const advancedBtn = document.createElement("button");
+  advancedBtn.type = "button";
+  advancedBtn.className = "settings-mode-btn";
+  advancedBtn.classList.toggle("is-active", state.mode === "advanced");
+  advancedBtn.textContent = "Power User";
+
+  simpleBtn.addEventListener("click", () => options.onSetMode?.("simple"), { signal });
+  advancedBtn.addEventListener("click", () => options.onSetMode?.("advanced"), { signal });
+
+  wrapper.append(simpleBtn, advancedBtn);
+  return wrapper;
 }
 
 function createNavItem(
@@ -144,16 +257,18 @@ function createNavItem(
     section.description.length > 44 ? `${section.description.slice(0, 44)}\u2026` : section.description;
 
   button.append(topRow, desc);
+  button.dataset.sectionId = section.id;
   button.addEventListener(
     "click",
     () => {
-      options.onSelectSection(section.id);
+      state.selectedSectionId = section.id;
+      highlightRailItem(button.closest(".settings-rail") ?? button.parentElement!, section.id);
+      // Suppress scroll spy until the smooth-scroll settles so intermediate
+      // sections don't flash in the rail.
+      scrollSpySuppressed = true;
+      clearTimeout(scrollSettleTimer);
       const target = document.getElementById(`settings-${section.id}`);
-      if (target) {
-        const rect = target.getBoundingClientRect();
-        const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-        if (!inView) target.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
     { signal },
   );
@@ -197,12 +312,9 @@ function renderContent(
     return;
   }
 
-  const selectedSection = sections.find((section) => section.id === state.selectedSectionId) ?? sections[0];
-  if (!selectedSection) {
-    return;
+  for (const section of sections) {
+    content.append(buildSectionCard(section, state, options, signal));
   }
-
-  content.append(buildSectionCard(selectedSection, state, options, signal));
 }
 
 function buildSectionCard(
@@ -221,13 +333,21 @@ function buildSectionCard(
 
   card.append(buildSectionHeader(section));
 
-  const groups = sectionGroups(section);
+  const allGroups = sectionGroups(section);
+  // In Simple mode, hide expert-tier groups entirely
+  const groups = state.mode === "simple" ? allGroups.filter((g) => g.tier !== "expert") : allGroups;
+  let prevTier: string | undefined;
   groups.forEach((group, index) => {
-    card.append(createGroupElement(section, group, drafts, state, options, index === 0));
+    card.append(createGroupElement(section, group, drafts, state, options, index === 0, prevTier));
+    prevTier = group.tier ?? (group.advanced ? "expert" : "essential");
   });
 
   card.append(buildSectionActions(section, state, options, signal));
-  card.append(buildDevTools(section, drafts, state, options, signal));
+
+  // Developer tools: only in Power User mode
+  if (state.mode === "advanced") {
+    card.append(buildDevTools(section, drafts, state, options, signal));
+  }
 
   stack.append(card);
   return stack;
@@ -339,10 +459,20 @@ function createGroupElement(
   state: SettingsState,
   options: SettingsRenderOptions,
   first: boolean,
+  prevTier?: string,
 ): HTMLElement {
-  if (group.advanced) {
+  const tier = group.tier ?? (group.advanced ? "expert" : "essential");
+
+  // Expert tier → collapsible <details> with persisted open state
+  if (tier === "expert") {
     const details = document.createElement("details");
     details.className = "settings-group-collapsed";
+    const key = `${section.id}:${group.id}`;
+    details.open = state.openExperts.has(key);
+    details.addEventListener("toggle", () => {
+      if (details.open) state.openExperts.add(key);
+      else state.openExperts.delete(key);
+    });
 
     const summary = document.createElement("summary");
     summary.textContent = group.title;
@@ -356,6 +486,13 @@ function createGroupElement(
 
   const wrapper = document.createElement("section");
   wrapper.className = "settings-group";
+
+  // Standard tier → add a dashed separator if previous group was essential
+  if (tier === "standard" && prevTier === "essential") {
+    const sep = document.createElement("hr");
+    sep.className = "settings-tier-separator";
+    wrapper.append(sep);
+  }
 
   if (group.title !== "Settings") {
     const heading = document.createElement("div");

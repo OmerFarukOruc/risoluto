@@ -63,7 +63,7 @@ export function openProjectPicker(options: ProjectPickerOptions): void {
       card.type = "button";
       card.className = "project-picker-card";
       const name = document.createElement("strong");
-      name.textContent = String(project.name);
+      name.textContent = project.name;
       const slug = document.createElement("span");
       slug.className = "project-picker-slug";
       slug.textContent = project.slugId;
@@ -76,9 +76,9 @@ export function openProjectPicker(options: ProjectPickerOptions): void {
     }
   }
 
-  void api.getLinearProjects().then(
+  api.getLinearProjects().then(
     (result) => renderProjects(result.projects),
-    (error) => {
+    (error: unknown) => {
       list.textContent = error instanceof Error ? error.message : "Failed to load projects.";
     },
   );

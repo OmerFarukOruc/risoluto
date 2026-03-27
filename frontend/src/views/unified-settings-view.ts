@@ -9,14 +9,11 @@ import {
 
 import { createConfigState } from "./config-state.js";
 import { createConfigPage } from "./config-view.js";
-import { createSecretsState } from "./secrets-state.js";
-import { createSecretsPage } from "./secrets-view.js";
 import { createSettingsState } from "./settings-state.js";
 import { createSettingsPage } from "./settings-view.js";
 
 interface UnifiedSettingsCache {
   advancedState: ReturnType<typeof createConfigState>;
-  credentialsState: ReturnType<typeof createSecretsState>;
   generalState: ReturnType<typeof createSettingsState>;
 }
 
@@ -28,7 +25,6 @@ function getCachedState(): UnifiedSettingsCache {
   }
   cachedState = {
     generalState: createSettingsState(),
-    credentialsState: createSecretsState(),
     advancedState: createConfigState(),
   };
   return cachedState;
@@ -61,7 +57,7 @@ function readRequestedSection(): { section: SettingsSectionHash | null; shouldRe
 
 function scrollToSection(section: SettingsSectionHash, container: HTMLElement): void {
   if (section === "credentials") {
-    const credentialsEl = container.querySelector<HTMLElement>(".settings-credentials-section");
+    const credentialsEl = container.querySelector<HTMLElement>("#settings-credentials");
     credentialsEl?.scrollIntoView({ behavior: "smooth", block: "start" });
   } else if (section === "devtools") {
     const devtoolsEl = container.querySelector<HTMLDetailsElement>(".settings-devtools-section");
@@ -70,36 +66,6 @@ function scrollToSection(section: SettingsSectionHash, container: HTMLElement): 
       devtoolsEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
-}
-
-function buildCredentialsSection(state: UnifiedSettingsCache): HTMLElement {
-  const section = document.createElement("section");
-  section.className = "settings-credentials-section mc-panel";
-
-  const secretsPage = createSecretsPage({ state: state.credentialsState });
-  const extracted = extractHeader(secretsPage);
-
-  const sectionHeader = document.createElement("div");
-  sectionHeader.className = "settings-section-header";
-  const headerRow = document.createElement("div");
-  headerRow.className = "settings-section-header-row";
-  const headerCopy = document.createElement("div");
-  const heading = document.createElement("h2");
-  heading.textContent = "Credentials";
-  const description = document.createElement("p");
-  description.textContent = "Manage encrypted API keys and tokens. Values remain write-only after save.";
-  headerCopy.append(heading, description);
-  headerRow.append(headerCopy);
-  if (extracted.actions.length > 0) {
-    const actionsWrap = document.createElement("div");
-    actionsWrap.className = "settings-section-header-actions";
-    actionsWrap.append(...extracted.actions);
-    headerRow.append(actionsWrap);
-  }
-  sectionHeader.append(headerRow);
-
-  section.append(sectionHeader, secretsPage);
-  return section;
 }
 
 function buildDevtoolsSection(state: UnifiedSettingsCache): HTMLDetailsElement {
@@ -135,10 +101,14 @@ export function createUnifiedSettingsPage(): HTMLElement {
   body.className = "settings-unified-body";
 
   const generalSection = createSettingsPage({ state: state.generalState });
-  const credentialsSection = buildCredentialsSection(state);
+  const { actions: innerActions } = extractHeader(generalSection);
+  // Hoist the schema badge from the inner settings page into the unified header.
+  if (innerActions.length > 0) {
+    header.append(...innerActions);
+  }
   const devtoolsSection = buildDevtoolsSection(state);
 
-  body.append(generalSection, credentialsSection, devtoolsSection);
+  body.append(generalSection, devtoolsSection);
   page.append(header, body);
 
   // Scroll to requested section after initial render

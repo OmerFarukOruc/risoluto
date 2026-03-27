@@ -413,7 +413,7 @@ The repository is at **`v0.4.0`** and implements a full local orchestration loop
 
 ### §13.2 Logging Outputs
 
-- ✅ Structured Winston logger to stdout
+- ✅ Structured Pino logger to stdout
 - ✅ Startup/validation/dispatch failures visible without debugger
 
 ### §13.3 Runtime Snapshot

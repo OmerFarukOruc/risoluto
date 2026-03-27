@@ -20,12 +20,13 @@ import { applyStagger, button, kv } from "./issue-inspector-common.js";
 export function buildDescriptionSection(detail: IssueDetail): HTMLElement {
   const section = document.createElement("section");
   section.className = "issue-section mc-panel expand-in";
-  section.append(Object.assign(document.createElement("h2"), { textContent: "Details & blockers" }));
+  section.append(Object.assign(document.createElement("h2"), { textContent: "Description" }));
   const body = document.createElement("div");
   body.className = detail.description ? "issue-body-copy" : "issue-placeholder";
-  body.textContent = detail.description?.trim() || "Not exposed yet";
+  body.textContent = detail.description?.trim() || "No description";
   section.append(body);
   if ((detail.blockedBy ?? []).length > 0) {
+    section.append(Object.assign(document.createElement("h3"), { textContent: "Blocked by" }));
     const blockers = document.createElement("div");
     blockers.className = "issue-blocker-list";
     detail.blockedBy?.forEach((blocker) => {

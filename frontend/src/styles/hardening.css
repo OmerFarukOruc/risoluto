@@ -5,6 +5,17 @@
    ============================================ */
 
 /* ============================================
+   HTML ATTRIBUTE INTEGRITY
+   ============================================ */
+
+/* Ensure [hidden] works even when component classes set display explicitly.
+   Author CSS (.mc-button { display: flex }) wins over UA [hidden] { display: none }
+   due to cascade origin — this !important re-establishes correct behaviour. */
+[hidden] {
+  display: none !important;
+}
+
+/* ============================================
    TEXT OVERFLOW & WRAPPING
    ============================================ */
 

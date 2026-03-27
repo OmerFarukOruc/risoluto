@@ -1,21 +1,21 @@
 ---
 name: visual-verify
 description: >
-  Visually verify Symphony dashboard and logs UI changes using agent-browser
-  with its bundled Chrome. Use when the user asks to verify UI, QA the
-  dashboard, dogfood the app, take screenshots, compare before and after,
-  check CSS or layout changes, inspect visual regressions, or exercise browser
-  automation against Symphony's local web UI. Also use after editing
-  dashboard-template.ts, logs-template.ts, or other dashboard-facing UI code.
-  Do not use this skill for generic browser automation, non-Symphony sites,
-  or backend-only debugging without a visual verification goal.
+  TRIGGER MANDATORILY after ANY edit to dashboard-template.ts, logs-template.ts,
+  or any file that affects Symphony's web UI (CSS, templates, HTML generation,
+  frontend routes, or static assets). Also trigger when the user mentions UI
+  verification, screenshots, dashboard QA, dogfooding, visual regression, layout
+  issues, CSS changes, or browser testing — even implicitly (e.g., "check the UI",
+  "does it look right", "verify the dashboard"). Do NOT use for generic browser
+  automation, non-Symphony sites, or backend-only debugging without a visual goal.
+  This skill is NOT optional after UI changes — it is part of the definition of done.
 compatibility: >
   Requires local Symphony UI at http://127.0.0.1:4000, agent-browser
   (with bundled Chrome via `agent-browser install`), MASTER_KEY env var,
   LINEAR_API_KEY env var, and the repo-root agent-browser.json config.
 metadata:
   author: symphony
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Visual Verify

@@ -113,7 +113,7 @@ Set a Linear issue to "In Progress". Within one poll cycle (~30s), Symphony pick
 <summary>📦 <strong>Development Setup</strong> — without Docker</summary>
 
 ```bash
-npm install && npm run build && bash bin/build-sandbox.sh
+pnpm install && pnpm run build && bash bin/build-sandbox.sh
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_PROJECT_SLUG="your-linear-project-slug"
 node dist/cli/index.js ./WORKFLOW.example.md --port 4000
@@ -344,9 +344,9 @@ Symphony exposes a full JSON API at `http://localhost:4000/api/v1/`. Here are th
 ## 🧪 Testing
 
 ```bash
-npm test                  # Deterministic unit tests (Vitest, 783 tests)
-npm run test:watch        # Watch mode for local iteration
-npm run test:integration  # Opt-in live integration (requires credentials)
+pnpm test                  # Deterministic unit tests (Vitest, 783 tests)
+pnpm run test:watch        # Watch mode for local iteration
+pnpm run test:integration  # Opt-in live integration (requires credentials)
 ```
 
 ### Playwright E2E Tests
@@ -354,13 +354,13 @@ npm run test:integration  # Opt-in live integration (requires credentials)
 The dashboard has a full Playwright E2E suite with 37 smoke tests and 3 visual regression baselines. Tests run against a Vite dev server with fully mocked API routes — no backend needed.
 
 ```bash
-npx playwright test --project=smoke   # Smoke tests (37 tests, ~7s)
-npx playwright test --project=visual  # Visual regression (3 baselines)
-npx playwright test --project=visual --update-snapshots  # Regenerate baselines
+pnpm exec playwright test --project=smoke   # Smoke tests (37 tests, ~7s)
+pnpm exec playwright test --project=visual  # Visual regression (3 baselines)
+pnpm exec playwright test --project=visual --update-snapshots  # Regenerate baselines
 ```
 
 > [!TIP]
-> The integration suite skips cleanly when required credentials are absent — safe to run without API keys. E2E smoke tests require Playwright browsers (`npx playwright install chromium`).
+> The integration suite skips cleanly when required credentials are absent — safe to run without API keys. E2E smoke tests require Playwright browsers (`pnpm exec playwright install chromium`).
 
 ---
 

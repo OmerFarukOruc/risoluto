@@ -1,7 +1,7 @@
 {
   "name": "Symphony Orchestrator",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
-  "postCreateCommand": "npm ci",
+  "postCreateCommand": "corepack enable && pnpm install --frozen-lockfile",
   "customizations": {
     "vscode": {
       "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "ms-vscode.vscode-typescript-next"],

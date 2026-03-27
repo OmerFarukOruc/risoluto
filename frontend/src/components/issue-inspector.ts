@@ -18,7 +18,7 @@ import {
 } from "./issue-inspector-sections";
 import { createIssueAbortAction } from "./issue-inspector-abort";
 import { createLiveLog } from "./live-log.js";
-import { subscribeIssueEvents } from "../state/event-source.js";
+import { subscribeIssueEvents, subscribeIssueLifecycle } from "../state/event-source.js";
 
 interface IssueInspectorOptions {
   mode: "page" | "drawer";
@@ -126,10 +126,10 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     summaryStats.duration.element,
   );
 
-  let poll = 0;
   let hydrated = false;
   const liveLog = createLiveLog();
   let unsubscribeEvents: (() => void) | null = null;
+  let unsubscribeLifecycle: (() => void) | null = null;
 
   function renderLoading(): void {
     content.replaceChildren(skeletonCard(), skeletonCard(), skeletonCard());
@@ -233,18 +233,16 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     liveLog.clear();
     unsubscribeEvents?.();
     unsubscribeEvents = subscribeIssueEvents(id, (entry) => liveLog.append(entry));
-    window.clearInterval(poll);
-    poll = 0;
+    unsubscribeLifecycle?.();
+    unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void refresh());
     await refresh();
-    poll = window.setInterval(() => {
-      void refresh();
-    }, 10_000);
   }
 
   function destroy(): void {
-    window.clearInterval(poll);
     unsubscribeEvents?.();
     unsubscribeEvents = null;
+    unsubscribeLifecycle?.();
+    unsubscribeLifecycle = null;
   }
 
   if (currentId) {

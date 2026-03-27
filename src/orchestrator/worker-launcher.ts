@@ -325,6 +325,9 @@ export async function launchWorker(
     signal: entry.abortController.signal,
     onEvent: buildOnEventHandler(ctx, entry),
     previousThreadId: options?.previousThreadId ?? null,
+    onSteerReady: (steerFn) => {
+      entry.steerTurn = steerFn;
+    },
   });
   entry.promise = ctx.handleWorkerPromise(promise, issue, workspace, entry, attempt);
 }

@@ -14,6 +14,7 @@ import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "../../core/typ
 import type { SymphonyDatabase } from "./database.js";
 import { attempts, attemptEvents } from "./schema.js";
 import { attemptRecordToRow, attemptEventToRow } from "./mappers.js";
+import { toErrorString } from "../../utils/type-guards.js";
 
 export interface MigrationResult {
   attemptCount: number;
@@ -71,7 +72,7 @@ async function loadArchiveFiles(
       db.insert(attempts).values(attemptRecordToRow(record)).onConflictDoNothing().run();
       ac += 1;
     } catch (error) {
-      logger.warn({ file, error: String(error) }, "skipped corrupt attempt file during migration");
+      logger.warn({ file, error: toErrorString(error) }, "skipped corrupt attempt file during migration");
     }
   }
 
@@ -88,7 +89,7 @@ async function loadArchiveFiles(
         ec += 1;
       }
     } catch (error) {
-      logger.warn({ file, error: String(error) }, "skipped corrupt event file during migration");
+      logger.warn({ file, error: toErrorString(error) }, "skipped corrupt event file during migration");
     }
   }
 

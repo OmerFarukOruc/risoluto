@@ -1,6 +1,7 @@
 import type { Issue } from "../../core/types.js";
 import type { RunningEntry } from "../runtime-types.js";
 import type { OutcomeContext } from "../context.js";
+import { toErrorString } from "../../utils/type-guards.js";
 
 export type CompletionWritebackContext = Pick<OutcomeContext, "getConfig"> & {
   deps: Pick<OutcomeContext["deps"], "tracker" | "logger">;
@@ -54,7 +55,7 @@ export async function writeCompletionWriteback(
       }
     } catch (error) {
       ctx.deps.logger.warn(
-        { issue_identifier: input.issue.identifier, error: String(error) },
+        { issue_identifier: input.issue.identifier, error: toErrorString(error) },
         "linear state transition failed (non-fatal)",
       );
     }
@@ -64,7 +65,7 @@ export async function writeCompletionWriteback(
     await ctx.deps.tracker.createComment(input.issue.id, commentBody);
   } catch (error) {
     ctx.deps.logger.warn(
-      { issue_identifier: input.issue.identifier, error: String(error) },
+      { issue_identifier: input.issue.identifier, error: toErrorString(error) },
       "linear completion comment failed (non-fatal)",
     );
   }

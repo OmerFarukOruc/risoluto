@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { toErrorString } from "../../utils/type-guards.js";
 
 import {
   checkAuthEndpointReachable,
@@ -32,7 +33,7 @@ export function handlePostPkceAuthStart(_deps: SetupApiDeps) {
       await startCallbackServer(activePkceSession);
       res.json({ authUrl: activePkceSession.authUrl });
     } catch (error) {
-      const message = activePkceSession?.error ?? String(error);
+      const message = activePkceSession?.error ?? toErrorString(error);
       res.status(500).json({ error: { code: "pkce_start_error", message } });
     }
   };
@@ -46,7 +47,7 @@ async function exchangeAndSaveFromSession(session: PkceSession, deps: SetupApiDe
     shutdownCallbackServer(session);
     res.json({ status: "complete" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorString(error);
     session.error = message;
     shutdownCallbackServer(session);
     res.json({ status: "error", error: message });

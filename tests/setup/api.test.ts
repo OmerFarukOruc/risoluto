@@ -173,7 +173,7 @@ describe("registerSetupApi", () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
-      error: { code: "setup_error", message: "Error: disk full" },
+      error: { code: "setup_error", message: "disk full" },
     });
   });
 
@@ -247,7 +247,7 @@ describe("registerSetupApi", () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
-      error: { code: "linear_api_error", message: "Error: network offline" },
+      error: { code: "linear_api_error", message: "network offline" },
     });
   });
 
@@ -406,7 +406,7 @@ describe("registerSetupApi", () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
-      error: { code: "save_error", message: "Error: write failed" },
+      error: { code: "save_error", message: "write failed" },
     });
   });
 });

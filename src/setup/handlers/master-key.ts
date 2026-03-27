@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Request, Response } from "express";
 
-import { isRecord } from "../../utils/type-guards.js";
+import { isRecord, toErrorString } from "../../utils/type-guards.js";
 import type { SetupApiDeps } from "./shared.js";
 
 export function handlePostMasterKey(deps: SetupApiDeps) {
@@ -25,7 +25,7 @@ export function handlePostMasterKey(deps: SetupApiDeps) {
       await deps.secretsStore.initializeWithKey(key);
       res.json({ key });
     } catch (error) {
-      res.status(500).json({ error: { code: "setup_error", message: String(error) } });
+      res.status(500).json({ error: { code: "setup_error", message: toErrorString(error) } });
     }
   };
 }

@@ -15,6 +15,7 @@ import type {
   Workspace,
 } from "../core/types.js";
 import type { OrchestratorDeps, RunningEntry } from "./runtime-types.js";
+import { toErrorString } from "../utils/type-guards.js";
 
 export function canDispatchIssue(issue: Issue, config: ServiceConfig, claimedIssueIds: Set<string>): boolean {
   if (!isActiveState(issue.state, config)) {
@@ -126,7 +127,7 @@ function buildRunningEntry(
           issue_id: issue.id,
           issue_identifier: issue.identifier,
           attempt_id: runId,
-          error: String(error),
+          error: toErrorString(error),
         },
         "attempt persistence write failed",
       );

@@ -13,6 +13,7 @@ import { Orchestrator } from "../orchestrator/orchestrator.js";
 import { SecretsStore } from "../secrets/store.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { ValidationError } from "../core/types.js";
+import { toErrorString } from "../utils/type-guards.js";
 import { createServices } from "./services.js";
 import { wireNotifications, watchConfigChanges } from "./notifications.js";
 
@@ -178,21 +179,21 @@ function buildShutdown({
     if (shuttingDown) return;
     shuttingDown = true;
     await httpServer.stop().catch((error: unknown) => {
-      logger.warn({ error: String(error) }, "http server shutdown failed");
+      logger.warn({ error: toErrorString(error) }, "http server shutdown failed");
     });
     await orchestrator.stop().catch((error: unknown) => {
-      logger.warn({ error: String(error) }, "orchestrator shutdown failed");
+      logger.warn({ error: toErrorString(error) }, "orchestrator shutdown failed");
     });
     await configStore.stop().catch((error: unknown) => {
-      logger.warn({ error: String(error) }, "config store shutdown failed");
+      logger.warn({ error: toErrorString(error) }, "config store shutdown failed");
     });
     await overlayStore.stop().catch((error: unknown) => {
-      logger.warn({ error: String(error) }, "overlay store shutdown failed");
+      logger.warn({ error: toErrorString(error) }, "overlay store shutdown failed");
     });
     await getErrorTracker()
       .flush()
       .catch((error: unknown) => {
-        logger.warn({ error: String(error) }, "error tracker flush failed");
+        logger.warn({ error: toErrorString(error) }, "error tracker flush failed");
       });
     eventBus.destroy();
   };

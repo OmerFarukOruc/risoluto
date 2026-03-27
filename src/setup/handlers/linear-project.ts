@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 
-import { isRecord } from "../../utils/type-guards.js";
+import { isRecord, toErrorString } from "../../utils/type-guards.js";
 import { callLinearGraphQL, getLinearApiKey, type SetupApiDeps } from "./shared.js";
 
 export function handleGetLinearProjects(deps: SetupApiDeps) {
@@ -16,7 +16,7 @@ export function handleGetLinearProjects(deps: SetupApiDeps) {
     try {
       data = await callLinearGraphQL(apiKey, query, {});
     } catch (error) {
-      res.status(502).json({ error: { code: "linear_api_error", message: String(error) } });
+      res.status(502).json({ error: { code: "linear_api_error", message: toErrorString(error) } });
       return;
     }
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import { sortAttemptsDesc, sumAttemptDurationSeconds } from "./attempt-store-port.js";
 import { lookupModelPrice } from "./model-pricing.js";
 import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "./types.js";
+import { toErrorString } from "../utils/type-guards.js";
 
 export class AttemptStore {
   private readonly attempts = new Map<string, AttemptRecord>();
@@ -39,7 +40,7 @@ export class AttemptStore {
       const events = await this.loadAttemptEvents(attempt.attemptId);
       this.eventsByAttempt.set(attempt.attemptId, events);
     } catch (error) {
-      this.logger.warn({ entry: fileName, error: String(error) }, "attempt archive entry could not be loaded");
+      this.logger.warn({ entry: fileName, error: toErrorString(error) }, "attempt archive entry could not be loaded");
     }
   }
 
@@ -57,7 +58,7 @@ export class AttemptStore {
       if (error instanceof Error && "code" in error && error.code === "ENOENT") {
         return [];
       }
-      this.logger.warn({ attemptId, error: String(error) }, "attempt event archive corrupt or unreadable");
+      this.logger.warn({ attemptId, error: toErrorString(error) }, "attempt event archive corrupt or unreadable");
       return [];
     }
   }

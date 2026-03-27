@@ -13,6 +13,7 @@ export function isHardFailure(errorCode: string | null): boolean {
     "shutdown",
     "cancelled",
     "auth_token_expired",
+    "unauthorized",
   ].includes(errorCode ?? "");
 }
 

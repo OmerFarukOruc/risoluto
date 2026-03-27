@@ -23,7 +23,16 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
 
 describe("isHardFailure", () => {
   it("returns true for known hard failure codes", () => {
-    const hardCodes = ["startup_failed", "turn_input_required", "inactive", "terminal", "shutdown", "cancelled"];
+    const hardCodes = [
+      "startup_failed",
+      "turn_input_required",
+      "inactive",
+      "terminal",
+      "shutdown",
+      "cancelled",
+      "auth_token_expired",
+      "unauthorized",
+    ];
     for (const code of hardCodes) {
       expect(isHardFailure(code), `expected ${code} to be a hard failure`).toBe(true);
     }

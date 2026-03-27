@@ -48,6 +48,14 @@ describe("classifyEvent", () => {
     expect(classifyEvent(makeEvent("web_search"))).toBe("tool");
   });
 
+  it("returns 'tool' for mcp_tool_call", () => {
+    expect(classifyEvent(makeEvent("mcp_tool_call"))).toBe("tool");
+  });
+
+  it("returns 'agent' for agent_plan", () => {
+    expect(classifyEvent(makeEvent("agent_plan"))).toBe("agent");
+  });
+
   it("returns 'agent' for agent_message", () => {
     expect(classifyEvent(makeEvent("agent_message"))).toBe("agent");
   });

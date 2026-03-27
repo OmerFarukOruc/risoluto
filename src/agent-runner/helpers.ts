@@ -157,7 +157,11 @@ function extractItemContent(
   let content: string | null = null;
   let isDiff = false;
 
-  if ((type === "agentMessage" && verb === "completed") || (type === "userMessage" && verb === "started")) {
+  if (
+    (type === "agentMessage" && verb === "completed") ||
+    (type === "userMessage" && verb === "started") ||
+    (type === "plan" && verb === "completed")
+  ) {
     content = extractAgentOrUserMessage(item);
   } else if (type === "reasoning" && verb === "completed") {
     content = extractReasoningContent(id, item, reasoningBuffers);

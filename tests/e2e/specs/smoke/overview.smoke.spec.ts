@@ -44,9 +44,8 @@ test.describe("Overview Smoke", () => {
     await expect(overview.systemHealthSection).toBeVisible({ timeout: 5000 });
   });
 
-  test("shows quick actions section", async ({ page }) => {
-    const overview = new OverviewPage(page);
-    await expect(overview.quickActionsSection).toBeVisible({ timeout: 5000 });
+  test("shows latest completed or failed section", async ({ page }) => {
+    await expect(page.getByText("Latest completed / failed")).toBeVisible({ timeout: 5000 });
   });
 
   test("sidebar shows correct active state for overview", async ({ page }) => {

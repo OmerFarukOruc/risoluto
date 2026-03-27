@@ -126,7 +126,7 @@ function buildIssueEntries(issues: RuntimeIssueView[]): PaletteEntry[] {
     meta: issue.status,
     group: "Recent issues",
     icon: "board",
-    keywords: [issue.identifier, issue.title, issue.state, issue.status, ...issue.labels],
+    keywords: [issue.identifier, issue.title, issue.state, issue.status, ...(issue.labels ?? [])],
     run: () => router.navigate(`/issues/${encodeURIComponent(issue.identifier)}`),
   }));
 }
@@ -222,13 +222,13 @@ export async function fetchDynamicPaletteEntries(): Promise<PaletteEntry[]> {
     issues.slice(0, 5).map(async (issue) => {
       try {
         const detail = await api.getIssue(issue.identifier);
-        if (!detail.pull_request_url) {
+        if (!detail.pullRequestUrl) {
           return null;
         }
         return {
           identifier: issue.identifier,
           title: issue.title,
-          url: detail.pull_request_url,
+          url: detail.pullRequestUrl,
         };
       } catch {
         return null;

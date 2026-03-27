@@ -12,5 +12,9 @@ export function createSettingsKeyboardHandler(options: SettingsKeyboardOptions):
       allowInInputs: true,
       run: () => options.onSaveCurrentSection(),
     },
+    "Mod+S": {
+      allowInInputs: true,
+      run: () => options.onSaveCurrentSection(),
+    },
   });
 }

@@ -2,8 +2,8 @@ import type { Issue, ModelSelection, RuntimeIssueView, ServiceConfig, TokenUsage
 import type { OrchestratorDeps, RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
 import type { StallEvent } from "./stall-detector.js";
 import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
+import type { GitPostRunPort } from "../git/port.js";
 import type { NotificationEvent } from "../notification/channel.js";
-import type { GitManager } from "../git/manager.js";
 
 /** Shared context type for outcome handlers. Used internally by worker-outcome.ts. */
 export interface OutcomeContext {
@@ -19,7 +19,7 @@ export interface OutcomeContext {
     };
     attemptStore: { updateAttempt: (attemptId: string, patch: Record<string, unknown>) => Promise<void> };
     workspaceManager: { removeWorkspace: (identifier: string, issue?: Issue) => Promise<void> };
-    gitManager?: Pick<GitManager, "commitAndPush" | "createPullRequest">;
+    gitManager?: GitPostRunPort;
     logger: {
       info: (meta: Record<string, unknown>, message: string) => void;
       warn: (meta: Record<string, unknown>, message: string) => void;

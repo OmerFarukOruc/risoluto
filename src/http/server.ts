@@ -8,12 +8,14 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { SymphonyLogger } from "../core/types.js";
 import { globalMetrics } from "../observability/metrics.js";
-import { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { tracingMiddleware } from "../observability/tracing.js";
 import type { TrackerPort } from "../tracker/port.js";
 
 import { registerHttpRoutes } from "./routes.js";
+import { createWriteGuard } from "./write-guard.js";
+import { serviceErrorHandler } from "./service-errors.js";
 
 export class HttpServer {
   private readonly app: Express;
@@ -21,7 +23,7 @@ export class HttpServer {
 
   constructor(
     private readonly deps: {
-      orchestrator: Orchestrator;
+      orchestrator: OrchestratorPort;
       logger: SymphonyLogger;
       tracker?: TrackerPort;
       configStore?: ConfigStore;
@@ -52,7 +54,9 @@ export class HttpServer {
       next();
     });
     this.app.use(express.json());
+    this.app.use(createWriteGuard());
     registerHttpRoutes(this.app, this.deps);
+    this.app.use(serviceErrorHandler);
   }
 
   async start(port: number): Promise<{ port: number }> {

@@ -1,3 +1,4 @@
+// Exempt: shared domain and runtime type definitions kept together for discoverability.
 import type { NotificationVerbosity } from "./notification-types.js";
 
 export interface WorkflowDefinition {

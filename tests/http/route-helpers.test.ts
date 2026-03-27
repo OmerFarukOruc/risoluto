@@ -75,6 +75,35 @@ describe("serializeSnapshot", () => {
     expect(events[0].issue_identifier).toBe("MT-1");
     expect(events[0].metadata).toEqual({ stage: "workspace" });
   });
+
+  it("defaults missing workflow column issues to an empty array", () => {
+    const snapshot = {
+      generatedAt: "2024-01-01T00:00:00Z",
+      counts: { running: 0, retrying: 0, queued: 0, completed: 0 },
+      running: [],
+      retrying: [],
+      completed: [],
+      queued: [],
+      workflowColumns: [
+        {
+          key: "todo",
+          label: "Todo",
+          kind: "todo",
+          terminal: false,
+          count: undefined,
+          issues: undefined,
+        },
+      ],
+      codexTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0, costUsd: null },
+      rateLimits: null,
+      recentEvents: [],
+    } as unknown as RuntimeSnapshot & Record<string, unknown>;
+
+    const result = serializeSnapshot(snapshot);
+    const column = (result.workflow_columns as Array<Record<string, unknown>>)[0];
+    expect(column.issues).toEqual([]);
+    expect(column.count).toBe(0);
+  });
 });
 
 describe("sanitizeConfigValue", () => {

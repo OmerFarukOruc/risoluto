@@ -72,32 +72,53 @@ test.describe("Settings Interaction Smoke", () => {
     expect(putSent).toBe(false);
   });
 
-  // ── Credentials: Create Secret ─────────────────────────────────────
+  // ── Credentials: Add Credential ───────────────────────────────────
 
-  test("new secret: filling form and submitting sends POST with value", async ({ page }) => {
+  test("add credential: accepting prompt dialogs sends POST with value", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
+
+    // Wait for credentials to load
+    await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible({ timeout: 5000 });
 
     const postPromise = page.waitForRequest((req) => {
       return req.url().includes("/api/v1/secrets/MY_NEW_KEY") && req.method() === "POST";
     });
 
-    await page.getByRole("button", { name: "New secret" }).click();
-    const modal = page.locator(".confirm-modal-shell");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    // Set up prompt dialog handlers in order: first for key, second for value
+    let promptCount = 0;
+    page.on("dialog", async (dialog) => {
+      if (dialog.type() === "prompt") {
+        promptCount++;
+        if (promptCount === 1) {
+          await dialog.accept("MY_NEW_KEY");
+        } else {
+          await dialog.accept("super-secret-value-123");
+        }
+      }
+    });
 
-    await modal.locator("input[required]").fill("MY_NEW_KEY");
-    await modal.locator("textarea[required]").fill("super-secret-value-123");
-    await modal.getByRole("button", { name: "Save secret" }).click();
+    await page.route("**/api/v1/secrets/MY_NEW_KEY", (route) => {
+      if (route.request().method() === "POST") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ key: "MY_NEW_KEY" }),
+        });
+      }
+      return route.fallback();
+    });
+
+    await settings.addCredentialButton.click();
 
     const postRequest = await postPromise;
     const body = postRequest.postDataJSON() as Record<string, unknown>;
     expect(body).toHaveProperty("value", "super-secret-value-123");
   });
 
-  // ── Credentials: Delete Secret ─────────────────────────────────────
+  // ── Credentials: Delete Credential ─────────────────────────────────
 
-  test("delete secret: confirming deletion sends DELETE request", async ({ page }) => {
+  test("delete credential: confirming deletion sends DELETE request", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
 
@@ -107,30 +128,39 @@ test.describe("Settings Interaction Smoke", () => {
       return req.url().includes("/api/v1/secrets/LINEAR_API_KEY") && req.method() === "DELETE";
     });
 
-    const row = page.locator("tr").filter({ hasText: "LINEAR_API_KEY" });
-    await row.getByRole("button", { name: "Delete" }).click();
+    // Accept the confirm dialog for deletion
+    page.on("dialog", async (dialog) => {
+      if (dialog.type() === "confirm") {
+        await dialog.accept();
+      }
+    });
 
-    const modal = page.locator(".confirm-modal-shell");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    await page.route("**/api/v1/secrets/LINEAR_API_KEY", (route) => {
+      if (route.request().method() === "DELETE") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ deleted: true }),
+        });
+      }
+      return route.fallback();
+    });
 
-    // Type the exact key name to satisfy the confirmation guard
-    await modal.locator("input[required]").fill("LINEAR_API_KEY");
-    await modal.getByRole("button", { name: "Delete key" }).click();
+    // Click the delete button (×) on the LINEAR_API_KEY credential pill
+    await settings.credentialDeleteButton("LINEAR_API_KEY").click();
 
     const deleteRequest = await deletePromise;
     expect(deleteRequest.method()).toBe("DELETE");
     expect(deleteRequest.url()).toContain("/api/v1/secrets/LINEAR_API_KEY");
   });
 
-  // ── Credentials: Empty Key/Value Validation ────────────────────────
+  // ── Credentials: Empty Key Validation ──────────────────────────────
 
-  test("new secret: empty key or value shows validation feedback", async ({ page }) => {
+  test("add credential: dismissing key prompt does not send POST", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
 
-    await page.getByRole("button", { name: "New secret" }).click();
-    const modal = page.locator(".confirm-modal-shell");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible({ timeout: 5000 });
 
     let postSent = false;
     page.on("request", (req) => {
@@ -139,8 +169,14 @@ test.describe("Settings Interaction Smoke", () => {
       }
     });
 
-    // Submit with both fields empty -- client-side validation should block the POST
-    await modal.getByRole("button", { name: "Save secret" }).click();
+    // Dismiss the key prompt (cancel) — should prevent POST
+    page.on("dialog", async (dialog) => {
+      if (dialog.type() === "prompt") {
+        await dialog.dismiss();
+      }
+    });
+
+    await settings.addCredentialButton.click();
     await page.waitForTimeout(300);
     expect(postSent).toBe(false);
   });

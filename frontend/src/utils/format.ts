@@ -36,6 +36,17 @@ export function formatDuration(seconds: number | null | undefined): string {
   return [hours, minutes, remaining].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+/** Convert milliseconds to a human-readable duration string (e.g. "5 minutes", "30 seconds"). */
+export function formatDurationHuman(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours !== 1 ? "s" : ""}`;
+}
+
 export function formatRelativeTime(value: string | null | undefined): string {
   const date = asDate(value);
   if (!date) {
@@ -173,6 +184,23 @@ export function formatCostUsd(usd: number | null | undefined): string {
     currency: "USD",
     maximumSignificantDigits: 4,
   }).format(usd);
+}
+
+export function formatElapsedCompact(seconds: number | null): string {
+  if (seconds === null) {
+    return "";
+  }
+  if (seconds < 60) {
+    return `+${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) {
+    return `+${minutes}m ${remainingSeconds}s`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `+${hours}h ${remainingMinutes}m`;
 }
 
 export function formatBytes(bytes: number | null | undefined): string {

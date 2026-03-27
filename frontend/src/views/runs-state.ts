@@ -11,7 +11,7 @@ function compareAttempts(left: AttemptSummary, right: AttemptSummary): number {
   if (leftStarted !== rightStarted) {
     return rightStarted - leftStarted;
   }
-  return right.attemptNumber - left.attemptNumber;
+  return (right.attemptNumber ?? 0) - (left.attemptNumber ?? 0);
 }
 
 export interface RunsState {

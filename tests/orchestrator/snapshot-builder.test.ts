@@ -97,7 +97,7 @@ function createConfig(): ServiceConfig {
       endpoint: "https://api.linear.app/graphql",
       projectSlug: "EXAMPLE",
       activeStates: ["In Progress"],
-      terminalStates: ["Done", "Completed", "Canceled", "Cancelled", "Duplicate"],
+      terminalStates: ["Done", "Canceled"],
     },
     polling: { intervalMs: 30000 },
     workspace: {

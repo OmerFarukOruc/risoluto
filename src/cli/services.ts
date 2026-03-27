@@ -26,11 +26,6 @@ export async function createServices(
   archiveDir: string,
   logger: ReturnType<typeof createLogger>,
 ) {
-  const persistedGithubToken = secretsStore.get("GITHUB_TOKEN");
-  if (persistedGithubToken) {
-    process.env.GITHUB_TOKEN = persistedGithubToken;
-  }
-
   const persistenceMode = process.env.SYMPHONY_PERSISTENCE ?? "sqlite";
   const storeLogger = logger.child({ component: "attempt-store" });
   const attemptStore = await createAttemptStore(persistenceMode, archiveDir, storeLogger);

@@ -244,12 +244,26 @@ export function seedCompletedClaims(ctx: {
   }
 }
 
+function attemptStatusToLinearState(status: string): string {
+  switch (status) {
+    case "completed":
+      return "Done";
+    case "failed":
+    case "timed_out":
+    case "stalled":
+    case "cancelled":
+      return "Canceled";
+    default:
+      return status;
+  }
+}
+
 function attemptToCompletedView(attempt: AttemptRecord): ReturnType<typeof issueView> {
   return {
     issueId: attempt.issueId,
     identifier: attempt.issueIdentifier,
     title: attempt.title,
-    state: attempt.status,
+    state: attemptStatusToLinearState(attempt.status),
     workspaceKey: attempt.workspaceKey,
     workspacePath: attempt.workspacePath,
     message: attempt.errorMessage,

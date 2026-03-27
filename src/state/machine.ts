@@ -1,5 +1,5 @@
-const DEFAULT_ACTIVE_STATES = ["Todo", "In Progress"];
-const DEFAULT_TERMINAL_STATES = ["Done", "Completed", "Closed", "Canceled", "Cancelled", "Duplicate"];
+const DEFAULT_ACTIVE_STATES = ["Backlog", "Todo", "In Progress"];
+const DEFAULT_TERMINAL_STATES = ["Done", "Canceled"];
 
 interface StateMachineStage {
   key: string;

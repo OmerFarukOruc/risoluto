@@ -263,7 +263,12 @@ export function createOverviewPage(): HTMLElement {
   // Primary attention zone - dominant area
   const attentionZone = document.createElement("article");
   attentionZone.className = "overview-attention-zone";
-  attentionZone.append(createSectionHeader("Attention", "Intervention queue"));
+  const attentionHeader = createSectionHeader("Attention", "Intervention queue");
+  const attentionCount = document.createElement("span");
+  attentionCount.className = "mc-badge is-sm overview-attention-count";
+  attentionCount.hidden = true;
+  attentionHeader.append(attentionCount);
+  attentionZone.append(attentionHeader);
 
   const attentionList = document.createElement("div");
   attentionList.className = "overview-attention-list";
@@ -358,12 +363,19 @@ export function createOverviewPage(): HTMLElement {
 
     // Hero metrics - the "Now" band
     setTextWithDiff(heroMetrics.running, String(snapshot.counts.running));
-    setTextWithDiff(heroMetrics.queued, String(snapshot.queued.length));
+    setTextWithDiff(heroMetrics.queued, String((snapshot.queued ?? []).length));
     setTextWithDiff(heroMetrics.headroom, formatRateLimitHeadroom(snapshot.rate_limits));
 
     // Attention count for hero
-    const attentionIssues = buildAttentionList(snapshot.workflow_columns);
+    const attentionIssues = buildAttentionList(snapshot.workflow_columns ?? []);
     setTextWithDiff(heroMetrics.attention, String(attentionIssues.length));
+    if (attentionIssues.length === 0) {
+      attentionCount.hidden = true;
+      attentionCount.textContent = "";
+    } else {
+      attentionCount.hidden = false;
+      setTextWithDiff(attentionCount, `${attentionIssues.length} in queue`);
+    }
 
     // Token burn metrics
     setTextWithDiff(inputTokens.value, formatCompactNumber(snapshot.codex_totals.input_tokens));
@@ -382,8 +394,8 @@ export function createOverviewPage(): HTMLElement {
     const isEmpty =
       snapshot.counts.running === 0 &&
       snapshot.counts.retrying === 0 &&
-      snapshot.queued.length === 0 &&
-      snapshot.completed.length === 0 &&
+      (snapshot.queued ?? []).length === 0 &&
+      (snapshot.completed ?? []).length === 0 &&
       attentionIssues.length === 0;
     if (isEmpty) {
       showGettingStarted();
@@ -394,13 +406,13 @@ export function createOverviewPage(): HTMLElement {
     // Recent events
     fillList(
       recentList,
-      snapshot.recent_events.slice(-5).map((event) => createEventRow(event, true)),
+      (snapshot.recent_events ?? []).slice(-5).map((event) => createEventRow(event, true)),
     );
 
     // Terminal issues
     fillList(
       terminalList,
-      latestTerminalIssues(snapshot.completed).map((issue) => issueRow(issue, "terminal")),
+      latestTerminalIssues(snapshot.completed ?? []).map((issue) => issueRow(issue, "terminal")),
     );
 
     // System health badge
@@ -413,7 +425,7 @@ export function createOverviewPage(): HTMLElement {
       attentionList.replaceChildren(
         createTeachingEmptyState(
           "All clear",
-          "No issues need attention right now. Blocked, retrying, or pending issues will appear here.",
+          "No issues need attention. Blocked, retrying, or pending work will show up here.",
           "Open queue",
           () => router.navigate("/queue"),
         ),

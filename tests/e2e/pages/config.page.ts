@@ -3,6 +3,9 @@ import { BasePage } from "./base.page";
 
 /**
  * Page Object Model for the unified Settings page and its legacy aliases.
+ *
+ * The settings page uses a scroll-synced sidebar rail with `.settings-nav-item`
+ * buttons instead of tabs. Sections are rendered as cards in a scrollable area.
  */
 export class ConfigPage extends BasePage {
   constructor(page: Page) {
@@ -28,11 +31,28 @@ export class ConfigPage extends BasePage {
   async navigateToSecrets(): Promise<void> {
     await this.goto("/settings#credentials");
     await this.waitForPageContent();
+    // Wait for the credentials section card to be visible
     await this.credentialsSection.waitFor({ state: "attached" });
   }
 
+  // ── Rail Navigation ─────────────────────────────────────────────────
+
+  get settingsRail(): Locator {
+    return this.page.locator(".settings-rail");
+  }
+
+  get railNavItems(): Locator {
+    return this.page.locator(".settings-nav-item");
+  }
+
+  railNavItemByTitle(title: string): Locator {
+    return this.page.locator(".settings-nav-item").filter({ hasText: title });
+  }
+
+  // ── Sections ────────────────────────────────────────────────────────
+
   get credentialsSection(): Locator {
-    return this.page.locator(".settings-credentials-section");
+    return this.page.locator("#settings-credentials");
   }
 
   get devToolsSection(): Locator {
@@ -53,21 +73,41 @@ export class ConfigPage extends BasePage {
     return this.page.locator("[class*='overlay'], [class*='override']").first();
   }
 
-  // ── Secrets View ─────────────────────────────────────────────────────
+  // ── Credentials ─────────────────────────────────────────────────────
+
+  get credentialPills(): Locator {
+    return this.page.locator(".settings-credential-pill");
+  }
+
+  get addCredentialButton(): Locator {
+    return this.page.getByRole("button", { name: /add credential/i });
+  }
+
+  credentialByKey(key: string): Locator {
+    return this.page.locator(".settings-credential-pill").filter({ hasText: key });
+  }
+
+  credentialDeleteButton(key: string): Locator {
+    return this.credentialByKey(key).locator(".settings-credential-delete");
+  }
+
+  // ── Legacy Aliases (kept for backward compat) ───────────────────────
 
   get secretsList(): Locator {
-    return this.page.locator(".secrets-list, table, [class*='secret']").first();
+    return this.page.locator(".settings-credential-list, .secrets-list, table, [class*='secret']").first();
   }
 
   get secretRows(): Locator {
-    return this.page.locator(".secret-row, tr").filter({ has: this.page.locator("td, .secret-key") });
+    return this.page
+      .locator(".settings-credential-pill, .secret-row, tr")
+      .filter({ has: this.page.locator("span, td, .secret-key") });
   }
 
   get addSecretButton(): Locator {
-    return this.page.locator("button").filter({ hasText: /add|new|create/i });
+    return this.addCredentialButton;
   }
 
   secretByKey(key: string): Locator {
-    return this.page.getByText(key, { exact: true });
+    return this.credentialByKey(key);
   }
 }

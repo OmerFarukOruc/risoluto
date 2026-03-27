@@ -68,13 +68,6 @@ export const navItems: NavItem[] = [
   },
   {
     group: "System",
-    name: "Welcome",
-    path: "/welcome",
-    hotkey: "g i",
-    icon: "welcome",
-  },
-  {
-    group: "System",
     name: "Setup",
     path: "/setup",
     hotkey: "g u",

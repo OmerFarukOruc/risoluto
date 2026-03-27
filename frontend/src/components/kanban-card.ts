@@ -2,9 +2,9 @@ import type { RecentEvent, RuntimeIssueView } from "../types";
 import { priorityBadge } from "../ui/priority-badge";
 import { statusChip } from "../ui/status-chip";
 import { flashDiff, setTextWithDiff } from "../utils/diff";
-import { buildLifecycleSteps, shouldCollapseLifecycle } from "../utils/lifecycle-stepper";
 import { getRetryLabel } from "../utils/issues";
-import { formatRelativeTime, formatShortTime, formatTokenUsage } from "../utils/format";
+import { formatRelativeTime, formatTokenUsage } from "../utils/format";
+import { createLifecycleSyncState, syncLifecycleElement } from "./kanban-card-lifecycle.js";
 
 interface KanbanCardOptions {
   issue: RuntimeIssueView;
@@ -86,7 +86,7 @@ export function createKanbanCard(options: KanbanCardOptions): KanbanCardHandle {
   };
   let prevMetaSig = "";
   let prevRetryVal: string | null = null;
-  let prevLifecycleSig = "";
+  const lifecycleState = createLifecycleSyncState();
 
   function syncMeta(issue: RuntimeIssueView): void {
     const sig = [issue.priority ?? "low", issue.status, String(issue.modelChangePending)].join("|");
@@ -142,85 +142,6 @@ export function createKanbanCard(options: KanbanCardOptions): KanbanCardHandle {
     }
   }
 
-  function formatElapsed(seconds: number | null): string {
-    if (seconds === null) {
-      return "";
-    }
-    if (seconds < 60) {
-      return `+${seconds}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    if (minutes < 60) {
-      return `+${minutes}m ${remainingSeconds}s`;
-    }
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `+${hours}h ${remainingMinutes}m`;
-  }
-
-  function syncLifecycle(issue: RuntimeIssueView, recentEvents: RecentEvent[]): void {
-    const shouldShow = issue.status === "queued" || issue.status === "running" || issue.status === "claimed";
-    if (!shouldShow) {
-      if (!lifecycle.hidden) {
-        lifecycle.hidden = true;
-        lifecycle.replaceChildren();
-        prevLifecycleSig = "";
-      }
-      return;
-    }
-
-    // Memoize: skip rebuild if inputs unchanged
-    const lastEventAt = recentEvents.at(-1)?.at ?? "";
-    const sig = `${issue.identifier}|${issue.status}|${recentEvents.length}|${lastEventAt}`;
-    if (sig === prevLifecycleSig) {
-      lifecycle.hidden = false;
-      return;
-    }
-    prevLifecycleSig = sig;
-    lifecycle.hidden = false;
-
-    const steps = buildLifecycleSteps(issue, recentEvents);
-    const collapsed = shouldCollapseLifecycle(issue, steps);
-    lifecycle.classList.toggle("is-collapsed", collapsed);
-
-    if (collapsed) {
-      const current = steps.find((step) => step.status === "current") ?? steps.at(-1);
-      const summary = document.createElement("div");
-      summary.className = "kanban-card-lifecycle-summary";
-      summary.textContent = `${current?.label ?? "Agent working"} · setup complete`;
-
-      const metaText = document.createElement("div");
-      metaText.className = "kanban-card-lifecycle-meta";
-      metaText.textContent = current?.at ? formatShortTime(current.at) : "Live";
-
-      lifecycle.replaceChildren(summary, metaText);
-      return;
-    }
-
-    const rows = steps.map((step) => {
-      const row = document.createElement("div");
-      row.className = `kanban-card-lifecycle-step is-${step.status}`;
-
-      const dot = document.createElement("span");
-      dot.className = "kanban-card-lifecycle-dot";
-
-      const label = document.createElement("span");
-      label.className = "kanban-card-lifecycle-label";
-      label.textContent = step.label;
-
-      const metaText = document.createElement("span");
-      metaText.className = "kanban-card-lifecycle-meta";
-      const parts = [step.at ? formatShortTime(step.at) : "", formatElapsed(step.elapsedSeconds)].filter(Boolean);
-      metaText.textContent = parts.join(" · ") || (step.status === "pending" ? "Pending" : "");
-
-      row.append(dot, label, metaText);
-      return row;
-    });
-
-    lifecycle.replaceChildren(...rows);
-  }
-
   function update(next: KanbanCardOptions): void {
     const prevTitle = title.textContent ?? "";
     currentActions = { onOpen: next.onOpen, onFullPage: next.onFullPage, onFocus: next.onFocus, onMove: next.onMove };
@@ -237,12 +158,12 @@ export function createKanbanCard(options: KanbanCardOptions): KanbanCardHandle {
     setTextWithDiff(identifier, next.issue.identifier);
     setTextWithDiff(title, next.issue.title);
     syncDesc(next.issue);
-    syncLabels(next.issue.labels);
+    syncLabels(next.issue.labels ?? []);
     syncMeta(next.issue);
     setTextWithDiff(tokens, formatTokenUsage(next.issue.tokenUsage?.totalTokens ?? null));
     updated.textContent = formatRelativeTime(next.issue.updatedAt);
     syncRetry(next.issue);
-    syncLifecycle(next.issue, next.recentEvents);
+    syncLifecycleElement(lifecycle, lifecycleState, next.issue, next.recentEvents);
 
     if (prevTitle && prevTitle !== next.issue.title) flashDiff(card);
   }

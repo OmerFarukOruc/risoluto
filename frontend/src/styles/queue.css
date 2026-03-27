@@ -199,6 +199,16 @@
   font-size: var(--text-sm);
 }
 
+.queue-page .kanban-column[data-stage="backlog"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-backlog) 15%, var(--bg-muted));
+  color: var(--status-backlog);
+}
+
+.queue-page .kanban-column[data-stage="triage"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-triage) 15%, var(--bg-muted));
+  color: var(--status-triage);
+}
+
 .queue-page .kanban-column[data-stage="todo"] .kanban-column-count {
   background: color-mix(in srgb, var(--status-queued) 15%, var(--bg-muted));
   color: var(--status-queued);
@@ -209,14 +219,42 @@
   color: var(--status-running);
 }
 
-.queue-page .kanban-column[data-stage="review"] .kanban-column-count {
+.queue-page .kanban-column[data-stage="review"] .kanban-column-count,
+.queue-page .kanban-column[data-stage="in_review"] .kanban-column-count {
   background: color-mix(in srgb, var(--status-claimed) 15%, var(--bg-muted));
   color: var(--status-claimed);
+}
+
+.queue-page .kanban-column[data-stage="done"] .kanban-column-count,
+.queue-page .kanban-column[data-stage="completed"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-completed) 15%, var(--bg-muted));
+  color: var(--status-completed);
 }
 
 .queue-page .kanban-column[data-stage="blocked"] .kanban-column-count {
   background: color-mix(in srgb, var(--status-blocked) 15%, var(--bg-muted));
   color: var(--status-blocked);
+}
+
+.queue-page .kanban-column[data-stage="cancelled"] .kanban-column-count,
+.queue-page .kanban-column[data-stage="canceled"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-cancelled) 15%, var(--bg-muted));
+  color: var(--status-cancelled);
+}
+
+.queue-page .kanban-column[data-stage="closed"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-closed) 15%, var(--bg-muted));
+  color: var(--status-closed);
+}
+
+.queue-page .kanban-column[data-stage="duplicate"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-duplicate) 15%, var(--bg-muted));
+  color: var(--status-duplicate);
+}
+
+.queue-page .kanban-column[data-stage="retrying"] .kanban-column-count {
+  background: color-mix(in srgb, var(--status-retrying) 15%, var(--bg-muted));
+  color: var(--status-retrying);
 }
 
 /* ─── Card Enhancements ─── */

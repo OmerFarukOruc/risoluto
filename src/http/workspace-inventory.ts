@@ -4,8 +4,8 @@ import path from "node:path";
 import type { Request, Response } from "express";
 
 import type { ConfigStore } from "../config/store.js";
-import type { Orchestrator } from "../orchestrator/orchestrator.js";
 import type { RuntimeIssueView } from "../core/types.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 
 /* ------------------------------------------------------------------ */
 /*  Response types                                                     */
@@ -113,7 +113,7 @@ function classifyWorkspace(
 /* ------------------------------------------------------------------ */
 
 export interface WorkspaceInventoryDeps {
-  orchestrator: Orchestrator;
+  orchestrator: OrchestratorPort;
   configStore?: ConfigStore;
 }
 

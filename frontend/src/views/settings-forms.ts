@@ -5,6 +5,7 @@ import {
   createTextInput,
   createTextareaControl,
 } from "../components/forms";
+import { formatDurationHuman } from "../utils/format.js";
 
 import type { SettingsFieldDefinition } from "./settings-helpers";
 
@@ -36,7 +37,63 @@ export function createSettingsField(field: SettingsFieldDefinition, options: Set
     }
   }
 
+  applyFieldEnhancements(wrapper, field, options);
   return wrapper;
+}
+
+function addDefaultHint(hintEl: Element, defaultValue: string): void {
+  const defaultSpan = document.createElement("span");
+  defaultSpan.className = "settings-field-default";
+  const code = document.createElement("code");
+  code.textContent = defaultValue;
+  defaultSpan.append(document.createTextNode("Default: "), code);
+  if (hintEl.textContent) {
+    defaultSpan.append(document.createTextNode(" \u00b7 "));
+  }
+  hintEl.prepend(defaultSpan);
+}
+
+function addDurationSuffix(wrapper: HTMLElement, value: string): void {
+  const val = Number(value);
+  if (val > 0 && Number.isFinite(val)) {
+    const suffix = document.createElement("span");
+    suffix.className = "settings-field-duration";
+    suffix.textContent = `= ${formatDurationHuman(val)}`;
+    const controlParent = wrapper.querySelector("input")?.parentElement;
+    controlParent?.append(suffix);
+  }
+}
+
+/** Post-process a rendered field with default hints, copper dot, reset, and duration suffix. */
+function applyFieldEnhancements(
+  wrapper: HTMLElement,
+  field: SettingsFieldDefinition,
+  options: SettingsFieldRenderOptions,
+): void {
+  const hintEl = wrapper.querySelector(".form-hint");
+  const isOverridden = field.defaultValue !== undefined && options.value !== "" && options.value !== field.defaultValue;
+
+  if (field.defaultValue && hintEl) addDefaultHint(hintEl, field.defaultValue);
+
+  if (isOverridden) {
+    const labelEl = wrapper.querySelector(".form-label");
+    if (labelEl) {
+      const dot = document.createElement("span");
+      dot.className = "settings-field-set-dot";
+      dot.setAttribute("aria-label", "Explicitly configured");
+      labelEl.append(dot);
+    }
+  }
+
+  if (isOverridden) {
+    const reset = createButton("Reset", "ghost");
+    reset.className += " settings-field-reset";
+    reset.addEventListener("click", () => options.onInput(""));
+    if (hintEl) wrapper.insertBefore(reset, hintEl);
+    else wrapper.append(reset);
+  }
+
+  if (field.unit === "ms") addDurationSuffix(wrapper, options.value);
 }
 
 export function createSectionAction(label: string, primary = false): HTMLButtonElement {
@@ -147,7 +204,10 @@ function buildControl(field: SettingsFieldDefinition, options: SettingsFieldRend
     select.addEventListener("focus", options.onFocus);
     return select;
   }
-  if (field.kind === "textarea" || field.kind === "json" || field.kind === "list") {
+  if (field.kind === "list") {
+    return buildChipEditor(field, options);
+  }
+  if (field.kind === "textarea" || field.kind === "json") {
     const textarea = createTextareaControl({
       className: "mc-textarea settings-textarea",
       placeholder: field.placeholder ?? "",
@@ -246,4 +306,81 @@ function createInlineError(): HTMLParagraphElement {
   errorEl.className = "settings-field-error-text";
   errorEl.hidden = true;
   return errorEl;
+}
+
+/** Interactive chip/tag editor for list-kind fields. Replaces textarea with visual chips. */
+function buildChipEditor(field: SettingsFieldDefinition, options: SettingsFieldRenderOptions): HTMLElement {
+  const container = document.createElement("div");
+  container.className = "settings-chip-editor";
+  const items = options.value
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "settings-chip-input";
+  input.placeholder = field.placeholder ?? "Type and press Enter\u2026";
+
+  function emitValue(): void {
+    options.onInput(items.join("\n"));
+  }
+
+  function renderChips(): void {
+    container.querySelectorAll(".mc-chip").forEach((c) => c.remove());
+    for (const item of items) {
+      const chip = document.createElement("span");
+      chip.className = "mc-chip is-sm";
+      const text = document.createElement("span");
+      text.textContent = item;
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "settings-chip-delete";
+      del.textContent = "\u00d7";
+      del.setAttribute("aria-label", `Remove ${item}`);
+      del.addEventListener("click", () => {
+        const idx = items.indexOf(item);
+        if (idx >= 0) items.splice(idx, 1);
+        emitValue();
+        renderChips();
+      });
+      chip.append(text, del);
+      container.insertBefore(chip, input);
+    }
+  }
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && input.value.trim()) {
+      e.preventDefault();
+      items.push(input.value.trim());
+      input.value = "";
+      emitValue();
+      renderChips();
+    }
+    if (e.key === "Backspace" && input.value === "" && items.length > 0) {
+      items.pop();
+      emitValue();
+      renderChips();
+    }
+  });
+
+  input.addEventListener("paste", (e) => {
+    const text = e.clipboardData?.getData("text") ?? "";
+    const newItems = text
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (newItems.length > 0) {
+      e.preventDefault();
+      items.push(...newItems);
+      emitValue();
+      renderChips();
+    }
+  });
+
+  input.addEventListener("focus", options.onFocus);
+  container.append(input);
+  container.addEventListener("click", () => input.focus());
+  renderChips();
+  return container;
 }

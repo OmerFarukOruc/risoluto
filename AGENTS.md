@@ -88,14 +88,17 @@ When behavior changes affect the operator surface, verify both code and docs tog
 
 ## Refactoring & Modularity Guidelines
 
-Keep classes, modules, and functions small, atomic, and focused on a single responsibility. Do not let implementations grow long or mixed-purpose; extract well-named helpers or smaller modules early. Prefer modular, structured composition that is easy to read, test, and change.
+Keep classes, modules, and functions focused on a single responsibility. Prefer modular, structured composition that is easy to read, test, and change. Extract well-named helpers or smaller modules when doing so improves **testability, reuse, or readability** — not solely to reduce line count.
 
-**If something can be modularized, it must be modularized.** This is not optional.
+**Cohesion over smallness.** A coherent 280-line file with one clear concern is better than three 90-line files that fragment a single concept. Optimize for how easy a module is to understand, not how short it is.
 
-### Class & File Size Limits
+### File Size Thresholds
 
-- If a class grows past this limit, extract logic into standalone functions in dedicated sub-modules. The class becomes a thin coordinator that delegates to extracted modules.
-- Files containing only type definitions, query strings, or pure constants may exceed this if splitting would hurt readability.
+Files exceeding **300 lines** should be reviewed for extraction opportunities. This is a review trigger, not a hard wall:
+
+- If the file covers a **single cohesive concern**, it may stay above 300 lines with a brief comment at the top explaining why (e.g., `// Single-concern: full Linear API transport`).
+- If the file mixes **multiple concerns**, extract the secondary concern into its own module.
+- Files containing only type definitions, query strings, or pure constants are exempt from this threshold.
 - Long functions must be broken into named helper functions. If a function has multiple phases (e.g., setup → execute → cleanup), each phase should be its own function.
 
 ### Extraction Patterns
@@ -104,15 +107,26 @@ Keep classes, modules, and functions small, atomic, and focused on a single resp
 - **Use a context interface** when an extracted function needs access to multiple pieces of parent state. Define the interface in a dedicated `context.ts` file. The parent class provides a `ctx()` method that bundles `this.*` references.
 - **Consolidate duplicate helpers.** If the same utility function (e.g., type guards, formatting, parsing) appears in more than one file, move it to `src/utils/` and import from there. Never duplicate helper functions across files.
 
+### When NOT to Extract
+
+Not every piece of code benefits from extraction. **Keep code inline when:**
+
+- A helper is used in exactly one place and has no independent testability value.
+- Extracting would force the reader to jump between files to understand a single linear flow.
+- The "module" would be under ~30 lines with no realistic reuse — a named local function inside the file is sufficient.
+- Tightly coupled read-modify-write sequences that share closure state are clearer as one block.
+
 ### Module Directory Structure
 
-When a class is large enough to warrant extraction, create a directory for its sub-modules:
+When a module is large enough to warrant extraction, create a directory for its sub-modules. **Cap directory nesting at 3 levels from `src/`** (e.g., `src/orchestrator/dispatch/handlers/` is the maximum depth). Deeper nesting signals over-fragmentation — flatten or rethink the decomposition.
+
+Each extracted directory should have a clear `index.ts` barrel file that re-exports the public API. Internal helpers should not be exported from the barrel.
 
 ### When Adding New Code
 
-- Before adding code to an existing file, check its line count. If the addition would push it over 200 lines, extract existing code first to make room.
+- Before adding code to an existing file, check its line count. If the addition would push it past 300 lines, review whether the file mixes concerns and extract if so.
 - When implementing a new feature that spans multiple concerns, start by creating separate modules — do not add everything to a single file and plan to "refactor later."
-- Every PR that touches a file over 200 lines should leave that file shorter or the same length, never longer.
+- PRs adding code to files already over 300 lines should include a brief justification if they don't also extract or reduce the file.
 
 ## Documentation Expectations
 

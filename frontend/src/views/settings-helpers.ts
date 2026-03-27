@@ -6,11 +6,19 @@ import { getValueAtPath, setValueAtPath } from "./settings-paths";
 export type {
   SettingsFieldOption,
   SettingsFieldDefinition,
+  SettingsFieldTier,
+  SettingsMode,
   SettingsSectionDefinition,
   SettingsFieldGroup,
 } from "./settings-types";
 export { SECTION_IDS, SECTION_GROUPS } from "./settings-types";
-import type { SettingsFieldDefinition, SettingsFieldGroup, SettingsSectionDefinition } from "./settings-types";
+import type {
+  SettingsFieldDefinition,
+  SettingsFieldGroup,
+  SettingsFieldTier,
+  SettingsMode,
+  SettingsSectionDefinition,
+} from "./settings-types";
 import { SECTION_IDS, SECTION_GROUPS } from "./settings-types";
 
 export function buildSettingsSections(
@@ -61,6 +69,12 @@ export function sectionMatchesFilter(
     ...section.fields.flatMap((field) => [field.label, field.path, field.hint ?? "", drafts?.[field.path] ?? ""]),
   ];
   return haystacks.some((value) => value.toLowerCase().includes(query));
+}
+
+/** Check whether a section should be visible in the given display mode. */
+export function sectionVisibleInMode(section: SettingsSectionDefinition, mode: SettingsMode): boolean {
+  if (mode === "advanced") return true;
+  return section.mode !== "advanced";
 }
 
 export function ensureSectionDrafts(
@@ -146,6 +160,8 @@ const SECTION_TO_GROUP: ReadonlyMap<string, (typeof SECTION_GROUPS)[keyof typeof
   [SECTION_IDS.MODEL_PROVIDER_AUTH, SECTION_GROUPS.AGENT],
   [SECTION_IDS.SANDBOX, SECTION_GROUPS.AGENT],
   [SECTION_IDS.AGENT, SECTION_GROUPS.AGENT],
+  [SECTION_IDS.CODEX_TIMEOUTS, SECTION_GROUPS.AGENT],
+  [SECTION_IDS.WORKSPACE, SECTION_GROUPS.AGENT],
   [SECTION_IDS.NOTIFICATIONS, SECTION_GROUPS.NOTIFICATIONS],
   [SECTION_IDS.WORKFLOW_STAGES, SECTION_GROUPS.SYSTEM],
   [SECTION_IDS.FEATURE_FLAGS, SECTION_GROUPS.SYSTEM],
@@ -156,11 +172,19 @@ export function getSectionGroup(sectionId: string): (typeof SECTION_GROUPS)[keyo
   return SECTION_TO_GROUP.get(sectionId);
 }
 
+/** Resolve a field's effective tier: explicit tier > advanced flag > default "essential". */
+function resolveFieldTier(field: SettingsFieldDefinition): SettingsFieldTier {
+  if (field.tier) return field.tier;
+  if (field.advanced === true) return "expert";
+  return "essential";
+}
+
 export function sectionGroups(section: SettingsSectionDefinition): SettingsFieldGroup[] {
   const groups = new Map<string, SettingsFieldGroup>();
   section.fields.forEach((field, index) => {
     const title = field.group?.trim() || "Settings";
-    const advanced = field.advanced === true;
+    const tier = resolveFieldTier(field);
+    const advanced = tier === "expert";
     const key = `${advanced ? "advanced" : "core"}:${title}`;
     const existing = groups.get(key);
     if (existing) {
@@ -175,6 +199,7 @@ export function sectionGroups(section: SettingsSectionDefinition): SettingsField
       title,
       description: field.groupDescription,
       advanced,
+      tier,
       fields: [field],
     });
   });

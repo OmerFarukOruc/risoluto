@@ -5,23 +5,13 @@ import { router } from "../router.js";
 import { statusChip } from "../ui/status-chip.js";
 import { skeletonLine } from "../ui/skeleton.js";
 import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types.js";
+import { el } from "../utils/dom.js";
 import { registerPageCleanup } from "../utils/page.js";
 import { formatBytes, formatRelativeTime } from "../utils/format.js";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text) element.textContent = text;
-  return element;
-}
 
 function statusBadge(status: string): HTMLElement {
   return statusChip(status);

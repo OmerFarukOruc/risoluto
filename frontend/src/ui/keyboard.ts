@@ -37,7 +37,6 @@ function handlePrefixKey(event: KeyboardEvent, router: Router, options: Keyboard
     g: "/git",
     d: "/containers",
     w: "/workspaces",
-    i: "/welcome",
     ",": "/settings",
   };
   resetPrefix();

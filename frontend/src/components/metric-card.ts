@@ -43,12 +43,3 @@ export function createStatCardHeader(options: StatCardHeaderOptions): HTMLElemen
 
   return header;
 }
-
-function createMetricCard(title: string, kicker?: string): HTMLElement {
-  const card = createStatCardShell();
-  const header = createStatCardHeader({ title, kicker });
-  const body = document.createElement("div");
-  body.className = "mc-stat-card-body";
-  card.append(header, body);
-  return Object.assign(card, { body });
-}

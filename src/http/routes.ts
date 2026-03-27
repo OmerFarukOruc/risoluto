@@ -11,7 +11,7 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { RuntimeSnapshot } from "../core/types.js";
 import { globalMetrics } from "../observability/metrics.js";
-import { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 import { registerSecretsApi } from "../secrets/api.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { registerSetupApi } from "../setup/api.js";
@@ -33,7 +33,7 @@ import { handleWorkspaceInventory, handleWorkspaceRemove } from "./workspace-inv
 const frontendDist = join(process.cwd(), "dist/frontend");
 
 interface HttpRouteDeps {
-  orchestrator: Orchestrator;
+  orchestrator: OrchestratorPort;
   tracker?: TrackerPort;
   configStore?: ConfigStore;
   configOverlayStore?: ConfigOverlayStore;

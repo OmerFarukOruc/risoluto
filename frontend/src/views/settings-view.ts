@@ -8,7 +8,7 @@ import { toast } from "../ui/toast.js";
 import { createAsyncState, handleError, withLoading } from "../utils/async-state.js";
 import { renderAsyncState } from "../utils/render-guards.js";
 
-import { buildSettingsSections, getSectionById } from "./settings-helpers.js";
+import { buildSettingsSections, getSectionById, sectionVisibleInMode } from "./settings-helpers.js";
 import { createSettingsKeyboardHandler } from "./settings-keyboard.js";
 import { buildSectionPatchPlan } from "./settings-patches.js";
 import { createSettingsState, type SettingsState } from "./settings-state.js";
@@ -143,8 +143,8 @@ export function createSettingsPage(options: SettingsPageOptions = {}): HTMLEleme
           },
           onSelectSection: (sectionId) => {
             state.selectedSectionId = sectionId;
-            render();
-            document.getElementById(`settings-${sectionId}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+            // No re-render needed — all sections are already visible.
+            // Rail highlight is managed by IntersectionObserver + click handlers.
           },
           onToggleDiff: (sectionId) => {
             if (state.expandedDiffs.has(sectionId)) {
@@ -165,6 +165,17 @@ export function createSettingsPage(options: SettingsPageOptions = {}): HTMLEleme
             render();
           },
           onSaveSection: (sectionId) => void saveSection(sectionId),
+          onSetMode: (mode) => {
+            state.mode = mode;
+            localStorage.setItem("symphony.settingsMode", mode);
+            // If current section is now hidden, fall back to first visible
+            const sections = buildSettingsSections(state.schema, state.effective);
+            const visible = sections.filter((s) => sectionVisibleInMode(s, mode));
+            if (!visible.some((s) => s.id === state.selectedSectionId)) {
+              state.selectedSectionId = visible[0]?.id ?? "tracker";
+            }
+            render();
+          },
           onBrowseLinearProjects: (fieldPath) => {
             openProjectPicker({
               onSelect: (slugId) => {

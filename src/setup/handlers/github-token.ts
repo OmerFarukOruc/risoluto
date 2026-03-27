@@ -24,7 +24,6 @@ export function handlePostGithubToken(deps: SetupApiDeps) {
 
     if (valid) {
       await deps.secretsStore.set("GITHUB_TOKEN", token);
-      process.env.GITHUB_TOKEN = token;
     }
 
     res.json({ valid });

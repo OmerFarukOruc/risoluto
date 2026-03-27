@@ -1,13 +1,13 @@
 import type { Request, Response } from "express";
 
-import type { Orchestrator } from "../orchestrator/orchestrator.js";
+import type { OrchestratorPort } from "../orchestrator/port.js";
 import { StateMachine } from "../state/machine.js";
 import type { ConfigStore } from "../config/store.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { TransitionBody } from "./request-schemas.js";
 
 interface TransitionDeps {
-  orchestrator: Orchestrator;
+  orchestrator: OrchestratorPort;
   tracker?: TrackerPort;
   configStore?: ConfigStore;
 }

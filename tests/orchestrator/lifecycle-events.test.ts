@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-import { createLifecycleEvent, toErrorMessage } from "../../src/core/lifecycle-events.js";
+import { createLifecycleEvent } from "../../src/core/lifecycle-events.js";
+import { toErrorString } from "../../src/utils/type-guards.js";
 
 describe("lifecycle-events", () => {
   describe("createLifecycleEvent", () => {
@@ -139,44 +140,44 @@ describe("lifecycle-events", () => {
     });
   });
 
-  describe("toErrorMessage", () => {
+  describe("toErrorString", () => {
     it("extracts message from an Error instance", () => {
-      const result = toErrorMessage(new Error("something went wrong"));
+      const result = toErrorString(new Error("something went wrong"));
       expect(result).toBe("something went wrong");
     });
 
     it("extracts message from a TypeError instance", () => {
-      const result = toErrorMessage(new TypeError("invalid type"));
+      const result = toErrorString(new TypeError("invalid type"));
       expect(result).toBe("invalid type");
     });
 
     it("converts a string to its string representation", () => {
-      const result = toErrorMessage("plain string error");
+      const result = toErrorString("plain string error");
       expect(result).toBe("plain string error");
     });
 
     it("converts a number to its string representation", () => {
-      const result = toErrorMessage(42);
+      const result = toErrorString(42);
       expect(result).toBe("42");
     });
 
     it("converts null to its string representation", () => {
-      const result = toErrorMessage(null);
+      const result = toErrorString(null);
       expect(result).toBe("null");
     });
 
     it("converts undefined to its string representation", () => {
-      const result = toErrorMessage(undefined);
+      const result = toErrorString(undefined);
       expect(result).toBe("undefined");
     });
 
     it("converts an object to its string representation", () => {
-      const result = toErrorMessage({ code: "ERR" });
+      const result = toErrorString({ code: "ERR" });
       expect(result).toBe("[object Object]");
     });
 
     it("converts a boolean to its string representation", () => {
-      const result = toErrorMessage(false);
+      const result = toErrorString(false);
       expect(result).toBe("false");
     });
   });

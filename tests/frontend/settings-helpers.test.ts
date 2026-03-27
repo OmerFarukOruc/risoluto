@@ -24,15 +24,15 @@ describe("buildSettingsSections", () => {
     expect(tracker?.fields[4]?.placeholder).toBe("Done\nCanceled");
   });
 
-  it("marks advanced settings groups for progressive disclosure", () => {
+  it("marks expert-tier settings for progressive disclosure", () => {
     const sections = buildSettingsSections(null, {});
     const tracker = sections.find((section) => section.id === "tracker");
     const provider = sections.find((section) => section.id === "model-provider-auth");
     const sandbox = sections.find((section) => section.id === "sandbox");
 
-    expect(tracker?.fields.find((field) => field.path === "tracker.endpoint")?.advanced).toBe(true);
-    expect(provider?.fields.find((field) => field.path === "codex.provider.base_url")?.advanced).toBe(true);
-    expect(sandbox?.fields.find((field) => field.path === "codex.sandbox.resources.memory")?.advanced).toBe(true);
+    expect(tracker?.fields.find((field) => field.path === "tracker.endpoint")?.tier).toBe("expert");
+    expect(provider?.fields.find((field) => field.path === "codex.provider.base_url")?.tier).toBe("expert");
+    expect(sandbox?.fields.find((field) => field.path === "codex.sandbox.resources.memory")?.tier).toBe("expert");
   });
 
   it("includes a credentials section", () => {

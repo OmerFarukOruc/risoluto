@@ -1,8 +1,8 @@
 import type { ServiceConfig, StateStageKind } from "../core/types.js";
 import { StateMachine } from "./machine.js";
 
-export const DEFAULT_ACTIVE_STATES = ["Todo", "In Progress"];
-export const DEFAULT_TERMINAL_STATES = ["Done", "Completed", "Closed", "Canceled", "Duplicate"];
+export const DEFAULT_ACTIVE_STATES = ["Backlog", "Todo", "In Progress"];
+export const DEFAULT_TERMINAL_STATES = ["Done", "Canceled"];
 const STATE_MACHINE_CACHE = new WeakMap<object, StateMachine>();
 
 function normalizeStateValue(state: string): string {
@@ -96,10 +96,11 @@ export function listWorkflowStages(config: ServiceConfig): WorkflowStageDefiniti
 
   for (const state of config.tracker.activeStates) {
     const key = normalizeStateValue(state);
+    const kind: StateStageKind = key === "backlog" ? "backlog" : key === "todo" ? "todo" : "active";
     appendStage(stages, seen, {
       key,
       label: state,
-      kind: key === "todo" ? "todo" : "active",
+      kind,
       terminal: false,
     });
   }

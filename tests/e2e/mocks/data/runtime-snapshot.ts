@@ -45,7 +45,7 @@ export interface RecentEvent {
   session_id: string | null;
   event: string;
   message: string;
-  content: unknown | null;
+  content: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -149,6 +149,7 @@ export function buildRuntimeSnapshot(overrides?: Partial<RuntimeSnapshot>): Runt
         issues: [runningIssue],
       },
       { key: "done", label: "Done", kind: "terminal", terminal: true, count: 1, issues: [completedIssue] },
+      { key: "canceled", label: "Canceled", kind: "terminal", terminal: true, count: 0, issues: [] },
     ],
     codex_totals: {
       input_tokens: 15_000,

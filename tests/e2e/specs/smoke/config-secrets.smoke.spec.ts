@@ -69,14 +69,16 @@ test.describe("Unified Settings Smoke", () => {
     const config = new ConfigPage(page);
     await config.navigateToSecrets();
 
-    await expect(page.getByText(/LINEAR_API_KEY/).first()).toBeVisible({ timeout: 5000 });
+    // Credentials section should show stored credential keys
+    await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("credentials section has new secret button", async ({ page }) => {
+  test("credentials section has add credential button", async ({ page }) => {
     const config = new ConfigPage(page);
     await config.navigateToSecrets();
 
-    await expect(page.getByText("New secret")).toBeVisible({ timeout: 5000 });
+    // The button is now "+ Add credential" instead of "New secret"
+    await expect(config.addCredentialButton).toBeVisible({ timeout: 5000 });
   });
 
   test("global keyboard aliases open devtools and credentials sections", async ({ page }) => {

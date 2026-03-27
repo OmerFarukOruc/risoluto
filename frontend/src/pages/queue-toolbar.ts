@@ -68,7 +68,7 @@ function mergeColumns(columns: WorkflowColumn[]): WorkflowColumn[] {
     const normalized = normalizeStageKey(column.key);
     const existing = merged.get(normalized);
     if (existing) {
-      existing.issues = [...existing.issues, ...column.issues];
+      existing.issues = [...(existing.issues ?? []), ...(column.issues ?? [])];
       existing.count = (existing.count ?? 0) + (column.count ?? 0);
     } else {
       merged.set(normalized, {

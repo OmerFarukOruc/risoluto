@@ -100,7 +100,7 @@ const notifications = lazyPage(() => import("./pages/notifications"));
 const git = lazyPage(() => import("./pages/git"));
 const workspaces = lazyPage(() => import("./pages/workspaces"));
 const containers = lazyPage(() => import("./pages/containers"));
-const welcome = lazyPage(() => import("./pages/welcome"));
+
 const setup = lazyPage(() => import("./pages/setup"));
 
 function aliasSettingsRoute(
@@ -133,7 +133,10 @@ router.register("/notifications", notifications);
 router.register("/git", git);
 router.register("/workspaces", workspaces);
 router.register("/containers", containers);
-router.register("/welcome", welcome);
+router.register("/welcome", () => {
+  router.navigate("/settings");
+  return document.createElement("div");
+});
 router.register("/setup", setup);
 
 // Check setup status BEFORE first render to avoid flash of overview

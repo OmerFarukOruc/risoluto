@@ -18,7 +18,7 @@ function createConfig(): ServiceConfig {
       endpoint: "https://api.linear.app/graphql",
       projectSlug: "EXAMPLE",
       activeStates: ["In Progress"],
-      terminalStates: ["Done", "Completed", "Canceled", "Duplicate"],
+      terminalStates: ["Done", "Canceled"],
     },
     polling: { intervalMs: 30000 },
     workspace: {
@@ -297,9 +297,7 @@ describe("LinearClient", () => {
       "https://linear.example.test/graphql",
       expect.objectContaining({
         method: "POST",
-        body: expect.stringContaining(
-          '"activeStates":["In Progress","Review","Done","Completed","Canceled","Duplicate"]',
-        ),
+        body: expect.stringContaining('"activeStates":["In Progress","Review","Done","Canceled"]'),
       }),
     );
   });

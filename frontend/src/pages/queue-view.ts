@@ -50,7 +50,7 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   }
 
   function getColumnFingerprint(cols: WorkflowColumn[]): string {
-    return cols.map((c) => `${c.key}:${c.count ?? 0}:${c.issues.map(issueFingerprint).join(",")}`).join("|");
+    return cols.map((c) => `${c.key}:${c.count ?? 0}:${(c.issues ?? []).map(issueFingerprint).join(",")}`).join("|");
   }
 
   const dragManager = createDragStateManager();

@@ -57,6 +57,7 @@ export interface RuntimeIssueView {
   description?: string | null;
   blockedBy?: { id: string | null; identifier: string | null; state: string | null }[];
   branchName?: string | null;
+  pullRequestUrl?: string | null;
   createdAt?: string | null;
 }
 
@@ -66,15 +67,6 @@ export interface IssueDetail extends RuntimeIssueView {
   recentEvents: RecentEvent[];
   attempts: AttemptSummary[];
   currentAttemptId: string | null;
-  url?: string;
-  description?: string;
-  blocked_by?: string[];
-  branch_name?: string;
-  pull_request_url?: string;
-  nextRetryDueAt?: string | null;
-  next_retry_due_at?: string;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface AbortIssueResponse {
@@ -86,7 +78,7 @@ export interface AbortIssueResponse {
 
 export interface AttemptSummary {
   attemptId: string;
-  attemptNumber: number;
+  attemptNumber: number | null;
   startedAt: string | null;
   endedAt: string | null;
   status: string;
@@ -117,7 +109,7 @@ export interface RecentEvent {
   session_id: string | null;
   event: string;
   message: string;
-  content: unknown | null;
+  content: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -160,10 +152,10 @@ export interface SetupStatus {
 }
 
 export interface LinearProject {
-  id: unknown;
-  name: unknown;
+  id: string;
+  name: string;
   slugId: string;
-  teamKey: unknown;
+  teamKey: string | null;
 }
 
 /* ---- Git Context ---- */

@@ -119,7 +119,7 @@ describe("registerSetupApi", () => {
     expect(secretsStore.delete).toHaveBeenNthCalledWith(2, "LINEAR_API_KEY");
     expect(configOverlayStore.set).toHaveBeenNthCalledWith(1, "codex.auth.mode", "");
     expect(configOverlayStore.set).toHaveBeenNthCalledWith(2, "codex.auth.source_home", "");
-    expect(process.env.GITHUB_TOKEN).toBeUndefined();
+    expect(process.env.GITHUB_TOKEN).toBe("gh-from-env");
   });
 
   it("returns reset_failed when reset throws", async () => {

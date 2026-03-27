@@ -112,13 +112,13 @@ export function handleGetRepoRoutes(deps: RepoRouteApiDeps) {
 
 export function handleDeleteRepoRoute(deps: RepoRouteApiDeps) {
   return async (req: Request, res: Response) => {
-    const body = req.body;
-    const index = isRecord(body) && typeof body.index === "number" && Number.isInteger(body.index) ? body.index : -1;
+    const rawIndex = Array.isArray(req.params.index) ? req.params.index[0] : req.params.index;
+    const index = rawIndex !== undefined && /^\d+$/.test(rawIndex) ? Number(rawIndex) : Number.NaN;
 
     const overlay = deps.configOverlayStore.toMap();
     const existing = readRepos(overlay);
 
-    if (index < 0 || index >= existing.length) {
+    if (!Number.isInteger(index) || index < 0 || index >= existing.length) {
       res.status(400).json({
         error: { code: "invalid_index", message: `index must be between 0 and ${existing.length - 1}` },
       });

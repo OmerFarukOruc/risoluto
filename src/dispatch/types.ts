@@ -31,8 +31,6 @@ export interface RunAttemptDispatcher {
     workspace: Workspace;
     signal: AbortSignal;
     onEvent: AgentRunnerEventHandler;
-    /** Pre-computed runtime config for data plane (skips auth.json read) */
-    precomputedRuntimeConfig?: PrecomputedRuntimeConfig;
   }): Promise<RunOutcome>;
 }
 

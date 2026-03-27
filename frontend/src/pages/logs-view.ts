@@ -7,7 +7,9 @@ import { loadArchiveLogs, loadLiveLogs } from "./logs-data";
 import { stringifyPayload } from "../utils/events";
 import { createIconButton } from "../ui/buttons.js";
 import { createIcon } from "../ui/icons.js";
-import { subscribeIssueLifecycle } from "../state/event-source.js";
+import { subscribeIssueLifecycle, subscribeAllEvents } from "../state/event-source.js";
+import type { AgentEventPayload } from "../state/event-source.js";
+import { createLogBuffer } from "../state/log-buffer.js";
 
 type Mode = "live" | "archive";
 type Density = "compact" | "comfortable";
@@ -56,6 +58,7 @@ export function createLogsPage(id: string): HTMLElement {
     placeholder: "Search logs",
   });
 
+  const sortToggle = makeIconBtn("sort", "Sort order");
   const autoToggle = makeIconBtn("scrollDown", "Follow live");
   const expandToggle = makeIconBtn("unfold", "Expand payloads");
   const densityToggle = makeIconBtn("dense", "Compact");
@@ -64,7 +67,7 @@ export function createLogsPage(id: string): HTMLElement {
 
   const viewActions = document.createElement("div");
   viewActions.className = "logs-view-actions";
-  viewActions.append(densityToggle, autoToggle, expandToggle, copyAllBtn);
+  viewActions.append(sortToggle, densityToggle, autoToggle, expandToggle, copyAllBtn);
   controls.append(typeBar, search, viewActions);
 
   // ── Log scroll area ───────────────────────────────────────────────────────
@@ -93,18 +96,20 @@ export function createLogsPage(id: string): HTMLElement {
   let data: { title: string; issueId: string; events: RecentEvent[] } = { title: "Loading…", issueId: id, events: [] };
   let timer = 0;
   let unsubscribeLifecycle: (() => void) | null = null;
+  let unsubscribeAllEvents: (() => void) | null = null;
   const expandedEvents = new Set<string>();
   let newEventCount = 0;
+  const buffer = createLogBuffer("desc");
 
   function filtered(): RecentEvent[] {
-    return data.events.filter((event) => {
+    return buffer.events().filter((event) => {
       const matchesType = activeFilters.size === 0 || activeFilters.has(event.event);
       return matchesType && eventMatchesSearch(event, searchText);
     });
   }
 
   function renderTypeFilters(): void {
-    const eventTypes = [...new Set(data.events.map((event) => event.event))];
+    const eventTypes = [...new Set(buffer.events().map((event) => event.event))];
 
     const allBtn = document.createElement("button");
     allBtn.type = "button";
@@ -143,6 +148,7 @@ export function createLogsPage(id: string): HTMLElement {
     autoToggle.classList.toggle("is-active", autoScroll);
     densityToggle.classList.toggle("is-active", density === "compact");
     expandToggle.classList.toggle("is-active", expandedEvents.size > 0);
+    sortToggle.classList.toggle("is-flipped", buffer.direction() === "asc");
     scroll.classList.toggle("is-compact", density === "compact");
     scroll.classList.toggle("is-comfortable", density === "comfortable");
     renderTypeFilters();
@@ -198,12 +204,41 @@ export function createLogsPage(id: string): HTMLElement {
     }
   }
 
+  function appendSingleEvent(event: RecentEvent): void {
+    if (!buffer.insert(event)) return;
+    const matchesType = activeFilters.size === 0 || activeFilters.has(event.event);
+    if (!matchesType || !eventMatchesSearch(event, searchText)) return;
+    const key = `${event.at}:${event.event}:${event.message}`;
+    const row = createLogRow({
+      event,
+      expanded: expandedEvents.has(key),
+      highlightedText: searchText,
+      onToggle: () => {
+        if (expandedEvents.has(key)) expandedEvents.delete(key);
+        else expandedEvents.add(key);
+        render();
+      },
+    });
+    row.classList.add("timeline-enter");
+    if (buffer.direction() === "desc") {
+      scroll.prepend(row);
+    } else {
+      scroll.append(row);
+    }
+    if (autoScroll) {
+      scroll.scrollTop = scroll.scrollHeight;
+    } else if (!indicator.hidden) {
+      newEventCount += 1;
+      indicator.textContent = `↓ ${newEventCount} new`;
+    }
+  }
+
   async function refresh(force = false): Promise<void> {
-    const prevLength = data.events.length;
-    const prevLastAt = data.events.at(-1)?.at;
+    const prevSize = buffer.size();
     data = mode === "live" ? await loadLiveLogs(id) : await loadArchiveLogs(id);
-    const added = Math.max(0, data.events.length - prevLength);
-    const changed = force || data.events.length !== prevLength || data.events.at(-1)?.at !== prevLastAt;
+    buffer.load(data.events);
+    const added = Math.max(0, buffer.size() - prevSize);
+    const changed = force || added > 0;
     if (changed) {
       if (!autoScroll && added > 0 && !indicator.hidden) {
         newEventCount += added;
@@ -217,14 +252,33 @@ export function createLogsPage(id: string): HTMLElement {
     window.clearInterval(timer);
     unsubscribeLifecycle?.();
     unsubscribeLifecycle = null;
+    unsubscribeAllEvents?.();
+    unsubscribeAllEvents = null;
     if (mode === "live") {
       timer = window.setInterval(() => {
         void refresh();
       }, 10_000);
       unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void refresh());
+      unsubscribeAllEvents = subscribeAllEvents((eventData) => {
+        const payload = eventData.payload as AgentEventPayload | undefined;
+        if (!payload || payload.identifier !== id) return;
+        appendSingleEvent({
+          at: payload.timestamp ?? new Date().toISOString(),
+          issue_id: payload.issueId,
+          issue_identifier: payload.identifier,
+          session_id: payload.sessionId,
+          event: payload.type,
+          message: payload.message,
+          content: payload.content ?? null,
+        });
+      });
     }
   }
 
+  sortToggle.addEventListener("click", () => {
+    buffer.setDirection(buffer.direction() === "desc" ? "asc" : "desc");
+    render();
+  });
   liveBtn.addEventListener("click", () => {
     if (mode === "live") return;
     mode = "live";
@@ -306,6 +360,7 @@ export function createLogsPage(id: string): HTMLElement {
   registerPageCleanup(page, () => {
     window.clearInterval(timer);
     unsubscribeLifecycle?.();
+    unsubscribeAllEvents?.();
   });
   return page;
 }

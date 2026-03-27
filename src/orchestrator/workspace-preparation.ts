@@ -1,7 +1,8 @@
 import { lstatSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 
-import { createLifecycleEvent, toErrorMessage, type RuntimeEventSink } from "./lifecycle-events.js";
+import { createLifecycleEvent, type RuntimeEventSink } from "../core/lifecycle-events.js";
+import { toErrorString } from "../utils/type-guards.js";
 import type { Issue, ServiceConfig, Workspace } from "../core/types.js";
 import type { RepoMatch } from "../git/repo-router.js";
 import { resolveWorkspacePath } from "../workspace/paths.js";
@@ -110,7 +111,7 @@ export async function prepareWorkspaceForLaunch(ctx: WorkspacePreparationContext
         metadata: {
           workspacePath,
           strategy: config.workspace.strategy,
-          error: toErrorMessage(error),
+          error: toErrorString(error),
         },
       }),
     );

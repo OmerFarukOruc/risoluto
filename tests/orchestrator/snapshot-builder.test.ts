@@ -198,6 +198,16 @@ function createAttemptStore(overrides?: {
     getAttempt: (attemptId: string) => attempts.find((a) => a.attemptId === attemptId) ?? null,
     sumArchivedSeconds: () => sumAttemptDurationSeconds(attempts),
     sumCostUsd: vi.fn().mockReturnValue(0),
+    sumArchivedTokens: vi.fn().mockReturnValue(
+      attempts.reduce(
+        (acc, a) => ({
+          inputTokens: acc.inputTokens + (a.tokenUsage?.inputTokens ?? 0),
+          outputTokens: acc.outputTokens + (a.tokenUsage?.outputTokens ?? 0),
+          totalTokens: acc.totalTokens + (a.tokenUsage?.totalTokens ?? 0),
+        }),
+        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      ),
+    ),
     getEvents: (attemptId: string) =>
       events.filter((e) => {
         const attemptIdFromEvent = (e as { attemptId?: string }).attemptId;

@@ -1,5 +1,6 @@
 import { JsonRpcTimeoutError } from "../agent/json-rpc-connection.js";
 import type { RunOutcome } from "../core/types.js";
+import { toErrorString } from "../utils/type-guards.js";
 
 const ABORT_REASONS: Record<string, { kind: RunOutcome["kind"]; errorCode: string; errorMessage: string }> = {
   stalled: { kind: "stalled", errorCode: "stalled", errorMessage: "worker exceeded stall timeout" },
@@ -49,7 +50,7 @@ export function classifyRunError(
   turnId: string | null,
   turnCount: number,
 ): RunOutcome {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = toErrorString(error);
   if (error instanceof JsonRpcTimeoutError || message.includes("timed out")) {
     const timeoutCode = message.includes("turn completion") ? "turn_timeout" : "read_timeout";
     return { kind: "timed_out", errorCode: timeoutCode, errorMessage: message, threadId, turnId, turnCount };

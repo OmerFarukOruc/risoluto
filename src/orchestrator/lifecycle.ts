@@ -1,5 +1,5 @@
 import { sortIssuesForDispatch } from "./dispatch.js";
-import { createLifecycleEvent, type RuntimeEventSink } from "./lifecycle-events.js";
+import { createLifecycleEvent, type RuntimeEventSink } from "../core/lifecycle-events.js";
 import { issueView, nowIso } from "./views.js";
 import { isActiveState, isTerminalState } from "../state/policy.js";
 import type { AttemptRecord, Issue, ServiceConfig } from "../core/types.js";
@@ -97,6 +97,14 @@ export async function reconcileRunningAndRetrying(ctx: ReconcileContext): Promis
   reconcileRunning(ctx.runningEntries, byId, config);
   await reconcileRetries(ctx, byId, config);
 }
+interface ModelSelectionResolver {
+  (identifier: string): {
+    model: string;
+    reasoningEffort: ServiceConfig["codex"]["reasoningEffort"];
+    source: "default" | "override";
+  };
+}
+
 export async function refreshQueueViews(ctx: {
   queuedViews: IssueView[];
   detailViews: Map<string, IssueView>;
@@ -105,11 +113,7 @@ export async function refreshQueueViews(ctx: {
     tracker: { fetchCandidateIssues: () => Promise<Issue[]> };
   };
   canDispatchIssue: (issue: Issue) => boolean;
-  resolveModelSelection: (identifier: string) => {
-    model: string;
-    reasoningEffort: ServiceConfig["codex"]["reasoningEffort"];
-    source: "default" | "override";
-  };
+  resolveModelSelection: ModelSelectionResolver;
   setQueuedViews: (views: IssueView[]) => void;
   pushEvent?: RuntimeEventSink;
 }): Promise<void> {
@@ -151,9 +155,17 @@ export async function refreshQueueViews(ctx: {
   }
   ctx.setQueuedViews(queuedViews);
 
+  refreshDetailViews(ctx.detailViews, issues, ctx.resolveModelSelection);
+}
+
+function refreshDetailViews(
+  detailViews: Map<string, IssueView>,
+  issues: Issue[],
+  resolveModelSelection: ModelSelectionResolver,
+): void {
   const nextDetailViews = new Map<string, IssueView>();
   for (const issue of issues) {
-    const selection = ctx.resolveModelSelection(issue.identifier);
+    const selection = resolveModelSelection(issue.identifier);
     nextDetailViews.set(
       issue.identifier,
       issueView(issue, {
@@ -167,8 +179,8 @@ export async function refreshQueueViews(ctx: {
       }),
     );
   }
-  ctx.detailViews.clear();
-  nextDetailViews.forEach((detailView, identifier) => ctx.detailViews.set(identifier, detailView));
+  detailViews.clear();
+  nextDetailViews.forEach((detailView, identifier) => detailViews.set(identifier, detailView));
 }
 export async function cleanupTerminalIssueWorkspaces(ctx: {
   deps: {
@@ -197,29 +209,58 @@ export async function cleanupTerminalIssueWorkspaces(ctx: {
 
 type IssueView = ReturnType<typeof issueView>;
 
+const TERMINAL_ATTEMPT_STATUSES = new Set(["completed", "failed", "timed_out", "stalled", "cancelled", "paused"]);
+
 export function seedCompletedClaims(ctx: {
   claimedIssueIds: Set<string>;
+  completedViews: Map<string, ReturnType<typeof issueView>>;
   deps: {
     attemptStore: { getAllAttempts: () => AttemptRecord[] };
     logger: { info: (meta: Record<string, unknown>, message: string) => void };
   };
 }): void {
   const attempts = ctx.deps.attemptStore.getAllAttempts();
-  const latestByIssueId = new Map<string, AttemptRecord>();
+  const latestByIssue = new Map<string, AttemptRecord>();
   for (const attempt of attempts) {
-    const existing = latestByIssueId.get(attempt.issueId);
+    const key = attempt.issueIdentifier;
+    const existing = latestByIssue.get(key);
     if (!existing || attempt.startedAt > existing.startedAt) {
-      latestByIssueId.set(attempt.issueId, attempt);
+      latestByIssue.set(key, attempt);
     }
   }
   let seeded = 0;
-  for (const [issueId, attempt] of latestByIssueId) {
+  for (const [, attempt] of latestByIssue) {
     if (attempt.status === "completed") {
-      ctx.claimedIssueIds.add(issueId);
+      ctx.claimedIssueIds.add(attempt.issueId);
+    }
+    if (TERMINAL_ATTEMPT_STATUSES.has(attempt.status)) {
+      ctx.completedViews.set(attempt.issueIdentifier, attemptToCompletedView(attempt));
       seeded++;
     }
   }
   if (seeded > 0) {
-    ctx.deps.logger.info({ count: seeded }, "seeded completed issue claims from attempt store");
+    ctx.deps.logger.info({ count: seeded }, "seeded completed views from attempt store");
   }
+}
+
+function attemptToCompletedView(attempt: AttemptRecord): ReturnType<typeof issueView> {
+  return {
+    issueId: attempt.issueId,
+    identifier: attempt.issueIdentifier,
+    title: attempt.title,
+    state: attempt.status,
+    workspaceKey: attempt.workspaceKey,
+    workspacePath: attempt.workspacePath,
+    message: attempt.errorMessage,
+    status: attempt.status,
+    updatedAt: attempt.endedAt ?? attempt.startedAt,
+    attempt: attempt.attemptNumber,
+    error: attempt.errorCode,
+    model: attempt.model,
+    reasoningEffort: attempt.reasoningEffort,
+    modelSource: attempt.modelSource,
+    tokenUsage: attempt.tokenUsage,
+    startedAt: attempt.startedAt,
+    pullRequestUrl: attempt.pullRequestUrl,
+  };
 }

@@ -1,4 +1,4 @@
-import type { Issue, RecentEvent } from "../core/types.js";
+import type { Issue, RecentEvent } from "./types.js";
 import { getErrorMessage } from "../utils/type-guards.js";
 
 export type RuntimeEventRecord = RecentEvent & {

@@ -1,5 +1,5 @@
 import type { OrchestratorContext } from "./context.js";
-import type { RuntimeEventRecord } from "./lifecycle-events.js";
+import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
 import type {
   Issue,
   ModelSelection,

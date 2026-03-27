@@ -19,6 +19,7 @@ export interface AttemptStorePort {
   appendEvent(event: AttemptEvent): Promise<void>;
   sumArchivedSeconds(): number;
   sumCostUsd(): number;
+  sumArchivedTokens(): { inputTokens: number; outputTokens: number; totalTokens: number };
 }
 
 /** Sort attempts newest-first by `startedAt`. Shared by both store implementations. */

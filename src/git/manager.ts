@@ -85,7 +85,8 @@ class GitHubApiError extends Error {
     readonly status: number,
     readonly payload: unknown,
   ) {
-    super(`github request failed with status ${status}: ${JSON.stringify(payload)}`);
+    super(`github request failed with status ${status}: ${JSON.stringify(payload)}`, { cause: payload });
+    this.name = "GitHubApiError";
   }
 }
 

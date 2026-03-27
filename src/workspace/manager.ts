@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import type { Issue, ServiceConfig, SymphonyLogger, Workspace } from "../core/types.js";
 import type { RepoMatch } from "../git/repo-router.js";
 import { buildSafePath, isWithinRoot, sanitizeIdentifier, resolveWorkspacePath } from "./paths.js";
+import { toErrorString } from "../utils/type-guards.js";
 export { buildSafePath } from "./paths.js";
 
 const TRANSIENT_DIRECTORIES = ["tmp", ".elixir_ls"];
@@ -180,7 +181,7 @@ export class WorkspaceManager {
         {
           workspacePath: workspace.path,
           issueIdentifier,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorString(error),
           classification: "before_remove_hook_failed",
         },
         "before_remove hook failed; continuing with workspace removal",
@@ -208,7 +209,7 @@ export class WorkspaceManager {
         {
           workspacePath: workspace.path,
           issueIdentifier,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorString(error),
           classification: "before_remove_hook_failed",
         },
         "before_remove hook failed; continuing with workspace removal",
@@ -227,7 +228,7 @@ export class WorkspaceManager {
             {
               workspacePath,
               issueIdentifier,
-              error: error instanceof Error ? error.message : String(error),
+              error: toErrorString(error),
             },
             "git worktree remove failed; falling back to rm",
           );

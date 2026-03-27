@@ -4,9 +4,6 @@ dist/
 .symphony/
 .sisyphus/
 
-# Abandoned workspace restructuring
-packages/
-
 # Logs and local runtime output
 *.log
 

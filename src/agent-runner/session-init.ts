@@ -4,7 +4,8 @@ import { authIsRequired, extractRateLimits, extractThreadId, hasUsableAccount } 
 import { waitForStartup, StartupTimeoutError, buildDynamicTools } from "./session-helpers.js";
 import type { DockerSession } from "./docker-session.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
-import { createLifecycleEvent, toErrorMessage } from "../orchestrator/lifecycle-events.js";
+import { createLifecycleEvent } from "../core/lifecycle-events.js";
+import { toErrorString } from "../utils/type-guards.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, SymphonyLogger, Workspace } from "../core/types.js";
 
 interface SessionInitDeps {
@@ -120,7 +121,7 @@ async function initCodexProtocol(
       rateLimits: extractRateLimits(rateLimitResult),
     });
   } catch (error) {
-    deps.logger.warn({ error: String(error) }, "rate limit preflight unavailable");
+    deps.logger.warn({ error: toErrorString(error) }, "rate limit preflight unavailable");
   }
 
   return null;
@@ -172,7 +173,7 @@ async function confirmContainerRunning(
     return {
       kind: "failed",
       errorCode: "container_start_failed",
-      errorMessage: toErrorMessage(error),
+      errorMessage: toErrorString(error),
     };
   }
 }
@@ -191,7 +192,7 @@ async function renderPromptTemplate(
     return {
       kind: "failed",
       errorCode: "template_parse_error",
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: toErrorString(error),
       threadId,
       turnId,
       turnCount,
@@ -209,7 +210,7 @@ async function renderPromptTemplate(
     return {
       kind: "failed",
       errorCode: "template_render_error",
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: toErrorString(error),
       threadId,
       turnId,
       turnCount,

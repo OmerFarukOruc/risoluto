@@ -1,7 +1,7 @@
 import type { Issue, ModelSelection, RuntimeIssueView, ServiceConfig, TokenUsageSnapshot } from "../core/types.js";
 import type { OrchestratorDeps, RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
 import type { StallEvent } from "./stall-detector.js";
-import type { RuntimeEventRecord } from "./lifecycle-events.js";
+import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
 import type { NotificationEvent } from "../notification/channel.js";
 import type { GitManager } from "../git/manager.js";
 

@@ -7,7 +7,7 @@
  * dashboard display (stall timeline widget).
  */
 
-import type { RuntimeEventSink } from "./lifecycle-events.js";
+import type { RuntimeEventSink } from "../core/lifecycle-events.js";
 import { nowIso } from "./views.js";
 import type { ServiceConfig } from "../core/types.js";
 import type { RunningEntry } from "./runtime-types.js";

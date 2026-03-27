@@ -106,6 +106,22 @@ export class SqliteAttemptStore {
     }, 0);
   }
 
+  sumArchivedTokens(): { inputTokens: number; outputTokens: number; totalTokens: number } {
+    const result = this.getDb()
+      .select({
+        inputTokens: sql<number>`COALESCE(SUM(input_tokens), 0)`,
+        outputTokens: sql<number>`COALESCE(SUM(output_tokens), 0)`,
+        totalTokens: sql<number>`COALESCE(SUM(total_tokens), 0)`,
+      })
+      .from(attempts)
+      .get();
+    return {
+      inputTokens: result?.inputTokens ?? 0,
+      outputTokens: result?.outputTokens ?? 0,
+      totalTokens: result?.totalTokens ?? 0,
+    };
+  }
+
   /**
    * Migrate existing JSONL archive files into this SQLite database.
    * Idempotent — safe to call on every startup.

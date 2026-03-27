@@ -89,7 +89,7 @@
   background: var(--surface-primary-bg);
   border: var(--surface-primary-border-width) solid var(--surface-primary-border);
   border-left: 4px solid var(--surface-primary-border-accent);
-  min-height: 440px;
+  min-height: 280px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -296,34 +296,6 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
-}
-
-.overview-quick-actions {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--bg-muted);
-  border: 1px solid var(--border-default);
-}
-
-.overview-quick-action-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--motion-fast) var(--ease-out-quart);
-}
-
-.overview-quick-action-btn:hover {
-  border-color: var(--text-accent);
-  background: var(--bg-elevated);
 }
 
 .overview-teaching-empty {
@@ -589,7 +561,7 @@
   }
 
   .overview-attention-zone {
-    min-height: 280px;
+    min-height: 200px;
   }
 
   .overview-token-grid {

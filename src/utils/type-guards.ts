@@ -34,3 +34,12 @@ export function asStringRecord(value: unknown): Record<string, string> {
 export function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
+
+/**
+ * Convert an unknown caught error to a human-readable string.
+ * Prefers `Error.message` for Error instances, falls back to `String(error)`.
+ * Use this as the single canonical error-to-string coercion utility.
+ */
+export function toErrorString(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

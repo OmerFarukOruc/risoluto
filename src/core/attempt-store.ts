@@ -24,54 +24,56 @@ export class AttemptStore {
       if (!entry.isFile() || !entry.name.endsWith(".json")) {
         continue;
       }
-
-      try {
-        const attemptPath = path.join(this.attemptsDir(), entry.name);
-        const attempt = JSON.parse(await readFile(attemptPath, "utf8")) as AttemptRecord;
-        this.attempts.set(attempt.attemptId, attempt);
-        this.indexAttempt(attempt);
-
-        const eventsPath = this.eventsPath(attempt.attemptId);
-        try {
-          const lines = (await readFile(eventsPath, "utf8"))
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
-          const events = lines.map((line) => JSON.parse(line) as AttemptEvent);
-
-          // Legacy migration check: Are these events newest-first?
-          if (
-            events.length > 1 &&
-            new Date(events[0].at).getTime() > new Date(events[events.length - 1].at).getTime()
-          ) {
-            events.reverse();
-            // Asynchronously rewrite the archive in chronological order
-            const serialized = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
-            writeFile(eventsPath, serialized, "utf8").catch((err) => {
-              this.logger.warn(
-                { attemptId: attempt.attemptId, error: String(err) },
-                "failed to migrate legacy archive order",
-              );
-            });
-          }
-
-          this.eventsByAttempt.set(attempt.attemptId, events);
-        } catch (error) {
-          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-            this.eventsByAttempt.set(attempt.attemptId, []);
-          } else {
-            this.logger.warn(
-              { attemptId: attempt.attemptId, error: String(error) },
-              "attempt event archive corrupt or unreadable",
-            );
-            this.eventsByAttempt.set(attempt.attemptId, []);
-          }
-        }
-      } catch (error) {
-        this.logger.warn({ entry: entry.name, error: String(error) }, "attempt archive entry could not be loaded");
-      }
+      await this.loadAttemptFromDisk(entry.name);
     }
     await this.persistIssueIndex();
+  }
+
+  private async loadAttemptFromDisk(fileName: string): Promise<void> {
+    try {
+      const attemptPath = path.join(this.attemptsDir(), fileName);
+      const attempt = JSON.parse(await readFile(attemptPath, "utf8")) as AttemptRecord;
+      this.attempts.set(attempt.attemptId, attempt);
+      this.indexAttempt(attempt);
+
+      const events = await this.loadAttemptEvents(attempt.attemptId);
+      this.eventsByAttempt.set(attempt.attemptId, events);
+    } catch (error) {
+      this.logger.warn({ entry: fileName, error: String(error) }, "attempt archive entry could not be loaded");
+    }
+  }
+
+  private async loadAttemptEvents(attemptId: string): Promise<AttemptEvent[]> {
+    const eventsPath = this.eventsPath(attemptId);
+    try {
+      const lines = (await readFile(eventsPath, "utf8"))
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const events = lines.map((line) => JSON.parse(line) as AttemptEvent);
+      this.migrateEventOrder(attemptId, events, eventsPath);
+      return events;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        return [];
+      }
+      this.logger.warn({ attemptId, error: String(error) }, "attempt event archive corrupt or unreadable");
+      return [];
+    }
+  }
+
+  /**
+   * Legacy migration: reorder events from newest-first to chronological order.
+   * Asynchronously rewrites the archive file without blocking startup.
+   */
+  private migrateEventOrder(attemptId: string, events: AttemptEvent[], eventsPath: string): void {
+    if (events.length > 1 && new Date(events[0].at).getTime() > new Date(events.at(-1)!.at).getTime()) {
+      events.reverse();
+      const serialized = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
+      writeFile(eventsPath, serialized, "utf8").catch((err) => {
+        this.logger.warn({ attemptId, error: String(err) }, "failed to migrate legacy archive order");
+      });
+    }
   }
 
   getAttempt(attemptId: string): AttemptRecord | null {
@@ -97,6 +99,19 @@ export class AttemptStore {
         1_000_000;
     }
     return total;
+  }
+
+  sumArchivedTokens(): { inputTokens: number; outputTokens: number; totalTokens: number } {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let totalTokens = 0;
+    for (const attempt of this.attempts.values()) {
+      if (!attempt.tokenUsage) continue;
+      inputTokens += attempt.tokenUsage.inputTokens;
+      outputTokens += attempt.tokenUsage.outputTokens;
+      totalTokens += attempt.tokenUsage.totalTokens;
+    }
+    return { inputTokens, outputTokens, totalTokens };
   }
 
   getEvents(attemptId: string): AttemptEvent[] {

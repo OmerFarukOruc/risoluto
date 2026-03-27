@@ -1,5 +1,5 @@
 import type { Issue } from "../core/types.js";
-import type { RuntimeEventSink } from "./lifecycle-events.js";
+import type { RuntimeEventSink } from "../core/lifecycle-events.js";
 import { nowIso } from "./views.js";
 import type { RunningEntry } from "./runtime-types.js";
 import { TokenRefreshError } from "../codex/token-refresh.js";

@@ -58,6 +58,7 @@ export class Orchestrator {
     await cleanupTerminalWorkspaces(this._state, this.deps);
     seedCompletedClaims({
       claimedIssueIds: this._state.claimedIssueIds,
+      completedViews: this._state.completedViews,
       deps: { attemptStore: this.deps.attemptStore, logger: this.deps.logger },
     });
     this.scheduleTick(0);

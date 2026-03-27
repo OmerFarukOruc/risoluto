@@ -290,30 +290,6 @@ export function createOverviewPage(): HTMLElement {
   tokenSection.append(tokenGrid);
   secondary.append(tokenSection);
 
-  const quickActions = document.createElement("div");
-  quickActions.className = "overview-quick-actions";
-
-  const quickTitle = document.createElement("h2");
-  quickTitle.className = "overview-section-title";
-  quickTitle.textContent = "Quick actions";
-  quickActions.append(quickTitle);
-
-  const actions = [
-    { label: "View queue", path: "/queue" },
-    { label: "Observability", path: "/observability" },
-    { label: "Git & PRs", path: "/git" },
-  ];
-
-  for (const action of actions) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "overview-quick-action-btn";
-    btn.textContent = action.label;
-    btn.addEventListener("click", () => router.navigate(action.path));
-    quickActions.append(btn);
-  }
-  secondary.append(quickActions);
-
   // Recent events section
   const recentSection = document.createElement("div");
   recentSection.className = "overview-recent-section";

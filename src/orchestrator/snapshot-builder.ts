@@ -49,6 +49,7 @@ export interface SnapshotBuilderDeps {
     getAttemptsForIssue: (issueIdentifier: string) => AttemptRecord[];
     sumArchivedSeconds: () => number;
     sumCostUsd: () => number;
+    sumArchivedTokens: () => { inputTokens: number; outputTokens: number; totalTokens: number };
   };
 }
 
@@ -103,7 +104,9 @@ export function buildSnapshot(deps: SnapshotBuilderDeps, callbacks: SnapshotBuil
       completed: [...completed, ...callbacks.getDetailViews().values()],
     }),
     codexTotals: {
-      ...codexTotals,
+      inputTokens: computeArchivedTokenField(deps.attemptStore, codexTotals, "inputTokens"),
+      outputTokens: computeArchivedTokenField(deps.attemptStore, codexTotals, "outputTokens"),
+      totalTokens: computeArchivedTokenField(deps.attemptStore, codexTotals, "totalTokens"),
       secondsRunning: computeSecondsRunning(deps.attemptStore, () => callbacks.getRunningEntries()),
       costUsd: computeCostUsd(deps.attemptStore),
     },
@@ -207,6 +210,18 @@ export function computeSecondsRunning(
 // Computes total cost in USD from archived attempts.
 export function computeCostUsd(attemptStore: SnapshotBuilderDeps["attemptStore"]): number {
   return attemptStore.sumCostUsd();
+}
+
+// Returns the greater of the archived token count and the live in-memory counter.
+// Live counters can race ahead of archived data when workers are still running,
+// but after a restart the in-memory counters reset to 0 while archives persist.
+function computeArchivedTokenField(
+  attemptStore: SnapshotBuilderDeps["attemptStore"],
+  liveCodexTotals: { inputTokens: number; outputTokens: number; totalTokens: number },
+  field: "inputTokens" | "outputTokens" | "totalTokens",
+): number {
+  const archived = attemptStore.sumArchivedTokens();
+  return Math.max(archived[field], liveCodexTotals[field]);
 }
 
 // Builds a minimal attempt summary from an AttemptRecord.

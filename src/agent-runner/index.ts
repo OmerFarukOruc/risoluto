@@ -9,7 +9,8 @@ import type { AgentRunnerEventHandler } from "./contracts.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
 import type { LinearClient } from "../linear/client.js";
 import type { TrackerPort } from "../tracker/port.js";
-import { createLifecycleEvent, toErrorMessage } from "../orchestrator/lifecycle-events.js";
+import { createLifecycleEvent } from "../core/lifecycle-events.js";
+import { toErrorString } from "../utils/type-guards.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, SymphonyLogger, Workspace } from "../core/types.js";
 import { WorkspaceManager } from "../workspace/manager.js";
@@ -60,31 +61,44 @@ export class AgentRunner {
     // This wrapper MUST be created before the Docker session so the
     // session's notification pipeline flows through it.
     let lastAgentMessageContent: string | null = null;
-    const wrappedOnEvent: AgentRunnerEventHandler = (event) => {
+    const contentCapturingOnEvent: AgentRunnerEventHandler = (event) => {
       if (event.event === "item_completed" && event.message?.includes("agentMessage") && event.content) {
         lastAgentMessageContent = event.content;
       }
       input.onEvent(event);
     };
-    const wrappedInput = { ...input, onEvent: wrappedOnEvent };
+    const inputWithContentCapture = { ...input, onEvent: contentCapturingOnEvent };
 
     let session: Awaited<ReturnType<typeof createDockerSession>>;
     try {
       session = await createDockerSession(
         config,
-        buildDockerInput(wrappedInput),
-        buildDockerDeps(this.deps),
+        {
+          issue: inputWithContentCapture.issue,
+          modelSelection: inputWithContentCapture.modelSelection,
+          workspace: inputWithContentCapture.workspace,
+          signal: inputWithContentCapture.signal,
+          onEvent: inputWithContentCapture.onEvent,
+        },
+        {
+          archiveDir: this.deps.archiveDir,
+          pathRegistry: this.deps.pathRegistry,
+          githubToolClient: this.deps.githubToolClient,
+          linearClient: this.deps.linearClient,
+          logger: this.deps.logger,
+          spawnProcess: this.deps.spawnProcess,
+        },
         this.turnState,
         input.precomputedRuntimeConfig,
       );
     } catch (error) {
-      wrappedInput.onEvent(
+      inputWithContentCapture.onEvent(
         createLifecycleEvent({
           issue: input.issue,
           event: "container_failed",
           message: "Sandbox container failed to start",
           metadata: {
-            error: toErrorMessage(error),
+            error: toErrorString(error),
             workspacePath: input.workspace.path,
           },
         }),
@@ -93,14 +107,14 @@ export class AgentRunner {
     }
 
     try {
-      return await this.executeSession(session, config, wrappedInput, () => lastAgentMessageContent);
+      return await this.executeSession(session, config, inputWithContentCapture, () => lastAgentMessageContent);
     } catch (error) {
       return handleRunError(error, session, input.signal);
     } finally {
       session.turnId = null;
       await session.cleanup(config, input.signal);
       await this.deps.workspaceManager.runAfterRun(input.workspace, input.issue.identifier).catch((error) => {
-        logger.warn({ error: String(error) }, "after_run hook failed");
+        logger.warn({ error: toErrorString(error) }, "after_run hook failed");
       });
     }
   }
@@ -183,33 +197,6 @@ function classifyLifecycleFailure(outcome: RunOutcome): { event: string; message
     return { event: "container_failed", message: "Sandbox container failed during startup" };
   }
   return { event: "codex_failed", message: "Codex initialization failed" };
-}
-
-function buildDockerInput(input: {
-  issue: Issue;
-  modelSelection: ModelSelection;
-  workspace: Workspace;
-  signal: AbortSignal;
-  onEvent: AgentRunnerEventHandler;
-}) {
-  return {
-    issue: input.issue,
-    modelSelection: input.modelSelection,
-    workspace: input.workspace,
-    signal: input.signal,
-    onEvent: input.onEvent,
-  };
-}
-
-function buildDockerDeps(deps: AgentRunner["deps"]): DockerSessionDeps {
-  return {
-    archiveDir: deps.archiveDir,
-    pathRegistry: deps.pathRegistry,
-    githubToolClient: deps.githubToolClient,
-    linearClient: deps.linearClient,
-    logger: deps.logger,
-    spawnProcess: deps.spawnProcess,
-  };
 }
 
 function handleRunError(

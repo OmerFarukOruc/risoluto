@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-import { createLifecycleEvent, toErrorMessage } from "../../src/orchestrator/lifecycle-events.js";
+import { createLifecycleEvent, toErrorMessage } from "../../src/core/lifecycle-events.js";
 
 describe("lifecycle-events", () => {
   describe("createLifecycleEvent", () => {

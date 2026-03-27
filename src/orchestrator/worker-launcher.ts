@@ -83,7 +83,7 @@ export async function launchAvailableWorkers(ctx: {
     launched += 1;
     const stateKey = normalizeStateKey(issue.state);
     pendingStateCounts.set(stateKey, (pendingStateCounts.get(stateKey) ?? 0) + 1);
-    await ctx.launchWorker(issue, null, { claimHeld: true });
+    await ctx.launchWorker(issue, 1, { claimHeld: true });
   }
 }
 

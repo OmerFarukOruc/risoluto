@@ -33,6 +33,8 @@ export interface RunAttemptDispatcher {
     onEvent: AgentRunnerEventHandler;
     /** Thread ID from a previous attempt — enables thread/resume on retry. */
     previousThreadId?: string | null;
+    /** Called once the session is ready with a function to steer the active turn. */
+    onSteerReady?: (steerTurn: (message: string) => Promise<boolean>) => void;
   }): Promise<RunOutcome>;
 }
 

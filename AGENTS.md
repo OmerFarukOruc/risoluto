@@ -24,13 +24,13 @@ Tests live in `tests/` and use fixture data from `tests/fixtures/`. Built artifa
 
 Use Node.js 22 or newer.
 
-- `npm run build` compiles TypeScript from `src/` into `dist/`.
-- `npm test` runs the main Vitest suite.
-- `npm run test:watch` starts Vitest in watch mode for local iteration.
-- `npm run test:integration` runs the opt-in integration config; set `LINEAR_API_KEY` first when you want real credential coverage.
-- `npx playwright test --project=smoke` runs the Playwright E2E smoke tests (37 tests) against a Vite dev server with mocked API routes.
-- `npx playwright test --project=visual` runs visual regression tests (3 baselines). Use `--update-snapshots` to regenerate reference screenshots.
-- `npm run dev -- ./WORKFLOW.example.md` runs the CLI directly through `tsx`.
+- `pnpm run build` compiles TypeScript from `src/` into `dist/`.
+- `pnpm test` runs the main Vitest suite.
+- `pnpm run test:watch` starts Vitest in watch mode for local iteration.
+- `pnpm run test:integration` runs the opt-in integration config; set `LINEAR_API_KEY` first when you want real credential coverage.
+- `pnpm exec playwright test --project=smoke` runs the Playwright E2E smoke tests (37 tests) against a Vite dev server with mocked API routes.
+- `pnpm exec playwright test --project=visual` runs visual regression tests (3 baselines). Use `--update-snapshots` to regenerate reference screenshots.
+- `pnpm run dev -- ./WORKFLOW.example.md` runs the CLI directly through `tsx`.
 - `node dist/cli/index.js ./WORKFLOW.example.md --port 4000` runs the built service.
 
 ## Pre-commit & Pre-push Checks — MANDATORY
@@ -39,17 +39,17 @@ Git hooks enforce local quality gates that mirror CI. **Never bypass them with `
 
 ### Pre-commit (`.husky/pre-commit`)
 
-Runs `npx lint-staged` on staged files — applies ESLint auto-fix and Prettier formatting to staged `*.ts` files automatically.
+Runs `pnpm exec lint-staged` on staged files — applies ESLint auto-fix and Prettier formatting to staged `*.ts` files automatically.
 
 ### Pre-push (`.husky/pre-push`)
 
 Runs the full CI-mirror gate before any push is allowed:
 
-1. `npm run build` — TypeScript compilation
-2. `npm run lint` — ESLint checks
-3. `npm run format:check` — Prettier formatting verification
-4. `npm test` — Vitest test suite
-5. `npm run knip` — dead code / unused export analysis
+1. `pnpm run build` — TypeScript compilation
+2. `pnpm run lint` — ESLint checks
+3. `pnpm run format:check` — Prettier formatting verification
+4. `pnpm test` — Vitest test suite
+5. `pnpm run knip` — dead code / unused export analysis
 
 If any step fails, the push is aborted.
 
@@ -58,10 +58,10 @@ If any step fails, the push is aborted.
 **Before every commit**, agents MUST run at minimum:
 
 ```bash
-npm run build && npm run lint && npm run format:check && npm test
+pnpm run build && pnpm run lint && pnpm run format:check && pnpm test
 ```
 
-If formatting issues are found, fix them with `npm run format` before committing. Do not commit code that has not passed all four checks. The pre-push hook enforces this, but agents should catch issues early at commit time to avoid wasted cycles.
+If formatting issues are found, fix them with `pnpm run format` before committing. Do not commit code that has not passed all four checks. The pre-push hook enforces this, but agents should catch issues early at commit time to avoid wasted cycles.
 
 ## Coding Style & Naming Conventions
 
@@ -148,7 +148,7 @@ Keep secrets out of committed workflow files; prefer env expansion such as `$LIN
 
 Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
 
-**When to use:** After editing `dashboard-template.ts`, `logs-template.ts`, or any file that affects the Symphony web UI. Also use when asked to "dogfood", "QA", "visual check", or "screenshot" the dashboard. Read `skills/visual-verify/SKILL.md` for the full visual-verify workflow.
+**MANDATORY after UI changes:** You MUST invoke `/visual-verify` after editing `dashboard-template.ts`, `logs-template.ts`, any CSS, or any file that affects the Symphony web UI. Visual verification is part of the definition of done for UI work — do not mark a UI task complete without it.
 
 **Chrome:** `agent-browser` uses its own bundled Chrome (installed via `agent-browser install`). No custom browser path or auto-connect needed.
 

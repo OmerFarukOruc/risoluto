@@ -22,10 +22,10 @@ Run the following commands and confirm all pass:
 
 ```bash
 # Unit tests
-npm test
+pnpm test
 
 # Build
-npm run build
+pnpm run build
 
 # Dry-start (no credentials needed)
 node dist/cli/index.js ./WORKFLOW.example.md
@@ -35,7 +35,7 @@ If you have real credentials available:
 
 ```bash
 # Live integration (optional)
-LINEAR_API_KEY=... npm run test:integration
+LINEAR_API_KEY=... pnpm run test:integration
 ```
 
 ---

@@ -32,7 +32,7 @@ The Symphony frontend has a mature but fragmented design system. Two parallel co
 | Remove | `frontend/src/styles/primitives.css` | 588-596 | Delete `@keyframes skeletonPulse` — duplicates animations.css                                                                         |
 | Remove | `frontend/src/styles/components.css` | 106-112 | Remove `.mc-log-row` from legacy alias block (keep `.issue-card`, `.attempts-table`, `.event-row` for now)                            |
 
-**Verification:** Run `npm run build` and check dashboard renders correctly.
+**Verification:** Run `pnpm run build` and check dashboard renders correctly.
 
 ### 1.2 Tokenize hard-coded dimensions
 
@@ -508,8 +508,8 @@ Phase 1 (1-2h) ──► Phase 2 (2-4h) ──► Phase 3 (4-8h) ──► Phase
 
 After each phase:
 
-- [ ] `npm run build` succeeds
-- [ ] `npm test` passes
+- [ ] `pnpm run build` succeeds
+- [ ] `pnpm test` passes
 - [ ] Dashboard renders correctly (visual check)
 - [ ] Light/dark theme toggle works
 - [ ] All keyboard shortcuts still function

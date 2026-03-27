@@ -1,7 +1,7 @@
 import { api } from "../api";
 import { router } from "../router";
 import { buildSidebarBadgeCounts } from "./sidebar-badges.js";
-import { createIcon, createIconSlot } from "./icons";
+import { createIcon, createIconSlot, type IconName } from "./icons";
 import { navGroups, navItems } from "./nav-items";
 
 const STORAGE_KEY = "symphony-sidebar-expanded";
@@ -11,6 +11,7 @@ let _navHandler: (() => void) | null = null;
 let _toggleHandler: (() => void) | null = null;
 let _mobileHandler: (() => void) | null = null;
 let _cachedMobileQuery: MediaQueryList | null = null;
+let _contextualGroupEl: HTMLElement | null = null;
 
 function readExpandedPref(): boolean {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -25,7 +26,8 @@ function updateActiveState(sidebarEl: HTMLElement): void {
   const current = window.location.pathname;
   for (const item of sidebarEl.querySelectorAll<HTMLElement>(".sidebar-item")) {
     const path = item.dataset.path ?? "";
-    const active = current === path || (path !== "/" && current.startsWith(`${path}/`));
+    const exact = item.dataset.exact === "true";
+    const active = exact ? current === path : current === path || (path !== "/" && current.startsWith(`${path}/`));
     item.classList.toggle("is-active", active);
   }
 }
@@ -138,6 +140,97 @@ function buildGroupHeader(groupName: string, groupEl: HTMLElement): HTMLButtonEl
   });
 
   return header;
+}
+
+function extractIssueId(path: string): string | null {
+  return /^\/issues\/([^/]+)/.exec(path)?.[1] ?? null;
+}
+
+interface ContextualEntry {
+  name: string;
+  path: string;
+  icon: IconName;
+}
+
+function buildContextualIssueGroup(issueId: string, onNavigate: () => void): HTMLElement {
+  const group = document.createElement("section");
+  group.className = "sidebar-group sidebar-group--contextual";
+  group.id = "sidebar-group-issue-ctx";
+
+  const header = document.createElement("div");
+  header.className = "sidebar-group-header sidebar-group-header--contextual";
+  const label = document.createElement("span");
+  label.className = "sidebar-group-label";
+  label.textContent = issueId;
+  header.append(label);
+  group.append(header);
+
+  const entries: ContextualEntry[] = [
+    { name: "Detail", path: `/issues/${issueId}`, icon: "issueDetail" },
+    { name: "Logs", path: `/issues/${issueId}/logs`, icon: "issueLogs" },
+    { name: "Runs", path: `/issues/${issueId}/runs`, icon: "issueRuns" },
+  ];
+
+  const container = document.createElement("div");
+  container.className = "sidebar-group-items";
+  const inner = document.createElement("div");
+  inner.className = "sidebar-group-items-inner";
+
+  for (const entry of entries) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "sidebar-item transition-base";
+    btn.dataset.path = entry.path;
+    btn.dataset.exact = "true";
+    btn.setAttribute("aria-label", entry.name);
+    btn.title = entry.name;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "sidebar-item-label";
+    labelSpan.textContent = entry.name;
+
+    const tooltipSpan = document.createElement("span");
+    tooltipSpan.className = "sidebar-item-tooltip";
+    tooltipSpan.textContent = entry.name;
+
+    btn.append(createIconSlot(entry.icon, { slotClassName: "sidebar-icon", size: 18 }), labelSpan, tooltipSpan);
+    btn.addEventListener("click", () => {
+      router.navigate(entry.path);
+      onNavigate();
+    });
+    inner.append(btn);
+  }
+
+  container.append(inner);
+  group.append(container);
+  return group;
+}
+
+function updateContextualNav(sidebarEl: HTMLElement, currentPath: string, onNavigate: () => void): void {
+  const issueId = extractIssueId(currentPath);
+
+  if (!issueId) {
+    _contextualGroupEl?.remove();
+    _contextualGroupEl = null;
+    return;
+  }
+
+  if (_contextualGroupEl?.dataset.issueId === issueId) {
+    return;
+  }
+
+  _contextualGroupEl?.remove();
+  const group = buildContextualIssueGroup(issueId, onNavigate);
+  group.dataset.issueId = issueId;
+
+  const firstGroup = sidebarEl.querySelector<HTMLElement>(".sidebar-group:not(.sidebar-group--contextual)");
+  if (firstGroup?.nextSibling) {
+    sidebarEl.insertBefore(group, firstGroup.nextSibling);
+  } else {
+    sidebarEl.insertBefore(group, sidebarEl.querySelector(".sidebar-collapse-toggle"));
+  }
+
+  _contextualGroupEl = group;
 }
 
 function buildCollapseToggle(onToggle: () => void): { toggle: HTMLButtonElement; label: HTMLSpanElement } {
@@ -270,9 +363,11 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   void loadBadgeCounts(sidebarEl);
 
   updateActiveState(sidebarEl);
+  updateContextualNav(sidebarEl, window.location.pathname, closeMobile);
   if (_navHandler) window.removeEventListener("router:navigate", _navHandler);
   _navHandler = () => {
     updateActiveState(sidebarEl);
+    updateContextualNav(sidebarEl, window.location.pathname, closeMobile);
     closeMobile();
   };
   window.addEventListener("router:navigate", _navHandler);

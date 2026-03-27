@@ -23,7 +23,7 @@ env:
 
 jobs:
   # ── Phase 1: Install, Build & Cache ──────────────────────────────────
-  # Single npm ci + build. All downstream jobs restore from cache.
+  # Single pnpm install + build. All downstream jobs restore from cache.
   build:
     name: Build
     runs-on: ubuntu-24.04
@@ -32,12 +32,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
       - uses: actions/cache/save@v4
         with:
           path: |
@@ -55,6 +56,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -64,8 +66,8 @@ jobs:
             node_modules
             dist
           key: build-${{ github.sha }}
-      - run: npm run lint
-      - run: npm run format:check
+      - run: pnpm run lint
+      - run: pnpm run format:check
 
   test:
     name: Test (Node ${{ matrix.node-version }})
@@ -80,10 +82,11 @@ jobs:
         node-version: [22, 24]
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          cache: pnpm
       # Node 24: restore cached build. Node 22: fresh install for native compat.
       - uses: actions/cache/restore@v4
         if: matrix.node-version == 24
@@ -92,15 +95,15 @@ jobs:
             node_modules
             dist
           key: build-${{ github.sha }}
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
         if: matrix.node-version == 22
-      - run: npm test -- --reporter=verbose --coverage
+      - run: pnpm test -- --reporter=verbose --coverage
       - name: Dead code analysis
         if: matrix.node-version == 24
-        run: npx knip
+        run: pnpm exec knip
       - name: Duplicate code analysis
         if: matrix.node-version == 24
-        run: npx jscpd
+        run: pnpm exec jscpd
       - uses: actions/upload-artifact@v7
         if: always() && matrix.node-version == 24
         with:
@@ -184,6 +187,7 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -198,15 +202,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install Playwright chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
       - name: Install Playwright system deps (cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: pnpm exec playwright install-deps chromium
       - name: Run E2E smoke tests (shard ${{ matrix.shard }})
-        run: npx playwright test --project=smoke --shard=${{ matrix.shard }}/3
+        run: pnpm exec playwright test --project=smoke --shard=${{ matrix.shard }}/3
       - name: Upload blob report
         if: always()
         uses: actions/upload-artifact@v7
@@ -225,6 +229,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -241,7 +246,7 @@ jobs:
           path: all-blob-reports
           merge-multiple: true
       - name: Merge reports
-        run: npx playwright merge-reports --reporter=html all-blob-reports
+        run: pnpm exec playwright merge-reports --reporter=html all-blob-reports
       - uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-html-report
@@ -281,6 +286,7 @@ jobs:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -290,7 +296,7 @@ jobs:
             node_modules
             dist
           key: build-${{ github.sha }}
-      - run: npm run test:integration
+      - run: pnpm run test:integration
 
   # ── Phase 5: Mutation Testing (weekly schedule only) ─────────────────
   mutation:
@@ -304,6 +310,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -313,7 +320,7 @@ jobs:
             node_modules
             dist
           key: build-${{ github.sha }}
-      - run: npm run test:mutation
+      - run: pnpm run test:mutation
 
   # ── Phase 6: Docker Push to GHCR (main only, after gate) ────────────
   docker-push:

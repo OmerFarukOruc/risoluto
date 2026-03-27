@@ -72,7 +72,8 @@
   padding: var(--space-5);
 }
 
-.issue-section h2 {
+.issue-section h2,
+.issue-section h3 {
   font-family: var(--font-heading);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -85,15 +86,16 @@
   padding: var(--space-3);
   border: 1px solid var(--border-stitch);
   background: color-mix(in srgb, var(--bg-elevated) 64%, transparent);
-}
-
-.issue-summary-item {
   min-width: 0;
+  overflow: hidden;
 }
 
 .issue-summary-item strong,
 .issue-meta-item strong {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .issue-body-copy,

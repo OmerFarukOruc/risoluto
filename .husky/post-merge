@@ -4,7 +4,7 @@
 # issues can enter main. This hook auto-fixes after pull/merge.
 
 echo "🎨 Auto-formatting after merge..."
-npx prettier --write 'src/**/*.ts' 'tests/**/*.ts' 'playwright.config.ts' --log-level warn
+pnpm exec prettier --write 'src/**/*.ts' 'tests/**/*.ts' 'playwright.config.ts' --log-level warn
 
 # Stage any formatting fixes so they don't show as dirty working tree
 git diff --quiet || {

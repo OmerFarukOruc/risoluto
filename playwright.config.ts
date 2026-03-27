@@ -38,7 +38,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `npx vite --config frontend/vite.config.ts --port ${PORT} --host 127.0.0.1`,
+    command: `pnpm exec vite --config frontend/vite.config.ts --port ${PORT} --host 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !isCI,
     timeout: 120_000,

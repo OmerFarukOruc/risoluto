@@ -15,11 +15,12 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@10.33.0",
   "bin": {
     "symphony": "./bin/symphony"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && npm run build:frontend",
+    "build": "tsc -p tsconfig.json && pnpm run build:frontend",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",

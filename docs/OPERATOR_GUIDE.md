@@ -18,7 +18,7 @@ Symphony polls Linear for candidate issues, creates a workspace per issue, launc
 
 ```bash
 git clone <repo-url> && cd symphony-orchestrator
-npm install && npm run build
+pnpm install && pnpm run build
 bash bin/build-sandbox.sh
 ```
 
@@ -115,7 +115,7 @@ This is transparent — Symphony rewrites host-bound provider URLs in the genera
 # 1. Install Node.js 22+ and Docker
 # 2. Clone the repo and install
 git clone <repo-url> && cd symphony-orchestrator
-npm install && npm run build
+pnpm install && pnpm run build
 
 # 3. Build the sandbox image
 bash bin/build-sandbox.sh
@@ -178,13 +178,13 @@ export LINEAR_PROJECT_SLUG="symphony-test-e1e26e4576d1"
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run the deterministic test suite
-npm test
+pnpm test
 
 # Build the project
-npm run build
+pnpm run build
 
 # Build the Docker sandbox image
 bash bin/build-sandbox.sh
@@ -751,7 +751,7 @@ Symphony includes a `visual-verify` skill and project-level `agent-browser` conf
 
 | Requirement       | Details                                           |
 | ----------------- | ------------------------------------------------- |
-| **agent-browser** | `npm i -g agent-browser && agent-browser install` |
+| **agent-browser** | `pnpm add -g agent-browser && agent-browser install` |
 
 ### Project Configuration
 

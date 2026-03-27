@@ -6,6 +6,7 @@ import type { RecentEvent } from "../types";
 import { loadArchiveLogs, loadLiveLogs } from "./logs-data";
 import { stringifyPayload } from "../utils/events";
 import { createIconButton } from "../ui/buttons.js";
+import { subscribeIssueLifecycle } from "../state/event-source.js";
 
 type Mode = "live" | "archive";
 type Density = "compact" | "comfortable";
@@ -102,6 +103,7 @@ export function createLogsPage(id: string): HTMLElement {
   let density: Density = "compact";
   let data: { title: string; issueId: string; events: RecentEvent[] } = { title: "Loading…", issueId: id, events: [] };
   let timer = 0;
+  let unsubscribeLifecycle: (() => void) | null = null;
   const expandedEvents = new Set<string>();
 
   function filtered(): RecentEvent[] {
@@ -202,10 +204,13 @@ export function createLogsPage(id: string): HTMLElement {
 
   function restartPolling(): void {
     window.clearInterval(timer);
+    unsubscribeLifecycle?.();
+    unsubscribeLifecycle = null;
     if (mode === "live") {
       timer = window.setInterval(() => {
         void refresh();
       }, 10_000);
+      unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void refresh());
     }
   }
 
@@ -263,6 +268,9 @@ export function createLogsPage(id: string): HTMLElement {
 
   void refresh();
   restartPolling();
-  registerPageCleanup(page, () => window.clearInterval(timer));
+  registerPageCleanup(page, () => {
+    window.clearInterval(timer);
+    unsubscribeLifecycle?.();
+  });
   return page;
 }

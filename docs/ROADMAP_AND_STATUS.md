@@ -1,7 +1,7 @@
 # 🗺️ Roadmap
 
 > Symphony Orchestrator feature roadmap — all items tracked as GitHub issues.
-> Research sources: Composio, OpenSwarm, mog, **thepopebot**, **jinyang**, **Orchestra**, **Eva**, **pilot**, **vibe-kanban**, **hatice**.
+> Research sources: Composio, OpenSwarm, mog, **thepopebot**, **jinyang**, **Orchestra**, **Eva**, **pilot (alekspetrov)**, **pilot (crisner1978)**, **vibe-kanban**, **hatice**.
 
 <p>
   <img alt="Version" src="https://img.shields.io/badge/version-0.5.0-blue?style=flat-square" />
@@ -93,9 +93,13 @@ Significant improvements to developer experience, extensibility, and autonomous 
 | [#179](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/179) | Structured error hierarchy — domain-specific error classes with error codes, `Result<T,E>` pattern, HTTP status tracking for provider errors _(inspired by [hatice](https://github.com/mksglu/hatice))_ | core            | hatice                                                                |
 | [#180](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/180) | Startup workspace cleanup daemon — stale workspace removal by configurable max age with scan/remove/error reporting _(inspired by [hatice](https://github.com/mksglu/hatice))_ | core            | hatice                                                                |
 | [#184](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/184) | Structured JSON file logging with daily rotation — production-grade structured logging with JSON entries, domain-specific log methods, configurable retention _(inspired by [jinyang-public](https://github.com/romancircus/jinyang-public))_ | core            | jinyang                                                               |
+| [#192](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/192) | Multi-agent self-healing pipeline — HealerAgent/ReviewerAgent with bounded escalation (heal→heal→rethink→escalate); structured agent output parsing _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core | pilot |
+| [#193](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/193) | Loop completion reporting — per-task diff stats, decision log, timing, drill-in git commands; configurable verbosity _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core, dashboard | pilot |
 | [#185](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/185) | Session concurrency scheduler with waiting queue — max-parallelism limits, FIFO queue drain, completion callbacks, queue position tracking _(inspired by [jinyang-public](https://github.com/romancircus/jinyang-public))_ | core            | jinyang                                                               |
 | [#186](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/186) | OAuth token lifecycle manager with background refresh — automated OAuth2 token refresh with expiry-aware caching, proactive background daemon _(inspired by [jinyang-public](https://github.com/romancircus/jinyang-public))_ | core            | jinyang                                                               |
 | [#187](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/187) | Disk space guard before session persistence — pre-write disk validation preventing silent data loss from full-disk conditions _(inspired by [jinyang-public](https://github.com/romancircus/jinyang-public))_ | core            | jinyang                                                               |
+| [#189](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/189) | Proof-of-work commit messages — structured commit format assembling approach/alternatives/review evidence from multiple pipeline stages; makes `git log` tell the full story _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core | pilot |
+| [#190](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/190) | Protected-path guardrails — auto-detected sensitive file protection (.env, .pem, migrations, CI configs); hard-blocked in autonomous mode, prompted in manual mode; auto-stash/rollback _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core | pilot |
 
 ---
 
@@ -119,6 +123,7 @@ Infrastructure work, scale-out, and deeper observability.
 | [#43](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/43)   | Trend analysis — historical metrics, regression detection                                                                                                                                                                                                                                        | observability, dashboard | v2 Phase 3                              |
 | [#44](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/44)   | Durable dispatch state — persist retry queue; file-based session locks + in-memory Set combo _(jinyang)_                                                                                                                                                                                         | core                     | v2 Phase 4, jinyang                     |
 | [#45](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/45)   | Host health monitoring + auto-failover; per-provider health cache with TTL, consecutive-error tolerance _(jinyang)_                                                                                                                                                                              | core                     | v2 Phase 4, jinyang                     |
+| [#191](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/191) | Codebase-aware planning agents (ScoutAgent/GapAgent/ArchitectAgent) — multi-agent codebase analysis for task planning with dependency graphs and parallel execution groups; enhances #48 _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core | pilot |
 | [#46](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/46)   | ~~Tracker write APIs — orchestrator-driven transitions; working write-back impl: completion comments + state update _(hatice)_~~ — **Partially shipped in v0.3.1.**                                                                                                                              | ~~core~~                 | ~~v2 Phase 5, hatice~~                  |
 | [#52](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/52)   | Richer reporting — Prometheus, OTLP, webhook presets; SQLite-backed persistent metrics for historical trends _(pilot)_                                                                                                                                                                           | observability, api       | Follow-up, pilot                        |
 | [#53](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/53)   | ~~Desktop packaging~~ — **Removed.** Tauri shell deleted; CLI-first approach preferred                                                                                                                                                                                                           | ~~desktop~~              | Follow-up, Orchestra, Eva, vibe-kanban  |
@@ -147,6 +152,7 @@ Full autonomous codebase management — the end-state of the lights-out vision.
 | [#47](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/47) | Self-healing pipelines — auto-diagnose CI failures      | core | v2 Phase 6 |
 | [#48](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/48) | Autonomous issue decomposition — agent delegation       | core | v2 Phase 6 |
 | [#49](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/49) | Continuous codebase improvement — proactive refactoring | core | v2 Phase 6 |
+| [#194](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/194) | Recipe-based specialized autonomous loops — pluggable loops for coverage, lint-fix, security, a11y, deps, types, docs; self-executing with prerequisite validation _(inspired by [pilot](https://github.com/crisner1978/pilot))_ | core | pilot |
 | [#50](https://github.com/OmerFarukOruc/symphony-orchestrator/issues/50) | Multi-repo orchestration — cross-repo changes           | core | v2 Phase 6 |
 
 ---
@@ -192,10 +198,10 @@ graph TD
 | Tier                       | Issues | Status                                     |
 | -------------------------- | :----: | ------------------------------------------ |
 | **Tier 1** — Ship first    |   7    | 3 shipped                                  |
-| **Tier 2** — High impact   |   59   | 10 shipped, 1 partially shipped, 1 removed |
-| **Tier 3** — Architectural |   30   | 4 shipped, 2 partially shipped, 1 removed  |
-| **Tier 4** — Lights-Out    |   4    | Not started                                |
-| **Total**                  | **100** | 17 shipped, 3 partially shipped, 2 removed |
+| **Tier 2** — High impact   |   63   | 10 shipped, 1 partially shipped, 1 removed |
+| **Tier 3** — Architectural |   32   | 4 shipped, 2 partially shipped, 1 removed  |
+| **Tier 4** — Lights-Out    |   5    | Not started                                |
+| **Total**                  | **107** | 17 shipped, 3 partially shipped, 2 removed |
 
 > [!NOTE]
 > **Shipped in v0.3.1:** #57 (orchestrator stall detector + watchdog health monitor), #85 (workflow watchdog), #56 (Docker sandbox), #61 (per-state concurrency). **Shipped in v0.4.0:** #19 (git worktrees as workspace strategy), #110 (MCP server — `linear_graphql` dynamic tool), #124 (workflow hot-reload via chokidar), #125 (LiquidJS prompt templates). **Shipped in v0.5.0:** #11 (GitHub Issues adapter), #14 (cost tracking — model pricing + dashboard), #15 (live agent feed — SSE per-issue log). **Partially shipped:** #54 (request tracing/error tracking), #76 (Kanban state machine), #46 (Linear write-back: completion comments + optional state transition). **Removed:** #53 (Tauri desktop shell) in favor of CLI-first operation. See [CONFORMANCE_AUDIT.md §Extensions](CONFORMANCE_AUDIT.md#-extensions-beyond-spec) for details.

@@ -34,6 +34,14 @@ function openConnection(): void {
     const data = JSON.parse(String(event.data)) as { type: string; payload?: unknown };
     if (LIFECYCLE_EVENTS.has(data.type)) {
       pollOnce().catch(() => {});
+      const payload = data.payload as { identifier?: string } | undefined;
+      if (typeof payload?.identifier === "string") {
+        window.dispatchEvent(
+          new CustomEvent("symphony:issue-lifecycle", {
+            detail: { type: data.type, identifier: payload.identifier },
+          }),
+        );
+      }
     }
     if (data.type === "agent.event") {
       window.dispatchEvent(new CustomEvent("symphony:agent-event", { detail: data.payload }));
@@ -80,4 +88,15 @@ export function subscribeIssueEvents(identifier: string, handler: (event: AgentE
   };
   window.addEventListener("symphony:agent-event", listener);
   return () => window.removeEventListener("symphony:agent-event", listener);
+}
+
+export function subscribeIssueLifecycle(identifier: string, handler: () => void): () => void {
+  const listener = (e: Event) => {
+    const detail = (e as CustomEvent<{ type: string; identifier: string }>).detail;
+    if (detail.identifier === identifier) {
+      handler();
+    }
+  };
+  window.addEventListener("symphony:issue-lifecycle", listener);
+  return () => window.removeEventListener("symphony:issue-lifecycle", listener);
 }

@@ -9,8 +9,17 @@ export function classifyEvent(event: RecentEvent): string {
   if (type === "reasoning") {
     return "reasoning";
   }
-  if (type.startsWith("tool_") || type === "web_search" || type.includes("exec") || type.includes("patch")) {
+  if (
+    type.startsWith("tool_") ||
+    type === "web_search" ||
+    type === "mcp_tool_call" ||
+    type.includes("exec") ||
+    type.includes("patch")
+  ) {
     return "tool";
+  }
+  if (type === "agent_plan") {
+    return "agent";
   }
   if (type.includes("state") || type.includes("status") || type.includes("session") || type.includes("rate_limit")) {
     return "state-change";
@@ -52,9 +61,14 @@ const EVENT_LABEL_MAP: Record<string, string> = {
   tool_output: "Command output",
   tool_edit: "File edit",
   tool_call: "Tool call",
+  mcp_tool_call: "MCP tool",
   web_search: "Web search",
   reasoning: "Thinking",
   user_message: "User input",
+  agent_plan: "Plan",
+  context_compaction: "Compaction",
+  image_view: "Image view",
+  turn_diff: "Turn diff",
   system: "System",
   session: "Session",
   issue_queued: "Queued",

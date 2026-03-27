@@ -69,6 +69,31 @@ function handleReasoningPartAdded(input: NotificationInput, params: Record<strin
   appendReasoningText(input.state, asString(params.itemId), asString(part.text));
 }
 
+function handlePlanDelta(input: NotificationInput, params: Record<string, unknown>): void {
+  // Reuse reasoning buffer keyed by itemId to accumulate plan text deltas.
+  // The authoritative plan text comes from item/completed (item.text), but buffering
+  // allows future real-time display before the turn ends.
+  const delta = asRecord(params.delta);
+  appendReasoningText(input.state, asString(params.itemId), asString(delta.text) ?? asString(params.text));
+}
+
+function handleTurnDiffUpdated(input: NotificationInput, params: Record<string, unknown>): void {
+  const diff = asString(params.diff);
+  if (!diff) {
+    return;
+  }
+  input.onEvent({
+    at: new Date().toISOString(),
+    issueId: input.issue.id,
+    issueIdentifier: input.issue.identifier,
+    sessionId: composeSessionId(input.threadId, asString(params.turnId) ?? input.turnId),
+    event: "turn_diff",
+    message: "Turn diff updated",
+    content: diff,
+    metadata: { isDiff: true },
+  });
+}
+
 const ITEM_TYPE_EVENT: Record<string, string> = {
   reasoning: "reasoning",
   agentMessage: "agent_message",
@@ -77,6 +102,10 @@ const ITEM_TYPE_EVENT: Record<string, string> = {
   fileChange: "tool_edit",
   dynamicToolCall: "tool_call",
   webSearch: "web_search",
+  plan: "agent_plan",
+  mcpToolCall: "mcp_tool_call",
+  contextCompaction: "context_compaction",
+  imageView: "image_view",
 };
 
 function handleItemEvent(
@@ -118,10 +147,12 @@ interface NotificationInput {
 const methodHandlers: Record<string, (input: NotificationInput, params: Record<string, unknown>) => void> = {
   "turn/started": handleTurnStarted,
   "turn/completed": handleTurnCompleted,
+  "turn/diff/updated": handleTurnDiffUpdated,
   "thread/tokenUsage/updated": handleTokenUsageUpdated,
   "item/reasoning/summaryTextDelta": handleReasoningDelta,
   "item/reasoning/textDelta": handleReasoningDelta,
   "item/reasoning/summaryPartAdded": handleReasoningPartAdded,
+  "item/plan/delta": handlePlanDelta,
 };
 
 export function handleNotification(input: NotificationInput): void {

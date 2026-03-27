@@ -472,4 +472,117 @@ describe("handleNotification", () => {
       });
     });
   });
+
+  describe("turn/diff/updated", () => {
+    it("emits turn_diff event with diff content and isDiff metadata", () => {
+      const diff = "diff --git a/src/foo.ts b/src/foo.ts\n+added line\n-removed line";
+      handleNotification({
+        state,
+        notification: {
+          method: "turn/diff/updated",
+          params: { threadId: "thread-1", turnId: "turn-1", diff },
+        },
+        issue,
+        threadId: "thread-1",
+        turnId: "turn-1",
+        onEvent,
+      });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        event: "turn_diff",
+        message: "Turn diff updated",
+        content: diff,
+        metadata: { isDiff: true },
+      });
+    });
+
+    it("emits nothing when diff param is absent", () => {
+      handleNotification({
+        state,
+        notification: {
+          method: "turn/diff/updated",
+          params: { threadId: "thread-1", turnId: "turn-1" },
+        },
+        issue,
+        threadId: null,
+        turnId: null,
+        onEvent,
+      });
+
+      expect(events).toHaveLength(0);
+    });
+  });
+
+  describe("item/plan/delta", () => {
+    it("accumulates plan text into the reasoning buffer via delta.text", () => {
+      handleNotification({
+        state,
+        notification: {
+          method: "item/plan/delta",
+          params: { itemId: "plan-1", delta: { text: "Step 1: " } },
+        },
+        issue,
+        threadId: null,
+        turnId: null,
+        onEvent,
+      });
+      handleNotification({
+        state,
+        notification: {
+          method: "item/plan/delta",
+          params: { itemId: "plan-1", delta: { text: "analyse the codebase" } },
+        },
+        issue,
+        threadId: null,
+        turnId: null,
+        onEvent,
+      });
+
+      expect(state.reasoningBuffers.get("plan-1")).toBe("Step 1: analyse the codebase");
+      expect(events).toHaveLength(0); // deltas do not emit events
+    });
+  });
+
+  describe("item type mapping completeness", () => {
+    it.each([
+      ["plan", "agent_plan"],
+      ["mcpToolCall", "mcp_tool_call"],
+      ["contextCompaction", "context_compaction"],
+      ["imageView", "image_view"],
+    ])("maps item type %s → event %s", (itemType, expectedEvent) => {
+      handleNotification({
+        state,
+        notification: {
+          method: "item/completed",
+          params: { item: { type: itemType, id: "x-1" } },
+        },
+        issue,
+        threadId: null,
+        turnId: null,
+        onEvent,
+      });
+      expect(events[0]).toMatchObject({ event: expectedEvent });
+    });
+
+    it("emits plan content from item.text when plan item completes", () => {
+      const planText = "1. Clone the repo\n2. Run tests\n3. Open PR";
+      handleNotification({
+        state,
+        notification: {
+          method: "item/completed",
+          params: { item: { type: "plan", id: "plan-1", text: planText } },
+        },
+        issue,
+        threadId: null,
+        turnId: null,
+        onEvent,
+      });
+
+      expect(events[0]).toMatchObject({
+        event: "agent_plan",
+        content: planText,
+      });
+    });
+  });
 });

@@ -372,18 +372,14 @@ What we gain:
 
 ### 11. Logging
 
-**Choose:** `Pino`
+**Migrated:** `Pino` (replaced Winston)
 
-Why:
+- Migrated from Winston to Pino behind the existing `SymphonyLogger` port interface.
+- Zero consumer changes required — the port abstraction absorbed the switch entirely.
 
-- The current logger wrapper already looks like code that wants to be Pino.
-- Pino fits Symphony's structured logging style better than Winston.
+Implementation:
 
-Repo evidence:
-
-- `src/core/logger.ts`
-
-This is a clean simplification.
+- `src/core/logger.ts` — Pino with logfmt (default) and JSON output modes.
 
 ---
 

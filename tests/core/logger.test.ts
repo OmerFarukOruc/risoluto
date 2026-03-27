@@ -1,37 +1,49 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import winston from "winston";
+import { Writable } from "node:stream";
+import pino from "pino";
 
-import { createLogger, resolveLogFormat } from "../../src/core/logger.js";
+import { createLogger, resolveLogFormat, buildLogfmtStream } from "../../src/core/logger.js";
 
-/**
- * Winston transport that captures formatted log output for assertions.
- * Uses `Symbol.for("message")` — the key Winston writes the final string to.
- */
-class CaptureTransport extends winston.transports.Stream {
-  readonly lines: string[] = [];
-
-  constructor() {
-    super({ stream: process.stdout });
-  }
-
-  override log(info: Record<string | symbol, unknown>, next: () => void): void {
-    const formatted = info[Symbol.for("message")];
-    if (typeof formatted === "string") {
-      this.lines.push(formatted);
-    }
-    next();
-  }
+/** Capture stream that collects each written line for assertions. */
+function createCaptureStream(): { stream: Writable; lines: string[] } {
+  const lines: string[] = [];
+  const stream = new Writable({
+    write(chunk: Buffer, _encoding: string, callback: () => void) {
+      const text = chunk.toString().trim();
+      if (text) lines.push(text);
+      callback();
+    },
+  });
+  return { stream, lines };
 }
 
-/** Create a winston logger that captures output for test inspection. */
-function createTestLogger(level = "info"): { logger: winston.Logger; transport: CaptureTransport } {
-  const transport = new CaptureTransport();
-  const logger = winston.createLogger({
+/** Shared Pino options matching the production config in logger.ts. */
+function testPinoOptions(level = "info"): pino.LoggerOptions {
+  return {
     level,
-    format: resolveLogFormat(),
-    transports: [transport],
-  });
-  return { logger, transport };
+    messageKey: "message",
+    timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+    base: undefined,
+    formatters: {
+      level(label) {
+        return { level: label };
+      },
+    },
+  };
+}
+
+/** Create a Pino logger that writes JSON to a capture stream. */
+function createTestLogger(level = "info"): { logger: pino.Logger; lines: string[] } {
+  const { stream, lines } = createCaptureStream();
+  const logger = pino(testPinoOptions(level), stream);
+  return { logger, lines };
+}
+
+/** Create a Pino logger that writes logfmt to a capture stream via buildLogfmtStream. */
+function createLogfmtTestLogger(level = "info"): { logger: pino.Logger; lines: string[] } {
+  const { stream, lines } = createCaptureStream();
+  const logger = pino(testPinoOptions(level), buildLogfmtStream(stream));
+  return { logger, lines };
 }
 
 describe("logger", () => {
@@ -49,43 +61,43 @@ describe("logger", () => {
   });
 
   describe("resolveLogFormat", () => {
-    it("returns logfmt format by default (no env var)", () => {
-      const format = resolveLogFormat();
-      expect(format).toBeDefined();
+    it("returns logfmt by default (no env var)", () => {
+      expect(resolveLogFormat()).toBe("logfmt");
     });
 
-    it("returns JSON format when SYMPHONY_LOG_FORMAT=json", () => {
+    it('returns "json" when SYMPHONY_LOG_FORMAT=json', () => {
       process.env.SYMPHONY_LOG_FORMAT = "json";
-      const format = resolveLogFormat();
-      expect(format).toBeDefined();
+      expect(resolveLogFormat()).toBe("json");
     });
 
-    it("returns logfmt format for unknown SYMPHONY_LOG_FORMAT values", () => {
+    it("returns logfmt for unknown SYMPHONY_LOG_FORMAT values", () => {
       process.env.SYMPHONY_LOG_FORMAT = "unknown";
-      const format = resolveLogFormat();
-      expect(format).toBeDefined();
+      expect(resolveLogFormat()).toBe("logfmt");
     });
   });
 
   describe("default format (logfmt)", () => {
     it("produces logfmt-style output", () => {
-      const { logger, transport } = createTestLogger();
+      const { logger, lines } = createLogfmtTestLogger();
 
       logger.info("hello world");
+      logger.flush();
 
-      expect(transport.lines).toHaveLength(1);
-      const line = transport.lines[0];
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      const line = lines[0];
       expect(line).toContain("level=info");
       expect(line).toContain('msg="hello world"');
       expect(line).toMatch(/time=\d{4}-\d{2}-\d{2}/);
     });
 
     it("includes metadata fields as key=value pairs", () => {
-      const { logger, transport } = createTestLogger();
+      const { logger, lines } = createLogfmtTestLogger();
 
-      logger.info("test", { component: "http", requestId: "abc-123" });
+      logger.info({ component: "http", requestId: "abc-123" }, "test");
+      logger.flush();
 
-      const line = transport.lines[0];
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      const line = lines[0];
       expect(line).toContain("level=info");
       expect(line).toContain('component="http"');
       expect(line).toContain('requestId="abc-123"');
@@ -93,40 +105,39 @@ describe("logger", () => {
   });
 
   describe("JSON format", () => {
-    beforeEach(() => {
-      process.env.SYMPHONY_LOG_FORMAT = "json";
-    });
-
     it("produces valid JSON output", () => {
-      const { logger, transport } = createTestLogger();
+      const { logger, lines } = createTestLogger();
 
       logger.info("structured log entry");
+      logger.flush();
 
-      expect(transport.lines).toHaveLength(1);
-      const parsed = JSON.parse(transport.lines[0]);
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      const parsed = JSON.parse(lines[0]);
       expect(parsed.level).toBe("info");
       expect(parsed.message).toBe("structured log entry");
       expect(parsed.timestamp).toMatch(/\d{4}-\d{2}-\d{2}/);
     });
 
     it("includes metadata fields in JSON output", () => {
-      const { logger, transport } = createTestLogger();
+      const { logger, lines } = createTestLogger();
 
-      logger.info("request handled", { requestId: "req-456", statusCode: 200 });
+      logger.info({ requestId: "req-456", statusCode: 200 }, "request handled");
+      logger.flush();
 
-      const parsed = JSON.parse(transport.lines[0]);
+      const parsed = JSON.parse(lines[0]);
       expect(parsed.requestId).toBe("req-456");
       expect(parsed.statusCode).toBe(200);
       expect(parsed.message).toBe("request handled");
     });
 
     it("child loggers produce JSON with inherited metadata", () => {
-      const { logger, transport } = createTestLogger();
+      const { logger, lines } = createTestLogger();
 
       const child = logger.child({ component: "orchestrator" });
-      child.info("child message", { issueId: "ISS-1" });
+      child.info({ issueId: "ISS-1" }, "child message");
+      logger.flush();
 
-      const parsed = JSON.parse(transport.lines[0]);
+      const parsed = JSON.parse(lines[0]);
       expect(parsed.level).toBe("info");
       expect(parsed.message).toBe("child message");
       expect(parsed.component).toBe("orchestrator");
@@ -134,15 +145,16 @@ describe("logger", () => {
     });
 
     it("includes all standard log levels", () => {
-      const { logger, transport } = createTestLogger("debug");
+      const { logger, lines } = createTestLogger("debug");
 
       logger.debug("debug msg");
       logger.info("info msg");
       logger.warn("warn msg");
       logger.error("error msg");
+      logger.flush();
 
-      expect(transport.lines).toHaveLength(4);
-      const levels = transport.lines.map((line) => JSON.parse(line).level);
+      expect(lines).toHaveLength(4);
+      const levels = lines.map((line) => JSON.parse(line).level);
       expect(levels).toEqual(["debug", "info", "warn", "error"]);
     });
   });

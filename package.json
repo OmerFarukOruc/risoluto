@@ -53,7 +53,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.3.1",
     "liquidjs": "^10.25.1",
-    "winston": "^3.18.3",
+    "pino": "^9.6.0",
     "yaml": "^2.8.3",
     "zod": "^4.3.6"
   },

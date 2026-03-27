@@ -11,6 +11,7 @@ import {
   type JsonRpcRequest,
 } from "../codex/protocol.js";
 import type { SymphonyLogger } from "../core/types.js";
+import { toErrorString } from "../utils/type-guards.js";
 
 const MAX_LINE_BYTES = 10 * 1024 * 1024;
 
@@ -51,7 +52,7 @@ export class JsonRpcConnection {
         this.logger.debug({ error: error.code }, "stdin write failed (child exited)");
         return;
       }
-      this.logger.error({ error: String(error) }, "unexpected stdin error");
+      this.logger.error({ error: toErrorString(error) }, "unexpected stdin error");
     });
     child.on("exit", () => {
       this.exited = true;
@@ -127,7 +128,7 @@ export class JsonRpcConnection {
     try {
       parsed = JSON.parse(line);
     } catch (error) {
-      this.logger.error({ line, error: String(error) }, "invalid json from codex");
+      this.logger.error({ line, error: toErrorString(error) }, "invalid json from codex");
       return;
     }
 
@@ -153,8 +154,8 @@ export class JsonRpcConnection {
 
     if (isJsonRpcRequest(parsed)) {
       void this.onRequest(parsed).catch((error) => {
-        this.logger.error({ method: parsed.method, error: String(error) }, "failed to handle codex request");
-        this.send(createErrorResponse(parsed.id, error instanceof Error ? error.message : String(error)));
+        this.logger.error({ method: parsed.method, error: toErrorString(error) }, "failed to handle codex request");
+        this.send(createErrorResponse(parsed.id, toErrorString(error)));
       });
       return;
     }

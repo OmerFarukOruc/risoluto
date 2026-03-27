@@ -14,6 +14,7 @@ import { buildCtx, cleanupTerminalWorkspaces, type OrchestratorState } from "./o
 import type { OrchestratorDeps } from "./runtime-types.js";
 import { nowIso } from "./views.js";
 import type { ModelSelection, ReasoningEffort, RuntimeSnapshot } from "../core/types.js";
+import { toErrorString } from "../utils/type-guards.js";
 import { globalMetrics } from "../observability/metrics.js";
 
 export class Orchestrator {
@@ -179,7 +180,7 @@ export class Orchestrator {
       globalMetrics.orchestratorPollsTotal.increment({ status: "ok" });
     } catch (error) {
       globalMetrics.orchestratorPollsTotal.increment({ status: "error" });
-      this.deps.logger.error({ error: String(error) }, "orchestrator tick failed");
+      this.deps.logger.error({ error: toErrorString(error) }, "orchestrator tick failed");
     } finally {
       this.tickInFlight = false;
       const delayMs = this.refreshQueued ? 0 : this.deps.configStore.getConfig().polling.intervalMs;

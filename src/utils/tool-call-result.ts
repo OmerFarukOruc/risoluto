@@ -1,4 +1,5 @@
 /** Shared result wrapper for MCP-style tool-call handlers. */
+import { toErrorString } from "./type-guards.js";
 
 interface ToolCallContentItem {
   type: "inputText";
@@ -22,7 +23,7 @@ export function toolCallSuccess(value: unknown): ToolCallResult {
 }
 
 export function toolCallFailure(error: unknown): ToolCallResult {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = toErrorString(error);
   return {
     success: false,
     contentItems: [{ type: "inputText", text: jsonText({ error: message }) }],

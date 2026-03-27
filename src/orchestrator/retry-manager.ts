@@ -2,6 +2,7 @@ import type { NotificationEvent } from "../notification/channel.js";
 import { nowIso } from "./views.js";
 import { isActiveState, isTerminalState } from "../state/policy.js";
 import type { Issue, ServiceConfig } from "../core/types.js";
+import { toErrorString } from "../utils/type-guards.js";
 import type { RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
 
 export { handleRetryLaunchFailure } from "./retry-failure.js";
@@ -119,7 +120,7 @@ export async function revalidateAndLaunchRetry(
     ctx.clearRetryEntry(issueId);
     await ctx.deps.workspaceManager.removeWorkspace(latestIssue.identifier, latestIssue).catch((error: unknown) => {
       ctx.deps.logger.warn(
-        { issueId, identifier: latestIssue.identifier, error: String(error) },
+        { issueId, identifier: latestIssue.identifier, error: toErrorString(error) },
         "workspace cleanup failed during retry launch",
       );
     });

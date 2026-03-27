@@ -4,6 +4,7 @@ import type { RunningEntry } from "../runtime-types.js";
 import { buildOutcomeView } from "../outcome-view-builder.js";
 import { nowIso } from "../views.js";
 import { issueRef, outcomeToStatus } from "./types.js";
+import { toErrorString } from "../../utils/type-guards.js";
 
 export function handleServiceStopped(
   ctx: OutcomeContext,
@@ -45,7 +46,7 @@ export async function handleTerminalCleanup(
 ): Promise<void> {
   await ctx.deps.workspaceManager.removeWorkspace(issue.identifier, issue).catch((error) => {
     ctx.deps.logger.info(
-      { issue_identifier: issue.identifier, error: String(error) },
+      { issue_identifier: issue.identifier, error: toErrorString(error) },
       "workspace cleanup failed (non-fatal)",
     );
   });

@@ -7,6 +7,7 @@ import { nowIso } from "../views.js";
 import { executeGitPostRun } from "../git-post-run.js";
 import { issueRef } from "./types.js";
 import { writeCompletionWriteback } from "./completion-writeback.js";
+import { toErrorString } from "../../utils/type-guards.js";
 
 export async function handleStopSignal(
   ctx: OutcomeContext,
@@ -24,7 +25,7 @@ export async function handleStopSignal(
       const result = await executeGitPostRun(ctx.deps.gitManager, workspace, issue, entry.repoMatch);
       pullRequestUrl = result.pullRequestUrl;
     } catch (error) {
-      const errorText = error instanceof Error ? error.message : String(error);
+      const errorText = toErrorString(error);
       ctx.deps.logger.info(
         { issue_identifier: issue.identifier, error: errorText },
         "git post-run failed after DONE — completing issue anyway",
@@ -34,7 +35,7 @@ export async function handleStopSignal(
 
   await ctx.deps.attemptStore.updateAttempt(entry.runId, { stopSignal, pullRequestUrl, status }).catch((error) => {
     ctx.deps.logger.info(
-      { attempt_id: entry.runId, error: String(error) },
+      { attempt_id: entry.runId, error: toErrorString(error) },
       "attempt update failed after stop signal (non-fatal)",
     );
   });

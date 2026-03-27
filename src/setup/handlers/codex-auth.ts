@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Request, Response } from "express";
 
 import { normalizeCodexAuthJson } from "../../codex/auth-file.js";
-import { isRecord } from "../../utils/type-guards.js";
+import { isRecord, toErrorString } from "../../utils/type-guards.js";
 import type { SetupApiDeps } from "./shared.js";
 
 export function handlePostCodexAuth(deps: SetupApiDeps) {
@@ -37,7 +37,7 @@ export function handlePostCodexAuth(deps: SetupApiDeps) {
 
       res.json({ ok: true });
     } catch (error) {
-      res.status(500).json({ error: { code: "save_error", message: String(error) } });
+      res.status(500).json({ error: { code: "save_error", message: toErrorString(error) } });
     }
   };
 }

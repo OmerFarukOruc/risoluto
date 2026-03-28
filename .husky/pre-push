@@ -38,6 +38,9 @@ pnpm run knip
 echo "🔍 Checking for duplicate code..."
 pnpm run jscpd
 
+echo "🎭 Running E2E smoke tests..."
+pnpm exec playwright test --project=smoke
+
 echo "🔒 Running Semgrep security scan..."
 semgrep scan --config auto --config p/typescript --error
 

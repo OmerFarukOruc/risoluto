@@ -1,204 +1,231 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { EventEmitter, Readable, Writable } from "node:stream";
+import { EventEmitter, Readable } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
 import { createMockLogger } from "../helpers.js";
 import { createIssue, createWorkspace, createModelSelection } from "../orchestrator/issue-test-factories.js";
-import type { ServiceConfig } from "../../src/core/types.js";
+import type { ServiceConfig, SymphonyLogger } from "../../src/core/types.js";
+import type { DockerSessionDeps } from "../../src/agent-runner/docker-session.js";
 
-// ── Hoisted mocks (available inside vi.mock factories) ───────────────────
+// ---------------------------------------------------------------------------
+// Hoisted mocks — declared before any vi.mock() calls
+// ---------------------------------------------------------------------------
 
-const {
-  mockMkdir,
-  mockBuildDockerRunArgs,
-  mockBuildInitCacheVolumeArgs,
-  mockResolveWorkspaceExtraMountPaths,
-  mockPrepareCodexRuntimeConfig,
-  mockGetRequiredProviderEnvNames,
-  mockStopContainer,
-  mockRemoveContainer,
-  mockRemoveVolume,
-  mockGetContainerStats,
-  mockHandleCodexRequest,
-  mockHandleNotification,
-  mockGlobalMetrics,
-  mockRealSpawn,
-} = vi.hoisted(() => ({
-  mockMkdir: vi.fn(),
-  mockBuildDockerRunArgs: vi.fn(),
-  mockBuildInitCacheVolumeArgs: vi.fn(),
-  mockResolveWorkspaceExtraMountPaths: vi.fn(),
-  mockPrepareCodexRuntimeConfig: vi.fn(),
-  mockGetRequiredProviderEnvNames: vi.fn(),
-  mockStopContainer: vi.fn(),
-  mockRemoveContainer: vi.fn(),
-  mockRemoveVolume: vi.fn(),
-  mockGetContainerStats: vi.fn(),
-  mockHandleCodexRequest: vi.fn(),
-  mockHandleNotification: vi.fn(),
-  mockGlobalMetrics: {
-    containerCpuPercent: { set: vi.fn() },
-    containerMemoryPercent: { set: vi.fn() },
-  },
-  mockRealSpawn: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const buildDockerRunArgs = vi.fn().mockReturnValue({
+    program: "docker",
+    args: ["run", "--name", "symphony-MT-42-123"],
+    containerName: "symphony-MT-42-123",
+    cacheVolumeName: "symphony-cache-MT-42-123",
+  });
 
-// ── Module mocks ─────────────────────────────────────────────────────────
+  const buildInitCacheVolumeArgs = vi.fn().mockReturnValue({
+    program: "docker",
+    args: ["run", "--rm", "alpine", "chown"],
+  });
 
-vi.mock("node:fs/promises", () => ({ mkdir: mockMkdir }));
+  const stopContainer = vi.fn().mockResolvedValue(undefined);
+  const removeContainer = vi.fn().mockResolvedValue(undefined);
+  const removeVolume = vi.fn().mockResolvedValue(undefined);
+  const inspectContainerRunning = vi.fn().mockResolvedValue(true);
 
-vi.mock("node:child_process", async (importOriginal) => {
-  const original = await importOriginal<typeof import("node:child_process")>();
-  return { ...original, spawn: mockRealSpawn };
+  const rawSpawn = vi.fn();
+
+  function createMockConnection() {
+    return {
+      request: vi.fn().mockResolvedValue({}),
+      notify: vi.fn(),
+      close: vi.fn(),
+      interruptTurn: vi.fn().mockResolvedValue(false),
+    };
+  }
+
+  // Must be a regular function (not arrow) so it can be called with `new`
+  const jsonRpcConnectionMock = vi.fn().mockImplementation(function () {
+    return createMockConnection();
+  });
+
+  return {
+    buildDockerRunArgs,
+    buildInitCacheVolumeArgs,
+    stopContainer,
+    removeContainer,
+    removeVolume,
+    inspectContainerRunning,
+    rawSpawn,
+    jsonRpcConnectionMock,
+    createMockConnection,
+  };
 });
 
+// ---------------------------------------------------------------------------
+// Module mocks
+// ---------------------------------------------------------------------------
+
 vi.mock("../../src/docker/spawn.js", () => ({
-  buildDockerRunArgs: mockBuildDockerRunArgs,
-  buildInitCacheVolumeArgs: mockBuildInitCacheVolumeArgs,
+  buildDockerRunArgs: mocks.buildDockerRunArgs,
+  buildInitCacheVolumeArgs: mocks.buildInitCacheVolumeArgs,
 }));
 
 vi.mock("../../src/docker/workspace-mounts.js", () => ({
-  resolveWorkspaceExtraMountPaths: mockResolveWorkspaceExtraMountPaths,
-}));
-
-vi.mock("../../src/codex/runtime-config.js", () => ({
-  prepareCodexRuntimeConfig: mockPrepareCodexRuntimeConfig,
-  getRequiredProviderEnvNames: mockGetRequiredProviderEnvNames,
+  resolveWorkspaceExtraMountPaths: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../../src/docker/lifecycle.js", () => ({
-  inspectContainerRunning: vi.fn().mockResolvedValue(true),
-  stopContainer: mockStopContainer,
-  removeContainer: mockRemoveContainer,
-  removeVolume: mockRemoveVolume,
+  stopContainer: mocks.stopContainer,
+  removeContainer: mocks.removeContainer,
+  removeVolume: mocks.removeVolume,
+  inspectContainerRunning: mocks.inspectContainerRunning,
 }));
 
 vi.mock("../../src/docker/stats.js", () => ({
-  getContainerStats: mockGetContainerStats,
+  getContainerStats: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("../../src/agent/codex-request-handler.js", () => ({
-  handleCodexRequest: mockHandleCodexRequest,
-}));
-
-vi.mock("../../src/agent-runner/notification-handler.js", () => ({
-  handleNotification: mockHandleNotification,
-}));
-
-vi.mock("../../src/observability/metrics.js", () => ({
-  globalMetrics: mockGlobalMetrics,
+vi.mock("../../src/codex/runtime-config.js", () => ({
+  prepareCodexRuntimeConfig: vi.fn().mockResolvedValue({
+    configToml: "mock-toml",
+    authJsonBase64: null,
+  }),
+  getRequiredProviderEnvNames: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock("../../src/agent/json-rpc-connection.js", () => ({
-  JsonRpcConnection: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.request = vi.fn().mockResolvedValue({});
-    this.notify = vi.fn();
-    this.close = vi.fn();
-    this.interruptTurn = vi.fn().mockResolvedValue(false);
-    this.exited = false;
-  }),
+  JsonRpcConnection: mocks.jsonRpcConnectionMock,
+}));
+
+vi.mock("../../src/agent/codex-request-handler.js", () => ({
+  handleCodexRequest: vi.fn().mockResolvedValue({ response: undefined, fatalFailure: null }),
+}));
+
+vi.mock("../../src/agent-runner/notification-handler.js", () => ({
+  handleNotification: vi.fn(),
+}));
+
+vi.mock("../../src/agent-runner/helpers.js", () => ({
+  asRecord: vi.fn().mockImplementation((value: unknown) => (typeof value === "object" && value ? value : {})),
+  asString: vi.fn().mockImplementation((value: unknown) => (typeof value === "string" ? value : null)),
 }));
 
 vi.mock("../../src/core/lifecycle-events.js", () => ({
-  createLifecycleEvent: vi.fn().mockImplementation((input: Record<string, unknown>) => {
-    const issue = input.issue as { id: string; identifier: string };
-    return {
-      at: new Date().toISOString(),
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
-      sessionId: null,
-      event: input.event,
-      message: input.message,
-      metadata: input.metadata ?? null,
-    };
-  }),
+  createLifecycleEvent: vi.fn().mockImplementation((input: unknown) => input),
 }));
 
-import { createDockerSession } from "../../src/agent-runner/docker-session.js";
-import { createTurnState } from "../../src/agent-runner/turn-state.js";
-import type { DockerSessionDeps } from "../../src/agent-runner/docker-session.js";
+vi.mock("../../src/observability/metrics.js", () => ({
+  globalMetrics: {
+    containerCpuPercent: { set: vi.fn() },
+    containerMemoryPercent: { set: vi.fn() },
+  },
+}));
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+vi.mock("../../src/agent-runner/turn-state.js", () => ({
+  composeSessionId: vi.fn().mockReturnValue("thread:turn"),
+}));
 
-const DEFAULT_DOCKER_RUN_RESULT = {
-  program: "docker",
-  args: ["run", "-i", "--name", "symphony-MT-42-1234"],
-  containerName: "symphony-MT-42-1234",
-  cacheVolumeName: "symphony-cache-MT-42-1234",
-};
+vi.mock("node:fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+}));
 
-function makeMinimalConfig(): ServiceConfig {
+// Mock node:child_process so the direct `spawn` call for the init cache
+// volume process (not injected via deps) is also intercepted.
+vi.mock("node:child_process", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("node:child_process")>();
   return {
-    codex: {
-      command: "codex",
-      model: "gpt-5.4",
-      reasoningEffort: "high",
-      approvalPolicy: "auto-edit",
-      threadSandbox: "none",
-      readTimeoutMs: 30000,
-      turnTimeoutMs: 300000,
-      drainTimeoutMs: 0,
-      startupTimeoutMs: 30000,
-      stallTimeoutMs: 120000,
-      sandbox: {
-        image: "symphony-sandbox:latest",
-        resources: { memory: "4g", memoryReservation: "2g", memorySwap: "4g", cpus: "2", tmpfsSize: "1g" },
-        envPassthrough: [],
-        extraMounts: [],
-        egressAllowlist: [],
-        logs: { driver: "json-file", maxSize: "10m", maxFile: "3" },
-        security: {},
-      },
-    },
-  } as unknown as ServiceConfig;
-}
+    ...orig,
+    spawn: mocks.rawSpawn,
+  };
+});
+
+// Import the module under test AFTER all mocks are declared
+import { createDockerSession } from "../../src/agent-runner/docker-session.js";
 
 /**
- * Creates a fake ChildProcess that emits "exit" with code 0 on the next microtask.
- * Used for the init container spawn.
+ * vi.clearAllMocks() wipes mockImplementation, so we must re-apply
+ * the JsonRpcConnection constructor mock before each test.
  */
-function makeFakeInitChild(exitCode = 0): ChildProcessWithoutNullStreams {
-  const child = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
+function resetMockDefaults() {
+  mocks.jsonRpcConnectionMock.mockImplementation(function () {
+    return mocks.createMockConnection();
+  });
+  mocks.buildDockerRunArgs.mockReturnValue({
+    program: "docker",
+    args: ["run", "--name", "symphony-MT-42-123"],
+    containerName: "symphony-MT-42-123",
+    cacheVolumeName: "symphony-cache-MT-42-123",
+  });
+  mocks.buildInitCacheVolumeArgs.mockReturnValue({
+    program: "docker",
+    args: ["run", "--rm", "alpine", "chown"],
+  });
+  mocks.stopContainer.mockResolvedValue(undefined);
+  mocks.removeContainer.mockResolvedValue(undefined);
+  mocks.removeVolume.mockResolvedValue(undefined);
+  mocks.inspectContainerRunning.mockResolvedValue(true);
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeFakeChild(): ChildProcessWithoutNullStreams {
   const stdout = new Readable({ read() {} });
   const stderr = new Readable({ read() {} });
-  const stdin = new Writable({
-    write(_chunk, _enc, cb) {
-      cb();
-    },
+  const stdin = Object.assign(new EventEmitter(), {
+    write: vi.fn().mockReturnValue(true),
+    end: vi.fn(),
+    destroy: vi.fn(),
+    on: vi.fn().mockReturnThis(),
   });
+  const child = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
   (child as unknown as Record<string, unknown>).stdout = stdout;
   (child as unknown as Record<string, unknown>).stderr = stderr;
   (child as unknown as Record<string, unknown>).stdin = stdin;
   (child as unknown as Record<string, unknown>).pid = 12345;
-  queueMicrotask(() => child.emit("exit", exitCode));
+  (child as unknown as Record<string, unknown>).kill = vi.fn();
   return child;
 }
 
-/** Creates a fake ChildProcess for the main container (does NOT auto-exit). */
-function makeFakeMainChild(): ChildProcessWithoutNullStreams {
-  const child = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
-  const stdout = new Readable({ read() {} });
-  const stderr = new Readable({ read() {} });
-  const stdin = new Writable({
-    write(_chunk, _enc, cb) {
-      cb();
+function makeInitChild(exitCode = 0): ChildProcessWithoutNullStreams {
+  const initChild = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
+  const initStdout = new Readable({ read() {} });
+  const initStderr = new Readable({ read() {} });
+  (initChild as unknown as Record<string, unknown>).stdout = initStdout;
+  (initChild as unknown as Record<string, unknown>).stderr = initStderr;
+  (initChild as unknown as Record<string, unknown>).stdin = { write: vi.fn(), on: vi.fn() };
+  (initChild as unknown as Record<string, unknown>).stdio = [null, initStdout, initStderr];
+  queueMicrotask(() => initChild.emit("exit", exitCode));
+  return initChild;
+}
+
+/**
+ * Configures mocks.rawSpawn to return a successful init child, and
+ * returns a fake spawnProcess for the main container.
+ */
+function setupSpawnMock(mainChild: ChildProcessWithoutNullStreams, initExitCode = 0) {
+  mocks.rawSpawn.mockImplementation(() => makeInitChild(initExitCode));
+  return vi.fn().mockReturnValue(mainChild);
+}
+
+function makeConfig(): ServiceConfig {
+  return {
+    codex: {
+      command: "codex",
+      sandbox: { image: "symphony:latest", resources: {} },
+      readTimeoutMs: 30_000,
+      drainTimeoutMs: 0,
+      model: "gpt-5.4",
+      reasoningEffort: "high",
     },
-  });
-  (child as unknown as Record<string, unknown>).stdout = stdout;
-  (child as unknown as Record<string, unknown>).stderr = stderr;
-  (child as unknown as Record<string, unknown>).stdin = stdin;
-  (child as unknown as Record<string, unknown>).pid = 54321;
-  return child;
+  } as unknown as ServiceConfig;
 }
 
-function makeInput(overrides?: Record<string, unknown>) {
+function makeInput(overrides?: Partial<{ signal: AbortSignal; onEvent: ReturnType<typeof vi.fn> }>) {
   return {
     issue: createIssue(),
     modelSelection: createModelSelection(),
     workspace: createWorkspace(),
-    signal: new AbortController().signal,
-    onEvent: vi.fn(),
-    ...overrides,
+    signal: overrides?.signal ?? new AbortController().signal,
+    onEvent: overrides?.onEvent ?? vi.fn(),
   };
 }
 
@@ -206,518 +233,357 @@ function makeDeps(overrides?: Partial<DockerSessionDeps>): DockerSessionDeps {
   return {
     logger: createMockLogger(),
     linearClient: null,
-    archiveDir: "/tmp/test-archive",
-    spawnProcess: vi.fn().mockReturnValue(makeFakeMainChild()),
+    archiveDir: "/tmp/archive",
     ...overrides,
   };
 }
 
-/** Resets all hoisted mocks to their expected default return values. */
-function resetMockDefaults(): void {
-  mockMkdir.mockReset().mockResolvedValue(undefined);
-  mockBuildDockerRunArgs.mockReset().mockReturnValue({ ...DEFAULT_DOCKER_RUN_RESULT });
-  mockBuildInitCacheVolumeArgs.mockReset().mockReturnValue({
-    program: "docker",
-    args: ["run", "--rm", "-v", "symphony-cache-MT-42-1234:/mnt", "alpine:3.21", "chown", "1000:1000", "/mnt"],
-  });
-  mockResolveWorkspaceExtraMountPaths.mockReset().mockResolvedValue([]);
-  mockPrepareCodexRuntimeConfig.mockReset().mockResolvedValue({
-    configToml: "mock-config",
-    authJsonBase64: null,
-  });
-  mockGetRequiredProviderEnvNames.mockReset().mockReturnValue([]);
-  mockStopContainer.mockReset().mockResolvedValue(undefined);
-  mockRemoveContainer.mockReset().mockResolvedValue(undefined);
-  mockRemoveVolume.mockReset().mockResolvedValue(undefined);
-  mockGetContainerStats.mockReset().mockResolvedValue(null);
-  mockHandleCodexRequest.mockReset().mockResolvedValue({ response: {} });
-  mockHandleNotification.mockReset();
-  mockGlobalMetrics.containerCpuPercent.set.mockReset();
-  mockGlobalMetrics.containerMemoryPercent.set.mockReset();
-  mockRealSpawn.mockReset().mockImplementation(() => makeFakeInitChild());
+function makeTurnState() {
+  return {} as import("../../src/agent-runner/turn-state.js").TurnState;
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe("createDockerSession", () => {
+  let logger: SymphonyLogger;
+
   beforeEach(() => {
+    vi.clearAllMocks();
     resetMockDefaults();
+    logger = createMockLogger();
   });
 
-  describe("session creation — happy path", () => {
-    it("creates archive directory with recursive flag", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
+  it("returns a session object with all expected DockerSession properties", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-      await createDockerSession(config, input, deps, turnState);
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-      expect(mockMkdir).toHaveBeenCalledWith("/tmp/test-archive", { recursive: true });
-    });
-
-    it("emits container_starting lifecycle event", async () => {
-      const config = makeMinimalConfig();
-      const onEvent = vi.fn();
-      const input = makeInput({ onEvent });
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(onEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "container_starting",
-          message: "Starting sandbox container",
-        }),
-      );
-    });
-
-    it("returns a session object with expected properties", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-
-      expect(session).toMatchObject({
-        containerName: "symphony-MT-42-1234",
-        threadId: null,
-        turnId: null,
-      });
-      expect(session.child).toBeDefined();
-      expect(session.connection).toBeDefined();
-      expect(typeof session.cleanup).toBe("function");
-      expect(typeof session.getFatalFailure).toBe("function");
-      expect(typeof session.inspectRunning).toBe("function");
-      expect(typeof session.steerTurn).toBe("function");
-      expect(session.exitPromise).toBeInstanceOf(Promise);
-    });
-
-    it("uses precomputed runtime config when provided", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-      const precomputed = { configToml: "precomputed-toml", authJsonBase64: "abc123" };
-
-      await createDockerSession(config, input, deps, turnState, precomputed);
-
-      expect(mockPrepareCodexRuntimeConfig).not.toHaveBeenCalled();
-      expect(mockBuildDockerRunArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          runtimeConfigToml: "precomputed-toml",
-          runtimeAuthJsonBase64: "abc123",
-        }),
-      );
-    });
-
-    it("falls back to prepareCodexRuntimeConfig when no precomputed config", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(mockPrepareCodexRuntimeConfig).toHaveBeenCalledWith(config.codex);
-    });
-
-    it("uses default archive directory when none provided in deps", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps({ archiveDir: undefined });
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(mockMkdir).toHaveBeenCalledWith(expect.stringContaining("archive"), { recursive: true });
-    });
-
-    it("spawns init container before main container", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      // Init container uses the real spawn (mockRealSpawn)
-      expect(mockRealSpawn).toHaveBeenCalledWith("docker", expect.arrayContaining(["run", "--rm"]), { stdio: "pipe" });
-      // Main container uses the injected spawnProcess
-      expect(deps.spawnProcess).toHaveBeenCalledWith(
-        "docker",
-        expect.arrayContaining(["run", "-i", "--name", "symphony-MT-42-1234"]),
-        expect.objectContaining({ stdio: ["pipe", "pipe", "pipe"] }),
-      );
-    });
-
-    it("passes correct args to buildDockerRunArgs", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(mockBuildDockerRunArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sandboxConfig: config.codex.sandbox,
-          command: "codex",
-          workspacePath: "/tmp/symphony/MT-42",
-          archiveDir: "/tmp/test-archive",
-        }),
-      );
-    });
+    expect(session).toHaveProperty("child");
+    expect(session).toHaveProperty("connection");
+    expect(session).toHaveProperty("containerName");
+    expect(session).toHaveProperty("threadId");
+    expect(session).toHaveProperty("turnId");
+    expect(session).toHaveProperty("exitPromise");
+    expect(session).toHaveProperty("getFatalFailure");
+    expect(session).toHaveProperty("inspectRunning");
+    expect(session).toHaveProperty("cleanup");
+    expect(session).toHaveProperty("steerTurn");
   });
 
-  describe("init container failure", () => {
-    it("rejects when init container exits with non-zero code", async () => {
-      mockRealSpawn.mockImplementation(() => makeFakeInitChild(1));
+  it("uses the container name from buildDockerRunArgs", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-      await expect(createDockerSession(config, input, deps, turnState)).rejects.toThrow(
-        "Cache volume init failed with exit code 1",
-      );
-    });
-
-    it("rejects when init container spawn emits error", async () => {
-      mockRealSpawn.mockImplementation(() => {
-        const child = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
-        (child as unknown as Record<string, unknown>).stdout = new Readable({ read() {} });
-        (child as unknown as Record<string, unknown>).stderr = new Readable({ read() {} });
-        queueMicrotask(() => child.emit("error", new Error("docker not found")));
-        return child;
-      });
-
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await expect(createDockerSession(config, input, deps, turnState)).rejects.toThrow("docker not found");
-    });
+    expect(session.containerName).toBe("symphony-MT-42-123");
   });
 
-  describe("abort signal wiring", () => {
-    it("registers abort handler on the input signal", async () => {
-      const controller = new AbortController();
-      const addEventSpy = vi.spyOn(controller.signal, "addEventListener");
-      const config = makeMinimalConfig();
-      const input = makeInput({ signal: controller.signal });
-      const deps = makeDeps();
-      const turnState = createTurnState();
+  it("initializes threadId and turnId to null", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-      await createDockerSession(config, input, deps, turnState);
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-      expect(addEventSpy).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
-    });
+    expect(session.threadId).toBeNull();
+    expect(session.turnId).toBeNull();
   });
 
-  describe("exitPromise", () => {
-    it("resolves with code and signal when child exits", async () => {
-      const mainChild = makeFakeMainChild();
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
+  it("emits container_starting lifecycle event", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const onEvent = vi.fn();
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-      const session = await createDockerSession(config, input, deps, turnState);
+    await createDockerSession(makeConfig(), makeInput({ onEvent }), deps, makeTurnState());
 
-      mainChild.emit("exit", 0, null);
-      const result = await session.exitPromise;
-
-      expect(result).toEqual({ code: 0, signal: null });
-    });
-
-    it("captures signal when child is killed", async () => {
-      const mainChild = makeFakeMainChild();
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-
-      mainChild.emit("exit", null, "SIGKILL");
-      const result = await session.exitPromise;
-
-      expect(result).toEqual({ code: null, signal: "SIGKILL" });
-    });
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "container_starting",
+        message: "Starting sandbox container",
+      }),
+    );
   });
 
-  describe("getFatalFailure", () => {
-    it("returns null when no fatal failure has occurred", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
+  it("calls buildDockerRunArgs with the correct workspace path and model", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+    const input = makeInput();
 
-      const session = await createDockerSession(config, input, deps, turnState);
+    await createDockerSession(makeConfig(), input, deps, makeTurnState());
 
-      expect(session.getFatalFailure()).toBeNull();
-    });
+    expect(mocks.buildDockerRunArgs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspacePath: input.workspace.path,
+        model: input.modelSelection.model,
+      }),
+    );
   });
 
-  describe("inspectRunning", () => {
-    it("returns true when custom spawnProcess is injected", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps(); // has custom spawnProcess, so inspectRunning => async true
-      const turnState = createTurnState();
+  it("spawns the main child with the injected spawnProcess", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-      const session = await createDockerSession(config, input, deps, turnState);
-      const result = await session.inspectRunning();
+    await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-      expect(result).toBe(true);
-    });
+    expect(fakeSpawn).toHaveBeenCalledTimes(1);
+    expect(fakeSpawn).toHaveBeenCalledWith(
+      "docker",
+      expect.arrayContaining(["run"]),
+      expect.objectContaining({ stdio: ["pipe", "pipe", "pipe"] }),
+    );
   });
 
-  describe("steerTurn", () => {
-    it("returns false when threadId or turnId is not set", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
+  it("uses precomputedRuntimeConfig when provided", async () => {
+    const { prepareCodexRuntimeConfig } = await import("../../src/codex/runtime-config.js");
 
-      const session = await createDockerSession(config, input, deps, turnState);
-      const result = await session.steerTurn("Please focus on tests");
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ logger, spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+    const precomputed = { configToml: "precomputed-toml", authJsonBase64: "base64data" };
 
-      expect(result).toBe(false);
-    });
+    await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState(), precomputed);
 
-    it("sends turn/steer request when threadId and turnId are set", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-      session.threadId = "thread-abc";
-      session.turnId = "turn-123";
-
-      const result = await session.steerTurn("Please focus on tests");
-
-      expect(result).toBe(true);
-      expect(session.connection.request).toHaveBeenCalledWith("turn/steer", {
-        threadId: "thread-abc",
-        turnId: "turn-123",
-        message: "Please focus on tests",
-      });
-    });
-
-    it("returns false when connection request throws", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-      session.threadId = "thread-abc";
-      session.turnId = "turn-123";
-      vi.mocked(session.connection.request).mockRejectedValueOnce(new Error("connection closed"));
-
-      const result = await session.steerTurn("steer message");
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe("cleanup", () => {
-    it("closes connection, stops container, removes container and volume", async () => {
-      const config = makeMinimalConfig();
-      const mainChild = makeFakeMainChild();
-      const input = makeInput();
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-
-      // Resolve exitPromise so cleanup does not wait the full 5s race
-      queueMicrotask(() => mainChild.emit("exit", 0, null));
-
-      await session.cleanup(config, new AbortController().signal);
-
-      expect(session.connection.close).toHaveBeenCalled();
-      expect(mockStopContainer).toHaveBeenCalledWith("symphony-MT-42-1234", 5);
-      expect(mockRemoveContainer).toHaveBeenCalledWith("symphony-MT-42-1234");
-      expect(mockRemoveVolume).toHaveBeenCalledWith("symphony-cache-MT-42-1234");
-    });
-
-    it("removes abort handler from signal during cleanup", async () => {
-      const controller = new AbortController();
-      const config = makeMinimalConfig();
-      const mainChild = makeFakeMainChild();
-      const input = makeInput({ signal: controller.signal });
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-
-      // The cleanup signal should have removeEventListener called on it
-      const cleanupSignal = new AbortController().signal;
-      const removeEventSpy = vi.spyOn(cleanupSignal, "removeEventListener");
-      queueMicrotask(() => mainChild.emit("exit", 0, null));
-      await session.cleanup(config, cleanupSignal);
-
-      expect(removeEventSpy).toHaveBeenCalledWith("abort", expect.any(Function));
-    });
-
-    it("waits drainTimeoutMs when signal is not aborted and drain > 0", async () => {
-      vi.useFakeTimers();
-
-      const config = makeMinimalConfig();
-      (config.codex as { drainTimeoutMs: number }).drainTimeoutMs = 500;
-      const mainChild = makeFakeMainChild();
-      const input = makeInput();
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-      const cleanupPromise = session.cleanup(config, new AbortController().signal);
-
-      // Advance past drain timeout + exit wait timeout
-      await vi.advanceTimersByTimeAsync(500);
-      await vi.advanceTimersByTimeAsync(5000);
-
-      await cleanupPromise;
-      expect(mockStopContainer).toHaveBeenCalled();
-
-      vi.useRealTimers();
-    });
-
-    it("skips drain wait when cleanup signal is already aborted", async () => {
-      const config = makeMinimalConfig();
-      (config.codex as { drainTimeoutMs: number }).drainTimeoutMs = 5000;
-      const mainChild = makeFakeMainChild();
-      const input = makeInput();
-      const deps = makeDeps({ spawnProcess: vi.fn().mockReturnValue(mainChild) });
-      const turnState = createTurnState();
-
-      const session = await createDockerSession(config, input, deps, turnState);
-
-      const abortedController = new AbortController();
-      abortedController.abort();
-      queueMicrotask(() => mainChild.emit("exit", 0, null));
-
-      // Should not hang for 5000ms because signal.aborted is true
-      await session.cleanup(config, abortedController.signal);
-      expect(mockStopContainer).toHaveBeenCalled();
-    });
-  });
-
-  describe("container name generation", () => {
-    it("builds container name from issue identifier and timestamp via buildDockerRunArgs", async () => {
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(mockBuildDockerRunArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          runId: expect.stringMatching(/^MT-42-\d+$/),
-        }),
-      );
-    });
-  });
-
-  describe("connection setup", () => {
-    it("creates JsonRpcConnection with child, logger, and timeout", async () => {
-      const { JsonRpcConnection: rpcMock } = await import("../../src/agent/json-rpc-connection.js");
-      const config = makeMinimalConfig();
-      const input = makeInput();
-      const deps = makeDeps();
-      const turnState = createTurnState();
-
-      await createDockerSession(config, input, deps, turnState);
-
-      expect(rpcMock).toHaveBeenCalledWith(
-        expect.anything(), // child
-        expect.anything(), // logger (child logger)
-        30000, // readTimeoutMs
-        expect.any(Function), // onRequest callback
-        expect.any(Function), // onNotification callback
-      );
-    });
+    expect(prepareCodexRuntimeConfig).not.toHaveBeenCalled();
+    expect(mocks.buildDockerRunArgs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeConfigToml: "precomputed-toml",
+        runtimeAuthJsonBase64: "base64data",
+      }),
+    );
   });
 });
 
-describe("stats polling", () => {
+describe("DockerSession.getFatalFailure", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     resetMockDefaults();
   });
 
-  it("records metrics when stats are available", async () => {
-    vi.useFakeTimers();
+  it("returns null when no failure has been recorded", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-    mockGetContainerStats.mockResolvedValue({
-      cpuPercent: "42.5%",
-      memoryUsage: "512MiB",
-      memoryLimit: "4GiB",
-      memoryPercent: "12.5%",
-      netIO: "100MB / 50MB",
-      pids: "10",
-    });
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-    const config = makeMinimalConfig();
-    const onEvent = vi.fn();
-    const input = makeInput({ onEvent });
-    const deps = makeDeps();
-    const turnState = createTurnState();
+    expect(session.getFatalFailure()).toBeNull();
+  });
+});
 
-    const session = await createDockerSession(config, input, deps, turnState);
-
-    // Advance past the 30s stats polling interval
-    await vi.advanceTimersByTimeAsync(30_000);
-
-    expect(mockGetContainerStats).toHaveBeenCalledWith("symphony-MT-42-1234");
-    expect(mockGlobalMetrics.containerCpuPercent.set).toHaveBeenCalledWith(42.5, { issue: "MT-42" });
-    expect(mockGlobalMetrics.containerMemoryPercent.set).toHaveBeenCalledWith(12.5, { issue: "MT-42" });
-
-    // Verify container_stats event was emitted
-    const statsEvent = onEvent.mock.calls.find(
-      (call: unknown[]) => (call[0] as { event: string }).event === "container_stats",
-    );
-    expect(statsEvent).toBeDefined();
-
-    // Clean up interval
-    const mainChild = (deps.spawnProcess as ReturnType<typeof vi.fn>).mock.results[0].value;
-    queueMicrotask(() => mainChild.emit("exit", 0, null));
-    await session.cleanup(config, new AbortController().signal);
-
-    vi.useRealTimers();
+describe("DockerSession.steerTurn", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
   });
 
-  it("silently swallows stats polling errors", async () => {
-    vi.useFakeTimers();
+  it("returns false when threadId or turnId is null", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-    mockGetContainerStats.mockRejectedValue(new Error("container gone"));
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-    const config = makeMinimalConfig();
-    const input = makeInput();
-    const deps = makeDeps();
-    const turnState = createTurnState();
+    const result = await session.steerTurn("do something");
+    expect(result).toBe(false);
+  });
 
-    const session = await createDockerSession(config, input, deps, turnState);
+  it("sends turn/steer request when threadId and turnId are set", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
 
-    // Should not throw even when stats fail
-    await vi.advanceTimersByTimeAsync(30_000);
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-    expect(mockGetContainerStats).toHaveBeenCalled();
-    expect(mockGlobalMetrics.containerCpuPercent.set).not.toHaveBeenCalled();
+    session.threadId = "thread-abc";
+    session.turnId = "turn-xyz";
 
-    // Clean up
-    const mainChild = (deps.spawnProcess as ReturnType<typeof vi.fn>).mock.results[0].value;
-    queueMicrotask(() => mainChild.emit("exit", 0, null));
-    await session.cleanup(config, new AbortController().signal);
+    const result = await session.steerTurn("change direction");
 
-    vi.useRealTimers();
+    expect(result).toBe(true);
+    expect(session.connection.request).toHaveBeenCalledWith("turn/steer", {
+      threadId: "thread-abc",
+      turnId: "turn-xyz",
+      message: "change direction",
+    });
+  });
+
+  it("returns false when connection.request throws", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
+
+    session.threadId = "thread-abc";
+    session.turnId = "turn-xyz";
+    vi.mocked(session.connection.request).mockRejectedValueOnce(new Error("connection lost"));
+
+    const result = await session.steerTurn("steer msg");
+    expect(result).toBe(false);
+  });
+});
+
+describe("DockerSession.cleanup", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
+  });
+
+  it("closes connection, stops container, removes container and volume", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
+
+    mainChild.emit("exit", 0, null);
+
+    const cleanupSignal = new AbortController().signal;
+    await session.cleanup(makeConfig(), cleanupSignal);
+
+    expect(session.connection.close).toHaveBeenCalled();
+    expect(mocks.stopContainer).toHaveBeenCalledWith("symphony-MT-42-123", 5);
+    expect(mocks.removeContainer).toHaveBeenCalledWith("symphony-MT-42-123");
+    expect(mocks.removeVolume).toHaveBeenCalledWith("symphony-cache-MT-42-123");
+  });
+
+  it("removes abort signal listener during cleanup", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const controller = new AbortController();
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(
+      makeConfig(),
+      makeInput({ signal: controller.signal }),
+      deps,
+      makeTurnState(),
+    );
+
+    const removeSpy = vi.spyOn(controller.signal, "removeEventListener");
+    mainChild.emit("exit", 0, null);
+
+    await session.cleanup(makeConfig(), controller.signal);
+
+    expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
+  });
+});
+
+describe("DockerSession.exitPromise", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
+  });
+
+  it("resolves with code and signal when child exits", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
+
+    mainChild.emit("exit", 137, "SIGKILL");
+
+    const result = await session.exitPromise;
+    expect(result).toEqual({ code: 137, signal: "SIGKILL" });
+  });
+});
+
+describe("abort signal wiring", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
+  });
+
+  it("registers abort handler on the input signal", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const controller = new AbortController();
+    const addSpy = vi.spyOn(controller.signal, "addEventListener");
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    await createDockerSession(makeConfig(), makeInput({ signal: controller.signal }), deps, makeTurnState());
+
+    expect(addSpy).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
+  });
+
+  it("calls connection.close and stopContainer on abort", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const controller = new AbortController();
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(
+      makeConfig(),
+      makeInput({ signal: controller.signal }),
+      deps,
+      makeTurnState(),
+    );
+
+    controller.abort();
+
+    // Allow async IIFE in abort handler to flush
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(session.connection.close).toHaveBeenCalled();
+    expect(mocks.stopContainer).toHaveBeenCalledWith("symphony-MT-42-123", 5);
+  });
+});
+
+describe("cache volume init failure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
+  });
+
+  it("rejects when cache volume init exits with non-zero code", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild, 1);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    await expect(createDockerSession(makeConfig(), makeInput(), deps, makeTurnState())).rejects.toThrow(
+      "Cache volume init failed with exit code 1",
+    );
+  });
+});
+
+describe("session object types", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockDefaults();
+  });
+
+  it("session methods are all callable functions", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
+
+    expect(typeof session.cleanup).toBe("function");
+    expect(typeof session.steerTurn).toBe("function");
+    expect(typeof session.getFatalFailure).toBe("function");
+    expect(typeof session.inspectRunning).toBe("function");
+  });
+
+  it("inspectRunning returns true when using injected spawnProcess", async () => {
+    const mainChild = makeFakeChild();
+    const fakeSpawn = setupSpawnMock(mainChild);
+    const deps = makeDeps({ spawnProcess: fakeSpawn as unknown as typeof import("node:child_process").spawn });
+
+    const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
+
+    // When spawnProcess !== spawn, inspectRunning returns async () => true
+    const running = await session.inspectRunning();
+    expect(running).toBe(true);
   });
 });

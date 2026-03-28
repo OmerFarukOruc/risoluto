@@ -178,6 +178,9 @@ export async function importLegacyFiles(
   if (overlay.overlayPath) allSources.push(overlay.overlayPath);
 
   if (allSources.length === 0) {
+    // Mark import as checked even with no sources — prevents repeated
+    // file system probes on every boot.
+    recordImportMetadata(db, [], new Date().toISOString());
     return { imported: false, sources: [], sectionCount: 0 };
   }
 

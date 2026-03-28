@@ -226,9 +226,12 @@ export class DbConfigStore implements ConfigOverlayPort {
     const segments = normalizePath(pathExpression);
     if (segments.length === 0) throw new Error("overlay path must contain at least one segment");
 
-    const currentMap = this.toMap();
-    setAtPath(currentMap, segments, value);
-    this.writeSections(currentMap);
+    const before = this.toMap();
+    const after = this.toMap();
+    setAtPath(after, segments, value);
+    if (stableStringify(after) === stableStringify(before)) return false;
+
+    this.writeSections(after);
     this.refresh();
     this.notify();
     return true;

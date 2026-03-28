@@ -17,6 +17,11 @@ import type { Express } from "express";
 
 import type { AuditLogger } from "./logger.js";
 
+function clampInt(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(Math.trunc(value), max));
+}
+
 interface AuditApiDeps {
   auditLogger: AuditLogger;
 }
@@ -33,8 +38,8 @@ export function registerAuditApi(app: Express, deps: AuditApiDeps): void {
         pathPrefix: typeof pathPrefix === "string" ? pathPrefix : undefined,
         from: typeof from === "string" ? from : undefined,
         to: typeof to === "string" ? to : undefined,
-        limit: typeof limit === "string" ? Number(limit) || 50 : 50,
-        offset: typeof offset === "string" ? Number(offset) || 0 : 0,
+        limit: typeof limit === "string" ? clampInt(Number(limit), 0, 1000, 50) : 50,
+        offset: typeof offset === "string" ? clampInt(Number(offset), 0, Infinity, 0) : 0,
       };
 
       const entries = deps.auditLogger.query(queryOptions);

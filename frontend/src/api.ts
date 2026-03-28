@@ -63,6 +63,14 @@ async function del(path: string): Promise<void> {
   await send<unknown>("DELETE", path);
 }
 
+interface TemplateResponse {
+  id: string;
+  name: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const api = {
   getModels: () => get<{ models: Array<{ id: string; displayName: string; isDefault: boolean }> }>("/api/v1/models"),
   getState: () => get<RuntimeSnapshot>("/api/v1/state"),
@@ -144,4 +152,13 @@ export const api = {
   removeWorkspace: (workspaceKey: string) => del(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
   detectDefaultBranch: (repoUrl: string) =>
     post<{ defaultBranch: string }>("/api/v1/setup/detect-default-branch", { repoUrl }),
+
+  // ── Templates ───────────────────────────────────────
+  getTemplates: () => get<{ templates: TemplateResponse[] }>("/api/v1/templates"),
+  createTemplate: (data: { id: string; name: string; body: string }) =>
+    post<TemplateResponse>("/api/v1/templates", data),
+  updateTemplate: (id: string, data: { name: string; body: string }) =>
+    put<TemplateResponse>(`/api/v1/templates/${encodeURIComponent(id)}`, data),
+  deleteTemplate: (id: string) => del(`/api/v1/templates/${encodeURIComponent(id)}`),
+  previewTemplate: (id: string) => post<{ output: string }>(`/api/v1/templates/${encodeURIComponent(id)}/preview`, {}),
 };

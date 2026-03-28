@@ -102,6 +102,7 @@ const git = lazyPage(() => import("./pages/git"));
 const workspaces = lazyPage(() => import("./pages/workspaces"));
 const containers = lazyPage(() => import("./pages/containers"));
 
+const templates = lazyPage(() => import("./pages/templates"));
 const setup = lazyPage(() => import("./pages/setup"));
 
 function aliasSettingsRoute(
@@ -134,6 +135,7 @@ router.register("/notifications", notifications);
 router.register("/git", git);
 router.register("/workspaces", workspaces);
 router.register("/containers", containers);
+router.register("/templates", templates);
 router.register("/welcome", () => {
   router.navigate("/settings");
   return document.createElement("div");

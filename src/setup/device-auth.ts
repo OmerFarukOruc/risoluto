@@ -3,7 +3,7 @@ import { createServer, type Server, type IncomingMessage, type ServerResponse } 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { ConfigOverlayStore } from "../config/overlay.js";
+import type { ConfigOverlayPort } from "../config/overlay.js";
 import { buildCodexAuthRecord } from "../codex/auth-file.js";
 
 const AUTH_ENDPOINT = "https://auth.openai.com/oauth/authorize";
@@ -245,7 +245,7 @@ export async function exchangePkceCode(
 export async function savePkceAuthTokens(
   tokenData: TokenResponse,
   archiveDir: string,
-  configOverlayStore: ConfigOverlayStore,
+  configOverlayStore: ConfigOverlayPort,
 ): Promise<void> {
   const authJson = JSON.stringify(
     buildCodexAuthRecord({

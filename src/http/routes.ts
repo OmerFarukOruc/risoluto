@@ -5,7 +5,7 @@ import express, { type Express } from "express";
 import rateLimit from "express-rate-limit";
 
 import { registerConfigApi } from "../config/api.js";
-import type { ConfigOverlayStore } from "../config/overlay.js";
+import type { ConfigOverlayPort } from "../config/overlay.js";
 import type { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import { fetchCodexModels } from "../codex/model-list.js";
@@ -37,7 +37,7 @@ interface HttpRouteDeps {
   orchestrator: OrchestratorPort;
   tracker?: TrackerPort;
   configStore?: ConfigStore;
-  configOverlayStore?: ConfigOverlayStore;
+  configOverlayStore?: ConfigOverlayPort;
   secretsStore?: SecretsStore;
   eventBus?: TypedEventBus<SymphonyEventMap>;
 

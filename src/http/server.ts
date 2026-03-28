@@ -2,7 +2,7 @@ import http from "node:http";
 
 import express, { type Express } from "express";
 
-import type { ConfigOverlayStore } from "../config/overlay.js";
+import type { ConfigOverlayPort } from "../config/overlay.js";
 import type { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
@@ -27,7 +27,7 @@ export class HttpServer {
       logger: SymphonyLogger;
       tracker?: TrackerPort;
       configStore?: ConfigStore;
-      configOverlayStore?: ConfigOverlayStore;
+      configOverlayStore?: ConfigOverlayPort;
       secretsStore?: SecretsStore;
       eventBus?: TypedEventBus<SymphonyEventMap>;
 

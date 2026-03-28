@@ -122,7 +122,19 @@ function mergeDeep(base: Record<string, unknown>, patch: Record<string, unknown>
   return output;
 }
 
-export class ConfigOverlayStore {
+/**
+ * Port interface for config overlay stores — implemented by both the file-backed
+ * ConfigOverlayStore and the future DB-backed DbConfigStore.
+ */
+export interface ConfigOverlayPort {
+  toMap(): Record<string, unknown>;
+  applyPatch(patch: Record<string, unknown>): Promise<boolean>;
+  set(pathExpression: string, value: unknown): Promise<boolean>;
+  delete(pathExpression: string): Promise<boolean>;
+  subscribe(listener: () => void): () => void;
+}
+
+export class ConfigOverlayStore implements ConfigOverlayPort {
   private overlay: Record<string, unknown> = {};
   private readonly listeners = new Set<() => void>();
   private watcher: FSWatcher | null = null;

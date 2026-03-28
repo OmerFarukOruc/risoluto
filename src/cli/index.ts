@@ -10,6 +10,7 @@ import { createLogger } from "../core/logger.js";
 import { getErrorTracker, initErrorTracking } from "../core/error-tracking.js";
 import { loadFlags } from "../core/feature-flags.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
+import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import { SecretsStore } from "../secrets/store.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { ValidationError } from "../core/types.js";
@@ -98,7 +99,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   await httpServer.start(port);
 
-  const shutdown = buildShutdown({ httpServer, orchestrator, configStore, overlayStore, eventBus, logger });
+  const shutdown = buildShutdown({
+    httpServer,
+    orchestrator,
+    configStore,
+    overlayStore,
+    eventBus,
+    persistence: services.persistence,
+    logger,
+  });
   logger.info({ workflowPath, port, logDir: archiveDir }, "service started");
   watchConfigChanges(configStore, services.notificationManager, config.server.port, logger);
 
@@ -165,6 +174,7 @@ function buildShutdown({
   configStore,
   overlayStore,
   eventBus,
+  persistence,
   logger,
 }: {
   httpServer: HttpServer;
@@ -172,6 +182,7 @@ function buildShutdown({
   configStore: ConfigStore;
   overlayStore: ConfigOverlayStore;
   eventBus: TypedEventBus<SymphonyEventMap>;
+  persistence: PersistenceRuntime;
   logger: ReturnType<typeof createLogger>;
 }): () => Promise<void> {
   let shuttingDown = false;
@@ -196,6 +207,11 @@ function buildShutdown({
         logger.warn({ error: toErrorString(error) }, "error tracker flush failed");
       });
     eventBus.destroy();
+    try {
+      persistence.close();
+    } catch (error) {
+      logger.warn({ error: toErrorString(error) }, "persistence runtime close failed");
+    }
   };
 }
 

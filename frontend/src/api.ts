@@ -167,8 +167,10 @@ export const api = {
       body: "{}",
     });
     const body = (await response.json()) as { rendered: string; error: string | null };
+    // Backend returns { rendered, error } for both 200 (success) and 400 (Liquid errors).
+    // Only throw for truly unexpected failures (no error field at all).
     if (!response.ok && !body.error) {
-      throw new Error(await readError(response));
+      throw new Error(`${response.status} ${response.statusText}`);
     }
     return body;
   },

@@ -144,7 +144,7 @@ export async function installApiMock(page: Page, overrides: ApiMockOverrides = {
 
   // Issue detail — match /api/v1/:identifier but NOT sub-paths
   await page.route(
-    /\/api\/v1\/(?!setup|config|secrets|refresh|transitions|state|runtime|attempts|workspaces|models)([^/]+)$/,
+    /\/api\/v1\/(?!setup|config|secrets|refresh|transitions|state|runtime|attempts|workspaces|models|templates|audit)([^/]+)$/,
     (route) => {
       const url = new URL(route.request().url());
       const segments = url.pathname.split("/");

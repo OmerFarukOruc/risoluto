@@ -362,7 +362,7 @@ export function createTemplatesPage(): HTMLElement {
     try {
       const result = await api.previewTemplate(tpl.id);
       state.previewOutput = result.rendered;
-      state.previewError = null;
+      state.previewError = result.error;
       state.showPreview = true;
     } catch (error_) {
       state.previewError = error_ instanceof Error ? error_.message : String(error_);

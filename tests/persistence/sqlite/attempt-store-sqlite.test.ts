@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createLogger } from "../../../src/core/logger.js";
 import type { AttemptEvent, AttemptRecord } from "../../../src/core/types.js";
 import { SqliteAttemptStore } from "../../../src/persistence/sqlite/attempt-store-sqlite.js";
+import { openDatabase, closeDatabase } from "../../../src/persistence/sqlite/database.js";
+import { initPersistenceRuntime } from "../../../src/persistence/sqlite/runtime.js";
 
 const tempDirs: string[] = [];
 
@@ -57,11 +59,13 @@ function createEvent(overrides: Partial<AttemptEvent> = {}): AttemptEvent {
   };
 }
 
-async function createStore(dir: string): Promise<SqliteAttemptStore> {
+function createStore(dir: string): SqliteAttemptStore & { close(): void } {
   const dbPath = path.join(dir, "test.db");
-  const store = new SqliteAttemptStore(dbPath, createLogger());
-  await store.start();
-  return store;
+  const db = openDatabase(dbPath);
+  const store = new SqliteAttemptStore(db, createLogger());
+  // Attach a close() helper for test cleanup — in production, PersistenceRuntime owns this.
+  (store as SqliteAttemptStore & { close(): void }).close = () => closeDatabase(db);
+  return store as SqliteAttemptStore & { close(): void };
 }
 
 afterEach(async () => {
@@ -71,7 +75,7 @@ afterEach(async () => {
 describe("SqliteAttemptStore", () => {
   it("creates and retrieves an attempt", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt();
     await store.createAttempt(attempt);
@@ -82,7 +86,7 @@ describe("SqliteAttemptStore", () => {
 
   it("returns null for unknown attempt id", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     expect(store.getAttempt("nonexistent")).toBeNull();
     store.close();
@@ -90,7 +94,7 @@ describe("SqliteAttemptStore", () => {
 
   it("returns all attempts", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const first = createAttempt({ attemptId: "attempt-1" });
     const second = createAttempt({ attemptId: "attempt-2", attemptNumber: 2 });
@@ -106,7 +110,7 @@ describe("SqliteAttemptStore", () => {
 
   it("handles duplicate createAttempt calls idempotently", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt();
     await store.createAttempt(attempt);
@@ -118,7 +122,7 @@ describe("SqliteAttemptStore", () => {
 
   it("updates an existing attempt", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt();
     await store.createAttempt(attempt);
@@ -141,7 +145,7 @@ describe("SqliteAttemptStore", () => {
 
   it("throws when updating a nonexistent attempt", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     await expect(store.updateAttempt("nonexistent", { status: "failed" })).rejects.toThrow("unknown attempt id");
     store.close();
@@ -149,7 +153,7 @@ describe("SqliteAttemptStore", () => {
 
   it("returns attempts for a specific issue", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const first = createAttempt({
       attemptId: "attempt-1",
@@ -184,7 +188,7 @@ describe("SqliteAttemptStore", () => {
 
   it("appends and retrieves events in chronological order", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     await store.createAttempt(createAttempt());
 
@@ -211,7 +215,7 @@ describe("SqliteAttemptStore", () => {
 
   it("returns empty array for events of unknown attempt", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     expect(store.getEvents("nonexistent")).toEqual([]);
     store.close();
@@ -219,7 +223,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumArchivedSeconds returns 0 for an empty store", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     expect(store.sumArchivedSeconds()).toBe(0);
     store.close();
@@ -227,7 +231,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumArchivedSeconds sums completed attempts and ignores incomplete ones", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const first = createAttempt({
       attemptId: "attempt-1",
@@ -260,7 +264,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumCostUsd returns 0 for an empty store", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     expect(store.sumCostUsd()).toBe(0);
     store.close();
@@ -268,7 +272,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumCostUsd sums cost for two completed attempts with known models", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     // gpt-5.4: inputUsd=3.0, outputUsd=12.0 per 1M tokens
     // 1000 input + 500 output => (1000*3 + 500*12) / 1_000_000 = 0.009
@@ -299,7 +303,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumCostUsd ignores attempts with unknown models (contributes 0)", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt({
       attemptId: "attempt-1",
@@ -317,7 +321,7 @@ describe("SqliteAttemptStore", () => {
 
   it("sumCostUsd ignores attempts with null tokenUsage (contributes 0)", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt({
       attemptId: "attempt-1",
@@ -335,7 +339,7 @@ describe("SqliteAttemptStore", () => {
 
   it("preserves token usage through round-trip", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     const attempt = createAttempt({
       tokenUsage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
@@ -353,7 +357,7 @@ describe("SqliteAttemptStore", () => {
 
   it("preserves event metadata through round-trip", async () => {
     const dir = await createTempDir();
-    const store = await createStore(dir);
+    const store = createStore(dir);
 
     await store.createAttempt(createAttempt());
 
@@ -377,22 +381,22 @@ describe("SqliteAttemptStore", () => {
     const dir = await createTempDir();
     const dbPath = path.join(dir, "test.db");
 
-    const store1 = new SqliteAttemptStore(dbPath, createLogger());
-    await store1.start();
+    const db1 = openDatabase(dbPath);
+    const store1 = new SqliteAttemptStore(db1, createLogger());
     await store1.createAttempt(createAttempt());
     await store1.appendEvent(createEvent());
-    store1.close();
+    closeDatabase(db1);
 
-    const store2 = new SqliteAttemptStore(dbPath, createLogger());
-    await store2.start();
+    const db2 = openDatabase(dbPath);
+    const store2 = new SqliteAttemptStore(db2, createLogger());
 
     expect(store2.getAttempt("attempt-1")).toMatchObject({ attemptId: "attempt-1" });
     expect(store2.getEvents("attempt-1")).toHaveLength(1);
-    store2.close();
+    closeDatabase(db2);
   });
 });
 
-describe("SqliteAttemptStore migration", () => {
+describe("SqliteAttemptStore migration (via PersistenceRuntime)", () => {
   it("migrates JSONL archive files into SQLite", async () => {
     const archiveDir = await createTempDir();
 
@@ -413,10 +417,8 @@ describe("SqliteAttemptStore migration", () => {
     ];
     await writeFile(path.join(eventsDir, "attempt-1.jsonl"), events.map((e) => JSON.stringify(e)).join("\n") + "\n");
 
-    const dbPath = path.join(archiveDir, "symphony.db");
-    const store = new SqliteAttemptStore(dbPath, createLogger());
-    await store.start();
-    await store.migrateFromArchive(archiveDir);
+    const runtime = await initPersistenceRuntime({ dataDir: archiveDir, logger: createLogger() });
+    const store = runtime.attemptStore;
 
     expect(store.getAttempt("attempt-1")).toMatchObject({
       attemptId: "attempt-1",
@@ -427,7 +429,7 @@ describe("SqliteAttemptStore migration", () => {
     expect(retrieved).toHaveLength(2);
     expect(retrieved[0].event).toBe("attempt.started");
     expect(retrieved[1].event).toBe("attempt.completed");
-    store.close();
+    runtime.close();
   });
 
   it("skips migration when database already has data", async () => {
@@ -437,32 +439,27 @@ describe("SqliteAttemptStore migration", () => {
 
     await writeFile(path.join(attemptsDir, "attempt-1.json"), JSON.stringify(createAttempt()), "utf8");
 
-    const dbPath = path.join(archiveDir, "symphony.db");
-    const store = new SqliteAttemptStore(dbPath, createLogger());
-    await store.start();
+    // First: open DB and insert a pre-existing attempt
+    const db = openDatabase(path.join(archiveDir, "symphony.db"));
+    const preStore = new SqliteAttemptStore(db, createLogger());
+    await preStore.createAttempt(createAttempt({ attemptId: "pre-existing" }));
+    closeDatabase(db);
 
-    // Insert an attempt directly so the DB is non-empty
-    await store.createAttempt(createAttempt({ attemptId: "pre-existing" }));
+    // Now init runtime — migration should be skipped because DB has data
+    const runtime = await initPersistenceRuntime({ dataDir: archiveDir, logger: createLogger() });
+    const store = runtime.attemptStore;
 
-    // Migration should be skipped because the DB has data
-    await store.migrateFromArchive(archiveDir);
-
-    // Only the pre-existing attempt should be there, not the JSONL one
     expect(store.getAllAttempts()).toHaveLength(1);
     expect(store.getAttempt("pre-existing")).not.toBeNull();
     expect(store.getAttempt("attempt-1")).toBeNull();
-    store.close();
+    runtime.close();
   });
 
   it("handles missing archive directories gracefully", async () => {
     const dir = await createTempDir();
-    const dbPath = path.join(dir, "test.db");
-    const store = new SqliteAttemptStore(dbPath, createLogger());
-    await store.start();
 
-    // Should not throw even with no archive dirs
-    await store.migrateFromArchive(path.join(dir, "nonexistent-archive"));
-    expect(store.getAllAttempts()).toEqual([]);
-    store.close();
+    const runtime = await initPersistenceRuntime({ dataDir: dir, logger: createLogger() });
+    expect(runtime.attemptStore.getAllAttempts()).toEqual([]);
+    runtime.close();
   });
 });

@@ -25,6 +25,12 @@ function operationClass(operation: string): string {
   return "";
 }
 
+/** Append end-of-day to date-only "to" values so backend `<=` includes same-day events. */
+function normalizeToDate(value: string): string {
+  if (value && !value.includes("T")) return value + "T23:59:59.999Z";
+  return value;
+}
+
 /* ── Data fetching ──────────────────────────────── */
 
 async function fetchAuditLog(state: AuditState): Promise<{ entries: AuditRecord[]; total: number }> {
@@ -32,7 +38,7 @@ async function fetchAuditLog(state: AuditState): Promise<{ entries: AuditRecord[
     tableName: state.filters.tableName || undefined,
     key: state.filters.key || undefined,
     from: state.filters.from || undefined,
-    to: state.filters.to || undefined,
+    to: normalizeToDate(state.filters.to) || undefined,
     limit: state.pageSize,
     offset: state.page * state.pageSize,
   });

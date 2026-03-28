@@ -429,7 +429,7 @@ export function createTemplatesPage(): HTMLElement {
 
     if (modKey && event.shiftKey && event.key.toLowerCase() === "p") {
       event.preventDefault();
-      void previewTemplate();
+      if (!state.dirty) void previewTemplate();
     }
   }
 

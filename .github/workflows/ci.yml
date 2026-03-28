@@ -132,6 +132,9 @@ jobs:
           key: build-${{ github.sha }}
       - run: pnpm run typecheck
       - run: pnpm run typecheck:frontend
+      - name: Type-check tests (informational — 316 pre-existing errors)
+        run: pnpm run typecheck:tests
+        continue-on-error: true
 
   # ── Phase 2: Security (parallel, independent of build) ───────────────
   gitleaks:
@@ -333,7 +336,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -349,7 +352,14 @@ jobs:
         run: pnpm run test:mutation
       - name: Incremental mutation scan (PR)
         if: github.event_name == 'pull_request'
-        run: pnpm run test:mutation:incremental
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^src/' | paste -sd, || true)
+          if [ -n "$CHANGED" ]; then
+            echo "Mutating changed files: $CHANGED"
+            stryker run --mutate "$CHANGED"
+          else
+            echo "No src/ files changed — skipping mutation testing"
+          fi
 
   # ── Phase 6: Docker Push to GHCR (main only, after gate) ────────────
   docker-push:

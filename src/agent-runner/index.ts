@@ -23,7 +23,6 @@ export type { AgentRunnerEventHandler } from "./contracts.js";
 
 export class AgentRunner implements RunAttemptDispatcher {
   private readonly liquid = new Liquid({ strictFilters: true, strictVariables: true });
-  private readonly turnState = createTurnState();
 
   constructor(
     private readonly deps: {
@@ -55,6 +54,7 @@ export class AgentRunner implements RunAttemptDispatcher {
     previousThreadId?: string | null;
   }): Promise<RunOutcome> {
     const config = this.deps.getConfig();
+    const turnState = createTurnState();
     const logger = this.deps.logger.child({
       issueIdentifier: input.issue.identifier,
       workspacePath: input.workspace.path,
@@ -63,13 +63,21 @@ export class AgentRunner implements RunAttemptDispatcher {
     await this.deps.workspaceManager.prepareForAttempt(input.workspace);
     await this.deps.workspaceManager.runBeforeRun(input.workspace, input.issue.identifier);
 
-    // Track the latest agent message content for early stop-signal detection.
-    // This wrapper MUST be created before the Docker session so the
-    // session's notification pipeline flows through it.
+    // Track the latest agent message content and stop signal for early detection.
+    // The stopSignal field is extracted from raw (pre-truncation) content by the
+    // notification handler, so it is reliable even for very long messages.
     let lastAgentMessageContent: string | null = null;
+    let lastStopSignal: import("../core/signal-detection.js").StopSignal | null = null;
     const contentCapturingOnEvent: AgentRunnerEventHandler = (event) => {
-      if (event.event === "item_completed" && event.message?.includes("agentMessage") && event.content) {
+      if (
+        ((event.event === "agent_message" && event.message?.includes("completed")) ||
+          (event.event === "item_completed" && event.message?.includes("agentMessage"))) &&
+        event.content
+      ) {
         lastAgentMessageContent = event.content;
+      }
+      if (event.stopSignal) {
+        lastStopSignal = event.stopSignal;
       }
       input.onEvent(event);
     };
@@ -94,7 +102,7 @@ export class AgentRunner implements RunAttemptDispatcher {
           logger: this.deps.logger,
           spawnProcess: this.deps.spawnProcess,
         },
-        this.turnState,
+        turnState,
         input.precomputedRuntimeConfig,
       );
     } catch (error) {
@@ -115,7 +123,14 @@ export class AgentRunner implements RunAttemptDispatcher {
     input.onSteerReady?.(session.steerTurn);
 
     try {
-      return await this.executeSession(session, config, inputWithContentCapture, () => lastAgentMessageContent);
+      return await this.executeSession(
+        session,
+        config,
+        turnState,
+        inputWithContentCapture,
+        () => lastAgentMessageContent,
+        () => lastStopSignal,
+      );
     } catch (error) {
       return handleRunError(error, session, input.signal);
     } finally {
@@ -130,6 +145,7 @@ export class AgentRunner implements RunAttemptDispatcher {
   private async executeSession(
     session: Awaited<ReturnType<typeof createDockerSession>>,
     config: ServiceConfig,
+    turnState: ReturnType<typeof createTurnState>,
     input: {
       issue: Issue;
       attempt: number | null;
@@ -141,6 +157,7 @@ export class AgentRunner implements RunAttemptDispatcher {
       previousThreadId?: string | null;
     },
     getLastAgentMessageContent: () => string | null,
+    getLastStopSignal?: () => import("../core/signal-detection.js").StopSignal | null,
   ): Promise<RunOutcome> {
     const initResult = await initializeSession(
       session,
@@ -178,12 +195,13 @@ export class AgentRunner implements RunAttemptDispatcher {
         config,
         prompt,
         runInput: input,
-        turnState: this.turnState,
+        turnState,
         tracker: this.deps.tracker,
         setActiveTurnId: (turnId) => {
           session.turnId = turnId;
         },
         getLastAgentMessageContent,
+        getLastStopSignal,
         logger: this.deps.logger,
       },
       {

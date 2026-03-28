@@ -8,22 +8,21 @@
 import { desc, eq, isNotNull, sql } from "drizzle-orm";
 import { lookupModelPrice } from "../../core/model-pricing.js";
 import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "../../core/types.js";
-import { closeDatabase, openDatabase, type SymphonyDatabase } from "./database.js";
+import type { SymphonyDatabase } from "./database.js";
 import { attemptEvents, attempts } from "./schema.js";
 import { rowToAttemptRecord, attemptRecordToRow, rowToAttemptEvent, attemptEventToRow } from "./mappers.js";
-import { migrateFromJsonl } from "./migrator.js";
 
 export class SqliteAttemptStore {
-  private db: SymphonyDatabase | null = null;
+  private readonly db: SymphonyDatabase;
 
-  constructor(
-    private readonly dbPath: string,
-    private readonly logger: SymphonyLogger,
-  ) {}
+  constructor(db: SymphonyDatabase, logger: SymphonyLogger) {
+    this.db = db;
+    logger.info("SQLite attempt store initialized (shared connection)");
+  }
 
+  /** No-op — connection is managed by PersistenceRuntime. */
   async start(): Promise<void> {
-    this.db = openDatabase(this.dbPath);
-    this.logger.info({ dbPath: this.dbPath }, "SQLite attempt store opened");
+    /* connection already open via shared runtime */
   }
 
   getAttempt(attemptId: string): AttemptRecord | null {
@@ -122,35 +121,7 @@ export class SqliteAttemptStore {
     };
   }
 
-  /**
-   * Migrate existing JSONL archive files into this SQLite database.
-   * Idempotent — safe to call on every startup.
-   */
-  async migrateFromArchive(archiveDir: string): Promise<void> {
-    const db = this.getDb();
-    const existing = db.select().from(attempts).limit(1).all();
-    if (existing.length > 0) return;
-
-    const result = await migrateFromJsonl(db, archiveDir, this.logger);
-    if (result.attemptCount > 0) {
-      this.logger.info(
-        { attempts: result.attemptCount, events: result.eventCount },
-        "migrated JSONL archives to SQLite",
-      );
-    }
-  }
-
-  close(): void {
-    if (this.db) {
-      closeDatabase(this.db);
-      this.db = null;
-    }
-  }
-
   private getDb(): SymphonyDatabase {
-    if (!this.db) {
-      throw new Error("SqliteAttemptStore not started — call start() first");
-    }
     return this.db;
   }
 }

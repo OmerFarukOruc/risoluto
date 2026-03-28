@@ -1,19 +1,5 @@
 # Symphony Orchestrator
 
-## Code Search — MANDATORY
-
-**ALWAYS use `mcp__cocoindex-code__search` as your FIRST tool when exploring or understanding code.** Do NOT default to Read or grep for code exploration. The semantic search MCP tool finds code by meaning, not just text — it is faster, cheaper, and more accurate for navigating this codebase.
-
-- **First choice → `mcp__cocoindex-code__search`**: For ANY query about how something works, where code lives, finding implementations, understanding features, or locating related code. Use natural language: _"authentication logic"_, _"retry handling"_, _"HTTP route definitions"_.
-- **Fallback → grep/rg**: ONLY for exact string matches (specific function names, variable names, import paths, error message strings).
-- **Last resort → Read**: ONLY after search/grep has identified the specific file and line range you need.
-
-```
-search(query, limit=5, offset=0, refresh_index=true, languages=["typescript"], paths=["src/*"])
-```
-
----
-
 ## Project Structure & Module Organization
 
 Core source lives in `src/`. Start with `src/cli/index.ts` for process startup and archive directory setup, `src/orchestrator/orchestrator.ts` for polling, retries, runtime state, and model overrides, and `src/agent-runner/index.ts` for Codex worker execution. HTTP and dashboard behavior live in `src/http/server.ts` and `src/http/routes.ts`. Archived run persistence lives in `src/core/attempt-store.ts`, workspace lifecycle in `src/workspace/manager.ts`, and Linear transport in `src/linear/client.ts`.
@@ -73,6 +59,8 @@ Match the current import pattern by using `.js` extensions in local TypeScript i
 
 Add or update Vitest coverage for every behavior change. Prefer deterministic unit tests in `tests/*.test.ts`; use fixtures in `tests/fixtures/` instead of live services where possible. Reserve `tests/live.integration.test.ts` for environment-dependent checks that should skip cleanly when credentials are absent.
 
+**MANDATORY after UI changes:** You MUST invoke `/visual-verify` after editing `dashboard-template.ts`, `logs-template.ts`, any CSS, or any file that affects the Symphony web UI. Visual verification is part of the definition of done for UI work — do not mark a UI task complete without it.
+
 ### Playwright E2E Tests
 
 Dashboard UI changes must be validated with the Playwright E2E suite in `tests/e2e/`. The suite uses Page Object Models in `tests/e2e/pages/`, a full mock API layer in `tests/e2e/mocks/`, and custom fixtures in `tests/e2e/fixtures/test.ts`. Key conventions:
@@ -86,47 +74,6 @@ Dashboard UI changes must be validated with the Playwright E2E suite in `tests/e
 
 When behavior changes affect the operator surface, verify both code and docs together. At minimum, keep `README.md`, workflow examples, and the relevant `docs/*.md` files aligned with the actual API, trust posture, and runtime behavior.
 
-## Refactoring & Modularity Guidelines
-
-Keep classes, modules, and functions focused on a single responsibility. Prefer modular, structured composition that is easy to read, test, and change. Extract well-named helpers or smaller modules when doing so improves **testability, reuse, or readability** — not solely to reduce line count.
-
-**Cohesion over smallness.** A coherent 280-line file with one clear concern is better than three 90-line files that fragment a single concept. Optimize for how easy a module is to understand, not how short it is.
-
-### File Size Thresholds
-
-Files exceeding **300 lines** should be reviewed for extraction opportunities. This is a review trigger, not a hard wall:
-
-- If the file covers a **single cohesive concern**, it may stay above 300 lines with a brief comment at the top explaining why (e.g., `// Single-concern: full Linear API transport`).
-- If the file mixes **multiple concerns**, extract the secondary concern into its own module.
-- Files containing only type definitions, query strings, or pure constants are exempt from this threshold.
-- Long functions must be broken into named helper functions. If a function has multiple phases (e.g., setup → execute → cleanup), each phase should be its own function.
-
-### Extraction Patterns
-
-- **Prefer standalone functions over sub-classes.** Extract logic into exported functions that receive dependencies through typed context objects, not through class inheritance. Example: `export async function handleWorkerOutcome(ctx: WorkerOutcomeContext, ...): Promise<void>`.
-- **Use a context interface** when an extracted function needs access to multiple pieces of parent state. Define the interface in a dedicated `context.ts` file. The parent class provides a `ctx()` method that bundles `this.*` references.
-- **Consolidate duplicate helpers.** If the same utility function (e.g., type guards, formatting, parsing) appears in more than one file, move it to `src/utils/` and import from there. Never duplicate helper functions across files.
-
-### When NOT to Extract
-
-Not every piece of code benefits from extraction. **Keep code inline when:**
-
-- A helper is used in exactly one place and has no independent testability value.
-- Extracting would force the reader to jump between files to understand a single linear flow.
-- The "module" would be under ~30 lines with no realistic reuse — a named local function inside the file is sufficient.
-- Tightly coupled read-modify-write sequences that share closure state are clearer as one block.
-
-### Module Directory Structure
-
-When a module is large enough to warrant extraction, create a directory for its sub-modules. **Cap directory nesting at 3 levels from `src/`** (e.g., `src/orchestrator/dispatch/handlers/` is the maximum depth). Deeper nesting signals over-fragmentation — flatten or rethink the decomposition.
-
-Each extracted directory should have a clear `index.ts` barrel file that re-exports the public API. Internal helpers should not be exported from the barrel.
-
-### When Adding New Code
-
-- Before adding code to an existing file, check its line count. If the addition would push it past 300 lines, review whether the file mixes concerns and extract if so.
-- When implementing a new feature that spans multiple concerns, start by creating separate modules — do not add everything to a single file and plan to "refactor later."
-- PRs adding code to files already over 300 lines should include a brief justification if they don't also extract or reduce the file.
 
 ## Documentation Expectations
 
@@ -143,78 +90,6 @@ Keep the doc set role-oriented:
 ## Security & Configuration Tips
 
 Keep secrets out of committed workflow files; prefer env expansion such as `$LINEAR_API_KEY`. When changing auth, trust, workflow examples, or sandbox behavior, update `docs/TRUST_AND_AUTH.md` and any affected operator docs in the same PR.
-
-## Browser Automation
-
-Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
-
-**MANDATORY after UI changes:** You MUST invoke `/visual-verify` after editing `dashboard-template.ts`, `logs-template.ts`, any CSS, or any file that affects the Symphony web UI. Visual verification is part of the definition of done for UI work — do not mark a UI task complete without it.
-
-**Chrome:** `agent-browser` uses its own bundled Chrome (installed via `agent-browser install`). No custom browser path or auto-connect needed.
-
-**Core workflow:**
-
-1. `agent-browser open <url>` — navigate to page
-2. `agent-browser snapshot -i` — get interactive elements with refs (`@e1`, `@e2`)
-3. `agent-browser click @e1` / `fill @e2 "text"` — interact using refs
-4. Re-snapshot after page changes
-5. `agent-browser errors` / `agent-browser console` — check for JS errors after UI changes
-
-## gstack
-
-**For all web browsing, use the `/browse` skill from gstack.** Never use `mcp__claude-in-chrome__*` tools.
-
-gstack is a fast headless browser for QA testing and site dogfooding. It provides skills for development workflows and browser automation.
-
-### Available Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `/office-hours` | Brainstorming a new idea |
-| `/plan-ceo-review` | Reviewing a plan (strategy) |
-| `/plan-eng-review` | Reviewing a plan (architecture) |
-| `/plan-design-review` | Reviewing a plan (design) |
-| `/design-consultation` | Creating a design system |
-| `/review` | Code review before merge |
-| `/ship` | Ready to deploy / create PR |
-| `/land-and-deploy` | Deploy and verify |
-| `/canary` | Canary deployment |
-| `/browse` | Web browsing and automation |
-| `/qa` | Test the app |
-| `/qa-only` | QA without code changes |
-| `/design-review` | Visual design audit |
-| `/setup-browser-cookies` | Setup browser cookies for testing |
-| `/setup-deploy` | Setup deployment environment |
-| `/retro` | Weekly retrospective |
-| `/investigate` | Debugging errors |
-| `/document-release` | Post-ship doc updates |
-| `/codex` | Second opinion / adversarial code review |
-| `/careful` | Working with production/live systems |
-| `/freeze` | Scope edits to one module/directory |
-| `/guard` | Maximum safety mode |
-| `/unfreeze` | Remove edit restrictions |
-| `/gstack-upgrade` | Upgrade gstack to latest version |
-
-**If gstack skills aren't working**, run `cd .claude/skills/gstack && ./setup` to build the binary and register skills.
-
-## Semantic Code Search (CocoIndex)
-
-This project is indexed with [cocoindex-code](https://github.com/cocoindex-io/cocoindex-code) using the `nomic-ai/CodeRankEmbed` embedding model (137M params, ~1 GB VRAM, GPU-accelerated, 8192-token context). An MCP server (`ccc mcp`) exposes a `search` tool for semantic code search.
-
-**When to use semantic search vs grep:**
-
-- **Use the `search` MCP tool** for natural language and conceptual queries: _"how does authentication work"_, _"find the retry logic"_, _"where are errors handled"_. It understands meaning, not just text.
-- **Use grep/rg** for exact string matches: specific function names, variable names, imports, error messages.
-
-**Always prefer semantic search first** when exploring unfamiliar parts of the codebase or when the exact identifier is unknown. It saves tokens and finds relevant code that keyword search would miss.
-
-**MCP tool signature:**
-
-```
-search(query, limit=5, offset=0, refresh_index=true, languages=["typescript"], paths=["src/*"])
-```
-
-**Re-indexing:** If files have been added or changed significantly, the index auto-refreshes on search. To manually rebuild: `ccc reset && ccc index` from the project root.
 
 ## SonarCloud Prevention Rules
 
@@ -256,4 +131,3 @@ For each annotation: acknowledge it, make the fix, then resolve it with a summar
 Continue watching until I say stop or timeout is reached.
 
 When writing complex features or significant refactors, use an ExecPlan (as described in .agents/PLANS.md) from design to implementation.
-

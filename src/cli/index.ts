@@ -8,8 +8,8 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import { HttpServer } from "../http/server.js";
 import { createLogger } from "../core/logger.js";
 import { getErrorTracker, initErrorTracking } from "../core/error-tracking.js";
-import { loadFlags } from "../core/feature-flags.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
+import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import { SecretsStore } from "../secrets/store.js";
 import type { SymphonyEventMap } from "../core/symphony-events.js";
 import type { ValidationError } from "../core/types.js";
@@ -88,7 +88,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   const config = configStore.getConfig();
   const port = selectedPort ?? config.server.port;
-  const services = await createServices(configStore, overlayStore, secretsStore, archiveDir, logger);
+  const services = await createServices(configStore, overlayStore, secretsStore, archiveDir, logger, workflowPath);
   wireNotifications(services.notificationManager, configStore, logger);
 
   const { orchestrator, httpServer, eventBus } = services;
@@ -98,12 +98,30 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   await httpServer.start(port);
 
-  const shutdown = buildShutdown({ httpServer, orchestrator, configStore, overlayStore, eventBus, logger });
+  const shutdown = buildShutdown({
+    httpServer,
+    orchestrator,
+    configStore,
+    overlayStore,
+    eventBus,
+    persistence: services.persistence,
+    logger,
+  });
   logger.info({ workflowPath, port, logDir: archiveDir }, "service started");
   watchConfigChanges(configStore, services.notificationManager, config.server.port, logger);
 
   await awaitShutdown(logger, shutdown);
   return 0;
+}
+
+function parsePortValue(rawPort: string | undefined): number | undefined {
+  if (rawPort === undefined) {
+    return undefined;
+  }
+  if (!/^\d+$/.test(rawPort) || Number(rawPort) > 65535) {
+    throw new TypeError(`invalid --port value: ${rawPort}. Expected an integer between 0 and 65535.`);
+  }
+  return Number(rawPort);
 }
 
 function parseCliArgs(argv: string[]) {
@@ -119,7 +137,6 @@ function parseCliArgs(argv: string[]) {
   const workflowPath = parsed.positionals[0] ?? "./WORKFLOW.md";
   const resolvedWorkflowPath = path.resolve(workflowPath);
   const logger = createLogger();
-  loadFlags(path.dirname(resolvedWorkflowPath));
   initErrorTracking(logger.child({ component: "error-tracking" }));
   const archiveDir = path.resolve(
     parsed.values["log-dir"] ??
@@ -127,7 +144,7 @@ function parseCliArgs(argv: string[]) {
         ? path.join(process.env.DATA_DIR, "archives")
         : path.join(path.dirname(resolvedWorkflowPath), ".symphony")),
   );
-  const selectedPort = parsed.values.port ? Number(parsed.values.port) : undefined;
+  const selectedPort = parsePortValue(parsed.values.port);
   return { workflowPath, resolvedWorkflowPath, archiveDir, selectedPort, logger };
 }
 
@@ -165,6 +182,7 @@ function buildShutdown({
   configStore,
   overlayStore,
   eventBus,
+  persistence,
   logger,
 }: {
   httpServer: HttpServer;
@@ -172,6 +190,7 @@ function buildShutdown({
   configStore: ConfigStore;
   overlayStore: ConfigOverlayStore;
   eventBus: TypedEventBus<SymphonyEventMap>;
+  persistence: PersistenceRuntime;
   logger: ReturnType<typeof createLogger>;
 }): () => Promise<void> {
   let shuttingDown = false;
@@ -196,6 +215,11 @@ function buildShutdown({
         logger.warn({ error: toErrorString(error) }, "error tracker flush failed");
       });
     eventBus.destroy();
+    try {
+      persistence.close();
+    } catch (error) {
+      logger.warn({ error: toErrorString(error) }, "persistence runtime close failed");
+    }
   };
 }
 

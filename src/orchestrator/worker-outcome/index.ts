@@ -72,7 +72,11 @@ async function dispatchPostReconciliation(
   modelSelection: ModelSelection,
   attempt: number | null,
 ): Promise<void> {
-  const stopSignal = outcome.kind === "normal" ? detectStopSignal(entry.lastAgentMessageContent) : null;
+  // Always check for stop signal, even on timeout/error — the agent may have
+  // written SYMPHONY_STATUS: DONE before the turn timer expired.
+  // Prefer the pre-truncation signal extracted from raw content by the
+  // notification handler; fall back to content-based detection for safety.
+  const stopSignal = entry.lastStopSignal ?? detectStopSignal(entry.lastAgentMessageContent);
   ctx.deps.logger.info(
     {
       issue_identifier: latestIssue.identifier,
@@ -80,6 +84,7 @@ async function dispatchPostReconciliation(
       has_lastAgentMsg: entry.lastAgentMessageContent !== null,
       lastAgentMsgTail: entry.lastAgentMessageContent?.slice(-80) ?? null,
       stopSignal,
+      stopSignalSource: entry.lastStopSignal ? "raw" : "content",
     },
     "post-reconciliation stop-signal check",
   );

@@ -1,11 +1,11 @@
 import { buildProjectLookupQuery } from "../../linear/queries.js";
-import type { ConfigOverlayStore } from "../../config/overlay.js";
+import type { ConfigOverlayPort } from "../../config/overlay.js";
 import type { OrchestratorPort } from "../../orchestrator/port.js";
 import type { SecretsStore } from "../../secrets/store.js";
 
 export interface SetupApiDeps {
   secretsStore: SecretsStore;
-  configOverlayStore: ConfigOverlayStore;
+  configOverlayStore: ConfigOverlayPort;
   orchestrator: OrchestratorPort;
   archiveDir: string;
 }

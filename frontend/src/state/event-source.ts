@@ -57,6 +57,11 @@ function openConnection(): void {
     if (customEventName) {
       window.dispatchEvent(new CustomEvent(customEventName, { detail: data.payload }));
     }
+    window.dispatchEvent(
+      new CustomEvent("symphony:any-event", {
+        detail: { type: data.type, payload: data.payload },
+      }),
+    );
   };
 
   eventSource.onerror = () => {
@@ -88,6 +93,8 @@ export interface AgentEventPayload {
   type: string;
   message: string;
   sessionId: string | null;
+  timestamp?: string;
+  content?: string | null;
 }
 
 export function subscribeIssueEvents(identifier: string, handler: (event: AgentEventPayload) => void): () => void {
@@ -112,31 +119,17 @@ export function subscribeIssueLifecycle(identifier: string, handler: () => void)
   return () => window.removeEventListener("symphony:issue-lifecycle", listener);
 }
 
-/** Subscribe to a CustomEvent by name, forwarding the detail to the handler. */
-function subscribeEvent(eventName: string, handler: (payload: unknown) => void): () => void {
+export function subscribeAllEvents(
+  identifier: string,
+  handler: (event: { type: string; payload: Record<string, unknown> }) => void,
+): () => void {
   const listener = (e: Event) => {
-    handler((e as CustomEvent).detail);
+    const detail = (e as CustomEvent).detail as { type: string; payload?: Record<string, unknown> };
+    const payload = detail.payload;
+    if (payload && typeof payload.identifier === "string" && payload.identifier === identifier) {
+      handler({ type: detail.type, payload });
+    }
   };
-  window.addEventListener(eventName, listener);
-  return () => window.removeEventListener(eventName, listener);
-}
-
-export function subscribeWorkerFailed(handler: (payload: unknown) => void): () => void {
-  return subscribeEvent("symphony:worker-failed", handler);
-}
-
-export function subscribeModelUpdated(handler: (payload: unknown) => void): () => void {
-  return subscribeEvent("symphony:model-updated", handler);
-}
-
-export function subscribeWorkspaceEvent(handler: (payload: unknown) => void): () => void {
-  return subscribeEvent("symphony:workspace-event", handler);
-}
-
-export function subscribePollComplete(handler: () => void): () => void {
-  return subscribeEvent("symphony:poll-complete", handler as (payload: unknown) => void);
-}
-
-export function subscribeSystemError(handler: (payload: unknown) => void): () => void {
-  return subscribeEvent("symphony:system-error", handler);
+  window.addEventListener("symphony:any-event", listener);
+  return () => window.removeEventListener("symphony:any-event", listener);
 }

@@ -16,12 +16,15 @@ export interface DockerRunInput {
   command: string;
   workspacePath: string;
   archiveDir: string;
+  extraMountPaths?: string[];
   pathRegistry?: PathRegistry;
   runtimeConfigToml: string;
   runtimeAuthJsonBase64?: string | null;
   requiredEnv?: string[];
   issueIdentifier?: string;
   model?: string;
+  /** Bare-clone dir for worktree workspaces — mounted read-only so git resolves inside the container. */
+  gitBaseDir?: string;
 }
 
 interface DockerRunResult {
@@ -31,17 +34,33 @@ interface DockerRunResult {
   cacheVolumeName: string;
 }
 
-function buildMountArgs(args: string[], input: DockerRunInput, cacheVolumeName: string): void {
-  const { sandboxConfig, workspacePath, archiveDir, pathRegistry } = input;
+function collectMounts(input: DockerRunInput): Array<[string, string, string?]> {
+  const { workspacePath, archiveDir, extraMountPaths = [], pathRegistry, gitBaseDir } = input;
+  const translate = (mountPath: string) => pathRegistry?.translate(mountPath) ?? mountPath;
   const mounts: Array<[string, string, string?]> = [
-    [pathRegistry?.translate(workspacePath) ?? workspacePath, workspacePath],
-    [pathRegistry?.translate(archiveDir) ?? archiveDir, archiveDir],
+    [translate(workspacePath), workspacePath],
+    [translate(archiveDir), archiveDir],
   ];
-  for (const [host, container, mode] of mounts) {
+  // gitBaseDir added BEFORE extraMountPaths so the read-only mount wins
+  // dedup when both reference the same bare-clone directory.
+  if (gitBaseDir) {
+    mounts.push([translate(gitBaseDir), gitBaseDir, "ro"]);
+  }
+  for (const mountPath of extraMountPaths) {
+    mounts.push([translate(mountPath), mountPath]);
+  }
+  return mounts;
+}
+
+function buildMountArgs(args: string[], input: DockerRunInput, cacheVolumeName: string): void {
+  const seenMounts = new Set<string>();
+  for (const [host, container, mode] of collectMounts(input)) {
+    if (seenMounts.has(container)) continue;
+    seenMounts.add(container);
     args.push("-v", mode ? `${host}:${container}:${mode}` : `${host}:${container}`);
   }
   args.push("-v", `${cacheVolumeName}:${CONTAINER_HOME}`);
-  for (const mount of sandboxConfig.extraMounts) {
+  for (const mount of input.sandboxConfig.extraMounts) {
     args.push("-v", mount);
   }
 }

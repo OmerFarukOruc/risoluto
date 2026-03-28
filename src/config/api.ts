@@ -1,6 +1,6 @@
 import type { Express, Response } from "express";
 
-import { ConfigOverlayStore } from "./overlay.js";
+import type { ConfigOverlayPort } from "./overlay.js";
 import { isRecord } from "../utils/type-guards.js";
 
 function methodNotAllowed(response: Response): void {
@@ -42,7 +42,7 @@ const DEFAULT_CONFIG_SCHEMA = {
 
 interface ConfigApiDeps {
   getEffectiveConfig: () => Record<string, unknown>;
-  configOverlayStore: ConfigOverlayStore;
+  configOverlayStore: ConfigOverlayPort;
   getConfigSchema?: () => Record<string, unknown>;
 }
 

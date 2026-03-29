@@ -13,7 +13,7 @@ import { callLinearGraphQL, errorMsg, resolveEnvValue, stopProcess } from "./hel
 /*  Utilities                                                          */
 /* ------------------------------------------------------------------ */
 
-function extractPrNumber(prUrl: string): number | null {
+export function extractPrNumber(prUrl: string): number | null {
   const match = /\/pull\/(\d+)/.exec(prUrl);
   return match ? Number(match[1]) : null;
 }
@@ -84,12 +84,18 @@ export async function verifyPr(ctx: RunContext): Promise<PhaseResult> {
 
   const pr = JSON.parse(raw) as {
     state: string;
-    commits: { totalCount?: number } | number;
+    commits: unknown;
     additions: number;
     deletions: number;
   };
 
-  const commitCount = typeof pr.commits === "number" ? pr.commits : (pr.commits.totalCount ?? 0);
+  const commitCount = Array.isArray(pr.commits)
+    ? pr.commits.length
+    : typeof pr.commits === "number"
+      ? pr.commits
+      : typeof pr.commits === "object" && pr.commits !== null && "totalCount" in pr.commits
+        ? (pr.commits as { totalCount: number }).totalCount
+        : 0;
   const state = pr.state.toUpperCase();
 
   const errors: string[] = [];

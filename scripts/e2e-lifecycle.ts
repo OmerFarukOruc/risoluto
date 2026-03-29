@@ -170,7 +170,12 @@ async function main(): Promise<number> {
   if (!config) return 1;
 
   if (values.timeout) {
-    config.timeouts.lifecycle_complete_ms = Number(values.timeout) * 1000;
+    const parsed = Number(values.timeout) * 1000;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      console.error(`Invalid --timeout value: ${values.timeout} (must be a positive number in seconds)`);
+      return 1;
+    }
+    config.timeouts.lifecycle_complete_ms = parsed;
   }
 
   const runId = randomUUID().slice(0, 8);

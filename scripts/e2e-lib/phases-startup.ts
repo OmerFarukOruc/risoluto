@@ -28,7 +28,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Expand a leading `~` to the user's home directory. */
-function expandTilde(filePath: string): string {
+export function expandTilde(filePath: string): string {
   if (filePath === "~" || filePath.startsWith("~/")) {
     return path.join(homedir(), filePath.slice(1));
   }

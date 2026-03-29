@@ -22,9 +22,13 @@ export interface AttemptStorePort {
   sumArchivedTokens(): { inputTokens: number; outputTokens: number; totalTokens: number };
 }
 
-/** Sort attempts newest-first by `startedAt`. Shared by both store implementations. */
+/** Sort attempts newest-first by `startedAt`, then `attemptNumber` desc, then `attemptId` desc. */
 export function sortAttemptsDesc(left: AttemptRecord, right: AttemptRecord): number {
-  return right.startedAt.localeCompare(left.startedAt);
+  const byTime = right.startedAt.localeCompare(left.startedAt);
+  if (byTime !== 0) return byTime;
+  const byNumber = (right.attemptNumber ?? 0) - (left.attemptNumber ?? 0);
+  if (byNumber !== 0) return byNumber;
+  return right.attemptId.localeCompare(left.attemptId);
 }
 
 /** Sum elapsed seconds for all completed attempts. Shared by JSONL and SQLite store test helpers. */

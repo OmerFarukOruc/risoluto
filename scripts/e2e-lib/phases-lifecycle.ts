@@ -8,6 +8,8 @@
  *   7.5 restartResilience  — restart Symphony and verify the issue is NOT re-dispatched
  */
 
+import path from "node:path";
+
 import type { RunContext, PhaseResult } from "./types.js";
 import {
   callLinearGraphQL,
@@ -378,8 +380,8 @@ export async function restartResilience(ctx: RunContext): Promise<PhaseResult> {
   }
 
   // 2. Restart Symphony with the same port.
-  // Derive the workflow path from the report directory sibling.
-  const workflowPath = "WORKFLOW.e2e.md";
+  // Derive the workflow path from the report directory (where startSymphony wrote it).
+  const workflowPath = path.join(ctx.reportDir, "WORKFLOW.e2e.md");
   log(ctx, `Restarting Symphony on port ${ctx.symphonyPort}`);
   ctx.symphonyProcess = spawnSymphony(ctx.symphonyPort, workflowPath, ctx.reportDir);
 

@@ -155,7 +155,7 @@ describe("AttemptStore", () => {
     const secondAttempt = createAttempt({
       attemptId: "attempt-2",
       attemptNumber: 2,
-      startedAt: "2026-03-16T10:00:00.000Z",
+      startedAt: "2026-03-16T10:05:00.000Z",
     });
 
     await store.createAttempt(firstAttempt);

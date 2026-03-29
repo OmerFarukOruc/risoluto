@@ -33,6 +33,7 @@ export class AttemptStore {
         .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
         .map((entry) => this.loadAttemptFromDisk(entry.name)),
     );
+    this.sortIssueIndexes();
     await this.persistIssueIndex();
   }
 
@@ -170,6 +171,18 @@ export class AttemptStore {
 
   private eventsDir(): string {
     return path.join(this.baseDir, "events");
+  }
+
+  /** Re-sort every issue index after parallel disk load to ensure deterministic order. */
+  private sortIssueIndexes(): void {
+    for (const [identifier, ids] of this.attemptsByIssue) {
+      const sorted = ids
+        .map((id) => this.attempts.get(id))
+        .filter((a): a is AttemptRecord => a !== undefined)
+        .sort(sortAttemptsDesc)
+        .map((a) => a.attemptId);
+      this.attemptsByIssue.set(identifier, sorted);
+    }
   }
 
   private indexAttempt(attempt: AttemptRecord): void {

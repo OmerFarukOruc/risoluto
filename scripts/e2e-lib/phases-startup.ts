@@ -1,15 +1,15 @@
 /**
- * Startup phases (0–3) for the Symphony E2E lifecycle test.
+ * Startup phases (0–2) for the Symphony E2E lifecycle test.
  *
  * Phase 0 — preflight:       validates credentials, tools, ports, and build
  * Phase 1 — clean-slate:     removes leftover `.symphony` directory
- * Phase 2 — start-symphony:  spawns the server and waits for HTTP readiness
- * Phase 3 — setup-wizard:    drives the 5-step setup API to completion
+ * Phase 2 — start-symphony:  spawns the server in normal mode (setup bypassed)
  */
 
+import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { rm, writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -20,7 +20,8 @@ import {
   waitForHttp,
   generateWorkflowScaffold,
   spawnSymphony,
-  fetchWithTimeout,
+  buildSymphonyEnv,
+  fetchJson,
 } from "./helpers.js";
 
 // ---------------------------------------------------------------------------
@@ -53,11 +54,6 @@ function logEvent(
 /** Log a preflight check result. */
 function logCheck(ctx: RunContext, phase: string, name: string, passed: boolean, detail?: string): void {
   logEvent(ctx, phase, name, passed, { check: name }, detail);
-}
-
-/** Log a setup wizard step result. */
-function logStep(ctx: RunContext, stepNumber: number, name: string, passed: boolean, detail?: string): void {
-  logEvent(ctx, "setup-wizard", name, passed, { step: stepNumber }, detail);
 }
 
 // ---------------------------------------------------------------------------
@@ -189,10 +185,13 @@ export async function preflight(ctx: RunContext): Promise<PhaseResult> {
 export async function cleanSlate(ctx: RunContext): Promise<PhaseResult> {
   const start = Date.now();
 
-  await rm(".symphony", { recursive: true, force: true });
+  await Promise.all([
+    rm(".symphony", { recursive: true, force: true }),
+    rm("../symphony-e2e-workspaces", { recursive: true, force: true }),
+  ]);
 
-  ctx.events.write({ phase: "clean-slate", action: "rm .symphony" });
-  console.log("  [clean-slate] removed .symphony directory");
+  ctx.events.write({ phase: "clean-slate", action: "rm .symphony + workspaces" });
+  console.log("  [clean-slate] removed .symphony directory and workspace root");
 
   return {
     phase: "clean-slate",
@@ -202,17 +201,30 @@ export async function cleanSlate(ctx: RunContext): Promise<PhaseResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2 — Start Symphony
+// Phase 2 — Start Symphony (normal mode — setup bypassed)
 // ---------------------------------------------------------------------------
 
+/** Shape of GET /api/v1/state used for verifying the orchestrator is alive. */
+interface StateResponse {
+  generated_at: string;
+  counts: { running: number; retrying: number };
+}
+
 /**
- * Spawn the Symphony server, wait for HTTP readiness, and verify setup mode.
+ * Spawn the Symphony server in **normal mode**, bypassing setup entirely.
+ *
+ * How setup is bypassed:
+ * - WORKFLOW.e2e.md has the real `project_slug` (not empty) so
+ *   `validateDispatch()` passes without triggering setup mode.
+ * - A random `MASTER_KEY` env var is passed to the child process so
+ *   `SecretsStore.start()` succeeds on the first try.
+ * - `repos` are pre-populated in the workflow so routing works immediately.
  */
 export async function startSymphony(ctx: RunContext): Promise<PhaseResult> {
   const start = Date.now();
   const { config } = ctx;
 
-  // 1. Generate WORKFLOW.e2e.md
+  // 1. Generate WORKFLOW.e2e.md with all real values
   const workflowContent = generateWorkflowScaffold(config);
   const workflowPath = path.join(ctx.reportDir, "WORKFLOW.e2e.md");
   await mkdir(ctx.reportDir, { recursive: true });
@@ -221,263 +233,41 @@ export async function startSymphony(ctx: RunContext): Promise<PhaseResult> {
   ctx.events.write({ phase: "start-symphony", step: "workflow-generated", path: workflowPath });
   console.log(`  [start-symphony] generated workflow at ${workflowPath}`);
 
-  // 2. Spawn Symphony
-  ctx.symphonyProcess = spawnSymphony(ctx.symphonyPort, workflowPath, ctx.reportDir);
+  // 2. Generate a MASTER_KEY for the child process and store it on ctx for reuse
+  const masterKey = randomBytes(32).toString("hex");
+  ctx.masterKey = masterKey;
+
+  // 3. Spawn Symphony with resolved credentials injected as env vars.
+  ctx.symphonyProcess = spawnSymphony(ctx.symphonyPort, workflowPath, ctx.reportDir, buildSymphonyEnv(ctx));
 
   ctx.events.write({ phase: "start-symphony", step: "process-spawned", pid: ctx.symphonyProcess.pid ?? null });
   console.log(`  [start-symphony] spawned Symphony (pid: ${ctx.symphonyProcess.pid ?? "unknown"})`);
 
-  // 3. Wait for HTTP readiness
-  const runtimeUrl = `${ctx.baseUrl}/api/v1/runtime`;
-  await waitForHttp(runtimeUrl, config.timeouts.symphony_startup_ms);
+  // 4. Wait for HTTP readiness — use /api/v1/state since that only returns 200
+  //    when the orchestrator has started (not in setup mode)
+  const stateUrl = `${ctx.baseUrl}/api/v1/state`;
+  await waitForHttp(stateUrl, config.timeouts.symphony_startup_ms);
 
   ctx.events.write({ phase: "start-symphony", step: "http-ready" });
   console.log("  [start-symphony] HTTP server is ready");
 
-  // 4. Verify setup mode — master key should not be set yet
-  const statusResponse = await fetchWithTimeout(`${ctx.baseUrl}/api/v1/setup/status`, { method: "GET" }, 10_000);
-
-  if (!statusResponse.ok) {
+  // 5. Verify orchestrator is alive (normal mode, not setup mode)
+  const state = (await fetchJson(stateUrl)) as StateResponse;
+  if (!state.generated_at) {
     return {
       phase: "start-symphony",
       status: "fail",
       durationMs: Date.now() - start,
-      error: { message: `Setup status returned ${statusResponse.status}` },
+      error: { message: "State endpoint returned but missing generated_at — orchestrator may not be running" },
     };
   }
 
-  const statusBody = (await statusResponse.json()) as {
-    configured: boolean;
-    steps: Record<string, { done: boolean }>;
-  };
-
-  // Master key must not be set yet on a fresh start
-  if (statusBody.steps.masterKey?.done !== false) {
-    return {
-      phase: "start-symphony",
-      status: "fail",
-      durationMs: Date.now() - start,
-      error: { message: "Expected masterKey.done === false on fresh start" },
-    };
-  }
-
-  ctx.events.write({
-    phase: "start-symphony",
-    step: "setup-mode-verified",
-    configured: statusBody.configured,
-    masterKeyDone: statusBody.steps.masterKey?.done,
-  });
-  console.log("  [start-symphony] setup mode verified (masterKey not yet set)");
+  ctx.events.write({ phase: "start-symphony", step: "normal-mode-verified", generatedAt: state.generated_at });
+  console.log("  [start-symphony] orchestrator running in normal mode");
 
   return {
     phase: "start-symphony",
     status: "pass",
     durationMs: Date.now() - start,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Phase 3 — Setup Wizard
-// ---------------------------------------------------------------------------
-
-const STEP_TIMEOUT_MS = 15_000;
-
-/** POST JSON to a setup endpoint with a timeout. */
-async function setupPost(baseUrl: string, endpoint: string, body: Record<string, unknown>): Promise<Response> {
-  return fetchWithTimeout(
-    `${baseUrl}${endpoint}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    },
-    STEP_TIMEOUT_MS,
-  );
-}
-
-/** GET a setup endpoint with a timeout. */
-async function setupGet(baseUrl: string, endpoint: string): Promise<Response> {
-  return fetchWithTimeout(`${baseUrl}${endpoint}`, { method: "GET" }, STEP_TIMEOUT_MS);
-}
-
-/**
- * Drive the 5-step setup wizard to fully configure Symphony.
- *
- * Steps are executed sequentially. Linear project selection is last
- * because it triggers the orchestrator start.
- */
-export async function setupWizard(ctx: RunContext): Promise<PhaseResult> {
-  const start = Date.now();
-  const { config, baseUrl } = ctx;
-
-  const fail = (step: string, message: string): PhaseResult => ({
-    phase: "setup-wizard",
-    status: "fail",
-    durationMs: Date.now() - start,
-    error: { message: `Step "${step}" failed: ${message}` },
-  });
-
-  // ── Step 1: Master Key ──────────────────────────────────────────────────
-
-  const masterKeyResponse = await setupPost(baseUrl, "/api/v1/setup/master-key", {});
-
-  if (masterKeyResponse.status === 409) {
-    // Already initialized — acceptable
-    logStep(ctx, 1, "master-key", true, "already initialized (409)");
-  } else if (!masterKeyResponse.ok) {
-    const errorText = await masterKeyResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 1, "master-key", false, `${masterKeyResponse.status}`);
-    return fail("master-key", `HTTP ${masterKeyResponse.status}: ${errorText}`);
-  } else {
-    const masterKeyBody = (await masterKeyResponse.json()) as { key: string };
-    logStep(ctx, 1, "master-key", true, `key length: ${masterKeyBody.key.length}`);
-  }
-
-  // ── Step 2: GitHub Token ────────────────────────────────────────────────
-
-  const resolvedGithubToken = resolveEnvValue(config.github.token);
-  const githubTokenResponse = await setupPost(baseUrl, "/api/v1/setup/github-token", {
-    token: resolvedGithubToken,
-  });
-
-  if (!githubTokenResponse.ok) {
-    const errorText = await githubTokenResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 2, "github-token", false, `${githubTokenResponse.status}`);
-    return fail("github-token", `HTTP ${githubTokenResponse.status}: ${errorText}`);
-  }
-
-  const githubTokenBody = (await githubTokenResponse.json()) as { valid: boolean };
-  if (!githubTokenBody.valid) {
-    logStep(ctx, 2, "github-token", false, "token validation failed");
-    return fail("github-token", "GitHub API rejected the token (valid: false)");
-  }
-
-  logStep(ctx, 2, "github-token", true);
-
-  // ── Step 3: Codex Auth ──────────────────────────────────────────────────
-
-  const resolvedSourceHome = expandTilde(config.codex.source_home);
-  const authJsonPath = path.join(resolvedSourceHome, "auth.json");
-  const authJsonContents = await readFile(authJsonPath, "utf-8");
-
-  const codexAuthResponse = await setupPost(baseUrl, "/api/v1/setup/codex-auth", {
-    authJson: authJsonContents,
-  });
-
-  if (!codexAuthResponse.ok) {
-    const errorText = await codexAuthResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 3, "codex-auth", false, `${codexAuthResponse.status}`);
-    return fail("codex-auth", `HTTP ${codexAuthResponse.status}: ${errorText}`);
-  }
-
-  const codexAuthBody = (await codexAuthResponse.json()) as { ok: boolean };
-  if (!codexAuthBody.ok) {
-    logStep(ctx, 3, "codex-auth", false, "ok: false");
-    return fail("codex-auth", "Server returned ok: false");
-  }
-
-  logStep(ctx, 3, "codex-auth", true);
-
-  // ── Step 4: Repo Route ──────────────────────────────────────────────────
-
-  const repoRouteResponse = await setupPost(baseUrl, "/api/v1/setup/repo-route", {
-    repoUrl: config.github.test_repo.url,
-    defaultBranch: config.github.test_repo.branch,
-    identifierPrefix: config.github.test_repo.identifier_prefix,
-  });
-
-  if (!repoRouteResponse.ok) {
-    const errorText = await repoRouteResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 4, "repo-route", false, `${repoRouteResponse.status}`);
-    return fail("repo-route", `HTTP ${repoRouteResponse.status}: ${errorText}`);
-  }
-
-  logStep(ctx, 4, "repo-route", true);
-
-  // ── Step 5: Linear Project (LAST — triggers orchestrator.start()) ─────
-
-  const projectsResponse = await setupGet(baseUrl, "/api/v1/setup/linear-projects");
-
-  if (!projectsResponse.ok) {
-    const errorText = await projectsResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 5, "linear-project", false, `list failed: ${projectsResponse.status}`);
-    return fail("linear-project", `GET linear-projects HTTP ${projectsResponse.status}: ${errorText}`);
-  }
-
-  const projectsBody = (await projectsResponse.json()) as {
-    projects: Array<{ id: string; name: string; slugId: string; teamKey: string | null }>;
-  };
-
-  const matchedProject = projectsBody.projects.find((project) => project.slugId === config.linear.project_slug);
-
-  if (!matchedProject) {
-    const available = projectsBody.projects.map((project) => project.slugId).join(", ");
-    logStep(ctx, 5, "linear-project", false, `slug "${config.linear.project_slug}" not found`);
-    return fail("linear-project", `Project slug "${config.linear.project_slug}" not found. Available: [${available}]`);
-  }
-
-  const selectResponse = await setupPost(baseUrl, "/api/v1/setup/linear-project", {
-    slugId: matchedProject.slugId,
-  });
-
-  if (!selectResponse.ok) {
-    const errorText = await selectResponse.text().catch(() => "<unreadable>");
-    logStep(ctx, 5, "linear-project", false, `select failed: ${selectResponse.status}`);
-    return fail("linear-project", `POST linear-project HTTP ${selectResponse.status}: ${errorText}`);
-  }
-
-  logStep(ctx, 5, "linear-project", true, matchedProject.name);
-
-  // ── Final verification ────────────────────────────────────────────────
-
-  // 1. Check setup status — all 5 individual steps should be done
-  const finalStatusResponse = await setupGet(baseUrl, "/api/v1/setup/status");
-
-  if (!finalStatusResponse.ok) {
-    return fail("verification", `GET setup/status HTTP ${finalStatusResponse.status}`);
-  }
-
-  const finalStatus = (await finalStatusResponse.json()) as {
-    configured: boolean;
-    steps: Record<string, { done: boolean }>;
-  };
-
-  const requiredSteps = ["masterKey", "repoRoute", "openaiKey", "githubToken", "linearProject"] as const;
-  const incompleteSteps = requiredSteps.filter((step) => !finalStatus.steps[step]?.done);
-
-  if (incompleteSteps.length > 0) {
-    const detail = `incomplete: ${incompleteSteps.join(", ")}`;
-    ctx.events.write({ phase: "setup-wizard", step: "verification", status: "fail", detail });
-    console.log(`  [setup-wizard] verification: FAIL  (${detail})`);
-    return fail("verification", `Setup steps not completed: ${incompleteSteps.join(", ")}`);
-  }
-
-  ctx.events.write({
-    phase: "setup-wizard",
-    step: "verification",
-    status: "pass",
-    configured: finalStatus.configured,
-    allStepsDone: true,
-  });
-  console.log(`  [setup-wizard] all 5 steps done, configured=${finalStatus.configured}`);
-
-  // 2. Check orchestrator started — just verify 200 from /api/v1/state
-  const stateResponse = await setupGet(baseUrl, "/api/v1/state");
-
-  if (!stateResponse.ok) {
-    return fail(
-      "verification",
-      `GET /api/v1/state returned ${stateResponse.status} — orchestrator may not have started`,
-    );
-  }
-
-  ctx.events.write({ phase: "setup-wizard", step: "orchestrator-alive", status: "pass" });
-  console.log("  [setup-wizard] orchestrator is alive (state endpoint 200)");
-
-  return {
-    phase: "setup-wizard",
-    status: "pass",
-    durationMs: Date.now() - start,
-    data: { stepsCompleted: 5 },
   };
 }

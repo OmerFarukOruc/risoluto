@@ -12,7 +12,7 @@ import { createWriteStream } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-import type { E2EConfig } from "./types.js";
+import type { E2EConfig, RunContext } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Environment helpers
@@ -169,38 +169,58 @@ export async function callLinearGraphQL(
 // ---------------------------------------------------------------------------
 
 /**
- * Generate the YAML content for WORKFLOW.e2e.md used during setup-mode testing.
+ * Generate the YAML content for WORKFLOW.e2e.md with all values pre-filled.
  *
  * Key design choices:
- * - `project_slug: ""` — empty string triggers setup mode via Zod
- *   `z.string().min(1)` validation failure in the main Symphony config.
+ * - `project_slug` is the real slug from config — bypasses setup mode.
  * - `api_key: $LINEAR_API_KEY` — env-var expansion, never a literal secret.
- * - `repos: []` — intentionally empty; gets overwritten by the setup wizard
- *   repo-route step.
- *
- * NOTE: The E2E config uses `identifier_prefix` (snake_case) but the
- * Symphony setup wizard API POST body uses `identifierPrefix` (camelCase).
+ * - `repos` is pre-populated from the test_repo config so the orchestrator
+ *   can route issues immediately without the setup wizard.
  */
 export function generateWorkflowScaffold(config: E2EConfig): string {
+  const { test_repo: repo } = config.github;
   const lines = [
-    "# Auto-generated E2E test workflow — do not edit manually.",
-    "",
+    "---",
     "tracker:",
     "  kind: linear",
     "  api_key: $LINEAR_API_KEY",
-    '  project_slug: ""',
+    `  project_slug: "${config.linear.project_slug}"`,
     "",
     "codex:",
+    '  command: "codex app-server"',
     `  model: ${config.codex.model}`,
     `  reasoning_effort: ${config.codex.reasoning_effort}`,
+    '  approval_policy: "never"',
+    '  thread_sandbox: "danger-full-access"',
+    "  turn_sandbox_policy:",
+    '    type: "dangerFullAccess"',
     "  auth:",
     `    mode: ${config.codex.auth_mode}`,
     `    source_home: ${config.codex.source_home}`,
     "",
+    "polling:",
+    "  interval_ms: 10000",
+    "",
+    "agent:",
+    "  max_concurrent_agents: 1",
+    "  max_turns: 20",
+    '  success_state: "Done"',
+    "",
+    "workspace:",
+    '  root: "../symphony-e2e-workspaces"',
+    '  strategy: "directory"',
+    "",
     "server:",
     `  port: ${config.server.port}`,
     "",
-    "repos: []",
+    "repos:",
+    `  - repo_url: "${repo.url}"`,
+    `    default_branch: "${repo.branch}"`,
+    `    identifier_prefix: "${repo.identifier_prefix}"`,
+    `    github_owner: "${repo.owner}"`,
+    `    github_repo: "${repo.repo}"`,
+    `    github_token_env: "GITHUB_TOKEN"`,
+    "---",
     "",
   ];
 
@@ -212,18 +232,36 @@ export function generateWorkflowScaffold(config: E2EConfig): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the extra environment variables needed to spawn Symphony.
+ * Resolves credential references from the E2E config and includes the
+ * MASTER_KEY when available. Used by both initial startup and restart.
+ */
+export function buildSymphonyEnv(ctx: RunContext): Record<string, string> | undefined {
+  const resolvedLinearKey = resolveEnvValue(ctx.config.linear.api_key);
+  const resolvedGithubToken = resolveEnvValue(ctx.config.github.token);
+  return ctx.masterKey
+    ? { MASTER_KEY: ctx.masterKey, LINEAR_API_KEY: resolvedLinearKey, GITHUB_TOKEN: resolvedGithubToken }
+    : undefined;
+}
+
+/**
  * Spawn the Symphony server process.
  *
  * Runs `node dist/cli/index.js {workflowPath} --port {port}` with the
- * current environment inherited. Stdout and stderr are piped to log files
- * inside `reportDir`.
+ * current environment inherited plus any extra env vars (e.g. MASTER_KEY).
+ * Stdout and stderr are piped to log files inside `reportDir`.
  */
-export function spawnSymphony(port: number, workflowPath: string, reportDir: string): ReturnType<typeof spawn> {
+export function spawnSymphony(
+  port: number,
+  workflowPath: string,
+  reportDir: string,
+  extraEnv?: Record<string, string>,
+): ReturnType<typeof spawn> {
   const stdoutLog = createWriteStream(path.join(reportDir, "symphony-stdout.log"), { flags: "a" });
   const stderrLog = createWriteStream(path.join(reportDir, "symphony-stderr.log"), { flags: "a" });
 
   const child = spawn("node", ["dist/cli/index.js", workflowPath, "--port", String(port)], {
-    env: process.env,
+    env: { ...process.env, ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
 

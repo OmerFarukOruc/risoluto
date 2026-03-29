@@ -415,7 +415,7 @@ describe("executeTurns", () => {
     expect(result.kind).toBe("normal");
   });
 
-  it("includes summary: 'concise' in turn/start request", async () => {
+  it("includes summary: 'detailed' in turn/start request", async () => {
     vi.mocked(isActiveState).mockReturnValueOnce(false);
 
     const input = makeInput();
@@ -425,7 +425,7 @@ describe("executeTurns", () => {
 
     const requestMock = (input.connection as { request: ReturnType<typeof vi.fn> }).request;
     const params = requestMock.mock.calls[0][1];
-    expect(params.summary).toBe("concise");
+    expect(params.summary).toBe("detailed");
   });
 
   it("includes outputSchema when structuredOutput is true", async () => {

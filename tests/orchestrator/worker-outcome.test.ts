@@ -296,6 +296,33 @@ describe("handleWorkerOutcome - stop signal detection", () => {
     expect(view.status).toBe("completed");
   });
 
+  it("propagates pullRequestUrl to completedViews when git post-run creates a PR", async () => {
+    const ctx = makeCtx();
+    const gitMock = ctx.deps.gitManager as unknown as {
+      commitAndPush: ReturnType<typeof vi.fn>;
+    };
+    gitMock.commitAndPush.mockResolvedValueOnce({ pushed: true, branchName: "mt-1" });
+    const entry = makeEntry({
+      lastAgentMessageContent: "SYMPHONY_STATUS: DONE",
+      repoMatch: {
+        repoUrl: "https://github.com/org/repo",
+        defaultBranch: "main",
+        identifierPrefix: "MT",
+        githubOwner: "org",
+        githubRepo: "repo",
+        githubTokenEnv: "GITHUB_TOKEN",
+        matchedBy: "identifier_prefix",
+      },
+    });
+    ctx.runningEntries.set("issue-1", entry);
+
+    await handleWorkerOutcome(ctx, makeOutcome({ kind: "normal" }), entry, makeIssue(), makeWorkspace(), 1);
+
+    const view = getCompletedView(ctx);
+    expect(view.status).toBe("completed");
+    expect(view.pullRequestUrl).toBe("https://github.com/org/repo/pull/1");
+  });
+
   it("marks paused when SYMPHONY_STATUS: BLOCKED detected", async () => {
     const ctx = makeCtx();
     const entry = makeEntry({

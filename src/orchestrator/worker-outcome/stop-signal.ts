@@ -45,19 +45,19 @@ export async function handleStopSignal(
   }
 
   const isBlocked = stopSignal === "blocked";
-  ctx.completedViews.set(
-    issue.identifier,
-    buildOutcomeView(issue, workspace, entry, modelSelection, {
-      status,
-      attempt,
-      message: isBlocked ? "worker reported issue blocked" : "worker reported issue complete",
-    }),
-  );
+  const statusMessage = isBlocked ? "worker reported issue blocked" : "worker reported issue complete";
+  const outcomeView = buildOutcomeView(issue, workspace, entry, modelSelection, {
+    status,
+    attempt,
+    message: statusMessage,
+    pullRequestUrl,
+  });
+  ctx.completedViews.set(issue.identifier, outcomeView);
   ctx.notify({
     type: isBlocked ? "worker_failed" : "worker_completed",
     severity: isBlocked ? "critical" : "info",
     timestamp: nowIso(),
-    message: isBlocked ? "worker reported issue blocked" : "worker reported issue complete",
+    message: statusMessage,
     issue: issueRef(issue),
     attempt,
     metadata: { workspace: workspace.path, pullRequestUrl },

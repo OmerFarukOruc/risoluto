@@ -145,9 +145,9 @@ describe("generateWorkflowScaffold", () => {
     expect(output).toContain("mode: api_key");
   });
 
-  it("includes empty project_slug for setup mode trigger", () => {
+  it("includes real project_slug from config", () => {
     const output = generateWorkflowScaffold(baseConfig);
-    expect(output).toContain('project_slug: ""');
+    expect(output).toContain('project_slug: "TEST"');
   });
 
   it("uses env-var expansion for api_key", () => {
@@ -155,9 +155,11 @@ describe("generateWorkflowScaffold", () => {
     expect(output).toContain("api_key: $LINEAR_API_KEY");
   });
 
-  it("includes empty repos array", () => {
+  it("includes repos from test_repo config", () => {
     const output = generateWorkflowScaffold(baseConfig);
-    expect(output).toContain("repos: []");
+    expect(output).toContain('repo_url: "https://github.com/o/r"');
+    expect(output).toContain('identifier_prefix: "E2E"');
+    expect(output).toContain('github_token_env: "GITHUB_TOKEN"');
   });
 });
 

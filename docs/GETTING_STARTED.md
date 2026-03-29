@@ -127,13 +127,63 @@ Alternatively, use the **"Create Test Issue"** button on the setup completion pa
 | Tab | What it shows |
 |-----|---------------|
 | **Overview** | Live metrics, attention queue, recent events, system health |
-| **Board** | Kanban view of all issues across workflow states |
+| **Board** | Kanban view with drag-and-drop issue transitions |
 | **Settings** | Tracker connection, model provider, sandbox config, credentials |
 | **Observability** | System health, Prometheus metrics, anomaly detection |
 | **Git** | Configured repos, active branches, recent PRs |
 | **Workspaces** | Disk usage and lifecycle of per-issue workspaces |
+| **Templates** | Create, edit, and manage prompt templates for agents |
+| **Containers** | Running container health and lifecycle monitoring |
+| **Audit** | Real-time mutation log (config, secrets, template changes) |
+| **Notifications** | Slack webhook and notification routing settings |
 | **Welcome** | Quick-start guide and version info |
 | **Setup** | Re-run the credential wizard at any time |
+
+### Command Palette
+
+Press **Ctrl+K** (or **Cmd+K** on macOS) to open the command palette — a fuzzy-searchable launcher for navigation, quick actions, and recent issues.
+
+### Issue Inspector
+
+Click any issue on the **Board** or **Overview** to open the issue inspector. From here you can:
+
+- **Override the model** — Change the AI model for a specific issue
+- **Steer the agent** — Inject a mid-run guidance message into the active agent session
+- **Abort** — Stop a running agent with a confirmation dialog
+- **View cost** — See per-attempt and total USD cost
+- **View retry schedule** — Countdown to next retry attempt
+- **View live log** — Real-time SSE stream of agent events during active runs
+
+### Board Interactions
+
+The **Board** page supports drag-and-drop and keyboard navigation:
+
+| Action | How |
+|--------|-----|
+| Move issue between columns | Drag and drop to a workflow column |
+| Toggle keyboard mode | Press `[` or `]` |
+| Navigate issues | `j` / `k` (down / up) |
+| Search issues | `/` |
+| Open filters | `f` |
+| Filter by priority, density, stage | Use the toolbar dropdowns |
+
+### Keyboard Shortcuts
+
+Press **`?`** anywhere to open the shortcut help modal. Key shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+K` / `Cmd+K` | Open command palette |
+| `?` | Show keyboard shortcuts |
+| `[` / `]` | Toggle board keyboard mode |
+| `j` / `k` | Navigate items |
+| `/` | Focus search |
+| `f` | Open filters |
+| `x` | Open raw metrics drawer (Observability page) |
+
+### Theme
+
+The dashboard supports **light and dark modes**. Toggle from the sidebar.
 
 ---
 

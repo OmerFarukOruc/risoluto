@@ -662,6 +662,204 @@ These paths exist only inside worker containers and are **not** on the host file
 
 ---
 
+## 🔒 Network Security
+
+### Bind Address
+
+By default, Symphony binds to `127.0.0.1` (loopback only). Override with:
+
+```bash
+export SYMPHONY_BIND="0.0.0.0"   # Listen on all interfaces
+```
+
+### Write Guard
+
+All mutating API requests (POST, PUT, PATCH, DELETE) are protected by a write guard middleware (`src/http/write-guard.ts`):
+
+| Scenario | Behavior |
+|----------|----------|
+| Request from loopback (`127.0.0.1`, `::1`) | Allowed — no token required |
+| Request from non-loopback, no `SYMPHONY_WRITE_TOKEN` set | **403 `write_forbidden`** |
+| `SYMPHONY_WRITE_TOKEN` set, valid `Authorization: Bearer <token>` | Allowed from any address |
+| `SYMPHONY_WRITE_TOKEN` set, missing or invalid token | **401 `write_unauthorized`** |
+
+To enable remote write access:
+
+```bash
+export SYMPHONY_BIND="0.0.0.0"
+export SYMPHONY_WRITE_TOKEN="your-secret-token"
+```
+
+All mutating requests then require:
+
+```
+Authorization: Bearer your-secret-token
+```
+
+> [!CAUTION]
+> Exposing Symphony on a non-loopback address without `SYMPHONY_WRITE_TOKEN` blocks all mutations from remote clients. Always set both when binding to `0.0.0.0`.
+
+### Rate Limiting
+
+All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 seconds** per client. When the limit is exceeded, the server responds with HTTP `429 Too Many Requests`.
+
+### Read-only methods
+
+`GET`, `HEAD`, and `OPTIONS` requests are exempt from write guard checks and always allowed from any address.
+
+---
+
+## 🌍 Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LINEAR_API_KEY` | — | Linear API key (required for Linear tracker) |
+| `LINEAR_PROJECT_SLUG` | — | Linear project slug |
+| `OPENAI_API_KEY` | — | OpenAI API key (for `api_key` auth mode) |
+| `GITHUB_TOKEN` | — | GitHub Personal Access Token for git automation |
+| `MASTER_KEY` | — | AES encryption key for the secrets store |
+| `SYMPHONY_BIND` | `127.0.0.1` | Address to bind the HTTP server |
+| `SYMPHONY_WRITE_TOKEN` | — | Bearer token for remote write access (see [Network Security](#-network-security)) |
+| `SYMPHONY_LOG_FORMAT` | — | Logger output format (`logfmt` or JSON when unset) |
+| `SYMPHONY_PERSISTENCE` | `sqlite` | Persistence backend |
+| `SYMPHONY_HOST_WORKSPACE_ROOT` | — | Host-side workspace root for Docker volume mapping |
+| `SYMPHONY_HOST_ARCHIVE_DIR` | — | Host-side archive directory for Docker volume mapping |
+| `SYMPHONY_CONTAINER_WORKSPACE_ROOT` | — | Container-side workspace path |
+| `SYMPHONY_CONTAINER_ARCHIVE_DIR` | — | Container-side archive path |
+| `DATA_DIR` | `.symphony/` | Archive and workspace base directory |
+| `DISPATCH_MODE` | `local` | `local` for single-process, `remote` for control/data plane split |
+| `DISPATCH_URL` | — | Data plane URL when `DISPATCH_MODE=remote` |
+| `DISPATCH_PORT` | `9100` | Data plane listen port (in remote dispatch mode) |
+| `DISPATCH_SHARED_SECRET` | — | Shared secret for remote dispatch authentication |
+| `SENTRY_DSN` | — | Sentry-compatible error tracking DSN |
+| `CODEX_AUTH_SOURCE_HOME` | `~/.codex` | Codex auth credential home directory |
+| `LOG_LEVEL` | `info` | Pino log level (`debug`, `info`, `warn`, `error`) |
+
+---
+
+## 🔧 Advanced Configuration Reference
+
+The workflow YAML file supports the following configuration sections. Options not set in your workflow file use the defaults shown below.
+
+### `codex` — Agent Provider Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `command` | string | `"codex app-server"` | Command to start the Codex agent server |
+| `model` | string | `"gpt-5.4"` | Model identifier passed to Codex |
+| `reasoningEffort` | enum | `"high"` | Reasoning level: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
+| `personality` | string | `"friendly"` | Agent personality/tone setting |
+| `selfReview` | boolean | `false` | Enable agent self-review mode |
+| `structuredOutput` | boolean | `false` | Enable structured output mode |
+| `approvalPolicy` | string\|object | reject all | Tool call approval policy |
+| `threadSandbox` | string | `"workspace-write"` | Thread-level sandbox: `workspace-write` or `danger-full-access` |
+| `turnSandboxPolicy` | object | `{type: "workspaceWrite"}` | Per-turn sandbox policy (type, writableRoots, networkAccess) |
+| `readTimeoutMs` | number | `5000` | Timeout for reading agent responses |
+| `turnTimeoutMs` | number | `3600000` | Maximum duration per agent turn (1 hour) |
+| `drainTimeoutMs` | number | `2000` | Timeout for draining pending work on shutdown |
+| `startupTimeoutMs` | number | `30000` | Docker container startup timeout |
+| `stallTimeoutMs` | number | `300000` | Per-turn stall detection timeout (5 min) |
+
+### `codex.auth` — Authentication
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `mode` | enum | `"api_key"` | `api_key` or `openai_login` |
+| `sourceHome` | string | `"~/.codex"` | Path to Codex auth credentials |
+
+### `codex.sandbox` — Container Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `image` | string | `"symphony-codex:latest"` | Docker image for sandboxed agents |
+| `network` | string | `""` | Docker network name (empty = default) |
+| `extraMounts` | string[] | `[]` | Extra host→container bind mounts (identity-mapped paths) |
+| `envPassthrough` | string[] | `[]` | Environment variables forwarded into the container |
+| `egressAllowlist` | string[] | `[]` | Allowed egress domains for network filtering |
+
+### `codex.sandbox.security`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `noNewPrivileges` | boolean | `true` | Set `--security-opt=no-new-privileges` on the container |
+| `dropCapabilities` | boolean | `true` | Drop all Linux capabilities |
+| `gvisor` | boolean | `false` | Enable gVisor runtime |
+| `seccompProfile` | string | `""` | Path to a custom Seccomp profile |
+
+### `codex.sandbox.resources`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `memory` | string | `"4g"` | Container memory limit |
+| `memoryReservation` | string | `"1g"` | Guaranteed memory reservation |
+| `memorySwap` | string | `"4g"` | Swap limit (equal to memory = no swap) |
+| `cpus` | string | `"2.0"` | CPU limit |
+| `tmpfsSize` | string | `"512m"` | Size of tmpfs mount |
+
+### `codex.sandbox.logs`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `driver` | string | `"json-file"` | Docker log driver |
+| `maxSize` | string | `"50m"` | Maximum log file size |
+| `maxFile` | number | `3` | Maximum number of rotated log files |
+
+### `agent` — Orchestrator Agent Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `maxConcurrentAgents` | number | `10` | Maximum agents running simultaneously |
+| `maxConcurrentAgentsByState` | object | `{}` | Per-state concurrency limits (e.g. `{"In Progress": 5}`) |
+| `maxTurns` | number | `20` | Maximum conversation turns per agent run |
+| `maxRetryBackoffMs` | number | `300000` | Maximum retry backoff (5 min) |
+| `maxContinuationAttempts` | number | `5` | Maximum continuation turns for a single run |
+| `successState` | string | `null` | Linear state to transition to on success |
+| `stallTimeoutMs` | number | `1200000` | Agent-level stall timeout (20 min) |
+| `preflightCommands` | string[] | `[]` | Shell commands to run before each agent turn |
+
+### `workspace` — Workspace Isolation
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `root` | string | `"../symphony-workspaces"` | Root directory for per-issue workspaces |
+| `strategy` | enum | `"directory"` | `directory` (clone) or `worktree` (git worktree) |
+| `branchPrefix` | string | `"symphony/"` | Branch name prefix for worktree strategy |
+
+### `workspace.hooks`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `afterCreate` | string | `null` | Shell command to run after workspace creation |
+| `beforeRun` | string | `null` | Shell command to run before each agent run |
+| `afterRun` | string | `null` | Shell command to run after each agent run |
+| `beforeRemove` | string | `null` | Shell command to run before workspace removal |
+| `timeoutMs` | number | `60000` | Hook execution timeout (1 min) |
+
+### `stateMachine` — Custom Workflow Stages
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `stages` | array | `[]` | Workflow stage definitions, each with `name` (string) and `kind` (`backlog`, `todo`, `active`, `gate`, `terminal`) |
+| `transitions` | object | `{}` | State transition map — keys are state names, values are arrays of allowed target states |
+
+When `stages` is empty, Symphony derives stages from the tracker's workflow configuration.
+
+### `github` — GitHub Integration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `token` | string | — | GitHub Personal Access Token |
+| `apiBaseUrl` | string | `"https://api.github.com"` | Custom GitHub API endpoint (for GitHub Enterprise) |
+
+### `notifications.slack`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `webhookUrl` | string | — | Slack incoming webhook URL |
+| `verbosity` | enum | `"critical"` | `off`, `critical`, or `verbose` |
+
+---
+
 ## 📡 JSON API Reference
 
 | Method   | Endpoint                               | Description                                                                           |
@@ -719,6 +917,72 @@ These paths exist only inside worker containers and are **not** on the host file
 | `GET`    | `/api/v1/audit`                        | Query audit log entries with optional filters                                         |
 | `GET`    | `/api/v1/openapi.json`                 | OpenAPI 3.0 specification                                                             |
 | `GET`    | `/api/docs`                            | Swagger UI for interactive API exploration                                            |
+
+---
+
+## 📡 Real-time Events (SSE)
+
+`GET /api/v1/events` opens a Server-Sent Events stream that pushes real-time orchestrator events to the dashboard and any connected client.
+
+### Event Types
+
+| Channel | Payload Fields | When It Fires |
+|---------|---------------|---------------|
+| `issue.started` | `issueId`, `identifier`, `attempt` | Agent worker launched for an issue |
+| `issue.completed` | `issueId`, `identifier`, `outcome` | Agent finished (any terminal outcome) |
+| `issue.stalled` | `issueId`, `identifier`, `reason` | Stall detected and agent killed |
+| `issue.queued` | `issueId`, `identifier` | Issue queued for later processing |
+| `worker.failed` | `issueId`, `identifier`, `error` | Worker crash, timeout, or other failure |
+| `model.updated` | `identifier`, `model`, `source` | Model selection changed at runtime |
+| `workspace.event` | `issueId`, `identifier`, `status` | Workspace lifecycle event (preparing, ready, failed) |
+| `agent.event` | `issueId`, `identifier`, `type`, `message`, `sessionId`, `timestamp`, `content` | Raw agent event forwarded from the worker stream |
+| `poll.complete` | `timestamp`, `issueCount` | Polling cycle completed |
+| `system.error` | `message`, `context` | System-level error not tied to a specific issue |
+| `audit.mutation` | `tableName`, `key`, `path`, `operation`, `actor`, `timestamp` | Config, secret, or template mutation logged |
+
+### Connecting
+
+```bash
+curl -N http://localhost:4000/api/v1/events
+```
+
+The dashboard connects automatically and uses these events to update the Overview, Board, Issue Inspector, and Live Log views in real time.
+
+---
+
+## 🐳 Sandbox Image Tooling
+
+The sandbox Docker image (`Dockerfile.sandbox`) ships with:
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Node.js | 22 (bookworm) | Runtime |
+| Codex CLI | 0.116.0 | AI agent execution |
+| bubblewrap | system | Sandbox isolation |
+| git | system | Source control |
+| curl | system | HTTP operations |
+| jq | system | JSON processing |
+| ripgrep | system | Fast search |
+
+The container runs as the host user (`--user $(id -u):$(id -g)`) to avoid file ownership drift.
+
+---
+
+## 🏷️ GitHub Label Management
+
+`scripts/sync-labels.sh` creates and updates GitHub issue labels for the project:
+
+```bash
+bash scripts/sync-labels.sh
+```
+
+Creates labels in these categories:
+- **Priority**: P0 (critical), P1 (high), P2 (medium), P3 (low)
+- **Type**: bug, enhancement, chore, documentation
+- **Area**: core, api, dashboard, infra
+- **Workflow**: triage, good first issue
+
+Requires `gh` CLI authenticated with repo access.
 
 ---
 

@@ -128,7 +128,7 @@ async function runSingleTurn(
     effort: input.runInput.modelSelection.reasoningEffort,
     approvalPolicy: input.config.codex.approvalPolicy,
     sandboxPolicy: getTurnSandboxPolicy(input.config, input.runInput.workspace.path),
-    summary: "concise",
+    summary: "detailed",
     input: [{ type: "text", text: prompt }],
     ...(input.config.codex.structuredOutput ? { outputSchema: STRUCTURED_OUTPUT_SCHEMA } : {}),
   });

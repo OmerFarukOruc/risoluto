@@ -12,9 +12,9 @@ import path from "node:path";
 
 import type { RunContext, PhaseResult } from "./types.js";
 import {
+  buildSymphonyEnv,
   callLinearGraphQL,
   errorMsg,
-  resolveEnvValue,
   sleep,
   waitForHttp,
   spawnSymphony,
@@ -32,6 +32,10 @@ interface StateIssueEntry {
   issueId: string;
   title: string;
   status: string;
+  attempt?: number | null;
+  tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
+  lastEventAt?: string | null;
+  message?: string | null;
   pullRequestUrl?: string | null;
 }
 
@@ -78,13 +82,36 @@ interface IssueDetailResponse {
 
 const TERMINAL_ATTEMPT_STATUSES = new Set(["completed", "failed", "timed_out", "stalled", "cancelled"]);
 
+/** Seconds elapsed since an ISO timestamp. */
+function secondsElapsed(isoDate: string): number {
+  return Math.round((Date.now() - new Date(isoDate).getTime()) / 1000);
+}
+
+const TEAM_STATES_QUERY = `
+query TeamStates($teamId: String!) {
+  team(id: $teamId) {
+    states { nodes { id name type } }
+  }
+}
+`;
+
+const PROJECT_LOOKUP_QUERY = `
+query ProjectLookup($slugId: String!) {
+  projects(filter: { slugId: { eq: $slugId } }) {
+    nodes { id name slugId }
+  }
+}
+`;
+
 const CREATE_ISSUE_MUTATION = `
-mutation CreateIssue($teamId: String!, $title: String!, $description: String!, $priority: Int) {
+mutation CreateIssue($teamId: String!, $title: String!, $description: String!, $priority: Int, $stateId: String, $projectId: String) {
   issueCreate(input: {
     teamId: $teamId
     title: $title
     description: $description
     priority: $priority
+    stateId: $stateId
+    projectId: $projectId
   }) {
     success
     issue { id identifier url state { name } }
@@ -105,6 +132,27 @@ function log(ctx: RunContext, message: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4 helpers
+// ---------------------------------------------------------------------------
+
+/** Resolve the "In Progress" state ID for the team so issues land in an active state. */
+async function resolveInProgressStateId(apiKey: string, teamId: string, ctx: RunContext): Promise<string | null> {
+  try {
+    const statesResult = (await callLinearGraphQL(apiKey, TEAM_STATES_QUERY, { teamId })) as {
+      data?: { team?: { states?: { nodes?: Array<{ id: string; name: string; type: string }> } } };
+    };
+    const states = statesResult.data?.team?.states?.nodes ?? [];
+    const inProgress = states.find((s) => s.name === "In Progress") ?? states.find((s) => s.type === "started");
+    const stateId = inProgress?.id ?? null;
+    log(ctx, `Resolved "In Progress" state: ${stateId ?? "not found, using default"}`);
+    return stateId;
+  } catch {
+    log(ctx, "Could not resolve team states — issue will use default state");
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Phase 4: Create Issue
 // ---------------------------------------------------------------------------
 
@@ -116,6 +164,21 @@ export async function createIssue(ctx: RunContext): Promise<PhaseResult> {
 
   const title = `${config.test_issue.title} -- ${runId}`;
   const description = config.test_issue.description.replaceAll("{run_id}", runId);
+  const stateId = await resolveInProgressStateId(apiKey, config.linear.team_id, ctx);
+
+  // Resolve the Linear project ID from the slug so the issue is assigned to the
+  // correct project. Without this, fetchCandidateIssues (which filters by project
+  // slug) would never see the issue.
+  let projectId: string | null = null;
+  try {
+    const projectResult = (await callLinearGraphQL(apiKey, PROJECT_LOOKUP_QUERY, {
+      slugId: config.linear.project_slug,
+    })) as { data?: { projects?: { nodes?: Array<{ id: string; name: string }> } } };
+    projectId = projectResult.data?.projects?.nodes?.at(0)?.id ?? null;
+    log(ctx, `Resolved project "${config.linear.project_slug}" → ${projectId ?? "not found"}`);
+  } catch {
+    log(ctx, "Could not resolve project ID — issue may not be visible to orchestrator");
+  }
 
   log(ctx, `Creating issue: "${title}"`);
 
@@ -124,6 +187,8 @@ export async function createIssue(ctx: RunContext): Promise<PhaseResult> {
     title,
     description,
     priority: config.test_issue.priority,
+    stateId,
+    projectId,
   })) as {
     data?: {
       issueCreate?: {
@@ -173,9 +238,11 @@ export async function waitPickup(ctx: RunContext): Promise<PhaseResult> {
   while (Date.now() < deadline) {
     const state = (await fetchJson(`${ctx.baseUrl}/api/v1/state`)) as StateResponse;
     const runningCount = state.running.length;
+    const queuedCount = state.queued.length;
     const found = state.running.some((entry) => entry.identifier === ctx.issueIdentifier);
+    const inQueue = state.queued.some((entry) => entry.identifier === ctx.issueIdentifier);
 
-    log(ctx, `Poll: running=${runningCount}, found=${String(found)}`);
+    log(ctx, `Poll: running=${runningCount} queued=${queuedCount} found=${String(found)} inQueue=${String(inQueue)}`);
 
     if (found) {
       return {
@@ -217,8 +284,21 @@ interface MonitorState {
 async function pollState(ctx: RunContext, monitor: MonitorState): Promise<void> {
   try {
     const state = (await fetchJson(`${ctx.baseUrl}/api/v1/state`)) as StateResponse;
-    const inRunning = state.running.some((entry) => entry.identifier === ctx.issueIdentifier);
-    log(ctx, `State poll: running=${state.running.length}, ours_in_running=${String(inRunning)}`);
+    const ours = state.running.find((entry) => entry.identifier === ctx.issueIdentifier);
+    const inRunning = ours !== undefined;
+
+    let detail = "";
+    if (ours) {
+      const parts: string[] = [];
+      if (ours.attempt != null) parts.push(`attempt=#${String(ours.attempt)}`);
+      if (ours.tokenUsage) parts.push(`tokens=${String(ours.tokenUsage.totalTokens)}`);
+      if (ours.lastEventAt) {
+        parts.push(`last_event=${String(secondsElapsed(ours.lastEventAt))}s ago`);
+      }
+      if (parts.length > 0) detail = ` (${parts.join(", ")})`;
+    }
+
+    log(ctx, `State: running=${state.running.length} ours=${String(inRunning)}${detail}`);
 
     if (!inRunning && monitor.lastAttempt === null) {
       monitor.lastAttemptPoll = 0;
@@ -239,10 +319,22 @@ async function pollAttempts(ctx: RunContext, monitor: MonitorState): Promise<voi
 
     if (!monitor.lastAttempt) return;
 
-    log(
-      ctx,
-      `Attempt poll: #${String(monitor.lastAttempt.attemptNumber)} status=${monitor.lastAttempt.status} model=${monitor.lastAttempt.model}`,
-    );
+    const parts = [
+      `#${String(monitor.lastAttempt.attemptNumber)}`,
+      `status=${monitor.lastAttempt.status}`,
+      `model=${monitor.lastAttempt.model}`,
+    ];
+    if (monitor.lastAttempt.turnCount != null) {
+      parts.push(`turns=${String(monitor.lastAttempt.turnCount)}`);
+    }
+    if (monitor.lastAttempt.tokenUsage) {
+      const tok = monitor.lastAttempt.tokenUsage;
+      parts.push(`in=${String(tok.inputTokens)} out=${String(tok.outputTokens)}`);
+    }
+    if (monitor.lastAttempt.startedAt) {
+      parts.push(`elapsed=${String(secondsElapsed(monitor.lastAttempt.startedAt))}s`);
+    }
+    log(ctx, `Attempt: ${parts.join(" ")}`);
 
     if (TERMINAL_ATTEMPT_STATUSES.has(monitor.lastAttempt.status)) {
       if (monitor.lastAttempt.status === "completed") {
@@ -379,11 +471,10 @@ export async function restartResilience(ctx: RunContext): Promise<PhaseResult> {
     log(ctx, "Symphony stopped");
   }
 
-  // 2. Restart Symphony with the same port.
-  // Derive the workflow path from the report directory (where startSymphony wrote it).
+  // 2. Restart Symphony with the same port and credentials.
   const workflowPath = path.join(ctx.reportDir, "WORKFLOW.e2e.md");
   log(ctx, `Restarting Symphony on port ${ctx.symphonyPort}`);
-  ctx.symphonyProcess = spawnSymphony(ctx.symphonyPort, workflowPath, ctx.reportDir);
+  ctx.symphonyProcess = spawnSymphony(ctx.symphonyPort, workflowPath, ctx.reportDir, buildSymphonyEnv(ctx));
 
   // 3. Wait for HTTP ready.
   try {

@@ -22,7 +22,7 @@ const linearConfigSchema = z.object({
 const codexConfigSchema = z.object({
   auth_mode: z.enum(["openai_login", "api_key"]).default("api_key"),
   source_home: z.string().default("~/.codex"),
-  model: z.string().default("o3-mini"),
+  model: z.string().default("gpt-5-codex-mini"),
   reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]).default("low"),
 });
 
@@ -112,6 +112,8 @@ export interface RunContext {
   skipBuild: boolean;
   /** --keep-symphony flag: don't kill Symphony after run. */
   keepSymphony: boolean;
+  /** Generated MASTER_KEY hex string — reused across spawns. */
+  masterKey: string | null;
 }
 
 /** Result returned by each lifecycle phase. */

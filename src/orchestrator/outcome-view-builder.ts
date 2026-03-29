@@ -12,6 +12,7 @@ export function buildOutcomeView(
     attempt?: number | null;
     error?: string | null;
     message?: string | null;
+    pullRequestUrl?: string | null;
   },
 ): ReturnType<typeof issueView> {
   const lastEventIso = new Date(entry.lastEventAtMs).toISOString();
@@ -33,5 +34,6 @@ export function buildOutcomeView(
     model: entry.modelSelection.model,
     reasoningEffort: entry.modelSelection.reasoningEffort,
     modelSource: entry.modelSelection.source,
+    pullRequestUrl: overrides.pullRequestUrl,
   });
 }

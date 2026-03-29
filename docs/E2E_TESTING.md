@@ -1,6 +1,6 @@
 # E2E Lifecycle Test
 
-> Automated end-to-end testing for the full Symphony pipeline: startup, setup wizard, issue creation, agent work, PR verification, and restart resilience.
+> Automated end-to-end testing for the full Symphony pipeline: startup, issue creation, agent work, PR verification, and restart resilience.
 
 ---
 
@@ -88,7 +88,6 @@ Terminal output shows each phase inline:
   preflight          pass    1.2s
   clean-slate        pass    0.1s
   start-symphony     pass    3.4s
-  setup-wizard       pass    8.2s
   create-issue       pass    1.1s   SYM-42
   wait-pickup        pass   12.3s   claimed
   monitor-lifecycle  pass  187.4s
@@ -98,7 +97,7 @@ Terminal output shows each phase inline:
   collect-artifacts  pass    0.8s
   cleanup            pass    2.3s
 
-  VERDICT: PASS  (220.4s)
+  VERDICT: PASS  (212.2s)
   Issue:   SYM-42 -- https://linear.app/...
   PR:      https://github.com/.../pull/14
   Report:  e2e-reports/abc123/
@@ -142,7 +141,7 @@ The config file is YAML with Zod validation. Values starting with `$` are expand
 |-------|------|---------|-------------|
 | `auth_mode` | `"openai_login"` \| `"api_key"` | `"api_key"` | How Codex authenticates with OpenAI |
 | `source_home` | string | `"~/.codex"` | Path to directory containing `auth.json` |
-| `model` | string | `"o3-mini"` | Model name for the agent. Use a cheap/fast model for testing |
+| `model` | string | `"gpt-5-codex-mini"` | Model name for the agent. Use a cheap/fast model for testing |
 | `reasoning_effort` | enum | `"low"` | One of: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
 
 ### `github` (required)
@@ -167,7 +166,7 @@ The config file is YAML with Zod validation. Values starting with `$` are expand
 | Field | Default | Description |
 |-------|---------|-------------|
 | `symphony_startup_ms` | 15000 | Max wait for Symphony HTTP server to become ready |
-| `setup_complete_ms` | 30000 | Max wait for setup wizard completion |
+| `setup_complete_ms` | 30000 | Reserved (setup wizard bypassed in current test) |
 | `issue_pickup_ms` | 60000 | Max wait for Symphony to claim the test issue |
 | `lifecycle_complete_ms` | 1800000 | Max wait for the agent to complete its work (30 min) |
 | `pr_verification_ms` | 30000 | Max wait for PR verification via `gh` |
@@ -191,22 +190,21 @@ The config file is YAML with Zod validation. Values starting with `$` are expand
 
 ## Phase Pipeline
 
-The test runs 12 phases sequentially. On the first failure, remaining phases skip — except `collect-artifacts` and `cleanup`, which always run.
+The test runs 11 phases sequentially. On the first failure, remaining phases skip — except `collect-artifacts` and `cleanup`, which always run.
 
 | # | Phase | What it does |
 |---|-------|--------------|
 | 0 | **preflight** | Validates credentials, Docker, `gh`, port availability, repo reachability, builds the project |
 | 1 | **clean-slate** | Removes `.symphony/` directory for a fresh start |
-| 2 | **start-symphony** | Generates a minimal WORKFLOW file, spawns Symphony, waits for HTTP readiness |
-| 3 | **setup-wizard** | Drives all 5 setup API steps: master key, GitHub token, Codex auth, repo route, Linear project |
-| 4 | **create-issue** | Creates a test issue in Linear via GraphQL (in default state, not "In Progress") |
-| 5 | **wait-pickup** | Polls `/api/v1/state` until the issue appears in `running[]` |
-| 6 | **monitor-lifecycle** | Polls state + attempts until the agent completes or times out |
-| 7 | **verify-pr** | Validates the PR exists, has commits, and has a non-empty diff |
-| 8 | **verify-linear** | Confirms the Linear issue reached "Done" state with a Symphony comment |
-| 9 | **restart-resilience** | Restarts Symphony and verifies the completed issue is NOT re-dispatched |
-| 10 | **collect-artifacts** | Copies `.symphony/attempts/`, `events/`, and `symphony.db` to the report dir |
-| 11 | **cleanup** | Closes the PR (with branch deletion) and cancels the Linear issue |
+| 2 | **start-symphony** | Generates a fully-configured WORKFLOW file, spawns Symphony in normal mode (setup bypassed via `MASTER_KEY` env var and pre-filled config), waits for HTTP readiness |
+| 3 | **create-issue** | Creates a test issue in Linear via GraphQL in "In Progress" state |
+| 4 | **wait-pickup** | Polls `/api/v1/state` until the issue appears in `running[]` |
+| 5 | **monitor-lifecycle** | Polls state + attempts until the agent completes or times out |
+| 6 | **verify-pr** | Validates the PR exists, has commits, and has a non-empty diff |
+| 7 | **verify-linear** | Confirms the Linear issue reached "Done" state with a Symphony comment |
+| 8 | **restart-resilience** | Restarts Symphony and verifies the completed issue is NOT re-dispatched |
+| 9 | **collect-artifacts** | Copies `.symphony/attempts/`, `events/`, and `symphony.db` to the report dir |
+| 10 | **cleanup** | Closes the PR (with branch deletion) and cancels the Linear issue |
 
 ---
 
@@ -238,7 +236,7 @@ The `e2e-summary.json` contains the full structured result:
   "started_at": "2026-03-28T10:30:00Z",
   "finished_at": "2026-03-28T10:33:40Z",
   "duration_ms": 220400,
-  "config_summary": { "model": "o3-mini", "project": "test-project", "repo": "you/test-repo" },
+  "config_summary": { "model": "gpt-5-codex-mini", "project": "test-project", "repo": "you/test-repo" },
   "phases": [
     { "name": "preflight", "status": "pass", "duration_ms": 1200 },
     ...
@@ -303,28 +301,23 @@ Each line is a timestamped JSON object:
 
 ```jsonl
 {"ts":"...","phase":"preflight","name":"Docker running","status":"pass"}
-{"ts":"...","phase":"setup-wizard","name":"master-key","status":"pass","step":1}
-{"ts":"...","event":"log","message":"Issue created: SYM-42 (state: Backlog)"}
+{"ts":"...","phase":"start-symphony","step":"normal-mode-verified"}
+{"ts":"...","event":"log","message":"Issue created: SYM-42 (state: In Progress)"}
 ```
 
 ---
 
 ## How It Works (Technical Details)
 
-### Setup wizard automation
+### Setup bypass
 
-The test drives Symphony's setup wizard via its HTTP API, not the browser UI. The 5 steps must execute in a specific order:
+The test bypasses Symphony's setup wizard entirely by pre-filling all configuration:
 
-1. **Master Key** must be first (initializes the secrets store encryption)
-2. **GitHub Token** and **Codex Auth** can be in any order (both depend only on master key)
-3. **Repo Route** can be anywhere after master key
-4. **Linear Project** must be last (it triggers `orchestrator.start()`)
+1. **WORKFLOW.e2e.md** is generated with the real `project_slug`, `api_key: $LINEAR_API_KEY` (env expansion), and a fully-populated `repos` section — so `validateDispatch()` passes without triggering setup mode.
+2. **MASTER_KEY** is generated as a random 64-hex string and passed as an environment variable to the Symphony child process — so `SecretsStore.start()` succeeds on the first try without needing a `master.key` file.
+3. **LINEAR_API_KEY** and **GITHUB_TOKEN** are inherited from the parent process environment.
 
-Each API call has a 15-second timeout via `AbortSignal.timeout()`.
-
-### WORKFLOW.e2e.md scaffold
-
-The test generates a minimal workflow file with `project_slug: ""` — this triggers setup mode via Zod validation failure (`z.string().min(1)`), so the orchestrator doesn't start until the setup wizard completes. The file is written to `{reportDir}/WORKFLOW.e2e.md` and deleted on cleanup.
+This avoids the setup-mode race condition where the orchestrator's tracker is initialized before credentials exist. The file is written to `{reportDir}/WORKFLOW.e2e.md`.
 
 ### Completion detection
 
@@ -342,9 +335,9 @@ This phase verifies Symphony's deduplication mechanism (`seedCompletedClaims`): 
 3. Waits for the orchestrator's first poll cycle (10s settle time)
 4. Asserts the completed issue is NOT in `running[]`
 
-### `configured` vs individual steps
+### Normal mode verification
 
-Symphony's `/api/v1/setup/status` returns `configured: true` when `masterKey` AND `linearProject` are done — but `linearProject.done` only checks API key presence (not project slug selection). The test checks all 5 steps individually rather than relying on the `configured` flag.
+After spawning, the test hits `/api/v1/state` to confirm the orchestrator is running in normal mode (not setup mode). A successful response with a `generated_at` timestamp confirms the orchestrator started polling immediately.
 
 ---
 

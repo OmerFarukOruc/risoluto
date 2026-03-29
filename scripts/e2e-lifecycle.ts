@@ -3,7 +3,7 @@
  * Symphony E2E Lifecycle Test — Main Entry Point
  *
  * Drives the full Symphony lifecycle:
- *   preflight → clean-slate → start-symphony → setup-wizard →
+ *   preflight → clean-slate → start-symphony →
  *   create-issue → wait-pickup → monitor-lifecycle →
  *   verify-pr → verify-linear → restart-resilience →
  *   collect-artifacts → cleanup
@@ -22,7 +22,7 @@ import { parse as parseYaml } from "yaml";
 import type { RunContext, PhaseResult, PhaseFn } from "./e2e-lib/types.js";
 import { e2eConfigSchema } from "./e2e-lib/types.js";
 import { errorMsg } from "./e2e-lib/helpers.js";
-import { preflight, cleanSlate, startSymphony, setupWizard } from "./e2e-lib/phases-startup.js";
+import { preflight, cleanSlate, startSymphony } from "./e2e-lib/phases-startup.js";
 import { createIssue, waitPickup, monitorLifecycle, restartResilience } from "./e2e-lib/phases-lifecycle.js";
 import { verifyPr, verifyLinear, collectArtifacts, cleanup, shutdownSymphony } from "./e2e-lib/phases-teardown.js";
 import {
@@ -70,7 +70,6 @@ const PHASES: PhaseEntry[] = [
   { name: "preflight", fn: preflight },
   { name: "clean-slate", fn: cleanSlate },
   { name: "start-symphony", fn: startSymphony },
-  { name: "setup-wizard", fn: setupWizard },
   { name: "create-issue", fn: createIssue },
   { name: "wait-pickup", fn: waitPickup },
   { name: "monitor-lifecycle", fn: monitorLifecycle },
@@ -201,6 +200,7 @@ async function main(): Promise<number> {
     keep: values.keep ?? false,
     skipBuild: values["skip-build"] ?? false,
     keepSymphony: values["keep-symphony"] ?? false,
+    masterKey: null,
   };
 
   // Signal handling

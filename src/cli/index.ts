@@ -65,7 +65,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       throw error;
     }
   }
-  const configStore = new ConfigStore(workflowPath, logger.child({ component: "config" }), {
+  const configStore = new ConfigStore(logger.child({ component: "config" }), {
     overlayStore,
     secretsStore,
   });

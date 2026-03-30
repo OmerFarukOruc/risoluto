@@ -9,6 +9,7 @@ import {
   createAttemptStore,
   createIssueConfigStore,
   createLogger,
+  createResolveTemplate,
 } from "./orchestrator-fixtures.js";
 
 afterEach(() => {
@@ -40,6 +41,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -95,6 +97,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     const seededView = {
@@ -171,6 +174,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -256,6 +260,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -312,6 +317,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -376,6 +382,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -484,6 +491,7 @@ describe("Orchestrator — advanced scenarios", () => {
       gitManager,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -523,6 +531,7 @@ describe("Orchestrator — eventBus emissions", () => {
       eventBus: eventBus as never,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -556,6 +565,7 @@ describe("Orchestrator — eventBus emissions", () => {
       eventBus: eventBus as never,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     // updateIssueModelSelection requires an issue detail to exist.

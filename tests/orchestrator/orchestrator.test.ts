@@ -9,6 +9,7 @@ import {
   createAttemptStore,
   createIssueConfigStore,
   createLogger,
+  createResolveTemplate,
 } from "./orchestrator-fixtures.js";
 
 afterEach(() => {
@@ -72,6 +73,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -121,6 +123,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -191,6 +194,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -255,6 +259,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -328,6 +333,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -388,6 +394,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -446,6 +453,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -514,6 +522,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();
@@ -578,6 +587,7 @@ describe("Orchestrator", () => {
       agentRunner,
       issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
+      resolveTemplate: createResolveTemplate(),
     });
 
     await orchestrator.start();

@@ -84,6 +84,7 @@ export function createOrchestratorMock(): Orchestrator {
     agentRunner: createAgentRunnerMock(),
     issueConfigStore: IssueConfigStore.create(null),
     logger,
+    resolveTemplate: async (_identifier: string) => "",
   });
   vi.spyOn(orchestrator, "start").mockResolvedValue(undefined);
   vi.spyOn(orchestrator, "stop").mockResolvedValue(undefined);

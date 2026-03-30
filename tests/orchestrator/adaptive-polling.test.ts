@@ -10,6 +10,7 @@ import {
   createConfigStore,
   createAttemptStore,
   createIssueConfigStore,
+  createResolveTemplate,
 } from "./orchestrator-fixtures.js";
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,7 @@ function createOrchestrator(options: { webhookHealthTracker?: WebhookHealthTrack
     issueConfigStore: createIssueConfigStore(),
     webhookHealthTracker: options.webhookHealthTracker,
     logger: makeLogger() as never,
+    resolveTemplate: createResolveTemplate(),
   });
 
   return { orchestrator, config };

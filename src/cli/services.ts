@@ -129,6 +129,17 @@ export async function createServices(
   const auditLogger = persistence.db ? new AuditLogger(persistence.db, eventBus) : undefined;
   const issueConfigStore = IssueConfigStore.create(persistence.db);
 
+  const resolveTemplate = async (identifier: string): Promise<string> => {
+    if (templateStore) {
+      const override = templateStore.get(identifier);
+      if (override) return override.body;
+      const def = templateStore.get("default");
+      if (def) return def.body;
+    }
+    logger.warn({ identifier }, "no prompt template found — using empty string");
+    return "";
+  };
+
   const orchestrator = new Orchestrator({
     attemptStore: persistence.attemptStore,
     configStore,
@@ -142,6 +153,7 @@ export async function createServices(
     gitManager,
     webhookHealthTracker,
     logger: logger.child({ component: "orchestrator" }),
+    resolveTemplate,
   });
 
   const httpServer = new HttpServer({

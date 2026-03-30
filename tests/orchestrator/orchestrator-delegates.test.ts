@@ -55,6 +55,7 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): OrchestratorDeps {
       clearTemplateId: vi.fn(),
     } as never,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), child: vi.fn() } as never,
+    resolveTemplate: vi.fn().mockResolvedValue("Work on {{ issue.identifier }}"),
     ...overrides,
   };
 }

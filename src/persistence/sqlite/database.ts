@@ -94,13 +94,6 @@ const CREATE_TABLES_SQL = `
     updated_at TEXT NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS issue_config (
-    identifier       TEXT PRIMARY KEY,
-    template_id      TEXT REFERENCES prompt_templates(id),
-    model            TEXT,
-    reasoning_effort TEXT CHECK(reasoning_effort IS NULL OR reasoning_effort IN ('none','minimal','low','medium','high','xhigh'))
-  );
-
   CREATE TABLE IF NOT EXISTS config_history (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     table_name      TEXT NOT NULL,
@@ -120,7 +113,7 @@ const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS issue_config (
     identifier        TEXT PRIMARY KEY,
     model             TEXT,
-    reasoning_effort  TEXT,
+    reasoning_effort  TEXT CHECK(reasoning_effort IS NULL OR reasoning_effort IN ('none','minimal','low','medium','high','xhigh')),
     template_id       TEXT
   );
 

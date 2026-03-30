@@ -128,7 +128,7 @@ export const promptTemplates = sqliteTable("prompt_templates", {
  */
 export const issueConfig = sqliteTable("issue_config", {
   identifier: text("identifier").primaryKey(),
-  templateId: text("template_id").references(() => promptTemplates.id),
+  templateId: text("template_id"),
   model: text("model"),
   reasoningEffort: text("reasoning_effort", {
     enum: ["none", "minimal", "low", "medium", "high", "xhigh"],

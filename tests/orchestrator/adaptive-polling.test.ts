@@ -5,7 +5,12 @@ import type { WebhookHealthTracker } from "../../src/webhook/health-tracker.js";
 import type { WebhookHealthState } from "../../src/webhook/types.js";
 import { serializeSnapshot } from "../../src/http/route-helpers.js";
 import type { RuntimeSnapshot } from "../../src/core/types.js";
-import { createConfig, createConfigStore, createAttemptStore } from "./orchestrator-fixtures.js";
+import {
+  createConfig,
+  createConfigStore,
+  createAttemptStore,
+  createIssueConfigStore,
+} from "./orchestrator-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -70,6 +75,7 @@ function createOrchestrator(options: { webhookHealthTracker?: WebhookHealthTrack
     tracker: makeTracker() as never,
     workspaceManager: makeWorkspaceManager() as never,
     agentRunner: makeAgentRunner() as never,
+    issueConfigStore: createIssueConfigStore(),
     webhookHealthTracker: options.webhookHealthTracker,
     logger: makeLogger() as never,
   });

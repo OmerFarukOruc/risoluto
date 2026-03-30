@@ -121,6 +121,7 @@ export interface OrchestratorState {
   recentEvents: RecentEvent[];
   rateLimits: unknown;
   issueModelOverrides: Map<string, Omit<ModelSelection, "source">>;
+  issueTemplateOverrides: Map<string, string>;
   operatorAbortSuppressions?: Map<string, string>;
   sessionUsageTotals: Map<string, TokenUsageSnapshot>;
   codexTotals: { inputTokens: number; outputTokens: number; totalTokens: number; secondsRunning: number };

@@ -14,6 +14,7 @@ import { Orchestrator } from "../orchestrator/orchestrator.js";
 import { DefaultWebhookHealthTracker, type WebhookHealthTracker } from "../webhook/health-tracker.js";
 import { WebhookRegistrar } from "../webhook/registrar.js";
 import { initPersistenceRuntime } from "../persistence/sqlite/runtime.js";
+import { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
 import { PathRegistry } from "../workspace/path-registry.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { createTracker } from "../tracker/factory.js";
@@ -126,6 +127,7 @@ export async function createServices(
     ? new PromptTemplateStore(persistence.db, logger.child({ component: "templates" }))
     : undefined;
   const auditLogger = persistence.db ? new AuditLogger(persistence.db, eventBus) : undefined;
+  const issueConfigStore = IssueConfigStore.create(persistence.db);
 
   const orchestrator = new Orchestrator({
     attemptStore: persistence.attemptStore,
@@ -133,6 +135,7 @@ export async function createServices(
     tracker,
     workspaceManager,
     agentRunner,
+    issueConfigStore,
     eventBus,
     notificationManager,
     repoRouter,

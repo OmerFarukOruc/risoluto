@@ -117,6 +117,13 @@ const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_config_history_table_key ON config_history(table_name, key);
   CREATE INDEX IF NOT EXISTS idx_config_history_timestamp ON config_history(timestamp);
 
+  CREATE TABLE IF NOT EXISTS issue_config (
+    identifier        TEXT PRIMARY KEY,
+    model             TEXT,
+    reasoning_effort  TEXT,
+    template_id       TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS schema_version (
     version    INTEGER PRIMARY KEY,
     applied_at TEXT NOT NULL

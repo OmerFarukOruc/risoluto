@@ -108,6 +108,7 @@ export class Orchestrator implements OrchestratorPort {
       recentEvents: [],
       rateLimits: null,
       issueModelOverrides: new DirtyTrackingMap(markDirty),
+      issueTemplateOverrides: new DirtyTrackingMap(markDirty),
       operatorAbortSuppressions: new Map(),
       sessionUsageTotals: new DirtyTrackingMap(markDirty),
       codexTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
@@ -143,6 +144,18 @@ export class Orchestrator implements OrchestratorPort {
       completedViews: this._state.completedViews,
       deps: { attemptStore: this.deps.attemptStore, logger: this.deps.logger },
     });
+    const configRows = this.deps.issueConfigStore.loadAll();
+    for (const row of configRows) {
+      if (row.model !== null) {
+        this._state.issueModelOverrides.set(row.identifier, {
+          model: row.model,
+          reasoningEffort: (row.reasoningEffort as ReasoningEffort) ?? undefined,
+        });
+      }
+      if (row.templateId !== null) {
+        this._state.issueTemplateOverrides.set(row.identifier, row.templateId);
+      }
+    }
     this.scheduleTick(0);
   }
 
@@ -260,6 +273,7 @@ export class Orchestrator implements OrchestratorPort {
         retryEntries: this._state.retryEntries,
         pushEvent: (event) => this.ctx().pushEvent(event),
         requestRefresh: (r) => this.requestRefresh(r),
+        issueConfigStore: this.deps.issueConfigStore,
       },
       input,
     );
@@ -271,6 +285,20 @@ export class Orchestrator implements OrchestratorPort {
       });
     }
     return result;
+  }
+
+  getTemplateOverride(identifier: string): string | null {
+    return this._state.issueTemplateOverrides.get(identifier) ?? null;
+  }
+
+  updateIssueTemplateOverride(identifier: string, templateId: string): void {
+    this._state.issueTemplateOverrides.set(identifier, templateId);
+    this.deps.issueConfigStore.upsertTemplateId(identifier, templateId);
+  }
+
+  clearIssueTemplateOverride(identifier: string): void {
+    this._state.issueTemplateOverrides.delete(identifier);
+    this.deps.issueConfigStore.clearTemplateId(identifier);
   }
 
   async steerIssue(identifier: string, message: string): Promise<{ ok: boolean } | null> {

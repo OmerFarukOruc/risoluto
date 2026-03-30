@@ -7,6 +7,7 @@ import {
   createConfig,
   createConfigStore,
   createAttemptStore,
+  createIssueConfigStore,
   createLogger,
 } from "./orchestrator-fixtures.js";
 
@@ -37,6 +38,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -91,6 +93,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -166,6 +169,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -250,6 +254,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -305,6 +310,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -368,6 +374,7 @@ describe("Orchestrator — advanced scenarios", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -475,6 +482,7 @@ describe("Orchestrator — advanced scenarios", () => {
       agentRunner,
       repoRouter,
       gitManager,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -513,6 +521,7 @@ describe("Orchestrator — eventBus emissions", () => {
       } as unknown as WorkspaceManager,
       agentRunner: { runAttempt: vi.fn() } as unknown as AgentRunner,
       eventBus: eventBus as never,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -545,6 +554,7 @@ describe("Orchestrator — eventBus emissions", () => {
       } as unknown as WorkspaceManager,
       agentRunner: { runAttempt: vi.fn() } as unknown as AgentRunner,
       eventBus: eventBus as never,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 

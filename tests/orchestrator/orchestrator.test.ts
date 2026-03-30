@@ -7,6 +7,7 @@ import {
   createConfig,
   createConfigStore,
   createAttemptStore,
+  createIssueConfigStore,
   createLogger,
 } from "./orchestrator-fixtures.js";
 
@@ -69,6 +70,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -117,6 +119,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -186,6 +189,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -249,6 +253,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -321,6 +326,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -380,6 +386,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -437,6 +444,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -504,6 +512,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 
@@ -567,6 +576,7 @@ describe("Orchestrator", () => {
       tracker,
       workspaceManager,
       agentRunner,
+      issueConfigStore: createIssueConfigStore(),
       logger: createLogger(),
     });
 

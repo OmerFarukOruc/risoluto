@@ -7,6 +7,7 @@ import type { TrackerPort } from "../../src/tracker/port.js";
 import { WorkspaceManager } from "../../src/workspace/manager.js";
 import { AgentRunner } from "../../src/agent-runner/index.js";
 import { AttemptStore } from "../../src/core/attempt-store.js";
+import type { IssueConfigStore } from "../../src/persistence/sqlite/issue-config-store.js";
 
 export function createIssue(state = "In Progress"): Issue {
   return {
@@ -111,6 +112,15 @@ export function createAttemptStore(): AttemptStore {
     sumCostUsd: vi.fn(() => 0),
     sumArchivedTokens: vi.fn(() => ({ inputTokens: 0, outputTokens: 0, totalTokens: 0 })),
   } as unknown as AttemptStore;
+}
+
+export function createIssueConfigStore(): IssueConfigStore {
+  return {
+    loadAll: vi.fn(() => []),
+    upsertModel: vi.fn(),
+    upsertTemplateId: vi.fn(),
+    clearTemplateId: vi.fn(),
+  } as unknown as IssueConfigStore;
 }
 
 export { createLogger };

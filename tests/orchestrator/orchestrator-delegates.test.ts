@@ -24,6 +24,7 @@ function makeState(overrides: Partial<OrchestratorState> = {}): OrchestratorStat
     recentEvents: [],
     rateLimits: null,
     issueModelOverrides: new Map(),
+    issueTemplateOverrides: new Map(),
     sessionUsageTotals: new Map(),
     codexTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
     stallEvents: [],
@@ -47,6 +48,12 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): OrchestratorDeps {
     tracker: {} as never,
     workspaceManager: {} as never,
     agentRunner: {} as never,
+    issueConfigStore: {
+      loadAll: vi.fn(() => []),
+      upsertModel: vi.fn(),
+      upsertTemplateId: vi.fn(),
+      clearTemplateId: vi.fn(),
+    } as never,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), child: vi.fn() } as never,
     ...overrides,
   };

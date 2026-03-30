@@ -18,6 +18,7 @@ import type {
 } from "../core/types.js";
 import type { StopSignal } from "../core/signal-detection.js";
 import { WorkspaceManager } from "../workspace/manager.js";
+import type { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
 
 export interface RunningEntry {
   runId: string;
@@ -50,6 +51,7 @@ export interface OrchestratorDeps {
   tracker: TrackerPort;
   workspaceManager: WorkspaceManager;
   agentRunner: RunAttemptDispatcher;
+  issueConfigStore: IssueConfigStore;
   eventBus?: TypedEventBus<SymphonyEventMap>;
   notificationManager?: NotificationManager;
   repoRouter?: Pick<RepoRouter, "matchIssue">;

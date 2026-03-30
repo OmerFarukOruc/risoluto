@@ -190,7 +190,7 @@ The config file is YAML with Zod validation. Values starting with `$` are expand
 
 ## Phase Pipeline
 
-The test runs 11 phases sequentially. On the first failure, remaining phases skip — except `collect-artifacts` and `cleanup`, which always run.
+The test runs 12 phases sequentially. On the first failure, remaining phases skip — except `collect-artifacts` and `cleanup`, which always run.
 
 | # | Phase | What it does |
 |---|-------|--------------|
@@ -200,11 +200,12 @@ The test runs 11 phases sequentially. On the first failure, remaining phases ski
 | 3 | **create-issue** | Creates a test issue in Linear via GraphQL in "In Progress" state |
 | 4 | **wait-pickup** | Polls `/api/v1/state` until the issue appears in `running[]` |
 | 5 | **monitor-lifecycle** | Polls state + attempts until the agent completes or times out |
-| 6 | **verify-pr** | Validates the PR exists, has commits, and has a non-empty diff |
-| 7 | **verify-linear** | Confirms the Linear issue reached "Done" state with a Symphony comment |
-| 8 | **restart-resilience** | Restarts Symphony and verifies the completed issue is NOT re-dispatched |
-| 9 | **collect-artifacts** | Copies `.symphony/attempts/`, `events/`, and `symphony.db` to the report dir |
-| 10 | **cleanup** | Closes the PR (with branch deletion) and cancels the Linear issue |
+| 6 | **verify-api-surface** | Hits all API endpoints and validates response shapes (state, issue detail, attempts, runtime, models, metrics, workspaces, git context, SSE) |
+| 7 | **verify-pr** | Validates the PR exists, has commits, and has a non-empty diff |
+| 8 | **verify-linear** | Confirms the Linear issue reached "Done" state with a Symphony comment |
+| 9 | **restart-resilience** | Restarts Symphony and verifies the completed issue is NOT re-dispatched |
+| 10 | **collect-artifacts** | Copies `.symphony/attempts/`, `events/`, and `symphony.db` to the report dir |
+| 11 | **cleanup** | Closes the PR (with branch deletion) and cancels the Linear issue |
 
 ---
 
@@ -215,6 +216,7 @@ Each run creates a report directory:
 ```
 e2e-reports/{run-id}/
   e2e-summary.json        # Machine-readable verdict + metadata
+  e2e-junit.xml           # JUnit XML for GitHub Actions rendering
   events.jsonl            # Timestamped event log (one JSON per line)
   symphony-stdout.log     # Symphony process stdout
   symphony-stderr.log     # Symphony process stderr
@@ -224,6 +226,8 @@ e2e-reports/{run-id}/
     events/               # Copied from .symphony/events/
     symphony.db           # SQLite database (if present)
 ```
+
+The `e2e-junit.xml` file is included in the uploaded artifact for download. In CI, the `EnricoMi/publish-unit-test-result-action` step renders phase-level pass/fail results as check annotations on the commit.
 
 ### Summary JSON
 
@@ -343,30 +347,33 @@ After spawning, the test hits `/api/v1/state` to confirm the orchestrator is run
 
 ## CI Integration
 
-The E2E test requires real credentials and Docker, so it's not part of the standard CI pipeline. To add it:
+The E2E lifecycle test runs automatically on every push to `main`, gated behind the `build-and-test` quality check. It is **always non-blocking** (`continue-on-error: true`) — it reports status but never gates Docker push or other jobs.
 
-```yaml
-# Example GitHub Actions job
-e2e-lifecycle:
-  runs-on: ubuntu-latest
-  needs: build
-  if: github.event_name == 'workflow_dispatch'
-  env:
-    LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  steps:
-    - uses: actions/checkout@v4
-    - uses: pnpm/action-setup@v4
-    - run: pnpm install
-    - run: pnpm run build
-    - run: |
-        cp scripts/e2e-config.example.yaml scripts/e2e-config.yaml
-        # Patch config with CI values...
-        ./scripts/run-e2e.sh --skip-build --timeout 600
-    - uses: actions/upload-artifact@v4
-      with:
-        name: e2e-report
-        path: e2e-reports/
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `LINEAR_API_KEY` | Linear API key for creating/managing test issues |
+| `E2E_GITHUB_TOKEN` | GitHub PAT with `repo` scope for PR creation on the test repo |
+| `OPENAI_API_KEY` | OpenAI API key for Codex model access |
+| `CODEX_AUTH_JSON` | Base64-encoded contents of `~/.codex/auth.json` |
+
+Generate the `CODEX_AUTH_JSON` value:
+
+```bash
+base64 -w0 ~/.codex/auth.json
 ```
 
-> Use `workflow_dispatch` to run on-demand rather than on every push.
+### CI Config
+
+The job uses `scripts/e2e-config.ci.yaml` which references all credentials via `$ENV_VAR` syntax (no literal secrets). The config sets `source_home: "/tmp/codex-auth"` as a literal path because `resolveEnvValue` only handles single `$VAR` expansion.
+
+### Concurrency
+
+The job uses a concurrency group (`e2e-lifecycle`) with `cancel-in-progress: false` to prevent parallel runs from colliding on the shared test repo. Rapid pushes to main queue behind the current run — up to 30 minutes latency for subsequent push results.
+
+### Notes
+
+- Doc-only pushes matching the CI workflow's `paths-ignore` pattern skip the E2E job entirely
+- `OPENAI_API_KEY` is not validated at preflight; if missing, failure surfaces during `monitor-lifecycle` with an `AUTH_EXPIRED` diagnosis
+- JUnit results are published via `EnricoMi/publish-unit-test-result-action@v2` for in-commit check annotations

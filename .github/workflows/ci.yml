@@ -413,6 +413,60 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ── E2E Lifecycle Test (main only, non-blocking) ─────────────────────
+  # Runs the full E2E lifecycle test against real Linear, GitHub, and Codex
+  # APIs. Always non-blocking — never gates docker-push or other jobs.
+  # Doc-only pushes skip this via the workflow-level paths-ignore filter.
+  # With cancel-in-progress: false, rapid pushes queue (up to 30 min).
+  e2e-lifecycle:
+    name: E2E Lifecycle
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    concurrency:
+      group: e2e-lifecycle
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      checks: write
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/cache/restore@v5
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
+      - name: Decode Codex auth
+        run: mkdir -p /tmp/codex-auth && echo "$CODEX_AUTH_JSON" | base64 -d > /tmp/codex-auth/auth.json
+      - name: Run E2E lifecycle test
+        run: npx tsx scripts/e2e-lifecycle.ts --config scripts/e2e-config.ci.yaml --skip-build --timeout 600
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-lifecycle-report-${{ github.sha }}
+          path: e2e-reports/
+          retention-days: 14
+      - name: Publish JUnit results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: e2e-reports/**/e2e-junit.xml
+          check_name: "E2E Lifecycle Results"
+
   # ── Gate: single required check for branch protection ────────────────
   build-and-test:
     name: build-and-test

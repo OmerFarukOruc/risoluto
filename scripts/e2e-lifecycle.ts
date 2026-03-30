@@ -24,6 +24,7 @@ import { e2eConfigSchema } from "./e2e-lib/types.js";
 import { errorMsg } from "./e2e-lib/helpers.js";
 import { preflight, cleanSlate, startSymphony } from "./e2e-lib/phases-startup.js";
 import { createIssue, waitPickup, monitorLifecycle, restartResilience } from "./e2e-lib/phases-lifecycle.js";
+import { verifyApiSurface } from "./e2e-lib/phases-verification.js";
 import { verifyPr, verifyLinear, collectArtifacts, cleanup, shutdownSymphony } from "./e2e-lib/phases-teardown.js";
 import {
   JsonlWriter,
@@ -31,6 +32,7 @@ import {
   printFinalReport,
   generateSummary,
   writeSummaryFile,
+  writeJunitXml,
   diagnoseProblem,
 } from "./e2e-lib/reporting.js";
 
@@ -73,6 +75,7 @@ const PHASES: PhaseEntry[] = [
   { name: "create-issue", fn: createIssue },
   { name: "wait-pickup", fn: waitPickup },
   { name: "monitor-lifecycle", fn: monitorLifecycle },
+  { name: "verify-api-surface", fn: verifyApiSurface },
   { name: "verify-pr", fn: verifyPr },
   { name: "verify-linear", fn: verifyLinear },
   { name: "restart-resilience", fn: restartResilience },
@@ -238,6 +241,7 @@ async function main(): Promise<number> {
   const diagnosis = failed ? diagnoseProblem(stderrLog) : null;
   const summary = generateSummary(ctx, results, diagnosis);
   writeSummaryFile(reportDir, summary);
+  writeJunitXml(reportDir, results);
 
   console.log("");
   printFinalReport(ctx, results, diagnosis);

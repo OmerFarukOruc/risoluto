@@ -73,6 +73,8 @@ export interface SnapshotBuilderCallbacks {
   getStallEvents?: () => StallEventView[];
   getSystemHealth?: () => SystemHealth | null;
   getWebhookHealth?: () => RuntimeSnapshot["webhookHealth"] | undefined;
+  getTemplateOverride?: (identifier: string) => string | null;
+  getTemplateName?: (templateId: string) => string | null;
 }
 
 // Builds a runtime snapshot from orchestrator state.
@@ -178,8 +180,13 @@ export function buildIssueDetail(
     enriched.startedAt = archivedAttempts.at(0)?.startedAt ?? null;
   }
 
+  const templateId = callbacks.getTemplateOverride ? callbacks.getTemplateOverride(identifier) : null;
+  const templateName = templateId && callbacks.getTemplateName ? callbacks.getTemplateName(templateId) : null;
+
   return {
     ...enriched,
+    configuredTemplateId: templateId,
+    configuredTemplateName: templateName,
     recentEvents: relatedEvents,
     attempts: archivedAttempts.map((attempt) => buildAttemptSummary(attempt)),
     currentAttemptId: runningEntry?.runId ?? null,

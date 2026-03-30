@@ -108,6 +108,7 @@ export class Orchestrator implements OrchestratorPort {
       recentEvents: [],
       rateLimits: null,
       issueModelOverrides: new DirtyTrackingMap(markDirty),
+      issueTemplateOverrides: new DirtyTrackingMap(markDirty),
       operatorAbortSuppressions: new Map(),
       sessionUsageTotals: new DirtyTrackingMap(markDirty),
       codexTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
@@ -282,6 +283,24 @@ export class Orchestrator implements OrchestratorPort {
     return { ok };
   }
 
+  updateIssueTemplateOverride(identifier: string, templateId: string): boolean {
+    const detail = this.getIssueDetail(identifier);
+    if (!detail) return false;
+    this._state.issueTemplateOverrides.set(identifier, templateId);
+    return true;
+  }
+
+  clearIssueTemplateOverride(identifier: string): boolean {
+    const detail = this.getIssueDetail(identifier);
+    if (!detail) return false;
+    this._state.issueTemplateOverrides.delete(identifier);
+    return true;
+  }
+
+  getTemplateOverride(identifier: string): string | null {
+    return this._state.issueTemplateOverrides.get(identifier) ?? null;
+  }
+
   getEffectivePollingInterval(): number {
     const tracker = this.deps.webhookHealthTracker;
     if (!tracker) return this.deps.configStore.getConfig().polling.intervalMs;
@@ -344,6 +363,8 @@ export class Orchestrator implements OrchestratorPort {
       getRateLimits: () => this._state.rateLimits,
       getCodexTotals: () => this._state.codexTotals,
       getStallEvents: () => this._state.stallEvents,
+      getTemplateOverride: (identifier: string) => this._state.issueTemplateOverrides.get(identifier) ?? null,
+      getTemplateName: (templateId: string) => this.deps.templateStore?.get(templateId)?.name ?? null,
       getSystemHealth: () => {
         const h = this.watchdog.getHealth();
         return { status: h.status, checkedAt: h.checkedAt, runningCount: h.runningCount, message: h.message };

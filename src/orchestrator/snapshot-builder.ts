@@ -87,7 +87,9 @@ export function buildSnapshot(deps: SnapshotBuilderDeps, callbacks: SnapshotBuil
     buildRetryIssueView(entry, callbacks.resolveModelSelection),
   );
   const queued = callbacks.getQueuedViews();
-  const completed = [...callbacks.getCompletedViews().values()].slice(0, 25);
+  const completed = [...callbacks.getCompletedViews().values()]
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(0, 25);
   const codexTotals = callbacks.getCodexTotals();
 
   return {
@@ -111,7 +113,7 @@ export function buildSnapshot(deps: SnapshotBuilderDeps, callbacks: SnapshotBuil
       outputTokens: computeArchivedTokenField(deps.attemptStore, codexTotals, "outputTokens"),
       totalTokens: computeArchivedTokenField(deps.attemptStore, codexTotals, "totalTokens"),
       secondsRunning: computeSecondsRunning(deps.attemptStore, () => callbacks.getRunningEntries()),
-      costUsd: computeCostUsd(deps.attemptStore),
+      costUsd: computeCostUsd(deps.attemptStore, () => callbacks.getRunningEntries()),
     },
     rateLimits: callbacks.getRateLimits(),
     recentEvents: [...callbacks.getRecentEvents()],
@@ -234,9 +236,21 @@ export function computeSecondsRunning(
   return archivedSeconds + liveSeconds;
 }
 
-// Computes total cost in USD from archived attempts.
-export function computeCostUsd(attemptStore: SnapshotBuilderDeps["attemptStore"]): number {
-  return attemptStore.sumCostUsd();
+// Computes total cost in USD from archived attempts plus in-flight running workers.
+export function computeCostUsd(
+  attemptStore: SnapshotBuilderDeps["attemptStore"],
+  getRunningEntries?: () => Map<string, RunningEntry>,
+): number {
+  const archivedCost = attemptStore.sumCostUsd();
+  if (!getRunningEntries) return archivedCost;
+  const liveCost = [...getRunningEntries().values()].reduce((total, entry) => {
+    const cost = computeAttemptCostUsd({
+      model: entry.modelSelection.model,
+      tokenUsage: entry.tokenUsage ?? null,
+    });
+    return total + (cost ?? 0);
+  }, 0);
+  return archivedCost + liveCost;
 }
 
 // Returns the greater of the archived token count and the live in-memory counter.

@@ -8,6 +8,13 @@ const PRIORITY_ORDER: Record<string, number> = {
   none: 4,
 };
 
+/** Statuses that represent a terminal outcome — no longer need operator attention. */
+const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled", "timed_out", "stalled"]);
+
+function isTerminalStatus(status: string): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
 /** Linear numeric priority mapping: 0=none, 1=urgent, 2=high, 3=medium, 4=low */
 const LINEAR_PRIORITY_MAP: Record<number, string> = {
   0: "none",
@@ -78,7 +85,7 @@ export function sortIssues(issues: RuntimeIssueView[], mode: string): RuntimeIss
 export function buildAttentionList(columns: WorkflowColumn[]): RuntimeIssueView[] {
   const issues = columns.flatMap((column) => column.issues ?? []);
   return [...issues]
-    .filter((issue) => issue.status !== "completed")
+    .filter((issue) => !isTerminalStatus(issue.status))
     .sort((left, right) => {
       const leftBlocked = left.status === "blocked" ? 0 : 1;
       const rightBlocked = right.status === "blocked" ? 0 : 1;

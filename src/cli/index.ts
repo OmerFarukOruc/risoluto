@@ -12,7 +12,7 @@ import { getErrorTracker, initErrorTracking } from "../core/error-tracking.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import { SecretsStore } from "../secrets/store.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { ValidationError } from "../core/types.js";
 import type { WebhookHealthTracker } from "../webhook/health-tracker.js";
 import type { WebhookRegistrar } from "../webhook/registrar.js";
@@ -144,7 +144,7 @@ function parseCliArgs(argv: string[]) {
 
   const logger = createLogger();
   initErrorTracking(logger.child({ component: "error-tracking" }));
-  const dataDir = path.resolve(parsed.values["data-dir"] ?? process.env.DATA_DIR ?? path.join(homedir(), ".symphony"));
+  const dataDir = path.resolve(parsed.values["data-dir"] ?? process.env.DATA_DIR ?? path.join(homedir(), ".risoluto"));
   const archiveDir = path.resolve(path.join(dataDir, "archives"));
   const selectedPort = parsePortValue(parsed.values.port);
   return { dataDir, archiveDir, selectedPort, logger };
@@ -193,7 +193,7 @@ function buildShutdown({
   orchestrator: OrchestratorPort;
   configStore: ConfigStore;
   overlayStore: ConfigOverlayStore;
-  eventBus: TypedEventBus<SymphonyEventMap>;
+  eventBus: TypedEventBus<RisolutoEventMap>;
   persistence: PersistenceRuntime;
   webhookHealthTracker?: WebhookHealthTracker;
   webhookRegistrar?: WebhookRegistrar;

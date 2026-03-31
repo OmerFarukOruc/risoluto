@@ -13,9 +13,9 @@ import path from "node:path";
 import YAML from "yaml";
 import { eq } from "drizzle-orm";
 
-import type { SymphonyDatabase } from "../persistence/sqlite/database.js";
+import type { RisolutoDatabase } from "../persistence/sqlite/database.js";
 import { config, promptTemplates } from "../persistence/sqlite/schema.js";
-import type { SymphonyLogger } from "../core/types.js";
+import type { RisolutoLogger } from "../core/types.js";
 import { loadWorkflowDefinition } from "../workflow/loader.js";
 import { isRecord } from "../utils/type-guards.js";
 import { DEFAULT_CONFIG_SECTIONS, DEFAULT_PROMPT_TEMPLATE } from "./defaults.js";
@@ -30,7 +30,7 @@ interface ImportResult {
 /**
  * Seed default config sections into the DB if the config table is empty.
  */
-export function seedDefaults(db: SymphonyDatabase): void {
+export function seedDefaults(db: RisolutoDatabase): void {
   const now = new Date().toISOString();
 
   const existing = db.select().from(config).limit(1).all();
@@ -75,7 +75,7 @@ export function seedDefaults(db: SymphonyDatabase): void {
  * Import legacy files into the DB. Only runs once — guarded by
  * system.legacyImportVersion in the config table.
  */
-function isAlreadyImported(db: SymphonyDatabase): boolean {
+function isAlreadyImported(db: RisolutoDatabase): boolean {
   const systemRow = db.select().from(config).where(eq(config.key, "system")).get();
   if (!systemRow) return false;
   const systemConfig = JSON.parse(systemRow.value) as Record<string, unknown>;
@@ -85,7 +85,7 @@ function isAlreadyImported(db: SymphonyDatabase): boolean {
 async function loadWorkflowSource(
   workflowPath: string | null | undefined,
   dataDir: string,
-  logger: SymphonyLogger,
+  logger: RisolutoLogger,
 ): Promise<{ merged: Record<string, unknown>; promptBody: string | null; sources: string[] }> {
   const sources: string[] = [];
   let merged: Record<string, unknown> = {};
@@ -113,7 +113,7 @@ async function loadWorkflowSource(
 async function loadOverlaySource(
   dataDir: string,
   base: Record<string, unknown>,
-  logger: SymphonyLogger,
+  logger: RisolutoLogger,
 ): Promise<{ merged: Record<string, unknown>; overlayPath: string | null }> {
   const overlayPath = path.join(dataDir, "config", "overlay.yaml");
   try {
@@ -131,7 +131,7 @@ async function loadOverlaySource(
   return { merged: base, overlayPath: null };
 }
 
-function writeSectionRows(db: SymphonyDatabase, merged: Record<string, unknown>, now: string): number {
+function writeSectionRows(db: RisolutoDatabase, merged: Record<string, unknown>, now: string): number {
   let count = 0;
   for (const sectionKey of Object.keys(DEFAULT_CONFIG_SECTIONS)) {
     if (sectionKey === "system") continue;
@@ -149,7 +149,7 @@ function writeSectionRows(db: SymphonyDatabase, merged: Record<string, unknown>,
   return count;
 }
 
-function recordImportMetadata(db: SymphonyDatabase, sources: string[], now: string): void {
+function recordImportMetadata(db: RisolutoDatabase, sources: string[], now: string): void {
   const systemRow = db.select().from(config).where(eq(config.key, "system")).get();
   const currentSystem = systemRow ? (JSON.parse(systemRow.value) as Record<string, unknown>) : {};
   currentSystem.legacyImportVersion = 1;
@@ -165,9 +165,9 @@ function recordImportMetadata(db: SymphonyDatabase, sources: string[], now: stri
  * system.legacyImportVersion in the config table.
  */
 export async function importLegacyFiles(
-  db: SymphonyDatabase,
+  db: RisolutoDatabase,
   dataDir: string,
-  logger: SymphonyLogger,
+  logger: RisolutoLogger,
   workflowPath?: string | null,
 ): Promise<ImportResult> {
   if (isAlreadyImported(db)) {
@@ -207,7 +207,7 @@ export async function importLegacyFiles(
  * Checks process.cwd() first, then falls back to the parent of dataDir.
  */
 function findLegacyWorkflow(dataDir: string): string | null {
-  // Check CWD first — covers the common case where the user runs symphony
+  // Check CWD first — covers the common case where the user runs risoluto
   // from the project root that contains WORKFLOW.md.
   const cwd = process.cwd();
   const cwdCandidates = [
@@ -225,7 +225,7 @@ function findLegacyWorkflow(dataDir: string): string | null {
     }
   }
 
-  // Fall back: dataDir is typically .symphony/ — WORKFLOW.md is one level up
+  // Fall back: dataDir is typically .risoluto/ — WORKFLOW.md is one level up
   const parentDir = path.dirname(dataDir);
   if (parentDir === cwd) {
     // Already checked this directory above; avoid redundant probes.

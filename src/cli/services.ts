@@ -1,7 +1,7 @@
 import { AuditLogger } from "../audit/logger.js";
 import { TypedEventBus } from "../core/event-bus.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
-import type { SymphonyLogger, WebhookConfig } from "../core/types.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
+import type { RisolutoLogger, WebhookConfig } from "../core/types.js";
 import { PromptTemplateStore } from "../prompt/store.js";
 import { createGitHubToolProvider, createRepoRouterProvider } from "./runtime-providers.js";
 import type { ConfigOverlayPort } from "../config/overlay.js";
@@ -29,7 +29,7 @@ import { WorkspaceManager } from "../workspace/manager.js";
  */
 export function evaluateWebhookConfig(
   webhookConfig: WebhookConfig | null | undefined,
-  logger: SymphonyLogger,
+  logger: RisolutoLogger,
 ): boolean {
   if (webhookConfig?.webhookUrl && webhookConfig.webhookSecret) {
     logger.info({ webhookUrl: webhookConfig.webhookUrl }, "webhook mode enabled — waiting for first verified delivery");
@@ -91,7 +91,7 @@ export async function createServices(
     logger,
   });
 
-  const eventBus = new TypedEventBus<SymphonyEventMap>();
+  const eventBus = new TypedEventBus<RisolutoEventMap>();
   const notificationManager = new NotificationManager({ logger: logger.child({ component: "notifications" }) });
 
   // --- Webhook integration (manual receive mode) ---

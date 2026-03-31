@@ -103,5 +103,5 @@ export function sanitizeConfigValue(value: unknown, path: string[] = []): unknow
 }
 
 export function refreshReason(request: Request): string {
-  return request.get("x-symphony-reason") ?? "http_refresh";
+  return request.get("x-risoluto-reason") ?? "http_refresh";
 }

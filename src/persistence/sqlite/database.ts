@@ -12,7 +12,7 @@ import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
 import * as schema from "./schema.js";
 
-export type SymphonyDatabase = BetterSQLite3Database<typeof schema>;
+export type RisolutoDatabase = BetterSQLite3Database<typeof schema>;
 
 /** SQL statements that create the schema tables if they don't exist. */
 const CREATE_TABLES_SQL = `
@@ -128,9 +128,9 @@ const CREATE_TABLES_SQL = `
  * enables WAL journal mode, and ensures the schema tables exist.
  *
  * @param dbPath - File path for the SQLite database. Use ":memory:" for in-memory databases.
- * @returns A Drizzle ORM database instance with the Symphony schema.
+ * @returns A Drizzle ORM database instance with the Risoluto schema.
  */
-export function openDatabase(dbPath: string): SymphonyDatabase {
+export function openDatabase(dbPath: string): RisolutoDatabase {
   const sqlite = new BetterSqlite3(dbPath);
 
   sqlite.pragma("journal_mode = WAL");
@@ -159,7 +159,7 @@ export function openDatabase(dbPath: string): SymphonyDatabase {
  * Drizzle wraps the raw `better-sqlite3` handle; this function extracts
  * the session and calls `.close()` on it to release file locks and flush WAL.
  */
-export function closeDatabase(db: SymphonyDatabase): void {
+export function closeDatabase(db: RisolutoDatabase): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = (db as any).session;
   if (session?.client?.close) {

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { sortAttemptsDesc, sumAttemptDurationSeconds } from "./attempt-store-port.js";
 import { computeAttemptCostUsd } from "./model-pricing.js";
-import type { AttemptEvent, AttemptRecord, SymphonyLogger } from "./types.js";
+import type { AttemptEvent, AttemptRecord, RisolutoLogger } from "./types.js";
 import { toErrorString } from "../utils/type-guards.js";
 
 export class AttemptStore {
@@ -16,7 +16,7 @@ export class AttemptStore {
 
   constructor(
     private readonly baseDir: string,
-    private readonly logger: SymphonyLogger,
+    private readonly logger: RisolutoLogger,
   ) {}
 
   async start(): Promise<void> {

@@ -7,8 +7,8 @@
  */
 
 import type { TypedEventBus } from "../core/event-bus.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
-import type { SymphonyDatabase } from "../persistence/sqlite/database.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
+import type { RisolutoDatabase } from "../persistence/sqlite/database.js";
 import { configHistory } from "../persistence/sqlite/schema.js";
 
 const REDACTED = "[REDACTED]";
@@ -90,8 +90,8 @@ function buildWhereClause(options?: AuditQueryOptions): WhereResult {
 
 export class AuditLogger {
   constructor(
-    private readonly db: SymphonyDatabase,
-    private readonly eventBus?: TypedEventBus<SymphonyEventMap>,
+    private readonly db: RisolutoDatabase,
+    private readonly eventBus?: TypedEventBus<RisolutoEventMap>,
   ) {}
 
   log(entry: AuditEntry): void {

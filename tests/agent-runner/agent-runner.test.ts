@@ -66,6 +66,8 @@ async function createRunner(
     polling: { intervalMs: 30000 },
     workspace: {
       root: path.join(tempDir, "workspaces"),
+      strategy: "directory" as const,
+      branchPrefix: "risoluto/",
       hooks: {
         afterCreate: null,
         beforeRun: null,
@@ -79,6 +81,9 @@ async function createRunner(
       maxConcurrentAgentsByState: {},
       maxTurns: 2,
       maxRetryBackoffMs: 300000,
+      maxContinuationAttempts: 5,
+      successState: null,
+      stallTimeoutMs: 1200000,
     },
     codex: {
       command: `MOCK_CODEX_SCENARIO=${shellQuote(scenario)} MOCK_CODEX_LOG_PATH=${shellQuote(logPath)} ${shellQuote(process.execPath)} ${shellQuote(fixturePath)}`,
@@ -86,12 +91,15 @@ async function createRunner(
       reasoningEffort: "high",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
+      personality: "friendly",
       turnSandboxPolicy: { type: "dangerFullAccess" },
+      selfReview: false,
       readTimeoutMs: 3000,
       turnTimeoutMs: 10000,
       drainTimeoutMs: 0,
       startupTimeoutMs: 0,
       stallTimeoutMs: 10000,
+      structuredOutput: false,
       auth: {
         mode: "api_key",
         sourceHome: path.join(tempDir, "unused-auth-home"),
@@ -128,11 +136,11 @@ async function createRunner(
       linearClient,
       workspaceManager,
       logger: createLogger(),
-      spawnProcess: (_program, _args, options) =>
+      spawnProcess: ((_program: string, _args: readonly string[] | undefined, options: { cwd?: string } | undefined) =>
         spawn("bash", ["-lc", config.codex.command], {
           ...options,
           cwd: options?.cwd ?? undefined,
-        }),
+        })) as unknown as typeof spawn,
     }),
     workspaceManager,
     config,

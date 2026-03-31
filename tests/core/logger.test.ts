@@ -162,7 +162,6 @@ describe("logger", () => {
   describe("createLogger integration", () => {
     it("creates a logger with default format", () => {
       const logger = createLogger();
-      expect(logger).toBeDefined();
       expect(logger.info).toBeTypeOf("function");
       expect(logger.child).toBeTypeOf("function");
     });
@@ -170,7 +169,6 @@ describe("logger", () => {
     it("creates a logger with JSON format", () => {
       process.env.RISOLUTO_LOG_FORMAT = "json";
       const logger = createLogger();
-      expect(logger).toBeDefined();
       expect(logger.info).toBeTypeOf("function");
     });
 

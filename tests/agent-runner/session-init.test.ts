@@ -147,7 +147,7 @@ describe("initializeSession", () => {
       await expect(promise).rejects.toThrow(StartupTimeoutError);
 
       const timeoutEvent = events.find((e) => e.event === "container_startup_timeout");
-      expect(timeoutEvent).toBeDefined();
+      expect(timeoutEvent).toMatchObject({ event: "container_startup_timeout" });
       expect(timeoutEvent!.message).toContain("100ms");
 
       vi.useRealTimers();

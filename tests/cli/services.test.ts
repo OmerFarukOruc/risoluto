@@ -136,6 +136,9 @@ vi.mock("../../src/persistence/sqlite/issue-config-store.js", () => ({
 /*  Import under test (after all mocks registered)                     */
 /* ------------------------------------------------------------------ */
 import { createServices } from "../../src/cli/services.js";
+import type { ConfigStore } from "../../src/config/store.js";
+import type { ConfigOverlayPort } from "../../src/config/overlay.js";
+import type { SecretsStore } from "../../src/secrets/store.js";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -183,9 +186,9 @@ describe("createServices", () => {
 
   it("returns an object with all expected service properties", async () => {
     const result = await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -200,26 +203,26 @@ describe("createServices", () => {
 
   it("returns no null or undefined services", async () => {
     const result = await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
 
-    expect(result.orchestrator).toBeDefined();
-    expect(result.httpServer).toBeDefined();
-    expect(result.notificationManager).toBeDefined();
-    expect(result.linearClient).toBeDefined();
-    expect(result.eventBus).toBeDefined();
-    expect(result.persistence).toBeDefined();
+    expect(result).toHaveProperty("orchestrator");
+    expect(result).toHaveProperty("httpServer");
+    expect(result).toHaveProperty("notificationManager");
+    expect(result).toHaveProperty("linearClient");
+    expect(result).toHaveProperty("eventBus");
+    expect(result).toHaveProperty("persistence");
   });
 
   it("initializes persistence with the supplied archiveDir and logger", async () => {
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -229,9 +232,9 @@ describe("createServices", () => {
 
   it("does not pass workflowPath to persistence", async () => {
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -245,9 +248,9 @@ describe("createServices", () => {
     const configStore = makeConfigStore();
 
     await createServices(
-      configStore as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      configStore as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -257,9 +260,9 @@ describe("createServices", () => {
 
   it("constructs Orchestrator with wired dependencies", async () => {
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -283,7 +286,13 @@ describe("createServices", () => {
     const overlayStore = makeOverlayStore();
     const secretsStore = makeSecretsStore();
 
-    await createServices(configStore as never, overlayStore as never, secretsStore as never, archiveDir, logger);
+    await createServices(
+      configStore as unknown as ConfigStore,
+      overlayStore as unknown as ConfigOverlayPort,
+      secretsStore as unknown as SecretsStore,
+      archiveDir,
+      logger,
+    );
 
     expect(mockHttpServer).toHaveBeenCalledTimes(1);
     const args = mockHttpServer.mock.calls[0][0];
@@ -299,9 +308,9 @@ describe("createServices", () => {
 
   it("creates PromptTemplateStore and AuditLogger when persistence.db is present", async () => {
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -317,9 +326,9 @@ describe("createServices", () => {
     });
 
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -330,16 +339,16 @@ describe("createServices", () => {
 
   it("passes templateStore and auditLogger to HttpServer when db is present", async () => {
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
 
     const httpArgs = mockHttpServer.mock.calls[0][0];
-    expect(httpArgs.templateStore).toBeDefined();
-    expect(httpArgs.auditLogger).toBeDefined();
+    expect(httpArgs).toHaveProperty("templateStore");
+    expect(httpArgs).toHaveProperty("auditLogger");
   });
 
   it("passes undefined templateStore and auditLogger to HttpServer when db is null", async () => {
@@ -349,9 +358,9 @@ describe("createServices", () => {
     });
 
     await createServices(
-      makeConfigStore() as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      makeConfigStore() as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -384,9 +393,9 @@ describe("createServices", () => {
     });
 
     await createServices(
-      configStore as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      configStore as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );
@@ -425,9 +434,9 @@ describe("createServices", () => {
     });
 
     await createServices(
-      configStore as never,
-      makeOverlayStore() as never,
-      makeSecretsStore() as never,
+      configStore as unknown as ConfigStore,
+      makeOverlayStore() as unknown as ConfigOverlayPort,
+      makeSecretsStore() as unknown as SecretsStore,
       archiveDir,
       logger,
     );

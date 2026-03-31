@@ -332,7 +332,7 @@ Risoluto exposes a full JSON API at `http://localhost:4000/api/v1/`. Here are th
 
 ## ⚙️ Configuration
 
-Risoluto stores all config in `~/.risoluto/` (or the directory passed via `--log-dir`). There is no workflow file to edit — credentials and settings are managed through the WebUI setup wizard or the `/api/v1/config/overlay` API.
+Risoluto stores all config in `~/.risoluto/` (or the directory passed via `--data-dir`). There is no workflow file to edit — credentials and settings are managed through the WebUI setup wizard or the `/api/v1/config/overlay` API.
 
 ### Auth Modes
 

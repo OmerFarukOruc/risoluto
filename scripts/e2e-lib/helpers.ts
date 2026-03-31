@@ -243,7 +243,7 @@ export function buildSymphonyEnv(ctx: RunContext): Record<string, string> | unde
 /**
  * Spawn the Symphony server process.
  *
- * Runs `node dist/cli/index.js --log-dir {dataDir} --port {port}` with the
+ * Runs `node dist/cli/index.js --data-dir {dataDir} --port {port}` with the
  * current environment inherited plus any extra env vars (e.g. MASTER_KEY).
  * Symphony reads the pre-seeded overlay from `<dataDir>/config/overlay.yaml`
  * on startup, bypassing setup mode without a positional workflow file arg.
@@ -258,7 +258,7 @@ export function spawnSymphony(
   const stdoutLog = createWriteStream(path.join(reportDir, "symphony-stdout.log"), { flags: "a" });
   const stderrLog = createWriteStream(path.join(reportDir, "symphony-stderr.log"), { flags: "a" });
 
-  const child = spawn("node", ["dist/cli/index.js", "--log-dir", dataDir, "--port", String(port)], {
+  const child = spawn("node", ["dist/cli/index.js", "--data-dir", dataDir, "--port", String(port)], {
     env: { ...process.env, ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });

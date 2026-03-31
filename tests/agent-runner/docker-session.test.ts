@@ -6,6 +6,7 @@ import { createMockLogger } from "../helpers.js";
 import { createIssue, createWorkspace, createModelSelection } from "../orchestrator/issue-test-factories.js";
 import type { ServiceConfig, RisolutoLogger } from "../../src/core/types.js";
 import type { DockerSessionDeps } from "../../src/agent-runner/docker-session.js";
+import type { AgentRunnerEventHandler } from "../../src/agent-runner/contracts.js";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — declared before any vi.mock() calls
@@ -219,13 +220,13 @@ function makeConfig(): ServiceConfig {
   } as unknown as ServiceConfig;
 }
 
-function makeInput(overrides?: Partial<{ signal: AbortSignal; onEvent: ReturnType<typeof vi.fn> }>) {
+function makeInput(overrides?: Partial<{ signal: AbortSignal; onEvent: AgentRunnerEventHandler }>) {
   return {
     issue: createIssue(),
     modelSelection: createModelSelection(),
     workspace: createWorkspace(),
     signal: overrides?.signal ?? new AbortController().signal,
-    onEvent: overrides?.onEvent ?? vi.fn(),
+    onEvent: (overrides?.onEvent ?? vi.fn()) as AgentRunnerEventHandler,
   };
 }
 

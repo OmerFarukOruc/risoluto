@@ -24,7 +24,7 @@ The repository is at **`v0.6.0`** and implements a full local orchestration loop
 - ✅ CLI accepts optional positional workflow path argument
 - ✅ Default: `./WORKFLOW.md` when no argument provided (legacy path — setup wizard is the primary bootstrap)
 - ✅ Missing workflow file returns `missing_workflow_file` error (via configStore.start failure)
-- 🔵 `--log-dir` flag sets the data directory; config overlay at `<dataDir>/config/overlay.yaml` supersedes the workflow file when present
+- 🔵 `--data-dir` flag sets the data directory; config overlay at `<dataDir>/config/overlay.yaml` supersedes the workflow file when present
 
 ### §5.2 File Format
 

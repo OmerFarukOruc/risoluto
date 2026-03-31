@@ -87,6 +87,6 @@ function averageDelta(values: number[]): number {
 function humanizeMetric(name: string): string {
   return name
     .replace(/^risoluto_/, "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
+    .replaceAll(/_/g, " ")
+    .replaceAll(/\b\w/g, (match) => match.toUpperCase());
 }

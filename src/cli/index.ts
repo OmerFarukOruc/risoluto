@@ -22,6 +22,8 @@ import { toErrorString } from "../utils/type-guards.js";
 import { createServices } from "./services.js";
 import { wireNotifications, watchConfigChanges } from "./notifications.js";
 
+const SETUP_MODE_ERRORS = new Set(["missing_tracker_api_key", "missing_tracker_project_slug"]);
+
 function printValidationError(error: ValidationError): void {
   console.error(`error code=${error.code} msg=${JSON.stringify(error.message)}`);
 }
@@ -56,6 +58,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   const startError = await safeStartConfigStore(configStore);
   if (startError !== null) {
+    await overlayStore.stop();
     persistence.close();
     return startError;
   }
@@ -63,6 +66,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const validationResult = evaluateSetupMode(configStore, logger, needsSetup);
   if (validationResult.exitCode !== null) {
     await configStore.stop();
+    await overlayStore.stop();
     persistence.close();
     return validationResult.exitCode;
   }
@@ -101,7 +105,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   return 0;
 }
 
-async function initializeConfigStores(archiveDir: string, logger: ReturnType<typeof createLogger>) {
+async function initializeConfigStores(
+  archiveDir: string,
+  logger: ReturnType<typeof createLogger>,
+): Promise<{
+  overlayStore: ConfigOverlayStore;
+  secretsStore: SecretsStore;
+  configStore: ConfigStore;
+  persistence: PersistenceRuntime;
+  needsSetup: boolean;
+}> {
   const overlayStore = new ConfigOverlayStore(
     path.join(archiveDir, "config", "overlay.yaml"),
     logger.child({ component: "config-overlay" }),
@@ -122,14 +135,22 @@ async function initializeConfigStores(archiveDir: string, logger: ReturnType<typ
       await secretsStore.startDeferred();
       needsSetup = true;
     } else {
+      await overlayStore.stop();
       throw error;
     }
   }
-  const persistence = await initPersistenceRuntime({ dataDir: archiveDir, logger });
+  let persistence: PersistenceRuntime;
+  try {
+    persistence = await initPersistenceRuntime({ dataDir: archiveDir, logger });
+  } catch (error) {
+    await overlayStore.stop();
+    throw error;
+  }
+  const dbLogger = logger.child({ component: "config-db" });
   const dbConfigStore =
     persistence.db === null
       ? null
-      : new DbConfigStore(persistence.db, logger.child({ component: "config-db" }), {
+      : new DbConfigStore(persistence.db, dbLogger, {
           secretsStore,
         });
   const configStore = new ConfigStore(logger.child({ component: "config" }), {
@@ -140,7 +161,12 @@ async function initializeConfigStores(archiveDir: string, logger: ReturnType<typ
         ? undefined
         : {
             getWorkflow: () => {
-              dbConfigStore.refresh();
+              try {
+                dbConfigStore.refresh();
+              } catch (error) {
+                dbLogger.warn({ error: toErrorString(error) }, "DB config refresh failed — propagating to caller");
+                throw error;
+              }
               return dbConfigStore.getWorkflow();
             },
           },
@@ -209,7 +235,6 @@ function evaluateSetupMode(
   logger: ReturnType<typeof createLogger>,
   needsSetup: boolean,
 ): { needsSetup: boolean; exitCode: number | null } {
-  const SETUP_MODE_ERRORS = new Set(["missing_tracker_api_key", "missing_tracker_project_slug"]);
   if (needsSetup) {
     return { needsSetup, exitCode: null };
   }

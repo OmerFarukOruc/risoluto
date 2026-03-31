@@ -1,4 +1,6 @@
 import { sortIssuesForDispatch } from "./dispatch.js";
+
+const VISIBLE_QUEUE_LIMIT = 50;
 import { createLifecycleEvent, type RuntimeEventSink } from "../core/lifecycle-events.js";
 import { toErrorString } from "../utils/type-guards.js";
 import { issueView } from "./views.js";
@@ -134,7 +136,7 @@ export async function refreshQueueViews(
   const issues = candidateIssues ?? sortIssuesForDispatch(await ctx.deps.tracker.fetchCandidateIssues());
   const dispatchableIssues = issues.filter((issue) => ctx.canDispatchIssue(issue));
   const previousQueuedIssueIds = new Set(ctx.queuedViews.map((view) => view.issueId));
-  const visibleQueuedIssues = dispatchableIssues.slice(0, 50);
+  const visibleQueuedIssues = dispatchableIssues.slice(0, VISIBLE_QUEUE_LIMIT);
   const queuedViews = visibleQueuedIssues.map((issue) => {
     const selection = ctx.resolveModelSelection(issue.identifier);
     return issueView(issue, {

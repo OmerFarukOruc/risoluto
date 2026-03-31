@@ -199,7 +199,7 @@ function parseLabels(input: string): Record<string, string> {
           pair
             .slice(separator + 1)
             .trim()
-            .replace(/^"|"$/g, ""),
+            .replaceAll(/^"|"$/g, ""),
         ];
       }),
   );

@@ -19,7 +19,7 @@ function formatTomlString(value: string): string {
 }
 
 function formatTomlKey(value: string): string {
-  return /^[A-Za-z0-9_-]+$/.test(value) ? value : formatTomlString(value);
+  return /^[\w-]+$/.test(value) ? value : formatTomlString(value);
 }
 
 function rewriteHostBoundUrl(value: string): string {

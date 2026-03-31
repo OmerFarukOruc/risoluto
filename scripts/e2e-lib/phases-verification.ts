@@ -88,7 +88,7 @@ async function checkAttemptDetail(baseUrl: string, attemptId: string): Promise<C
 async function checkRuntime(baseUrl: string): Promise<CheckResult> {
   const endpoint = "/api/v1/runtime";
   const data = (await fetchJson(`${baseUrl}${endpoint}`)) as Record<string, unknown>;
-  const required = ["version", "workflow_path", "data_dir"];
+  const required = ["version", "data_dir"];
   const missing = required.filter((key) => !(key in data));
   if (missing.length > 0) {
     return { endpoint, status: "fail", error: `missing keys: ${missing.join(", ")}` };

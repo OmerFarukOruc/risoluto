@@ -183,13 +183,13 @@ describe("ConfigStore", () => {
     await store.start();
     try {
       const firstConfig = store.getConfig();
-      expect(firstConfig).toBeDefined();
+      expect(firstConfig).toBeTypeOf("object");
 
       // Second refresh — overlayStore.toMap throws → error branch runs
       await store.refresh("test:broken-overlay");
 
       // Config should still be the last known good
-      expect(store.getConfig()).toBeDefined();
+      expect(store.getConfig()).toBeTypeOf("object");
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({ reason: "test:broken-overlay" }),
         expect.stringContaining("keeping last known good config"),

@@ -339,7 +339,7 @@ export class Orchestrator implements OrchestratorPort {
     if (!this._state.running || this.tickInFlight) return;
     this.tickInFlight = true;
     try {
-      if (this.ctx().detectAndKillStalled() > 0) {
+      if (this.ctx().detectAndKillStalled().killed > 0) {
         this.markStateDirty();
       }
       if (await reconcileRunningAndRetryingState(this.ctx())) {

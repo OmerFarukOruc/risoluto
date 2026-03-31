@@ -86,6 +86,6 @@ export interface OrchestratorContext {
   applyUsageEvent: (entry: RunningEntry, usage: TokenUsageSnapshot, usageMode: "absolute_total" | "delta") => void;
   setRateLimits: (rateLimits: unknown) => void;
   getStallEvents: () => StallEvent[];
-  detectAndKillStalled: () => number;
+  detectAndKillStalled: () => { killed: number };
   eventBus?: TypedEventBus<RisolutoEventMap>;
 }

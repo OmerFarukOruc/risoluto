@@ -259,7 +259,7 @@ describe("snapshot-builder", () => {
       expect(snapshot.retrying).toEqual([]);
       expect(snapshot.queued).toEqual([]);
       expect(snapshot.completed).toEqual([]);
-      expect(snapshot.workflowColumns).toBeDefined();
+      expect(snapshot.workflowColumns).toEqual(expect.any(Array));
       expect(snapshot.codexTotals.secondsRunning).toBe(0);
     });
 
@@ -392,7 +392,6 @@ describe("snapshot-builder", () => {
 
       const snapshot = buildSnapshot(deps, callbacks);
 
-      expect(snapshot.workflowColumns).toBeDefined();
       expect(snapshot.workflowColumns.length).toBeGreaterThan(0);
       expect(snapshot.workflowColumns[0]).toMatchObject({
         key: expect.any(String),

@@ -52,6 +52,8 @@ class Histogram {
     this.buckets = buckets;
   }
 
+  // Hot path: called per HTTP request. In-place mutation is intentional to avoid
+  // allocating a new BucketState + bucketCounts array on every observation.
   observe(value: number, labels: Labels = {}): void {
     const key = labelKey(labels);
     let state = this.states.get(key);

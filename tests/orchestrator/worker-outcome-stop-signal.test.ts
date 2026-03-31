@@ -157,9 +157,10 @@ describe("handleStopSignal — done signal", () => {
     await handleStopSignal(ctx, "done", entry, issue, workspace, modelSelection, 2);
 
     const view = ctx.completedViews.get(issue.identifier);
-    expect(view).toBeDefined();
-    expect(view!.status).toBe("completed");
-    expect(view!.message).toBe("worker reported issue complete");
+    expect(view).toMatchObject({
+      status: "completed",
+      message: "worker reported issue complete",
+    });
   });
 
   it("sends worker_completed notification with info severity", async () => {
@@ -220,9 +221,10 @@ describe("handleStopSignal — blocked signal", () => {
     await handleStopSignal(ctx, "blocked", entry, issue, workspace, modelSelection, 1);
 
     const view = ctx.completedViews.get(issue.identifier);
-    expect(view).toBeDefined();
-    expect(view!.status).toBe("paused");
-    expect(view!.message).toBe("worker reported issue blocked");
+    expect(view).toMatchObject({
+      status: "paused",
+      message: "worker reported issue blocked",
+    });
   });
 
   it("sends worker_failed notification with critical severity", async () => {

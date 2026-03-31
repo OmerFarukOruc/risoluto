@@ -149,14 +149,17 @@ describe("webhook health in snapshot", () => {
     const { orchestrator } = createOrchestrator({ webhookHealthTracker: tracker });
 
     const snapshot = orchestrator.getSnapshot();
-    expect(snapshot.webhookHealth).toBeDefined();
-    expect(snapshot.webhookHealth!.status).toBe("connected");
-    expect(snapshot.webhookHealth!.effectiveIntervalMs).toBe(120_000);
-    expect(snapshot.webhookHealth!.stats.deliveriesReceived).toBe(10);
-    expect(snapshot.webhookHealth!.stats.lastDeliveryAt).toBe("2026-03-30T12:00:00Z");
-    expect(snapshot.webhookHealth!.stats.lastEventType).toBe("Comment");
-    expect(snapshot.webhookHealth!.lastDeliveryAt).toBe("2026-03-30T12:00:00Z");
-    expect(snapshot.webhookHealth!.lastEventType).toBe("Comment");
+    expect(snapshot.webhookHealth).toMatchObject({
+      status: "connected",
+      effectiveIntervalMs: 120_000,
+      stats: {
+        deliveriesReceived: 10,
+        lastDeliveryAt: "2026-03-30T12:00:00Z",
+        lastEventType: "Comment",
+      },
+      lastDeliveryAt: "2026-03-30T12:00:00Z",
+      lastEventType: "Comment",
+    });
   });
 
   it("omits webhook health when no health tracker is configured", () => {

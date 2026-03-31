@@ -44,8 +44,8 @@ correctness gap that this change fixes at the same time.
 ## Requirements Trace
 
 - R1. Remove the positional `workflowPath` CLI argument; add `--data-dir` flag
-  defaulting to `DATA_DIR` env var then `~/.symphony`
-- R2. Archive directory becomes `<data-dir>/archives` (was `<parent-of-workflow>/.symphony`)
+  defaulting to `DATA_DIR` env var then `~/.risoluto`
+- R2. Archive directory becomes `<data-dir>/archives` (was `<parent-of-workflow>/.risoluto`)
 - R3. `ConfigStore` loads exclusively from the SQLite overlay; removes chokidar
   watcher and all `workflowPath` references
 - R4. Config remains reactive: `PUT /api/v1/config/overlay` still triggers
@@ -326,7 +326,7 @@ BEFORE
 ──────
 argv[0] (positional)
   → workflowPath = "./WORKFLOW.md"
-  → archiveDir = <parent-of-workflow>/.symphony
+  → archiveDir = <parent-of-workflow>/.risoluto
   → ConfigStore(workflowPath, …)
        ├─ chokidar.watch(workflowPath)
        └─ refresh() → loadWorkflowDefinition(workflowPath)
@@ -336,8 +336,8 @@ argv[0] (positional)
 
 AFTER
 ─────
---data-dir flag (or DATA_DIR env or ~/.symphony)
-  → dataDir = ~/.symphony
+--data-dir flag (or DATA_DIR env or ~/.risoluto)
+  → dataDir = ~/.risoluto
   → archiveDir = dataDir/archives   ← fixed derivation, --log-dir removed
   → open DB → DbConfigStore → setup validation
   → ConfigStore(logger, {overlayStore, secretsStore})  ← no workflowPath
@@ -427,7 +427,7 @@ from data-dir only.
   remove the `workflowPath = parsed.positionals[0] ?? "./WORKFLOW.md"` line.
 - Add `"data-dir": { type: "string" }` to the options map.
 - Derive `dataDir` from `parsed.values["data-dir"] ?? process.env.DATA_DIR ??
-  path.join(homedir(), ".symphony")`.
+  path.join(homedir(), ".risoluto")`.
 - `archiveDir` becomes `path.resolve(path.join(dataDir, "archives"))`.
   Note: `archiveDir = <data-dir>/archives` is the fixed derivation — the old
   `--log-dir` flag that previously set `archiveDir` directly is removed as a
@@ -437,7 +437,7 @@ from data-dir only.
 - Remove `workflowPath` from the `configStore` constructor call at line 68.
 - Remove `workflowPath` from the `createServices` call at line 93.
 - Remove `workflowPath` from the startup log at line 117; log `dataDir` instead.
-- Remove the `SYMPHONY_WORKFLOW_PATH` reference from the
+- Remove the `RISOLUTO_WORKFLOW_PATH` reference from the
   `/api/v1/runtime` route handler in `src/http/routes.ts` (or set it to empty).
 - Startup ordering requirement: open the DB first, before constructing
   `DbConfigStore`, before setup mode validation runs. This ordering must be
@@ -449,7 +449,7 @@ from data-dir only.
 
 **Test scenarios:**
 - Happy path: `parseCliArgs(["--port", "4000"])` resolves `dataDir` to
-  `~/.symphony` and `archiveDir` to `~/.symphony/archives` when `DATA_DIR` is
+  `~/.risoluto` and `archiveDir` to `~/.risoluto/archives` when `DATA_DIR` is
   not set.
 - Happy path: `parseCliArgs(["--data-dir", "/tmp/test"])` resolves `archiveDir`
   to `/tmp/test/archives`.
@@ -613,7 +613,7 @@ unit confirms the plumbing is correct after CLI changes and closes two gaps)
 - **`findLegacyWorkflow` fix (Issue 13):** Update `findLegacyWorkflow` to try
   `process.cwd()` as a discovery candidate first: check `<cwd>/WORKFLOW.md`
   before `<parent-of-dataDir>/WORKFLOW.md`. This ensures that with a default
-  `dataDir` of `~/.symphony`, a `WORKFLOW.md` in the user's current working
+  `dataDir` of `~/.risoluto`, a `WORKFLOW.md` in the user's current working
   directory is discovered correctly (rather than only looking at `~/WORKFLOW.md`).
 - **`seedDefaults` idempotency fix (Issue 6):** Split the template-seeding
   guard from the config-row guard. The function must check the `prompt_templates`
@@ -976,7 +976,7 @@ derivation tests.
   so that setup mode is bypassed on first boot.
 - Replace `generateWorkflowScaffold(config)` + `writeFile(workflowPath)` in
   `phases-startup.ts` with: write the pre-seed overlay file to disk, then spawn
-  Symphony with `--data-dir <reportDir>/.symphony --port <port>`.
+  Symphony with `--data-dir <reportDir>/.risoluto --port <port>`.
 - The MASTER_KEY env var injection and credential env vars are unchanged.
 - In `helpers.ts`, replace `generateWorkflowScaffold` with
   `buildOverlayPayload(config): Record<string, unknown>` that returns the
@@ -994,7 +994,7 @@ derivation tests.
 - `README.md`: replace all `WORKFLOW.md` references with `--data-dir` / WebUI
   bootstrap instructions.
 - `docs/OPERATOR_GUIDE.md`: document `--data-dir` flag, default path
-  (`~/.symphony`), the fixed archive path derivation (`<data-dir>/archives`,
+  (`~/.risoluto`), the fixed archive path derivation (`<data-dir>/archives`,
   replacing the old `--log-dir` flag which is removed), the legacy
   auto-import behaviour, and the one-time migration story.
 - `docs/CONFORMANCE_AUDIT.md`: remove any WORKFLOW.md claims; add overlay-first
@@ -1082,7 +1082,7 @@ derivation tests.
 | chokidar removal breaks an undiscovered import | Grep for `chokidar` across the repo before removing from package.json; compiler will catch type errors |
 | Template override resolves stale templateId (template deleted after override set) | `resolveTemplate` falls through to "default" if the templateId row no longer exists — this is the correct behavior and should be tested explicitly |
 | `seedDefaults` on upgraded DB skips template seed | Fixed in Unit 4: template-seeding guard is now independent of config-row existence |
-| `findLegacyWorkflow` misses CWD on default `~/.symphony` dataDir | Fixed in Unit 4: `process.cwd()` is checked as first candidate |
+| `findLegacyWorkflow` misses CWD on default `~/.risoluto` dataDir | Fixed in Unit 4: `process.cwd()` is checked as first candidate |
 | `WorkflowDefinition` type still referenced throughout codebase | The type stays in `src/core/types.ts`; `ConfigStore` just uses `{ config: {}, promptTemplate: "" }` directly. The type is only removed when no more callers depend on it — defer removal to post-migration cleanup |
 
 ## Documentation / Operational Notes
@@ -1100,7 +1100,7 @@ derivation tests.
   using `--log-dir` must switch to `--data-dir`. The archive directory is now
   always `<data-dir>/archives`.
 
-- **Operator Guide**: Must document `symphony --data-dir ~/.symphony` as the
+- **Operator Guide**: Must document `symphony --data-dir ~/.risoluto` as the
   canonical start command, the fixed archive path (`<data-dir>/archives`),
   removal of `--log-dir`, the WebUI setup flow, and the legacy auto-import.
 

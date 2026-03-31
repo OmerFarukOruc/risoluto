@@ -117,7 +117,7 @@ pnpm install && pnpm run build && bash bin/build-sandbox.sh
 node dist/cli/index.js --port 4000
 ```
 
-Open http://127.0.0.1:4000 — the setup wizard guides you through credentials. No workflow file needed; all config is stored in `~/.symphony/` via the WebUI.
+Open http://127.0.0.1:4000 — the setup wizard guides you through credentials. No workflow file needed; all config is stored in `~/.risoluto/` via the WebUI.
 
 Set your Codex auth before or after setup:
 
@@ -332,7 +332,7 @@ Risoluto exposes a full JSON API at `http://localhost:4000/api/v1/`. Here are th
 
 ## ⚙️ Configuration
 
-Symphony stores all config in `~/.symphony/` (or the directory passed via `--log-dir`). There is no workflow file to edit — credentials and settings are managed through the WebUI setup wizard or the `/api/v1/config/overlay` API.
+Symphony stores all config in `~/.risoluto/` (or the directory passed via `--log-dir`). There is no workflow file to edit — credentials and settings are managed through the WebUI setup wizard or the `/api/v1/config/overlay` API.
 
 ### Auth Modes
 

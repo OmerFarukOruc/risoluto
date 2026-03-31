@@ -8,7 +8,7 @@
 
 import { eq } from "drizzle-orm";
 
-import type { SymphonyDatabase } from "./database.js";
+import type { RisolutoDatabase } from "./database.js";
 import { issueConfig } from "./schema.js";
 
 export interface IssueConfigRow {
@@ -23,11 +23,11 @@ export class IssueConfigStore {
    * Creates a real store backed by `db`, or a no-op store when `db` is null.
    * Use this factory in service wiring so callers don't need to branch.
    */
-  static create(db: SymphonyDatabase | null): IssueConfigStore {
+  static create(db: RisolutoDatabase | null): IssueConfigStore {
     return db ? new IssueConfigStore(db) : new NoopIssueConfigStore();
   }
 
-  constructor(private readonly db: SymphonyDatabase) {}
+  constructor(private readonly db: RisolutoDatabase) {}
 
   /**
    * Returns all rows from the `issue_config` table.

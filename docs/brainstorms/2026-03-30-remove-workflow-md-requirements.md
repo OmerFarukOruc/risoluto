@@ -43,7 +43,7 @@ CLI --data-dir ──► SQLite overlay ──► ConfigStore
 **CLI**
 
 - R1. Remove the positional `workflowPath` argument — clean break, no deprecation period
-- R2. Add `--data-dir` string option (default: `DATA_DIR` env var, then `~/.symphony`)
+- R2. Add `--data-dir` string option (default: `DATA_DIR` env var, then `~/.risoluto`)
 - R3. Archive directory is `<data-dir>/archives`
 
 **Config Loading**
@@ -116,7 +116,7 @@ CLI --data-dir ──► SQLite overlay ──► ConfigStore
 ## Success Criteria
 
 - `symphony --port 4000` (no args) starts successfully: seeds default template, /templates shows it
-- `symphony --data-dir /tmp/test/.symphony` with a `WORKFLOW.md` in `/tmp/test/` imports config +
+- `symphony --data-dir /tmp/test/.risoluto` with a `WORKFLOW.md` in `/tmp/test/` imports config +
   prompt body on first run, does nothing on second run
 - Per-issue template override set via UI survives a Symphony restart
 - Per-issue model override set via UI survives a Symphony restart (new behavior)

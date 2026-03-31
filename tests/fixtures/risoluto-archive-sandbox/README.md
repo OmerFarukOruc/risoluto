@@ -15,7 +15,7 @@ This fixture is a controlled `.risoluto/` archive for testing the `skills/risolu
 - Use the real helper against this fixture with `--dir`:
 
 ```bash
-./risoluto-logs NIN-6 --dir tests/fixtures/symphony-archive-sandbox/.symphony
-./risoluto-logs NIN-3 --attempts --dir tests/fixtures/symphony-archive-sandbox/.symphony
-./risoluto-logs MT-42 --dir tests/fixtures/symphony-archive-sandbox/.symphony
+./risoluto-logs NIN-6 --dir tests/fixtures/risoluto-archive-sandbox/.risoluto
+./risoluto-logs NIN-3 --attempts --dir tests/fixtures/risoluto-archive-sandbox/.risoluto
+./risoluto-logs MT-42 --dir tests/fixtures/risoluto-archive-sandbox/.risoluto
 ```

@@ -134,7 +134,7 @@ When summarizing events, always confirm the ordering of your data source. Do not
 
 ## Round-two sandbox benchmark note
 
-This skill was rerun against the controlled archive fixture at `tests/fixtures/symphony-archive-sandbox/.risoluto` using the same three eval prompts already tracked in `evals/evals.json`, with baseline vs with-skill comparisons judged under the tighter provenance-focused expectations.
+This skill was rerun against the controlled archive fixture at `tests/fixtures/risoluto-archive-sandbox/.risoluto` using the same three eval prompts already tracked in `evals/evals.json`, with baseline vs with-skill comparisons judged under the tighter provenance-focused expectations.
 
 Result summary:
 

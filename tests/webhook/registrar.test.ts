@@ -187,7 +187,7 @@ describe("WebhookRegistrar", () => {
           id: "wh_existing",
           url: config.webhookUrl,
           enabled: true,
-          label: "Risoluto Orchestrator",
+          label: "Risoluto",
           secret: null,
           resourceTypes: ["Issue"],
           teamId: null,
@@ -209,7 +209,7 @@ describe("WebhookRegistrar", () => {
           id: "wh_disabled",
           url: config.webhookUrl,
           enabled: false,
-          label: "Risoluto Orchestrator",
+          label: "Risoluto",
           secret: null,
           resourceTypes: ["Issue"],
           teamId: null,
@@ -293,7 +293,7 @@ describe("WebhookRegistrar", () => {
       expect(linearClient.createWebhook).toHaveBeenCalledWith({
         url: config.webhookUrl,
         resourceTypes: ["Issue", "Comment", "Project"],
-        label: "Risoluto Orchestrator",
+        label: "Risoluto",
       });
       expect(secretsStore.set).toHaveBeenCalledWith("LINEAR_WEBHOOK_SECRET", "auto_secret");
       expect(onSecretResolved).toHaveBeenCalledWith("auto_secret");

@@ -186,7 +186,7 @@ describe("buildDockerRunArgs", () => {
   it("passes auth payload into the container when present", () => {
     const result = buildDockerRunArgs(baseInput({ runtimeAuthJsonBase64: "eyJ0b2tlbiI6IngifQ==" }));
     const envArgs = result.args.filter((_, i) => result.args[i - 1] === "-e");
-    expect(envArgs).toContain("RISOLUTO_CODEX_AUTH_JSON_B64=eyJ0b2tlbiI6IngifQ==");
+    expect(envArgs).toContain("RISOLUTO_CODEX_AUTH_JSON_B64=eyJ0b2tlbiI6IngifQ=="); // gitleaks:allow
   });
 
   it("includes extra user-defined mounts", () => {

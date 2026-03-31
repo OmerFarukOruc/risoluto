@@ -4,7 +4,7 @@ export function flashDiff(element: Element): void {
     element.getBoundingClientRect();
   }
   element.classList.add("diff-flash");
-  window.setTimeout(() => element.classList.remove("diff-flash"), 900);
+  globalThis.setTimeout(() => element.classList.remove("diff-flash"), 900);
 }
 
 export function setTextWithDiff(element: HTMLElement, nextValue: string): void {

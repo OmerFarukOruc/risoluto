@@ -7,7 +7,7 @@ let mediaQueryList: MediaQueryList | null = null;
 let listeningForSystemTheme = false;
 
 function getMediaQueryList(): MediaQueryList {
-  mediaQueryList ??= window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQueryList ??= globalThis.matchMedia("(prefers-color-scheme: dark)");
   return mediaQueryList;
 }
 
@@ -23,7 +23,7 @@ function applyThemePreference(theme: ThemePreference): Theme {
   const resolvedTheme = resolveTheme(theme);
   document.documentElement.dataset.theme = resolvedTheme;
   localStorage.setItem(STORAGE_KEY, theme);
-  window.dispatchEvent(
+  globalThis.dispatchEvent(
     new CustomEvent("theme:change", {
       detail: { selection: theme, theme: resolvedTheme },
     }),

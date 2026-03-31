@@ -24,7 +24,7 @@ export function createIssueAbortAction(options: IssueAbortActionOptions): {
   }
 
   button.addEventListener("click", () => {
-    if (!currentDetail || currentDetail.status !== "running" || inFlight) {
+    if (currentDetail?.status !== "running" || inFlight) {
       return;
     }
 

@@ -39,7 +39,7 @@ export function createAttemptsTable(attempts: AttemptSummary[], onOpen: (attempt
   attempts.forEach((attempt) => {
     const row = document.createElement("tr");
     const runCell = setTableCellLabel(
-      createTableCell(attempt.attemptNumber != null ? String(attempt.attemptNumber) : "—"),
+      createTableCell(attempt.attemptNumber == null ? "—" : String(attempt.attemptNumber)),
       "Run",
     );
     const statusCell = setTableCellLabel(createTableCell(attempt.status), "Status");

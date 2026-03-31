@@ -28,16 +28,16 @@ function compileRoute(path: string): Pick<InternalRoute, "pattern" | "keys"> {
         keys.push(paramMatch[1]);
         return "([^/]+)";
       }
-      return segment.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return segment.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
     })
     .join("\\/");
 
   // nosemgrep: detect-non-literal-regexp
-  return { pattern: RegExp(`^${source}$`), keys };
+  return { pattern: new RegExp(`^${source}$`), keys };
 }
 
 class Router {
-  private routes: InternalRoute[] = [];
+  private readonly routes: InternalRoute[] = [];
   private guard: ((path: string) => string | null) | null = null;
 
   register(path: string, render: (params: Record<string, string>) => HTMLElement): void {
@@ -52,20 +52,20 @@ class Router {
   navigate(path: string): void {
     const redirect = this.guard?.(path) ?? null;
     const target = redirect ?? path;
-    if (window.location.pathname !== target) {
-      window.history.pushState({}, "", target);
+    if (globalThis.location.pathname !== target) {
+      globalThis.history.pushState({}, "", target);
     }
     this.renderCurrent();
   }
 
   init(): void {
-    window.addEventListener("popstate", () => this.renderCurrent());
+    globalThis.addEventListener("popstate", () => this.renderCurrent());
     this.renderCurrent();
   }
 
   private match(pathname: string): { route: InternalRoute; params: Record<string, string> } | null {
     for (const route of this.routes) {
-      const matched = pathname.match(route.pattern);
+      const matched = route.pattern.exec(pathname);
       if (!matched) {
         continue;
       }
@@ -80,11 +80,11 @@ class Router {
 
   private renderCurrent(): void {
     const outlet = getOutlet();
-    const redirect = this.guard?.(window.location.pathname) ?? null;
-    if (redirect && window.location.pathname !== redirect) {
-      window.history.replaceState({}, "", redirect);
+    const redirect = this.guard?.(globalThis.location.pathname) ?? null;
+    if (redirect && globalThis.location.pathname !== redirect) {
+      globalThis.history.replaceState({}, "", redirect);
     }
-    const pathname = redirect ?? window.location.pathname;
+    const pathname = redirect ?? globalThis.location.pathname;
     const matched = this.match(pathname) ?? this.match("/");
     if (!outlet || !matched) {
       return;
@@ -92,9 +92,9 @@ class Router {
     const rendered = decoratePageRoot(matched.route.render(matched.params));
     outlet.replaceChildren(rendered);
     const title = getRouteTitle(rendered);
-    window.dispatchEvent(
+    globalThis.dispatchEvent(
       new CustomEvent("router:navigate", {
-        detail: { path: window.location.pathname, params: matched.params, title } satisfies RouterNavigateDetail,
+        detail: { path: globalThis.location.pathname, params: matched.params, title } satisfies RouterNavigateDetail,
       }),
     );
   }

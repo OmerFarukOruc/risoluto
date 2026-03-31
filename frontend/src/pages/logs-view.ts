@@ -1,10 +1,9 @@
 import { createLogRow } from "../components/log-row";
 import { createEmptyState } from "../components/empty-state";
 import { registerPageCleanup } from "../utils/page";
-import { eventMatchesSearch, eventTypeLabel } from "../utils/events";
+import { eventMatchesSearch, eventTypeLabel, stringifyPayload } from "../utils/events";
 import type { RecentEvent } from "../types";
 import { loadArchiveLogs, loadLiveLogs } from "./logs-data";
-import { stringifyPayload } from "../utils/events";
 import { createIconButton } from "../ui/buttons.js";
 import { createIcon } from "../ui/icons.js";
 import { subscribeIssueLifecycle, subscribeAllEvents, type AgentEventPayload } from "../state/event-source.js";
@@ -12,6 +11,10 @@ import { createLogBuffer, type SortDirection } from "../state/log-buffer.js";
 
 type Mode = "live" | "archive";
 type Density = "compact" | "comfortable";
+
+function rowKey(event: RecentEvent): string {
+  return `${event.at}:${event.event}:${event.message}`;
+}
 
 function makeIconBtn(iconName: Parameters<typeof createIconButton>[0]["iconName"], label: string): HTMLButtonElement {
   return createIconButton({
@@ -100,10 +103,6 @@ export function createLogsPage(id: string): HTMLElement {
   let newEventCount = 0;
   const buffer = createLogBuffer("desc");
   let unsubscribeStream: (() => void) | null = null;
-
-  function rowKey(event: RecentEvent): string {
-    return `${event.at}:${event.event}:${event.message}`;
-  }
 
   function buildRow(event: RecentEvent): HTMLElement {
     const key = rowKey(event);
@@ -243,7 +242,7 @@ export function createLogsPage(id: string): HTMLElement {
     row.classList.add("timeline-enter");
 
     const refNode = scroll.children[domInsertIndex(event)] as Element | undefined;
-    if (refNode) scroll.insertBefore(row, refNode);
+    if (refNode) refNode.before(row);
     else scroll.appendChild(row);
 
     if (autoScroll) {
@@ -266,7 +265,7 @@ export function createLogsPage(id: string): HTMLElement {
   }
 
   function restartPolling(): void {
-    window.clearInterval(timer);
+    globalThis.clearInterval(timer);
     unsubscribeLifecycle?.();
     unsubscribeStream?.();
     unsubscribeLifecycle = null;
@@ -290,7 +289,7 @@ export function createLogsPage(id: string): HTMLElement {
         }
       });
       unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void reconcile());
-      timer = window.setInterval(() => void reconcile(), 30_000);
+      timer = globalThis.setInterval(() => void reconcile(), 30_000);
     }
   }
 
@@ -382,7 +381,7 @@ export function createLogsPage(id: string): HTMLElement {
   void refresh();
   restartPolling();
   registerPageCleanup(page, () => {
-    window.clearInterval(timer);
+    globalThis.clearInterval(timer);
     unsubscribeLifecycle?.();
     unsubscribeStream?.();
   });

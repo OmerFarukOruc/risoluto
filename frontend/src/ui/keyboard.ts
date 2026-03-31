@@ -17,11 +17,11 @@ function shouldIgnoreTarget(target: EventTarget | null): boolean {
 
 function resetPrefix(): void {
   prefixActive = false;
-  window.clearTimeout(prefixTimer);
+  globalThis.clearTimeout(prefixTimer);
 }
 
 function dispatchKeyEvent(name: string): void {
-  window.dispatchEvent(new CustomEvent(name));
+  globalThis.dispatchEvent(new CustomEvent(name));
 }
 
 function handlePrefixKey(event: KeyboardEvent, router: Router, options: KeyboardOptions): void {
@@ -67,7 +67,7 @@ function handlePlainKey(event: KeyboardEvent): void {
 }
 
 export function initKeyboard(router: Router, options: KeyboardOptions = {}): void {
-  window.addEventListener("keydown", (event) => {
+  globalThis.addEventListener("keydown", (event) => {
     if (shouldIgnoreTarget(event.target)) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
@@ -81,8 +81,8 @@ export function initKeyboard(router: Router, options: KeyboardOptions = {}): voi
     }
     if (event.key === "g") {
       prefixActive = true;
-      window.clearTimeout(prefixTimer);
-      prefixTimer = window.setTimeout(() => resetPrefix(), 1_500);
+      globalThis.clearTimeout(prefixTimer);
+      prefixTimer = globalThis.setTimeout(() => resetPrefix(), 1_500);
       return;
     }
     if (prefixActive) {

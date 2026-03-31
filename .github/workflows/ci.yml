@@ -423,6 +423,7 @@ jobs:
     env:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
     steps:

@@ -24,6 +24,17 @@ interface QueueBoardRendererOptions {
   dragManager?: DragStateManager;
 }
 
+function makeMoveHandler(
+  options: QueueBoardRendererOptions,
+  issueId: string,
+  columnKey: string,
+  getCurrentColumns: () => WorkflowColumn[],
+): (direction: -1 | 1) => void {
+  return (direction: -1 | 1) => {
+    options.dragManager!.moveByOffset(issueId, columnKey, direction, getCurrentColumns()).catch(() => {});
+  };
+}
+
 export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
   renderLoading: () => void;
   render: (columns: WorkflowColumn[]) => void;
@@ -157,11 +168,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
           onOpen: () => options.onOpenIssue(issue.identifier, false),
           onFullPage: () => options.onOpenIssue(issue.identifier, true),
           onMove: options.dragManager
-            ? (direction) => {
-                options
-                  .dragManager!.moveByOffset(issue.identifier, column.key, direction, currentColumns)
-                  .catch(() => {});
-              }
+            ? makeMoveHandler(options, issue.identifier, column.key, () => currentColumns)
             : undefined,
           onFocus: () => {
             ui.focusedColumn = columnIndex;

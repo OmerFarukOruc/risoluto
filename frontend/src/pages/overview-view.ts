@@ -454,7 +454,7 @@ export function createOverviewPage(): HTMLElement {
   }
 
   const handler = (event: Event): void => renderSnapshot((event as CustomEvent<AppState>).detail);
-  window.addEventListener("state:update", handler);
+  globalThis.addEventListener("state:update", handler);
 
   // SSE webhook events — trigger immediate panel re-render
   const webhookHealthHandler = (event: Event): void => {
@@ -467,14 +467,14 @@ export function createOverviewPage(): HTMLElement {
     // Re-render from current store state to pick up any timestamp changes
     renderSnapshot(store.getState());
   };
-  window.addEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
-  window.addEventListener("risoluto:webhook-received", webhookReceivedHandler);
+  globalThis.addEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
+  globalThis.addEventListener("risoluto:webhook-received", webhookReceivedHandler);
 
   renderSnapshot(store.getState());
   registerPageCleanup(page, () => {
-    window.removeEventListener("state:update", handler);
-    window.removeEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
-    window.removeEventListener("risoluto:webhook-received", webhookReceivedHandler);
+    globalThis.removeEventListener("state:update", handler);
+    globalThis.removeEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
+    globalThis.removeEventListener("risoluto:webhook-received", webhookReceivedHandler);
   });
 
   return page;

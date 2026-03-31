@@ -58,10 +58,10 @@ export function initHeader(headerEl: HTMLElement): void {
   navButton.setAttribute("aria-controls", "shell-sidebar");
   navButton.setAttribute("aria-expanded", "false");
   navButton.addEventListener("click", () => {
-    window.dispatchEvent(new CustomEvent("shell:toggle-sidebar"));
+    globalThis.dispatchEvent(new CustomEvent("shell:toggle-sidebar"));
   });
 
-  window.addEventListener("shell:sidebar-state", (event) => {
+  globalThis.addEventListener("shell:sidebar-state", (event) => {
     const detail = (event as CustomEvent<SidebarStateDetail>).detail;
     syncHeaderNavButton(headerEl, navButton, detail);
   });
@@ -103,7 +103,7 @@ export function initHeader(headerEl: HTMLElement): void {
   cmdHint.textContent = "Ctrl+K";
   commandButton.append(searchIcon, cmdLabel, cmdHint);
   commandButton.addEventListener("click", () => {
-    window.dispatchEvent(new CustomEvent("palette:open"));
+    globalThis.dispatchEvent(new CustomEvent("palette:open"));
   });
   command.append(commandButton);
 
@@ -124,18 +124,16 @@ export function initHeader(headerEl: HTMLElement): void {
 
   refreshButton.addEventListener("click", async () => {
     refreshButton.disabled = true;
-    refreshButton.classList.add("is-disabled");
-    refreshButton.classList.add("is-busy");
+    refreshButton.classList.add("is-disabled", "is-busy");
     try {
       await api.postRefresh();
       toast("Refresh queued.", "success");
     } catch (error) {
       toast(error instanceof Error ? error.message : "Refresh failed.", "error");
     }
-    window.setTimeout(() => {
+    globalThis.setTimeout(() => {
       refreshButton.disabled = false;
-      refreshButton.classList.remove("is-disabled");
-      refreshButton.classList.remove("is-busy");
+      refreshButton.classList.remove("is-disabled", "is-busy");
     }, 500);
   });
 
@@ -145,7 +143,7 @@ export function initHeader(headerEl: HTMLElement): void {
     className: "header-action-btn",
   });
   apiDocsButton.addEventListener("click", () => {
-    window.open("/api/docs", "_blank", "noopener");
+    globalThis.open("/api/docs", "_blank", "noopener");
   });
 
   themeButton.addEventListener("click", () => {
@@ -156,7 +154,7 @@ export function initHeader(headerEl: HTMLElement): void {
   actions.append(refreshButton, apiDocsButton, themeButton);
   headerEl.append(brand, createZoneSeparator(), command, createZoneSeparator(), actions);
   syncHeaderNavButton(headerEl, navButton, {
-    mobile: window.matchMedia(MOBILE_BREAKPOINT).matches,
+    mobile: globalThis.matchMedia(MOBILE_BREAKPOINT).matches,
     mobileOpen: false,
   });
 }

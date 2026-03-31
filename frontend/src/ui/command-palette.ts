@@ -16,7 +16,7 @@ let dynamicEntries: PaletteEntry[] = [];
 function resolveRunHistoryPath(): string | null {
   const matchers = [/^\/issues\/([^/]+)\/.+$/, /^\/issues\/([^/]+)$/, /^\/queue\/([^/]+)$/, /^\/logs\/([^/]+)$/];
   for (const matcher of matchers) {
-    const match = window.location.pathname.match(matcher);
+    const match = matcher.exec(globalThis.location.pathname);
     if (match?.[1]) {
       return `/issues/${decodeURIComponent(match[1])}/runs`;
     }
@@ -160,5 +160,5 @@ export function initCommandPalette(): void {
   });
 
   document.body.append(overlayEl);
-  window.addEventListener("palette:open", () => openPalette());
+  globalThis.addEventListener("palette:open", () => openPalette());
 }

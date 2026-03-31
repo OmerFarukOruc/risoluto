@@ -75,7 +75,7 @@ export function createOverlay(options: OverlayOptions): OverlayController {
     previousFocus = document.activeElement;
     elements.root.hidden = false;
     elements.root.setAttribute("aria-hidden", "false");
-    window.addEventListener("keydown", onWindowKeydown);
+    globalThis.addEventListener("keydown", onWindowKeydown);
     document.body.style.overflow = "hidden";
     focusOverlay(elements.surface);
   }
@@ -89,7 +89,7 @@ export function createOverlay(options: OverlayOptions): OverlayController {
     }
     elements.root.hidden = true;
     elements.root.setAttribute("aria-hidden", "true");
-    window.removeEventListener("keydown", onWindowKeydown);
+    globalThis.removeEventListener("keydown", onWindowKeydown);
     if (!hasVisibleSharedOverlay()) {
       document.body.style.overflow = "";
     }

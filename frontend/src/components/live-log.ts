@@ -19,7 +19,7 @@ export function createLiveLog(): LiveLog {
 
   function append(entry: AgentEventPayload): void {
     if (!hasEntries) {
-      el.removeChild(empty);
+      empty.remove();
       hasEntries = true;
     }
     const row = document.createElement("div");

@@ -23,7 +23,7 @@ function saveExpandedPref(expanded: boolean): void {
 }
 
 function updateActiveState(sidebarEl: HTMLElement): void {
-  const current = window.location.pathname;
+  const current = globalThis.location.pathname;
   for (const item of sidebarEl.querySelectorAll<HTMLElement>(".sidebar-item")) {
     const path = item.dataset.path ?? "";
     const exact = item.dataset.exact === "true";
@@ -271,7 +271,7 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   backdrop.setAttribute("aria-label", "Close navigation");
   parent.insertBefore(backdrop, sidebarEl.nextSibling);
 
-  const mobileQuery = window.matchMedia(MOBILE_BREAKPOINT);
+  const mobileQuery = globalThis.matchMedia(MOBILE_BREAKPOINT);
   let mobileOpen = false;
 
   function closeMobile(): void {
@@ -285,7 +285,7 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   const { toggle, label } = buildCollapseToggle(() => toggleSidebar());
 
   function dispatchState(): void {
-    window.dispatchEvent(
+    globalThis.dispatchEvent(
       new CustomEvent("shell:sidebar-state", {
         detail: {
           mobile: mobileQuery.matches,
@@ -351,9 +351,9 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   sidebarEl.append(toggle);
   backdrop.addEventListener("click", closeMobile);
 
-  if (_toggleHandler) window.removeEventListener("shell:toggle-sidebar", _toggleHandler);
+  if (_toggleHandler) globalThis.removeEventListener("shell:toggle-sidebar", _toggleHandler);
   _toggleHandler = toggleSidebar;
-  window.addEventListener("shell:toggle-sidebar", _toggleHandler);
+  globalThis.addEventListener("shell:toggle-sidebar", _toggleHandler);
 
   if (_mobileHandler && _cachedMobileQuery) _cachedMobileQuery.removeEventListener("change", _mobileHandler);
   _mobileHandler = syncSidebarState;
@@ -363,13 +363,13 @@ export function initSidebar(sidebarEl: HTMLElement): void {
   void loadBadgeCounts(sidebarEl);
 
   updateActiveState(sidebarEl);
-  updateContextualNav(sidebarEl, window.location.pathname, closeMobile);
-  if (_navHandler) window.removeEventListener("router:navigate", _navHandler);
+  updateContextualNav(sidebarEl, globalThis.location.pathname, closeMobile);
+  if (_navHandler) globalThis.removeEventListener("router:navigate", _navHandler);
   _navHandler = () => {
     updateActiveState(sidebarEl);
-    updateContextualNav(sidebarEl, window.location.pathname, closeMobile);
+    updateContextualNav(sidebarEl, globalThis.location.pathname, closeMobile);
     closeMobile();
   };
-  window.addEventListener("router:navigate", _navHandler);
+  globalThis.addEventListener("router:navigate", _navHandler);
   syncSidebarState();
 }

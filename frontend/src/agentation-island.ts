@@ -21,7 +21,9 @@ async function mountAgentation(): Promise<void> {
 }
 
 if (shouldMountAgentation()) {
-  void mountAgentation().catch((error) => {
+  try {
+    await mountAgentation();
+  } catch (error) {
     console.error("Failed to mount Agentation", error);
-  });
+  }
 }

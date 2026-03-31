@@ -68,7 +68,7 @@ export function toast(message: string, type: ToastType, action?: ToastAction): v
   item.append(content, dismissButton);
 
   getContainer().append(item);
-  window.setTimeout(() => {
+  globalThis.setTimeout(() => {
     removeToast(item);
   }, 5_000);
 }

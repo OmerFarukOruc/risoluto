@@ -40,11 +40,11 @@ export function formatDuration(seconds: number | null | undefined): string {
 export function formatDurationHuman(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"}`;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
   const hours = Math.round(minutes / 60);
-  return `${hours} hour${hours !== 1 ? "s" : ""}`;
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
 export function formatRelativeTime(value: string | null | undefined): string {

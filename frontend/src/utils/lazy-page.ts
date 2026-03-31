@@ -11,13 +11,11 @@ export function lazyPage(importFn: () => Promise<PageModule>): (params?: Record<
 
   function ensureLoaded(): Promise<PageModule> {
     if (cached) return Promise.resolve(cached);
-    if (!loading) {
-      loading = importFn().then((mod) => {
-        cached = mod;
-        loading = null;
-        return mod;
-      });
-    }
+    loading ??= importFn().then((mod) => {
+      cached = mod;
+      loading = null;
+      return mod;
+    });
     return loading;
   }
 

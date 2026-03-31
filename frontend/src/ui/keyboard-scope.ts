@@ -16,7 +16,7 @@ function isScopeActive(scope: KeyboardScope | undefined): boolean {
     return true;
   }
   if (typeof scope === "string") {
-    return window.location.pathname === scope;
+    return globalThis.location.pathname === scope;
   }
   if (typeof scope === "function") {
     return scope();
@@ -28,7 +28,7 @@ export function registerKeyboardScope(
   handler: KeyboardHandler,
   options: RegisterKeyboardScopeOptions = {},
 ): () => void {
-  const target = options.target ?? window;
+  const target = options.target ?? globalThis;
   let disposed = false;
 
   const onKey: EventListener = (event): void => {

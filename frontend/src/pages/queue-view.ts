@@ -11,6 +11,23 @@ import { handleQueueKeyboard } from "./queue-keyboard";
 import { createFilters, createUiState } from "./queue-state";
 import { buildQueueToolbar } from "./queue-toolbar";
 
+function issueFingerprint(i: { identifier: string; status: string; priority: string | number | null }): string {
+  return `${i.identifier}:${i.status}:${String(i.priority)}`;
+}
+
+function createRefreshHandler(): () => void {
+  let refreshing = false;
+  return () => {
+    if (refreshing) return;
+    refreshing = true;
+    api.postRefresh().finally(() => {
+      setTimeout(() => {
+        refreshing = false;
+      }, 3000);
+    });
+  };
+}
+
 export function createQueuePage(params?: Record<string, string>): HTMLElement {
   const page = document.createElement("div");
   page.className = "page queue-page fade-in";
@@ -45,10 +62,6 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   let filterButton: HTMLButtonElement | null = null;
   let lastColumnFingerprint = "";
 
-  function issueFingerprint(i: { identifier: string; status: string; priority: string | number | null }): string {
-    return `${i.identifier}:${i.status}:${String(i.priority)}`;
-  }
-
   function getColumnFingerprint(cols: WorkflowColumn[]): string {
     return cols.map((c) => `${c.key}:${c.count ?? 0}:${(c.issues ?? []).map(issueFingerprint).join(",")}`).join("|");
   }
@@ -66,23 +79,14 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
     dragManager,
   });
 
+  const onRefresh = createRefreshHandler();
+
   function renderToolbar(): void {
     const built = buildQueueToolbar({
       toolbar,
       filters,
       columns,
-      onRefresh: (() => {
-        let refreshing = false;
-        return () => {
-          if (refreshing) return;
-          refreshing = true;
-          api.postRefresh().finally(() => {
-            setTimeout(() => {
-              refreshing = false;
-            }, 3000);
-          });
-        };
-      })(),
+      onRefresh,
       onChange: renderBoard,
     });
     searchInput = built.search;
@@ -152,16 +156,16 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
     setRoute(detail.path.startsWith("/queue/") ? (detail.params.id ?? "") : "");
   };
   const stateHandler = (event: Event): void => sync((event as CustomEvent<AppState>).detail);
-  window.addEventListener("router:navigate", navHandler);
-  window.addEventListener("state:update", stateHandler);
-  window.addEventListener("keydown", onKey);
+  globalThis.addEventListener("router:navigate", navHandler);
+  globalThis.addEventListener("state:update", stateHandler);
+  globalThis.addEventListener("keydown", onKey);
   sync(store.getState());
   setRoute(routeId);
   registerPageCleanup(page, () => {
     inspector.destroy();
-    window.removeEventListener("router:navigate", navHandler);
-    window.removeEventListener("state:update", stateHandler);
-    window.removeEventListener("keydown", onKey);
+    globalThis.removeEventListener("router:navigate", navHandler);
+    globalThis.removeEventListener("state:update", stateHandler);
+    globalThis.removeEventListener("keydown", onKey);
   });
   return page;
 }

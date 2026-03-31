@@ -122,13 +122,13 @@ export function createModal(options: ModalOptions): ModalController {
     }
 
     if (otherOpenRoots.length > 0) {
-      window.removeEventListener("keydown", onKey);
+      globalThis.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     }
 
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
-    window.addEventListener("keydown", onKey);
+    globalThis.addEventListener("keydown", onKey);
     closeButton.focus();
     document.body.style.overflow = "hidden";
   }
@@ -148,7 +148,7 @@ export function createModal(options: ModalOptions): ModalController {
       root.hidden = true;
       root.setAttribute("aria-hidden", "true");
       root.classList.remove("is-closing");
-      window.removeEventListener("keydown", onKey);
+      globalThis.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
       if (previousFocus) {
         previousFocus.focus();
@@ -156,11 +156,11 @@ export function createModal(options: ModalOptions): ModalController {
       options.onClose?.();
     };
 
-    const timeoutId = window.setTimeout(handleAnimationEnd, 300);
+    const timeoutId = globalThis.setTimeout(handleAnimationEnd, 300);
     panel?.addEventListener(
       "animationend",
       () => {
-        window.clearTimeout(timeoutId);
+        globalThis.clearTimeout(timeoutId);
         handleAnimationEnd();
       },
       { once: true },
@@ -169,7 +169,7 @@ export function createModal(options: ModalOptions): ModalController {
 
   function destroy(): void {
     close();
-    window.removeEventListener("keydown", onKey);
+    globalThis.removeEventListener("keydown", onKey);
     document.body.style.overflow = "";
     root.remove();
   }

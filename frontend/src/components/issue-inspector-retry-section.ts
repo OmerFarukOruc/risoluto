@@ -8,7 +8,7 @@ function retryDueAt(detail: IssueDetail): string | null {
 
 function retryError(detail: IssueDetail): string {
   const value = detail.error?.trim();
-  return value ? value : "—";
+  return value || "—";
 }
 
 function retryAttempt(detail: IssueDetail): string {

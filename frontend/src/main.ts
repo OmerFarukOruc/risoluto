@@ -42,7 +42,7 @@ function announceRouteChange(pageTitle: string): void {
     return;
   }
   announcer.textContent = "";
-  window.setTimeout(() => {
+  globalThis.setTimeout(() => {
     announcer.textContent = pageTitle;
   }, 30);
 }
@@ -50,7 +50,7 @@ function announceRouteChange(pageTitle: string): void {
 function rememberIssueContext(path: string): void {
   const matchers = [/^\/issues\/([^/]+)(?:\/[^/]+)?$/, /^\/queue\/([^/]+)$/, /^\/logs\/([^/]+)$/];
   for (const matcher of matchers) {
-    const match = path.match(matcher);
+    const match = matcher.exec(path);
     if (match?.[1]) {
       lastIssueContextId = decodeURIComponent(match[1]);
       return;
@@ -59,7 +59,7 @@ function rememberIssueContext(path: string): void {
 }
 
 function currentIssueRunsPath(): string | null {
-  rememberIssueContext(window.location.pathname);
+  rememberIssueContext(globalThis.location.pathname);
   return lastIssueContextId ? `/issues/${lastIssueContextId}/runs` : null;
 }
 
@@ -77,7 +77,7 @@ initSidebar(sidebarEl);
 initHeader(headerEl);
 initKeyboard(router, { resolveRunHistoryPath: currentIssueRunsPath });
 initCommandPalette();
-window.addEventListener("router:navigate", (event) => {
+globalThis.addEventListener("router:navigate", (event) => {
   const detail = (event as CustomEvent<{ path?: string; title?: string }>).detail;
   if (detail?.path) {
     rememberIssueContext(detail.path);
@@ -112,9 +112,9 @@ function aliasSettingsRoute(
   render: ReturnType<typeof lazyPage>,
 ): (params?: Record<string, string>) => HTMLElement {
   return (params) => {
-    const current = `${window.location.pathname}${window.location.hash}`;
+    const current = `${globalThis.location.pathname}${globalThis.location.hash}`;
     if (current !== target) {
-      window.history.replaceState({}, "", target);
+      globalThis.history.replaceState({}, "", target);
     }
     return render(params);
   };
@@ -153,47 +153,45 @@ router.setGuard((path) => {
   return "/setup";
 });
 
-api
-  .getSetupStatus()
-  .then((status) => {
-    if (status.configured) {
-      setupComplete = true;
-      router.setGuard(() => null);
-    }
-    router.init();
-    startPolling();
-    connectEventSource();
-  })
-  .catch(() => {
-    // Server may not have setup endpoint yet — allow navigation
+try {
+  const status = await api.getSetupStatus();
+  if (status.configured) {
     setupComplete = true;
     router.setGuard(() => null);
-    router.init();
-    startPolling();
-    connectEventSource();
-  });
+  }
+  router.init();
+  startPolling();
+  connectEventSource();
+} catch {
+  // Server may not have setup endpoint yet — allow navigation
+  setupComplete = true;
+  router.setGuard(() => null);
+  router.init();
+  startPolling();
+  connectEventSource();
+}
 
 // Listen for setup completion from the setup wizard
-window.addEventListener("setup:complete", () => {
+globalThis.addEventListener("setup:complete", () => {
   setupComplete = true;
   router.setGuard(() => null);
 });
 
 // ── SSE system event toast notifications ──────────────────────────────
 
-window.addEventListener("risoluto:worker-failed", (event) => {
+globalThis.addEventListener("risoluto:worker-failed", (event) => {
   const detail = (event as CustomEvent<{ error?: string; identifier?: string }>).detail;
   const message = detail?.error ?? "A worker process failed";
   deduplicatedToast(`Worker failed: ${message}`, "error");
 });
 
-window.addEventListener("risoluto:system-error", (event) => {
+globalThis.addEventListener("risoluto:system-error", (event) => {
   const detail = (event as CustomEvent<{ message?: string }>).detail;
   const message = detail?.message ?? "An unexpected system error occurred";
   deduplicatedToast(`System error: ${message}`, "error");
 });
 
-window.addEventListener("risoluto:model-updated", (event) => {
+globalThis.addEventListener("risoluto:model-updated", (event) => {
   const detail = (event as CustomEvent<{ identifier?: string; model?: string }>).detail;
   const identifier = detail?.identifier ?? "unknown";
   deduplicatedToast(`Model updated for ${identifier}`, "info");

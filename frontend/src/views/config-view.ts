@@ -21,7 +21,7 @@ export function createConfigPage(options: ConfigPageOptions = {}): HTMLElement {
 
   const header = createPageHeader(
     "Configuration",
-    "Override settings without modifying your workflow file. Changes persist across restarts.",
+    "Override settings without modifying the defaults. Changes persist across restarts.",
   );
 
   const helpBanner = document.createElement("section");

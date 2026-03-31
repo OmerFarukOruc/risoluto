@@ -98,7 +98,6 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
     .get((_req, res) => {
       res.json({
         version: process.env.npm_package_version ?? "unknown",
-        workflow_path: process.env.SYMPHONY_WORKFLOW_PATH ?? "",
         data_dir: process.env.SYMPHONY_DATA_DIR ?? "",
         feature_flags: {},
         provider_summary: "Codex",

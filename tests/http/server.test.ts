@@ -236,7 +236,6 @@ describe("HttpServer", () => {
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
       version: expect.any(String),
-      workflow_path: expect.any(String),
       data_dir: expect.any(String),
       feature_flags: expect.any(Object),
       provider_summary: expect.any(String),

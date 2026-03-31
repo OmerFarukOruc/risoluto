@@ -806,7 +806,6 @@ function dynamicSections(effective: Record<string, unknown>): SettingsSectionDef
 /** Build runtime metadata fields for the runtime-paths section. */
 function getRuntimeMetadataFields(effective: Record<string, unknown>): SettingsFieldDefinition[] {
   const metadataPaths = [
-    ["runtime.workflow_path", "Workflow path"],
     ["runtime.data_dir", "Data directory"],
     ["runtime.provider_summary", "Provider summary"],
   ] as const;

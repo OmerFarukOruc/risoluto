@@ -347,7 +347,7 @@ export function renderEmptyState(onCreate: () => void): HTMLElement {
   const description = document.createElement("p");
   description.className = "text-secondary";
   description.textContent =
-    "Configuration overrides let you customize Symphony behavior without changing your workflow file.";
+    "Configuration overrides let you customize Risoluto behavior without changing your workflow file.";
   container.append(iconDiv, heading, description);
 
   const cta = createButton("Create First Override", "primary");

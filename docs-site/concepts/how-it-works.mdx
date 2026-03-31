@@ -39,7 +39,7 @@ Each issue gets its own isolated directory under `workspace.root`. Two strategie
 
 Risoluto launches a Docker container for each issue:
 
-- **Image**: `symphony-codex:latest` (Node 22 + Codex CLI)
+- **Image**: `risoluto-codex:latest` (Node 22 + Codex CLI)
 - **Isolation**: Workspace bind-mounted at its original path
 - **Permissions**: Runs as your UID/GID — no ownership drift
 - **Resources**: Configurable memory, CPU, and tmpfs limits
@@ -125,11 +125,11 @@ When an agent fails, Risoluto applies exponential backoff:
 
 ## Data Storage
 
-All runtime state lives in a single directory (default: `~/.symphony/`):
+All runtime state lives in a single directory (default: `~/.risoluto/`):
 
 | Path | Purpose |
 |------|---------|
-| `symphony.db` | SQLite database — attempts, events, issue index |
+| `risoluto.db` | SQLite database — attempts, events, issue index |
 | `config/overlay.yaml` | Persistent operator config |
 | `master.key` | AES encryption key |
 | `secrets.enc` | Encrypted credential store |

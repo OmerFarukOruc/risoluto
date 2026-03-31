@@ -93,23 +93,23 @@ curl -s http://127.0.0.1:4000/api/v1/attempts/<attempt-id> | jq
 
 ```bash
 # Inspect by issue identifier
-./symphony-logs MT-42
+./risoluto MT-42
 
 # Inspect by attempt ID
-./symphony-logs --attempt <attempt-id>
+./risoluto --attempt <attempt-id>
 
 # Use a custom data directory
-./symphony-logs NIN-3 --dir /var/lib/symphony
+./risoluto NIN-3 --dir /var/lib/risoluto
 ```
 
 ### Container Inspection
 
 ```bash
 # List running agent containers
-docker ps --filter label=symphony.issue
+docker ps --filter label=risoluto.issue
 
 # Filter by specific issue
-docker ps --filter label=symphony.issue=NIN-5
+docker ps --filter label=risoluto.issue=NIN-5
 
 # View container logs
 docker logs <container-id>
@@ -123,7 +123,7 @@ docker inspect <container-id> | jq '.[0].State.OOMKilled'
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | Pino log level (`debug` for verbose) |
-| `SYMPHONY_LOG_FORMAT` | `logfmt` | `logfmt` or `json` |
+| `RISOLUTO_LOG_FORMAT` | `logfmt` | `logfmt` or `json` |
 | `SENTRY_DSN` | — | Error tracking endpoint |
 
 <Tip>

@@ -13,11 +13,11 @@ By default, Risoluto binds to `127.0.0.1` (loopback only):
 
 ```bash
 # Listen on all interfaces
-export SYMPHONY_BIND="0.0.0.0"
+export RISOLUTO_BIND="0.0.0.0"
 ```
 
 <Warning>
-  Never bind to `0.0.0.0` without also setting `SYMPHONY_WRITE_TOKEN`.
+  Never bind to `0.0.0.0` without also setting `RISOLUTO_WRITE_TOKEN`.
 </Warning>
 
 ## Write Guard
@@ -27,15 +27,15 @@ All mutating API requests (POST, PUT, PATCH, DELETE) are protected by a write gu
 | Scenario | Behavior |
 |----------|----------|
 | Request from loopback (`127.0.0.1`, `::1`) | ✅ Allowed — no token required |
-| Non-loopback, no `SYMPHONY_WRITE_TOKEN` set | ❌ **403 `write_forbidden`** |
-| `SYMPHONY_WRITE_TOKEN` set, valid bearer token | ✅ Allowed from any address |
-| `SYMPHONY_WRITE_TOKEN` set, missing/invalid token | ❌ **401 `write_unauthorized`** |
+| Non-loopback, no `RISOLUTO_WRITE_TOKEN` set | ❌ **403 `write_forbidden`** |
+| `RISOLUTO_WRITE_TOKEN` set, valid bearer token | ✅ Allowed from any address |
+| `RISOLUTO_WRITE_TOKEN` set, missing/invalid token | ❌ **401 `write_unauthorized`** |
 
 ### Enable Remote Write Access
 
 ```bash
-export SYMPHONY_BIND="0.0.0.0"
-export SYMPHONY_WRITE_TOKEN="your-secret-token"
+export RISOLUTO_BIND="0.0.0.0"
+export RISOLUTO_WRITE_TOKEN="your-secret-token"
 ```
 
 All mutating requests then require:
@@ -56,8 +56,8 @@ All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SYMPHONY_BIND` | `127.0.0.1` | HTTP bind address |
-| `SYMPHONY_WRITE_TOKEN` | — | Bearer token for remote writes |
+| `RISOLUTO_BIND` | `127.0.0.1` | HTTP bind address |
+| `RISOLUTO_WRITE_TOKEN` | — | Bearer token for remote writes |
 
 ## Filesystem Paths
 
@@ -65,8 +65,8 @@ All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 
 
 | Path | Purpose | Safe to delete? |
 |------|---------|----------------|
-| `.symphony/` | SQLite DB, config overlay, encrypted secrets | ⚠️ Lose all history |
-| `../symphony-workspaces/` | Per-issue workspace directories | ✅ Re-created on dispatch |
+| `.risoluto/` | SQLite DB, config overlay, encrypted secrets | ⚠️ Lose all history |
+| `../risoluto-workspaces/` | Per-issue workspace directories | ✅ Re-created on dispatch |
 | `~/.codex/` | Codex CLI auth credentials | ⚠️ Need to re-run `codex login` |
 
 ### Inside Docker Containers
@@ -80,8 +80,8 @@ All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 
 
 | Volume | Purpose |
 |--------|---------|
-| `symphony-cache-<runId>` | Persistent build caches per worker |
+| `risoluto-cache-<runId>` | Persistent build caches per worker |
 
 <Tip>
-  Directories like `~/.symphony-codex` or `~/.symphony-codex-home` are **not** created by Risoluto. If found on your host, they are leftover Codex CLI data and can be safely deleted.
+  Directories like `~/.risoluto-codex` or `~/.risoluto-codex-home` are **not** created by Risoluto. If found on your host, they are leftover Codex CLI data and can be safely deleted.
 </Tip>

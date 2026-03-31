@@ -13,21 +13,21 @@ Available at `GET /metrics` in Prometheus exposition format:
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `symphony_http_requests_total` | Counter | HTTP requests by method and status |
-| `symphony_http_request_duration_seconds` | Histogram | Request latency distribution |
-| `symphony_orchestrator_polls_total` | Counter | Poll cycles by status |
-| `symphony_agent_runs_total` | Counter | Agent completions by outcome |
+| `risoluto_http_requests_total` | Counter | HTTP requests by method and status |
+| `risoluto_http_request_duration_seconds` | Histogram | Request latency distribution |
+| `risoluto_orchestrator_polls_total` | Counter | Poll cycles by status |
+| `risoluto_agent_runs_total` | Counter | Agent completions by outcome |
 
 ### Example Alert Rules
 
 ```yaml
 groups:
-  - name: symphony
+  - name: risoluto
     rules:
       - alert: HighErrorRate
         expr: >
-          rate(symphony_http_requests_total{status=~"5.."}[5m])
-          / rate(symphony_http_requests_total[5m]) > 0.05
+          rate(risoluto_http_requests_total{status=~"5.."}[5m])
+          / rate(risoluto_http_requests_total[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -35,7 +35,7 @@ groups:
           summary: "HTTP error rate above 5%"
 
       - alert: AgentRunFailures
-        expr: rate(symphony_agent_runs_total{outcome="failed"}[15m]) > 0
+        expr: rate(risoluto_agent_runs_total{outcome="failed"}[15m]) > 0
         for: 15m
         labels:
           severity: critical
@@ -43,7 +43,7 @@ groups:
           summary: "Agent runs failing consistently"
 
       - alert: PollStalled
-        expr: increase(symphony_orchestrator_polls_total[10m]) == 0
+        expr: increase(risoluto_orchestrator_polls_total[10m]) == 0
         for: 10m
         labels:
           severity: warning
@@ -81,13 +81,13 @@ Logs are emitted to **stdout** via Pino:
 
 | Variable | Values | Default |
 |----------|--------|---------|
-| `SYMPHONY_LOG_FORMAT` | `logfmt`, `json` | `logfmt` |
+| `RISOLUTO_LOG_FORMAT` | `logfmt`, `json` | `logfmt` |
 | `LOG_LEVEL` | `trace` through `fatal` | `info` |
 
 To persist logs:
 
 ```bash
-node dist/cli/index.js --port 4000 2>&1 | tee symphony.log
+node dist/cli/index.js --port 4000 2>&1 | tee risoluto.log
 ```
 
 ## Event Stream (SSE)
@@ -102,13 +102,13 @@ See the [Dashboard guide](/guides/dashboard#real-time-events) for the full event
 
 ## Data Persistence
 
-All attempt and event data is stored in SQLite (`symphony.db`) with WAL mode:
+All attempt and event data is stored in SQLite (`risoluto.db`) with WAL mode:
 
 ```
-.symphony/
-├── symphony.db           # Attempts, events, issue index
-├── symphony.db-shm       # WAL shared-memory (normal)
-├── symphony.db-wal       # Write-ahead log (normal)
+.risoluto/
+├── risoluto.db           # Attempts, events, issue index
+├── risoluto.db-shm       # WAL shared-memory (normal)
+├── risoluto.db-wal       # Write-ahead log (normal)
 ├── config/               # Operator config overlay
 ├── secrets.enc           # Encrypted credential store
 ├── secrets.audit.log     # Access audit trail
@@ -123,10 +123,10 @@ curl -s http://127.0.0.1:4000/api/v1/state
 curl -s http://127.0.0.1:4000/api/v1/NIN-6/attempts
 
 # Via CLI helper
-./symphony-logs MT-42
-./symphony-logs --attempt <attempt-id>
+./risoluto MT-42
+./risoluto --attempt <attempt-id>
 
 # Direct SQLite (read-only via WAL)
-sqlite3 .symphony/symphony.db \
+sqlite3 .risoluto/risoluto.db \
   "SELECT attempt_id, issue_identifier, status FROM attempts ORDER BY started_at DESC LIMIT 10;"
 ```

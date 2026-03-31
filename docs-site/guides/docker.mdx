@@ -21,8 +21,8 @@ Open [http://localhost:4000](http://localhost:4000) and the **setup wizard** gui
 
 | Volume | Purpose |
 |--------|---------|
-| `symphony-archives` | Encrypted secrets, config overlay, auth tokens, run archives |
-| `symphony-workspaces` | Cloned repositories for each issue |
+| `risoluto-archives` | Encrypted secrets, config overlay, auth tokens, run archives |
+| `risoluto-workspaces` | Cloned repositories for each issue |
 | `codex-auth` | OpenAI Codex login tokens |
 
 ## Traditional Docker Compose
@@ -96,14 +96,14 @@ The data plane is **not exposed to the host** — it only listens on the private
 ```bash
 # 1. Install Node.js 22+ and Docker
 # 2. Clone the repo and install
-git clone <repo-url> && cd symphony-orchestrator
+git clone <repo-url> && cd risoluto
 pnpm install && pnpm run build
 
 # 3. Build the sandbox image
 bash bin/build-sandbox.sh
 
 # 4. Start — complete setup via the wizard at http://server:4000
-node dist/cli/index.js --log-dir /var/lib/symphony --port 4000
+node dist/cli/index.js --data-dir /var/lib/risoluto --port 4000
 ```
 
 <Tip>
@@ -125,5 +125,5 @@ The sandbox Docker image ships with:
 The container runs as your user (`--user $(id -u):$(id -g)`) to avoid ownership drift.
 
 <Warning>
-  Named Docker volumes survive container/image replacement but **not** `docker system prune --volumes`. Do not prune volumes prefixed with `symphony-`.
+  Named Docker volumes survive container/image replacement but **not** `docker system prune --volumes`. Do not prune volumes prefixed with `risoluto-`.
 </Warning>

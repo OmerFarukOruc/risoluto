@@ -9,7 +9,7 @@ Risoluto's configuration is layered with this merge order:
 
 1. **Built-in defaults**
 2. **WORKFLOW.md** (front-matter YAML)
-3. **Persistent overlay** (`~/.symphony/config/overlay.yaml`)
+3. **Persistent overlay** (`~/.risoluto/config/overlay.yaml`)
 4. **Environment variables** and `$SECRET:name` resolution
 
 ## Managing Configuration
@@ -72,7 +72,7 @@ Risoluto's configuration is layered with this merge order:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `codex.sandbox.image` | string | `"symphony-codex:latest"` | Docker image |
+| `codex.sandbox.image` | string | `"risoluto-codex:latest"` | Docker image |
 | `codex.sandbox.network` | string | `""` | Docker network name |
 | `codex.sandbox.extraMounts` | string[] | `[]` | Extra bind mounts |
 | `codex.sandbox.envPassthrough` | string[] | `[]` | Forwarded env vars |
@@ -114,9 +114,9 @@ Risoluto's configuration is layered with this merge order:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.root` | string | `"../symphony-workspaces"` | Root directory |
+| `workspace.root` | string | `"../risoluto-workspaces"` | Root directory |
 | `workspace.strategy` | enum | `"directory"` | `directory` or `worktree` |
-| `workspace.branchPrefix` | string | `"symphony/"` | Branch name prefix |
+| `workspace.branchPrefix` | string | `"risoluto/"` | Branch name prefix |
 
 ### Workspace Hooks
 

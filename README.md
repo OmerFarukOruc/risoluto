@@ -13,6 +13,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript" />
   <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker" />
   <img alt="Status" src="https://img.shields.io/badge/status-v0.6.0-orange?style=flat-square" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-2904%20passing-brightgreen?style=flat-square" />
 </p>
 
 <br/>
@@ -54,7 +55,7 @@ You create an issue  →  Risoluto picks it up  →  AI agent writes code  →  
 
 ```mermaid
 flowchart LR
-    A["🗂️ Linear<br/><sub>Issue Tracker</sub>"] -->|"poll"| B["🎵 Risoluto<br/><sub>Orchestrator</sub>"]
+    A["🗂️ Linear / GitHub<br/><sub>Issue Tracker</sub>"] -->|"poll"| B["🎵 Risoluto<br/><sub>Orchestrator</sub>"]
     B -->|"create"| C["📁 Workspace<br/><sub>Per-Issue Isolation</sub>"]
     B -->|"launch"| D["🐳 Docker<br/><sub>Sandboxed Container</sub>"]
     D -->|"contains"| E["🤖 Codex<br/><sub>AI Agent</sub>"]
@@ -95,12 +96,12 @@ Navigate to **http://localhost:4000** — the setup wizard starts automatically.
 
 **3. Complete the wizard** (3–5 min)
 
-| Step | What you'll do |
-| ---- | -------------- |
+| Step                   | What you'll do                                     |
+| ---------------------- | -------------------------------------------------- |
 | 🔐 **Protect secrets** | Generates an encryption master key for credentials |
-| 🗂️ **Connect Linear** | Paste your API key and select a project |
-| 🤖 **Add OpenAI** | Paste an API key or use Codex Login |
-| 🐙 **Add GitHub** | Paste a GitHub PAT *(optional)* |
+| 🗂️ **Connect Linear**  | Paste your API key and select a project            |
+| 🤖 **Add OpenAI**      | Paste an API key or use Codex Login                |
+| 🐙 **Add GitHub**      | Paste a GitHub PAT _(optional)_                    |
 
 **4. Create an issue and watch it run**
 
@@ -138,11 +139,13 @@ codex login                       # ChatGPT/Codex subscription path
 <td width="50%" valign="top">
 
 ### 🏗️ Core Engine
+
 - **📋 Linear polling** — Automatic issue discovery with priority sorting
-- **🐳 Docker sandbox** — `node:22` containers with resource limits, OOM detection, security hardening
+- **🐳 Docker sandbox** — `node:22` / Ubuntu 24.04 containers with resource limits, OOM detection, security hardening
 - **📁 Workspace isolation** — One directory per issue with lifecycle hooks
 - **🔄 Retry & stall handling** — Configurable backoff, turn/stall timeouts
 - **🎯 Model overrides** — Per-issue model selection from the dashboard
+- **⚡ Per-state concurrency limits** — Cap concurrent agents per workflow column
 - **🩺 Watchdog health monitor** — Periodic background health check with `healthy` / `degraded` / `critical` status exposed on the dashboard
 - **🔍 Orchestrator stall detector** — Kills agents silent for longer than `agent.stall_timeout_ms` (default 20 min) and requeues for retry
 - **✍️ Linear write-back** — Posts a rich completion comment and optionally transitions the issue to `agent.success_state` when an agent finishes
@@ -151,6 +154,7 @@ codex login                       # ChatGPT/Codex subscription path
 <td width="50%" valign="top">
 
 ### 🖥️ Dashboard & API
+
 - **📊 Real-time dashboard** — Board and overview views at `localhost:4000`
 - **📡 Full JSON API** — 50+ endpoints under `/api/v1/*`
 - **💰 Cost tracking** — Per-issue and per-model dollar cost in dashboard and API
@@ -158,6 +162,7 @@ codex login                       # ChatGPT/Codex subscription path
 - **📈 Prometheus metrics** — `GET /metrics` for scrape-friendly monitoring
 - **⚙️ Setup wizard** — Guided credential setup via web UI
 - **🔧 Config overlay** — Persistent operator config with encrypted secrets
+- **🪝 Webhook health panel** — Delivery count, last event type, and polling interval tracking
 
 </td>
 </tr>
@@ -165,18 +170,23 @@ codex login                       # ChatGPT/Codex subscription path
 <td width="50%" valign="top">
 
 ### 🔗 Integrations
+
 - **🐙 Git automation** — Clone, commit, push, and PR creation on completion
 - **🐙 GitHub Issues adapter** — Use GitHub Issues instead of (or alongside) Linear
 - **📬 Slack notifications** — Lifecycle alerts with verbosity controls
 - **🤖 Codex integration** — `codex app-server` via JSON-RPC with dynamic tool handling
+- **🔌 MCP server** — `linear_graphql` dynamic tool for orchestrator introspection
 
 </td>
 <td width="50%" valign="top">
 
 ### 🛡️ Operations
+
 - **💾 Archived attempts** — SQLite-backed attempt and event history in `.risoluto/`
 - **🔎 `risoluto-logs` CLI** — Archive-first issue and attempt inspection
 - **🔐 Encrypted secrets** — AES-encrypted credential storage
+- **🔥 Workflow hot-reload** — Chokidar-based config reload without restart
+- **📝 LiquidJS prompt templates** — Strict variable/filter checking with per-issue context
 - **✅ Strict TypeScript** — Full type safety with Vitest unit tests and Playwright E2E coverage
 
 </td>
@@ -191,15 +201,15 @@ Risoluto's roadmap ([#9 — Feature Roadmap](https://github.com/OmerFarukOruc/ri
 
 ### 🎯 Tier 1 — Shipping Next
 
-| Feature | What it unlocks |
-| ------- | --------------- |
-| [**⚡ Reactions System**](https://github.com/OmerFarukOruc/risoluto/issues/10) | CI/review/approval events trigger automatic agent actions |
-| [**📱 Mobile Dashboard**](https://github.com/OmerFarukOruc/risoluto/issues/12) | Fully responsive UI for monitoring on any device |
+| Feature                                                                           | What it unlocks                                              |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [**⚡ Reactions System**](https://github.com/OmerFarukOruc/risoluto/issues/10)    | CI/review/approval events trigger automatic agent actions    |
+| [**📱 Mobile Dashboard**](https://github.com/OmerFarukOruc/risoluto/issues/12)    | Fully responsive UI for monitoring on any device             |
 | [**🧹 Auto-squash Commits**](https://github.com/OmerFarukOruc/risoluto/issues/59) | Conventional commit formatting with execution metrics in PRs |
 
 ### 🏗️ Tier 2 — High Impact
 
-Multi-agent role pipelines • Agent-agnostic runner (10+ agent backends) • Kanban board with drag-and-drop • Inline diff review with agent feedback loop • MCP server for orchestrator tools • `npx` zero-install distribution • GitLab adapter • Chat integrations (Slack/Discord/Telegram) • and [43 more →](https://github.com/OmerFarukOruc/risoluto/issues/9)
+Multi-agent role pipelines • Agent-agnostic runner (10+ agent backends) • Kanban board with drag-and-drop • Inline diff review with agent feedback loop • `npx` zero-install distribution • GitLab adapter • Chat integrations (Slack/Discord/Telegram) • and [43 more →](https://github.com/OmerFarukOruc/risoluto/issues/9)
 
 ### 🔭 Tier 3–4 — Long Horizon
 
@@ -222,11 +232,11 @@ docker compose up --build
 
 All data persists in named Docker volumes:
 
-| Volume | Purpose |
-| ------ | ------- |
-| `risoluto-archives` | Encrypted secrets, config overlay, run archives |
-| `risoluto-workspaces` | Cloned repositories for each issue |
-| `codex-auth` | OpenAI Codex login tokens |
+| Volume                | Purpose                                         |
+| --------------------- | ----------------------------------------------- |
+| `risoluto-archives`   | Encrypted secrets, config overlay, run archives |
+| `risoluto-workspaces` | Cloned repositories for each issue              |
+| `codex-auth`          | OpenAI Codex login tokens                       |
 
 ### Advanced — Control / Data Plane Split
 
@@ -257,74 +267,74 @@ Enable with `DISPATCH_MODE=remote` in your `.env`. See the [Operator Guide](docs
 
 Risoluto exposes a full JSON API at `http://localhost:4000/api/v1/`. Here are the key endpoints:
 
-| Endpoint | What it does |
-| -------- | ------------ |
-| `GET /api/v1/state` | Runtime snapshot — queued, running, retrying, completed issues |
-| `GET /api/v1/runtime` | Version, workflow path, provider summary |
-| `GET /api/v1/events` | SSE stream of real-time orchestrator events |
-| `GET /api/v1/models` | List available Codex models |
-| `POST /api/v1/:issue/abort` | Abort a running issue |
-| `POST /api/v1/:issue/steer` | Inject steering message into a running agent |
-| `POST /api/v1/refresh` | Trigger immediate orchestration pass |
-| `GET /api/v1/:issue/attempts` | Archived attempts + current live attempt |
-| `POST /api/v1/:issue/model` | Save per-issue model override |
-| `GET /metrics` | Prometheus-format service metrics |
+| Endpoint                      | What it does                                                   |
+| ----------------------------- | -------------------------------------------------------------- |
+| `GET /api/v1/state`           | Runtime snapshot — queued, running, retrying, completed issues |
+| `GET /api/v1/runtime`         | Version, workflow path, provider summary                       |
+| `GET /api/v1/events`          | SSE stream of real-time orchestrator events                    |
+| `GET /api/v1/models`          | List available Codex models                                    |
+| `POST /api/v1/:issue/abort`   | Abort a running issue                                          |
+| `POST /api/v1/:issue/steer`   | Inject steering message into a running agent                   |
+| `POST /api/v1/refresh`        | Trigger immediate orchestration pass                           |
+| `GET /api/v1/:issue/attempts` | Archived attempts + current live attempt                       |
+| `POST /api/v1/:issue/model`   | Save per-issue model override                                  |
+| `GET /metrics`                | Prometheus-format service metrics                              |
 
 <details>
 <summary>📋 <strong>Full API reference</strong> — 50+ endpoints</summary>
 
 ### Core Endpoints
 
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `GET` | `/` | Local operator dashboard |
-| `GET` | `/metrics` | Prometheus metrics |
-| `GET` | `/api/v1/runtime` | Runtime info — version, workflow path, provider summary |
-| `GET` | `/api/v1/state` | Runtime snapshot — queued, running, retrying, completed, workflow columns, and token totals |
-| `POST` | `/api/v1/refresh` | Trigger immediate orchestration refresh |
-| `GET` | `/api/v1/transitions` | List available Linear workflow transitions |
-| `GET` | `/api/v1/:issue_identifier` | Issue detail, recent events, archived attempts |
-| `GET` | `/api/v1/:issue_identifier/attempts` | Archived attempts + current live attempt id |
-| `GET` | `/api/v1/attempts/:attempt_id` | Archived event stream for a specific attempt |
-| `POST` | `/api/v1/:issue_identifier/model` | Save per-issue model override |
-| `POST` | `/api/v1/:issue_identifier/transition` | Transition a Linear issue to a new state |
-| `POST` | `/api/v1/:issue_identifier/abort` | Abort a running issue |
-| `POST` | `/api/v1/:issue_identifier/steer` | Inject a steering message into a running agent |
-| `GET` | `/api/v1/events` | SSE stream of real-time orchestrator events |
-| `GET` | `/api/v1/models` | List available Codex models from the provider |
-| `GET` | `/api/v1/git/context` | Git repository context and configured repo routes |
-| `GET` | `/api/v1/workspaces` | Workspace inventory with disk usage |
-| `DELETE` | `/api/v1/workspaces/:workspace_key` | Remove a workspace directory |
-| `GET` | `/api/v1/openapi.json` | OpenAPI 3.0 specification |
-| `GET` | `/api/docs` | Swagger UI for interactive API exploration |
+| Method   | Endpoint                               | Description                                                                                 |
+| -------- | -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET`    | `/`                                    | Local operator dashboard                                                                    |
+| `GET`    | `/metrics`                             | Prometheus metrics                                                                          |
+| `GET`    | `/api/v1/runtime`                      | Runtime info — version, workflow path, provider summary                                     |
+| `GET`    | `/api/v1/state`                        | Runtime snapshot — queued, running, retrying, completed, workflow columns, and token totals |
+| `POST`   | `/api/v1/refresh`                      | Trigger immediate orchestration refresh                                                     |
+| `GET`    | `/api/v1/transitions`                  | List available Linear workflow transitions                                                  |
+| `GET`    | `/api/v1/:issue_identifier`            | Issue detail, recent events, archived attempts                                              |
+| `GET`    | `/api/v1/:issue_identifier/attempts`   | Archived attempts + current live attempt id                                                 |
+| `GET`    | `/api/v1/attempts/:attempt_id`         | Archived event stream for a specific attempt                                                |
+| `POST`   | `/api/v1/:issue_identifier/model`      | Save per-issue model override                                                               |
+| `POST`   | `/api/v1/:issue_identifier/transition` | Transition a Linear issue to a new state                                                    |
+| `POST`   | `/api/v1/:issue_identifier/abort`      | Abort a running issue                                                                       |
+| `POST`   | `/api/v1/:issue_identifier/steer`      | Inject a steering message into a running agent                                              |
+| `GET`    | `/api/v1/events`                       | SSE stream of real-time orchestrator events                                                 |
+| `GET`    | `/api/v1/models`                       | List available Codex models from the provider                                               |
+| `GET`    | `/api/v1/git/context`                  | Git repository context and configured repo routes                                           |
+| `GET`    | `/api/v1/workspaces`                   | Workspace inventory with disk usage                                                         |
+| `DELETE` | `/api/v1/workspaces/:workspace_key`    | Remove a workspace directory                                                                |
+| `GET`    | `/api/v1/openapi.json`                 | OpenAPI 3.0 specification                                                                   |
+| `GET`    | `/api/docs`                            | Swagger UI for interactive API exploration                                                  |
 
 ### Config & Secrets Endpoints
 
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `GET` | `/api/v1/config` | Effective merged operator config |
-| `GET` | `/api/v1/config/overlay` | Persistent overlay values only |
-| `PUT` | `/api/v1/config/overlay` | Update overlay values |
-| `DELETE` | `/api/v1/config/overlay/:path` | Remove one overlay path |
-| `GET` | `/api/v1/secrets` | List configured secret keys |
-| `POST` | `/api/v1/secrets/:key` | Store one secret |
-| `DELETE` | `/api/v1/secrets/:key` | Delete one secret |
+| Method   | Endpoint                       | Description                      |
+| -------- | ------------------------------ | -------------------------------- |
+| `GET`    | `/api/v1/config`               | Effective merged operator config |
+| `GET`    | `/api/v1/config/overlay`       | Persistent overlay values only   |
+| `PUT`    | `/api/v1/config/overlay`       | Update overlay values            |
+| `DELETE` | `/api/v1/config/overlay/:path` | Remove one overlay path          |
+| `GET`    | `/api/v1/secrets`              | List configured secret keys      |
+| `POST`   | `/api/v1/secrets/:key`         | Store one secret                 |
+| `DELETE` | `/api/v1/secrets/:key`         | Delete one secret                |
 
 ### Setup Wizard Endpoints
 
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `GET` | `/api/v1/setup/status` | Setup wizard progress and step completion |
-| `POST` | `/api/v1/setup/reset` | Reset all configuration |
-| `POST` | `/api/v1/setup/master-key` | Initialize encryption master key |
-| `GET` | `/api/v1/setup/linear-projects` | List available Linear projects |
-| `POST` | `/api/v1/setup/linear-project` | Select a Linear project |
-| `POST` | `/api/v1/setup/openai-key` | Validate and store OpenAI API key |
-| `POST` | `/api/v1/setup/codex-auth` | Store Codex auth.json |
-| `POST` | `/api/v1/setup/pkce-auth/start` | Start browser-based PKCE login flow |
-| `GET` | `/api/v1/setup/pkce-auth/status` | Poll PKCE authorization status |
-| `POST` | `/api/v1/setup/pkce-auth/cancel` | Cancel active PKCE flow |
-| `POST` | `/api/v1/setup/github-token` | Validate and store GitHub token |
+| Method | Endpoint                         | Description                               |
+| ------ | -------------------------------- | ----------------------------------------- |
+| `GET`  | `/api/v1/setup/status`           | Setup wizard progress and step completion |
+| `POST` | `/api/v1/setup/reset`            | Reset all configuration                   |
+| `POST` | `/api/v1/setup/master-key`       | Initialize encryption master key          |
+| `GET`  | `/api/v1/setup/linear-projects`  | List available Linear projects            |
+| `POST` | `/api/v1/setup/linear-project`   | Select a Linear project                   |
+| `POST` | `/api/v1/setup/openai-key`       | Validate and store OpenAI API key         |
+| `POST` | `/api/v1/setup/codex-auth`       | Store Codex auth.json                     |
+| `POST` | `/api/v1/setup/pkce-auth/start`  | Start browser-based PKCE login flow       |
+| `GET`  | `/api/v1/setup/pkce-auth/status` | Poll PKCE authorization status            |
+| `POST` | `/api/v1/setup/pkce-auth/cancel` | Cancel active PKCE flow                   |
+| `POST` | `/api/v1/setup/github-token`     | Validate and store GitHub token           |
 
 </details>
 
@@ -336,11 +346,11 @@ Risoluto stores all config in `~/.risoluto/` (or the directory passed via `--dat
 
 ### Auth Modes
 
-| Mode | How to configure | How it works |
-| ---- | ---------------- | ------------ |
-| **API Key** | Paste `sk-...` in the setup wizard | Forwards `OPENAI_API_KEY` into the container |
-| **Codex Login** | Browser PKCE flow or upload `auth.json` | Injects `auth.json` from the encrypted secrets store |
-| **Custom Provider** | `codex.provider` overlay key | OpenAI-compatible endpoints with `base_url`, headers, query params |
+| Mode                | How to configure                        | How it works                                                       |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| **API Key**         | Paste `sk-...` in the setup wizard      | Forwards `OPENAI_API_KEY` into the container                       |
+| **Codex Login**     | Browser PKCE flow or upload `auth.json` | Injects `auth.json` from the encrypted secrets store               |
+| **Custom Provider** | `codex.provider` overlay key            | OpenAI-compatible endpoints with `base_url`, headers, query params |
 
 > [!NOTE]
 > Host-bound provider URLs like `http://127.0.0.1:8317/v1` are automatically rewritten to `host.docker.internal` inside Docker containers.
@@ -350,7 +360,7 @@ Risoluto stores all config in `~/.risoluto/` (or the directory passed via `--dat
 ## 🧪 Testing
 
 ```bash
-pnpm test                  # Deterministic unit tests (Vitest, 2899 tests)
+pnpm test                  # Deterministic unit tests (Vitest, 2904 tests)
 pnpm run test:watch        # Watch mode for local iteration
 pnpm run test:integration  # Opt-in live integration (requires credentials)
 ```
@@ -386,40 +396,40 @@ Runs 12 phases: preflight, start, setup wizard, issue creation, agent monitoring
 
 ### 🏁 Getting Started
 
-| Document | What you'll learn |
-| -------- | ----------------- |
-| **[Getting Started](docs/GETTING_STARTED.md)** | First 10 minutes: install, setup wizard, first issue |
-| **[Operator Guide](docs/OPERATOR_GUIDE.md)** | Full setup walkthrough, deployment options, Docker networking, wizard details |
+| Document                                       | What you'll learn                                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| **[Getting Started](docs/GETTING_STARTED.md)** | First 10 minutes: install, setup wizard, first issue                          |
+| **[Operator Guide](docs/OPERATOR_GUIDE.md)**   | Full setup walkthrough, deployment options, Docker networking, wizard details |
 
 ### 🔧 Operating & Monitoring
 
-| Document | What it covers |
-| -------- | -------------- |
-| **[Runbooks](docs/RUNBOOKS.md)** | Troubleshooting playbooks for common failures |
+| Document                                   | What it covers                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| **[Runbooks](docs/RUNBOOKS.md)**           | Troubleshooting playbooks for common failures                    |
 | **[Observability](docs/OBSERVABILITY.md)** | Prometheus metrics, request tracing, error tracking, alert rules |
-| **[E2E Testing](docs/E2E_TESTING.md)** | Automated lifecycle test: setup, config, phases, diagnostics |
-| **[Releasing](docs/RELEASING.md)** | Release preparation checklist |
+| **[E2E Testing](docs/E2E_TESTING.md)**     | Automated lifecycle test: setup, config, phases, diagnostics     |
+| **[Releasing](docs/RELEASING.md)**         | Release preparation checklist                                    |
 
 ### 🏛️ Architecture & Security
 
-| Document | What it covers |
-| -------- | -------------- |
-| **[Trust & Auth](docs/TRUST_AND_AUTH.md)** | Trust boundaries, sandbox security, credential chain |
-| **[Conformance Audit](docs/CONFORMANCE_AUDIT.md)** | Per-requirement spec conformance tracking |
-| **[Roadmap](docs/ROADMAP_AND_STATUS.md)** | 89-issue feature roadmap across 4 tiers |
+| Document                                           | What it covers                                       |
+| -------------------------------------------------- | ---------------------------------------------------- |
+| **[Trust & Auth](docs/TRUST_AND_AUTH.md)**         | Trust boundaries, sandbox security, credential chain |
+| **[Conformance Audit](docs/CONFORMANCE_AUDIT.md)** | Per-requirement spec conformance tracking            |
+| **[Roadmap](docs/ROADMAP_AND_STATUS.md)**          | 89-issue feature roadmap across 4 tiers              |
 
 ### 📖 Reference
 
-| Document | What it covers |
-| -------- | -------------- |
-| **[EXECPLAN.md](EXECPLAN.md)** | Internal implementation log |
+| Document                                                 | What it covers                               |
+| -------------------------------------------------------- | -------------------------------------------- |
+| **[EXECPLAN.md](EXECPLAN.md)**                           | Internal implementation log                  |
 | **[Visual Verify Skill](skills/visual-verify/SKILL.md)** | Dashboard screenshot diffing and QA workflow |
 
 ---
 
 ## 🔒 Trust Posture
 
-The v0.3 operating mode is intentionally **high trust** and **local-only**.
+The default operating mode is intentionally **high trust** and **local-only**.
 
 ```mermaid
 flowchart TB

@@ -23,7 +23,7 @@ Before you begin, ensure you have:
 <Steps>
   <Step title="Clone and build">
     ```bash
-    git clone <repo-url> && cd symphony-orchestrator
+    git clone <repo-url> && cd risoluto
     pnpm install && pnpm run build
     ```
   </Step>
@@ -94,7 +94,7 @@ SMOKE: create workspace proof file
 
 **Description:**
 ```markdown
-Create `SYMPHONY_SMOKE_RESULT.md` in the workspace with:
+Create `RISOLUTO_SMOKE_RESULT.md` in the workspace with:
 - the issue identifier
 - the current UTC timestamp
 - the output of `pwd` and `ls -la`
@@ -119,7 +119,7 @@ Set the issue to **In Progress**. Within one poll cycle (default: 30 seconds), R
 When the agent finishes, inspect the workspace:
 
 ```bash
-cat ../symphony-workspaces/<ISSUE_ID>/SYMPHONY_SMOKE_RESULT.md
+cat ../risoluto-workspaces/<ISSUE_ID>/RISOLUTO_SMOKE_RESULT.md
 ```
 
 ## What's Next

@@ -26,7 +26,7 @@ server:
   port: 4111
 
 timeouts:
-  symphony_startup_ms: 20000
+  risoluto_startup_ms: 20000
   setup_complete_ms: 30000
   issue_pickup_ms: 120000
   lifecycle_complete_ms: 900000 # 15 min — CI should not run forever
@@ -37,7 +37,7 @@ test_issue:
   title: "E2E smoke: add hello-world.txt"
   description: |
     Create a file called `hello-world.txt` at the repo root containing
-    "Hello from Symphony E2E test -- run {run_id}".
+    "Hello from Risoluto E2E test -- run {run_id}".
     Automated smoke test -- keep changes minimal.
   priority: 3
 

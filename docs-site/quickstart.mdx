@@ -1,6 +1,8 @@
 ---
 title: Quickstart
-description: "Go from zero to your first automated PR in 10 minutes. Install Risoluto, run the setup wizard, and watch an AI agent close a real issue."
+sidebarTitle: Quickstart
+description: "Go from zero to your first automated PR in 10 minutes."
+icon: "rocket"
 ---
 
 # Quickstart
@@ -9,26 +11,33 @@ Get Risoluto running and process your first issue in under 10 minutes.
 
 ## Prerequisites
 
-Before you begin, ensure you have:
-
 | Requirement | Details |
-| ----------- | ------- |
+|-------------|---------|
 | **Node.js** | v22 or newer |
-| **Docker** | Docker Engine installed and running (`docker info` should succeed) |
+| **Docker** | Docker Engine running (`docker info` should succeed) |
 | **pnpm** | Package manager (`npm install -g pnpm`) |
 | **Linear** | A Linear account with at least one project |
 
-## Install
+## Install & Start
 
 <Steps>
-  <Step title="Clone and build">
-    ```bash
-    git clone <repo-url> && cd risoluto
-    pnpm install && pnpm run build
-    ```
+  <Step title="Clone and build" icon="download">
+    <CodeGroup>
+      ```bash pnpm (recommended)
+      git clone https://github.com/OmerFarukOruc/risoluto.git
+      cd risoluto
+      pnpm install && pnpm run build
+      ```
+
+      ```bash npm
+      git clone https://github.com/OmerFarukOruc/risoluto.git
+      cd risoluto
+      npm install && npm run build
+      ```
+    </CodeGroup>
   </Step>
 
-  <Step title="Build the sandbox image">
+  <Step title="Build the sandbox image" icon="docker">
     This creates the Docker image that isolated AI agents run inside:
 
     ```bash
@@ -36,16 +45,16 @@ Before you begin, ensure you have:
     ```
 
     <Info>
-      The sandbox image is based on `node:22-bookworm` with the Codex CLI pre-installed. It provides process isolation, resource limits, and security hardening out of the box.
+      The sandbox image is based on **Ubuntu 24.04 with Node.js 22** and the Codex CLI pre-installed. It provides process isolation, resource limits, and security hardening out of the box.
     </Info>
   </Step>
 
-  <Step title="Start Risoluto">
+  <Step title="Start Risoluto" icon="play">
     ```bash
     node dist/cli/index.js --port 4000
     ```
 
-    Open [http://127.0.0.1:4000](http://127.0.0.1:4000) — the **setup wizard** opens automatically.
+    Open [http://127.0.0.1:4000](http://127.0.0.1:4000) — the **setup wizard** opens automatically on first run.
   </Step>
 </Steps>
 
@@ -54,16 +63,16 @@ Before you begin, ensure you have:
 The wizard walks you through four steps:
 
 <Steps>
-  <Step title="Protect secrets">
+  <Step title="Protect secrets" icon="key">
     Generates an AES-256 encryption master key that protects all stored credentials on disk. This key never leaves your machine.
   </Step>
 
-  <Step title="Connect Linear">
+  <Step title="Connect Linear" icon="plug">
     Paste your Linear API key. The wizard validates it, lists your projects, and lets you select the one to monitor.
   </Step>
 
-  <Step title="Add OpenAI">
-    Choose one of three methods:
+  <Step title="Add OpenAI" icon="brain">
+    Choose one of three authentication methods:
 
     <Tabs>
       <Tab title="API Key">
@@ -73,12 +82,12 @@ The wizard walks you through four steps:
         Click **"Sign in with OpenAI"** — authenticates via PKCE in your browser. No CLI needed.
       </Tab>
       <Tab title="Manual">
-        Run `codex login` in your terminal, then paste `~/.codex/auth.json` contents.
+        Run `codex login` in your terminal, then paste the contents of `~/.codex/auth.json`.
       </Tab>
     </Tabs>
   </Step>
 
-  <Step title="Add GitHub (optional)">
+  <Step title="Add GitHub (optional)" icon="github">
     Paste a GitHub PAT to enable automatic PR creation when agents complete work.
   </Step>
 </Steps>
@@ -101,9 +110,13 @@ Create `RISOLUTO_SMOKE_RESULT.md` in the workspace with:
 - whether the workspace looks empty or repo-backed
 ```
 
-Set the issue to **In Progress**. Within one poll cycle (default: 30 seconds), Risoluto picks it up automatically.
+Set the issue to **In Progress**. Within one poll cycle (default: **15 seconds**), Risoluto picks it up automatically.
 
-### Check the results
+<Check>
+  **How to confirm it's working:** The issue appears on the dashboard at [http://127.0.0.1:4000](http://127.0.0.1:4000) with real-time progress indicators. You can also check the API directly.
+</Check>
+
+### Check the Results
 
 <CardGroup cols={2}>
   <Card title="Dashboard" icon="chart-mixed">
@@ -126,15 +139,15 @@ cat ../risoluto-workspaces/<ISSUE_ID>/RISOLUTO_SMOKE_RESULT.md
 
 <CardGroup cols={2}>
   <Card title="How It Works" icon="diagram-project" href="/concepts/how-it-works">
-    Understand the architecture — polling, workspaces, sandboxes, and delivery.
+    Understand the full architecture — polling, workspaces, sandboxes, and delivery.
   </Card>
   <Card title="Docker Deployment" icon="docker" href="/guides/docker">
-    Deploy with Docker Compose for persistent operation.
+    Deploy with Docker Compose for persistent, unattended operation.
   </Card>
   <Card title="Configuration" icon="gear" href="/guides/configuration">
     Customize models, timeouts, retries, and workspace strategies.
   </Card>
   <Card title="Network Security" icon="shield" href="/guides/security">
-    Secure the API with write tokens and bind address controls.
+    Secure the API with write tokens, bind address controls, and TLS.
   </Card>
 </CardGroup>

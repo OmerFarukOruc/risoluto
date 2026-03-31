@@ -1,162 +1,267 @@
 ---
 title: Configuration Reference
-description: "Complete reference for all Risoluto configuration options — codex settings, agent behavior, workspace isolation, and more."
+sidebarTitle: Configuration
+description: "Complete reference for all Risoluto configuration options — server, tracker, agent, codex, workspace, sandbox, and notifications."
+icon: "gear"
+mode: "wide"
 ---
 
-# Configuration Reference
+Risoluto's configuration is layered with this merge order (last wins):
 
-Risoluto's configuration is layered with this merge order:
-
-1. **Built-in defaults**
-2. **WORKFLOW.md** (front-matter YAML)
-3. **Persistent overlay** (`~/.risoluto/config/overlay.yaml`)
-4. **Environment variables** and `$SECRET:name` resolution
+1. **Built-in defaults** — from Zod schemas in `src/config/schemas/`
+2. **Persistent overlay** — `~/.risoluto/config/overlay.yaml` (or `$DATA_DIR/config/overlay.yaml`)
+3. **Environment variables** and `$SECRET:name` resolution at runtime
 
 ## Managing Configuration
 
 <Tabs>
   <Tab title="API">
     ```bash
-    # View effective config
+    # View effective (merged) config
     curl -s http://127.0.0.1:4000/api/v1/config
 
     # View overlay only
     curl -s http://127.0.0.1:4000/api/v1/config/overlay
 
-    # Update overlay
+    # Update overlay (deep merge)
     curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
       -H 'Content-Type: application/json' \
-      -d '{"codex":{"model":"gpt-5.4"}}'
+      -d '{"codex":{"model":"gpt-5.4","reasoningEffort":"high"}}'
 
-    # View config schema
+    # Patch a single path
+    curl -s -X PATCH http://127.0.0.1:4000/api/v1/config/overlay/agent.maxConcurrentAgents \
+      -H 'Content-Type: application/json' \
+      -d '{"value": 5}'
+
+    # Delete an overlay key
+    curl -s -X DELETE http://127.0.0.1:4000/api/v1/config/overlay/codex.personality
+
+    # View config schema (JSON Schema)
     curl -s http://127.0.0.1:4000/api/v1/config/schema
     ```
   </Tab>
   <Tab title="Dashboard">
-    Use the **System → Configuration** page in the dashboard to edit the overlay visually.
+    Use the **System → Configuration** page in the dashboard to edit the overlay visually. Changes take effect immediately — no restart required.
+  </Tab>
+  <Tab title="YAML File">
+    Edit the overlay file directly:
+
+    ```yaml
+    # ~/.risoluto/config/overlay.yaml
+    server:
+      port: 4000
+    codex:
+      model: gpt-5.4
+      reasoningEffort: high
+    agent:
+      maxConcurrentAgents: 5
+    workspace:
+      strategy: worktree
+    ```
   </Tab>
 </Tabs>
 
-## Codex — Agent Provider
+<Tip>
+  Overlay changes via the API or dashboard are persisted to disk and survive restarts. You never need to restart Risoluto after a config change — the orchestrator reloads automatically.
+</Tip>
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.command` | string | `"codex app-server"` | Command to start the Codex agent |
-| `codex.model` | string | `"gpt-5.4"` | Model identifier |
-| `codex.reasoningEffort` | enum | `"high"` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
-| `codex.personality` | string | `"friendly"` | Agent personality/tone |
-| `codex.selfReview` | boolean | `false` | Enable agent self-review |
-| `codex.structuredOutput` | boolean | `false` | Enable structured output mode |
-| `codex.approvalPolicy` | string\|object | reject all | Tool call approval policy |
-| `codex.threadSandbox` | string | `"workspace-write"` | Thread sandbox level |
-| `codex.turnSandboxPolicy` | object | `{type: "workspaceWrite"}` | Per-turn sandbox policy |
+## Configuration Sections
 
-### Timeouts
+<AccordionGroup>
+  <Accordion title="Server & Polling">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `server.port` | number | `4000` | HTTP server port |
+    | `polling.intervalMs` | number | `15000` | Tracker polling interval in milliseconds |
+  </Accordion>
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.readTimeoutMs` | number | `5000` | JSON-RPC read timeout |
-| `codex.turnTimeoutMs` | number | `3600000` | Max duration per turn (1h) |
-| `codex.drainTimeoutMs` | number | `2000` | Drain timeout on shutdown |
-| `codex.startupTimeoutMs` | number | `30000` | Container startup timeout |
-| `codex.stallTimeoutMs` | number | `300000` | Per-turn stall detection (5min) |
+  <Accordion title="Tracker">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `tracker.kind` | string | `"linear"` | Tracker provider (`"linear"` or `"github"`) |
+    | `tracker.apiKey` | string | `""` | Tracker API key (prefer `$SECRET:LINEAR_API_KEY`) |
+    | `tracker.endpoint` | string | `"https://api.linear.app/graphql"` | Tracker GraphQL endpoint |
+    | `tracker.projectSlug` | string | `null` | Linear project slug to watch |
+    | `tracker.owner` | string | `""` | GitHub owner (when `kind: "github"`) |
+    | `tracker.repo` | string | `""` | GitHub repo (when `kind: "github"`) |
+    | `tracker.activeStates` | string[] | `["Backlog", "Todo", "In Progress"]` | States that trigger agent dispatch |
+    | `tracker.terminalStates` | string[] | `["Done", "Canceled"]` | States that mark issues as complete |
+  </Accordion>
 
-### Authentication
+  <Accordion title="Agent (Orchestrator)">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `agent.maxConcurrentAgents` | number | `10` | Maximum simultaneous agent workers |
+    | `agent.maxConcurrentAgentsByState` | object | `{}` | Per-state concurrency limits (e.g. `{"In Progress": 3}`) |
+    | `agent.maxTurns` | number | `20` | Max conversation turns per agent run |
+    | `agent.maxRetryBackoffMs` | number | `300000` | Maximum retry backoff (5 min) |
+    | `agent.maxContinuationAttempts` | number | `5` | Max continuation turns after initial run |
+    | `agent.successState` | string | `null` | Linear state to transition to on success |
+    | `agent.stallTimeoutMs` | number | `1200000` | Agent stall detection timeout (20 min) |
+    | `agent.preflightCommands` | string[] | `[]` | Shell commands to run before each agent turn |
+  </Accordion>
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.auth.mode` | enum | `"api_key"` | `api_key` or `openai_login` |
-| `codex.auth.sourceHome` | string | `"~/.codex"` | Path to Codex auth credentials |
+  <Accordion title="Codex (Agent Provider)">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.command` | string | `"codex app-server"` | Command to start the Codex agent |
+    | `codex.model` | string | `"gpt-5.4"` | Model identifier |
+    | `codex.reasoningEffort` | enum | `"high"` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
+    | `codex.personality` | string | `"friendly"` | Agent personality/tone |
+    | `codex.selfReview` | boolean | `false` | Enable agent self-review before completing |
+    | `codex.structuredOutput` | boolean | `false` | Enable structured output mode |
+    | `codex.approvalPolicy` | string\|object | reject all | Tool call approval policy |
+    | `codex.threadSandbox` | string | `"workspace-write"` | Thread-level sandbox policy |
+    | `codex.turnSandboxPolicy` | object | `{type: "workspaceWrite"}` | Per-turn sandbox policy |
 
-### Sandbox — Container Settings
+    **Timeouts:**
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.sandbox.image` | string | `"risoluto-codex:latest"` | Docker image |
-| `codex.sandbox.network` | string | `""` | Docker network name |
-| `codex.sandbox.extraMounts` | string[] | `[]` | Extra bind mounts |
-| `codex.sandbox.envPassthrough` | string[] | `[]` | Forwarded env vars |
-| `codex.sandbox.egressAllowlist` | string[] | `[]` | Allowed egress domains |
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.readTimeoutMs` | number | `5000` | JSON-RPC read timeout |
+    | `codex.turnTimeoutMs` | number | `3600000` | Max duration per turn (1 hour) |
+    | `codex.drainTimeoutMs` | number | `2000` | Drain timeout on shutdown |
+    | `codex.startupTimeoutMs` | number | `30000` | Container startup timeout (30s) |
+    | `codex.stallTimeoutMs` | number | `300000` | Per-turn stall detection (5 min) |
 
-### Sandbox Resources
+    **Authentication:**
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.sandbox.resources.memory` | string | `"4g"` | Memory limit |
-| `codex.sandbox.resources.memoryReservation` | string | `"1g"` | Guaranteed memory |
-| `codex.sandbox.resources.memorySwap` | string | `"4g"` | Swap limit |
-| `codex.sandbox.resources.cpus` | string | `"2.0"` | CPU limit |
-| `codex.sandbox.resources.tmpfsSize` | string | `"512m"` | tmpfs mount size |
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.auth.mode` | enum | `"api_key"` | `api_key` or `openai_login` |
+    | `codex.auth.sourceHome` | string | `"~/.codex"` | Path to Codex auth credentials |
+  </Accordion>
 
-### Sandbox Security
+  <Accordion title="Sandbox (Container)">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.sandbox.image` | string | `"risoluto-codex:latest"` | Docker image for worker containers |
+    | `codex.sandbox.network` | string | `""` | Docker network name |
+    | `codex.sandbox.extraMounts` | string[] | `[]` | Extra bind mounts |
+    | `codex.sandbox.envPassthrough` | string[] | `[]` | Env vars forwarded to containers |
+    | `codex.sandbox.egressAllowlist` | string[] | `[]` | Allowed egress domains |
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `codex.sandbox.security.noNewPrivileges` | boolean | `true` | `--security-opt=no-new-privileges` |
-| `codex.sandbox.security.dropCapabilities` | boolean | `true` | Drop all Linux capabilities |
-| `codex.sandbox.security.gvisor` | boolean | `false` | Enable gVisor runtime |
-| `codex.sandbox.security.seccompProfile` | string | `""` | Custom seccomp profile path |
+    **Resources:**
 
-## Agent — Orchestrator Settings
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.sandbox.resources.memory` | string | `"4g"` | Memory limit |
+    | `codex.sandbox.resources.memoryReservation` | string | `"1g"` | Guaranteed memory |
+    | `codex.sandbox.resources.memorySwap` | string | `"4g"` | Swap limit |
+    | `codex.sandbox.resources.cpus` | string | `"2.0"` | CPU limit |
+    | `codex.sandbox.resources.tmpfsSize` | string | `"512m"` | tmpfs mount size |
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `agent.maxConcurrentAgents` | number | `10` | Max simultaneous agents |
-| `agent.maxConcurrentAgentsByState` | object | `{}` | Per-state concurrency limits |
-| `agent.maxTurns` | number | `20` | Max conversation turns per run |
-| `agent.maxRetryBackoffMs` | number | `300000` | Max retry backoff (5min) |
-| `agent.maxContinuationAttempts` | number | `5` | Max continuation turns |
-| `agent.successState` | string | `null` | Linear state on success |
-| `agent.stallTimeoutMs` | number | `1200000` | Agent stall timeout (20min) |
-| `agent.preflightCommands` | string[] | `[]` | Pre-turn shell commands |
+    **Security:**
 
-## Workspace — Isolation
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.sandbox.security.noNewPrivileges` | boolean | `true` | `--security-opt=no-new-privileges` |
+    | `codex.sandbox.security.dropCapabilities` | boolean | `true` | Drop all Linux capabilities |
+    | `codex.sandbox.security.gvisor` | boolean | `false` | Enable gVisor runtime |
+    | `codex.sandbox.security.seccompProfile` | string | `""` | Custom seccomp profile path |
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `workspace.root` | string | `"../risoluto-workspaces"` | Root directory |
-| `workspace.strategy` | enum | `"directory"` | `directory` or `worktree` |
-| `workspace.branchPrefix` | string | `"risoluto/"` | Branch name prefix |
+    **Logging:**
 
-### Workspace Hooks
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `codex.sandbox.logs.driver` | string | `"json-file"` | Docker log driver |
+    | `codex.sandbox.logs.maxSize` | string | `"50m"` | Max log file size |
+    | `codex.sandbox.logs.maxFile` | number | `3` | Max number of log files |
+  </Accordion>
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `workspace.hooks.afterCreate` | string | `null` | After workspace creation |
-| `workspace.hooks.beforeRun` | string | `null` | Before each agent run |
-| `workspace.hooks.afterRun` | string | `null` | After each agent run |
-| `workspace.hooks.beforeRemove` | string | `null` | Before workspace removal |
-| `workspace.hooks.timeoutMs` | number | `60000` | Hook execution timeout |
+  <Accordion title="Workspace">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `workspace.root` | string | `"../risoluto-workspaces"` | Root directory for issue workspaces |
+    | `workspace.strategy` | enum | `"directory"` | Isolation strategy: `directory` (clone) or `worktree` (git worktree) |
+    | `workspace.branchPrefix` | string | `"risoluto/"` | Branch name prefix for agent branches |
 
-## GitHub Integration
+    **Hooks:**
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `github.token` | string | — | GitHub Personal Access Token |
-| `github.apiBaseUrl` | string | `"https://api.github.com"` | GitHub API endpoint |
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `workspace.hooks.afterCreate` | string | `null` | Shell command after workspace creation |
+    | `workspace.hooks.beforeRun` | string | `null` | Shell command before each agent run |
+    | `workspace.hooks.afterRun` | string | `null` | Shell command after each agent run |
+    | `workspace.hooks.beforeRemove` | string | `null` | Shell command before workspace removal |
+    | `workspace.hooks.timeoutMs` | number | `60000` | Hook execution timeout (1 min) |
+  </Accordion>
 
-## Notifications
+  <Accordion title="Notifications">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `notifications.slack.webhookUrl` | string | — | Slack incoming webhook URL |
+    | `notifications.slack.verbosity` | enum | `"critical"` | `off`, `critical`, `verbose` |
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `notifications.slack.webhookUrl` | string | — | Slack webhook URL |
-| `notifications.slack.verbosity` | enum | `"critical"` | `off`, `critical`, `verbose` |
+    See the [Notifications guide](/guides/notifications) for event types and severity levels.
+  </Accordion>
+
+  <Accordion title="Webhook (Linear Inbound)">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `webhook.webhookUrl` | string | — | HTTPS-only webhook URL (enables webhook mode) |
+    | `webhook.webhookSecret` | string | — | HMAC signing secret for verification |
+    | `webhook.pollingBaseMs` | number | `15000` | Polling interval when webhook is healthy |
+    | `webhook.pollingStretchMs` | number | `120000` | Polling interval stretched when webhook active |
+    | `webhook.healthCheckIntervalMs` | number | `300000` | Health check interval (5 min) |
+  </Accordion>
+
+  <Accordion title="GitHub Integration">
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `github.token` | string | — | GitHub Personal Access Token |
+    | `github.apiBaseUrl` | string | `"https://api.github.com"` | GitHub API endpoint (for GHES) |
+  </Accordion>
+</AccordionGroup>
 
 ## Secrets Management
 
-```bash
-# Store a secret
+Secrets are stored in an AES-256-GCM encrypted store, separate from config:
+
+<CodeGroup>
+```bash Store a secret
 curl -s -X POST http://127.0.0.1:4000/api/v1/secrets/SLACK_WEBHOOK_URL \
   -H 'Content-Type: application/json' \
   -d '{"value":"https://hooks.slack.com/services/..."}'
-
-# List configured secrets
-curl -s http://127.0.0.1:4000/api/v1/secrets
-
-# Delete a secret
-curl -s -X DELETE http://127.0.0.1:4000/api/v1/secrets/SLACK_WEBHOOK_URL
 ```
 
+```bash List secrets
+curl -s http://127.0.0.1:4000/api/v1/secrets
+```
+
+```bash Delete a secret
+curl -s -X DELETE http://127.0.0.1:4000/api/v1/secrets/SLACK_WEBHOOK_URL
+```
+</CodeGroup>
+
 <Tip>
-  Keep secrets out of committed workflow files. Use `$SECRET:name` references or environment variable expansion like `$LINEAR_API_KEY`.
+  Keep secrets out of committed files. Use `$SECRET:name` references in config or environment variable expansion like `$LINEAR_API_KEY`.
 </Tip>
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LINEAR_API_KEY` | Yes | — | Linear API key |
+| `LINEAR_PROJECT_SLUG` | Yes | — | Linear project to watch |
+| `MASTER_KEY` | Yes | — | Encryption key for secrets store |
+| `OPENAI_API_KEY` | No | — | OpenAI API key (alternative to Codex auth) |
+| `GITHUB_TOKEN` | No | — | GitHub PAT for PR creation |
+| `DATA_DIR` | No | `~/.risoluto` | Root directory for archives and config |
+| `RISOLUTO_BIND` | No | `127.0.0.1` | HTTP bind address |
+| `RISOLUTO_WRITE_TOKEN` | No | — | Bearer token for remote API writes |
+| `LOG_LEVEL` | No | `info` | Log verbosity |
+| `DISPATCH_MODE` | No | `local` | `local` or `remote` dispatch mode |
+| `DISPATCH_URL` | No | — | Data plane URL (when `DISPATCH_MODE=remote`) |
+| `DISPATCH_SHARED_SECRET` | No | — | Shared secret for control/data plane auth |
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="chart-mixed" href="/guides/dashboard">
+    Explore the real-time dashboard views.
+  </Card>
+  <Card title="Security" icon="shield-halved" href="/guides/security">
+    Harden your deployment with network controls and sandbox policies.
+  </Card>
+</CardGroup>

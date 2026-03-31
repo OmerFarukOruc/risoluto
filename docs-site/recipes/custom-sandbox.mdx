@@ -1,0 +1,184 @@
+---
+title: Custom Sandbox Image
+sidebarTitle: Custom sandbox
+description: "Build a custom Docker sandbox image with additional runtimes, tools, and pre-installed dependencies for Risoluto agents."
+icon: "box"
+---
+
+# Custom Sandbox Image
+
+The default `risoluto-codex:latest` image ships with Node.js 22, Codex CLI, Git, and common developer tools. When your project needs extra runtimes or tooling, build a custom image.
+
+## When you need this
+
+- Your project uses Python, Go, Rust, Java, or other runtimes
+- You want project dependencies pre-installed for faster agent startup
+- You need specialized CLIs (`terraform`, `kubectl`, `aws`, `gcloud`)
+- You want a reproducible, locked-down agent environment
+
+## Build a custom image
+
+<Steps>
+  <Step title="Create a Dockerfile">
+    Extend the base image with your tools.
+
+    <CodeGroup>
+      ```dockerfile Python + Poetry
+      FROM risoluto-codex:latest
+
+      RUN apt-get update && apt-get install -y --no-install-recommends \
+          python3 python3-pip python3-venv \
+        && rm -rf /var/lib/apt/lists/*
+
+      RUN pip3 install --break-system-packages poetry ruff mypy
+      ```
+
+      ```dockerfile Go
+      FROM risoluto-codex:latest
+
+      ENV GOLANG_VERSION=1.23.0
+      RUN curl -fsSL "https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz" \
+        | tar -C /usr/local -xz
+      ENV PATH="/usr/local/go/bin:${PATH}"
+      ```
+
+      ```dockerfile Rust
+      FROM risoluto-codex:latest
+
+      RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --default-toolchain stable
+      ENV PATH="/root/.cargo/bin:${PATH}"
+      ```
+
+      ```dockerfile Multi-runtime
+      FROM risoluto-codex:latest
+
+      # Python
+      RUN apt-get update && apt-get install -y --no-install-recommends \
+          python3 python3-pip python3-venv \
+        && rm -rf /var/lib/apt/lists/*
+
+      # Terraform + AWS CLI
+      RUN apt-get update && apt-get install -y --no-install-recommends \
+          unzip curl \
+        && curl -fsSL https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip \
+          -o /tmp/tf.zip && unzip /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip \
+        && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+          -o /tmp/aws.zip && unzip /tmp/aws.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws* \
+        && rm -rf /var/lib/apt/lists/*
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Build the image">
+    ```bash
+    docker build -f Dockerfile.custom -t risoluto-codex-custom:latest .
+    ```
+  </Step>
+
+  <Step title="Configure Risoluto to use it">
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"codex":{"sandbox":{"image":"risoluto-codex-custom:latest"}}}'
+    ```
+  </Step>
+
+  <Step title="Verify">
+    Create a test issue and confirm the container uses your image:
+
+    ```bash
+    docker ps --filter label=risoluto.issue --format '{{.Image}} {{.Names}}'
+    # Expected: risoluto-codex-custom:latest risoluto-MT-42-abc123
+    ```
+  </Step>
+</Steps>
+
+## Pre-installing dependencies
+
+Bake your project's dependency tree into the image for faster agent startup:
+
+```dockerfile Dockerfile.with-deps
+FROM risoluto-codex:latest
+
+COPY package.json pnpm-lock.yaml /tmp/project/
+RUN cd /tmp/project && pnpm install --frozen-lockfile
+```
+
+Then mount the installed dependencies as read-only:
+
+```bash
+curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+  -H 'Content-Type: application/json' \
+  -d '{"codex":{"sandbox":{"extraMounts":["/tmp/project/node_modules:/workspace/node_modules:ro"]}}}'
+```
+
+## Advanced options
+
+<AccordionGroup>
+  <Accordion title="Enable gVisor for stronger isolation">
+    [gVisor](https://gvisor.dev/) intercepts syscalls, providing an additional isolation layer between the agent and the host kernel.
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"codex":{"sandbox":{"security":{"gvisor":true}}}}'
+    ```
+
+    **Prerequisites:** `runsc` must be installed on the host and registered as a Docker runtime. gVisor adds latency overhead but is recommended for untrusted workloads.
+  </Accordion>
+
+  <Accordion title="Configure egress allowlist">
+    Restrict which domains the agent container can reach:
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"codex":{"sandbox":{"network":{"egressAllowlist":["registry.npmjs.org","api.github.com"]}}}}'
+    ```
+
+    Any outbound connection to a domain not on the list is blocked.
+  </Accordion>
+
+  <Accordion title="Add extra bind mounts">
+    Mount host directories into the container for shared caches, config files, or read-only data:
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"codex":{"sandbox":{"extraMounts":["/home/user/.cache/pip:/root/.cache/pip:ro","/etc/custom-tools:/opt/tools:ro"]}}}'
+    ```
+  </Accordion>
+
+  <Accordion title="Environment variable passthrough">
+    Forward specific host environment variables into the sandbox:
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"codex":{"sandbox":{"envPassthrough":["DATABASE_URL","REDIS_URL","AWS_PROFILE"]}}}'
+    ```
+
+    <Tip>
+      Only forward variables the agent genuinely needs. Every forwarded variable is accessible to the AI inside the container.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Custom images bypass the default security baseline. When extending the image, avoid installing setuid binaries, running as root unnecessarily, or opening additional network ports. Review your Dockerfile against the [Trust Model](/concepts/trust-model) before deploying.
+</Warning>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Multi-repo Setup" icon="code-branch" href="/recipes/multi-repo">
+    Route issues to different repos with prefix and label matching.
+  </Card>
+  <Card title="Monitoring Stack" icon="chart-line" href="/recipes/monitoring-stack">
+    Set up Prometheus and Grafana to monitor agent runs.
+  </Card>
+  <Card title="Trust Model" icon="shield" href="/concepts/trust-model">
+    Understand the sandbox security boundaries.
+  </Card>
+</CardGroup>

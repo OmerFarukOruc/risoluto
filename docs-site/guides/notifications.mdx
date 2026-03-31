@@ -1,34 +1,123 @@
 ---
 title: Notifications & Git
-description: "Configure Slack notifications, multi-repo routing, and automatic Git workflows for PR creation."
+sidebarTitle: Notifications
+description: "Configure Slack notifications, webhook events, multi-repo routing, and automatic Git workflows for PR creation."
+icon: "bell"
 ---
-
-# Notifications & Git Automation
 
 Risoluto integrates with Slack for notifications and GitHub for automated git workflows.
 
-## Slack Notifications
+## Notification Channels
 
-Configure Slack to receive alerts when agents complete, fail, or stall:
+<Tabs>
+  <Tab title="Slack Webhook">
+    Configure Slack to receive alerts when agents complete, fail, or stall:
 
-```yaml
-notifications:
-  slack:
-    webhook_url: $SECRET:SLACK_WEBHOOK_URL
-    verbosity: critical  # off | critical | verbose
-```
+    <CodeGroup>
+    ```yaml Config Overlay
+    notifications:
+      slack:
+        webhookUrl: $SECRET:SLACK_WEBHOOK_URL
+        verbosity: critical  # off | critical | verbose
+    ```
 
-| Verbosity | Events |
-|-----------|--------|
+    ```bash API
+    # Store the webhook URL as a secret
+    curl -s -X POST http://127.0.0.1:4000/api/v1/secrets/SLACK_WEBHOOK_URL \
+      -H 'Content-Type: application/json' \
+      -d '{"value":"https://hooks.slack.com/services/T.../B.../xxx"}'
+
+    # Enable Slack notifications
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"notifications":{"slack":{"webhookUrl":"$SECRET:SLACK_WEBHOOK_URL","verbosity":"critical"}}}'
+    ```
+    </CodeGroup>
+
+    Slack messages are formatted with Block Kit — each notification includes a header, issue context, event details, and a link back to the Linear issue.
+  </Tab>
+  <Tab title="Generic Webhook (Inbound from Linear)">
+    Risoluto can receive webhooks directly from Linear for near-instant issue dispatch (instead of polling every 15s):
+
+    ```yaml
+    webhook:
+      webhookUrl: "https://your-server.example.com/webhooks/linear"
+      webhookSecret: $SECRET:WEBHOOK_SECRET
+    ```
+
+    When a verified webhook arrives, Risoluto processes the issue update immediately and stretches the polling interval to reduce API load.
+
+    | Key | Default | Description |
+    |-----|---------|-------------|
+    | `webhook.webhookUrl` | — | HTTPS-only webhook endpoint |
+    | `webhook.webhookSecret` | — | HMAC signing secret for verification |
+    | `webhook.pollingBaseMs` | `15000` | Normal polling interval |
+    | `webhook.pollingStretchMs` | `120000` | Stretched interval when webhook is healthy |
+    | `webhook.healthCheckIntervalMs` | `300000` | Health check interval (5 min) |
+  </Tab>
+</Tabs>
+
+## Notification Events
+
+Every notification carries a type, severity, and issue context:
+
+| Event Type | Severity | Trigger |
+|------------|----------|---------|
+| `issue_claimed` | <Badge>info</Badge> | Issue picked up from the tracker queue |
+| `worker_launched` | <Badge>info</Badge> | Agent worker container started |
+| `worker_completed` | <Badge>info</Badge> | Agent finished work successfully |
+| `worker_retry` | <Badge>critical</Badge> | Agent failed and is being retried |
+| `worker_failed` | <Badge>critical</Badge> | Agent failed permanently (no retries left) |
+
+## Verbosity Levels
+
+| Verbosity | Events Delivered |
+|-----------|-----------------|
 | `off` | No notifications |
-| `critical` | Failures, stalls, and errors |
-| `verbose` | All events including completions |
+| `critical` | Only `worker_retry` and `worker_failed` (failures and errors) |
+| `verbose` | All events including completions and claims |
 
-Notifications are best-effort. Delivery failures are logged but do not crash the orchestrator.
+Notifications are **best-effort**. Delivery failures are logged but do not crash the orchestrator.
+
+<AccordionGroup>
+  <Accordion title="Deduplication Window">
+    The notification manager deduplicates identical events within a **30-second window**. An event is considered duplicate if it matches the same combination of:
+
+    - Event type
+    - Issue identifier
+    - Attempt number
+    - Severity
+    - Message text
+
+    Events with an explicit `dedupeKey` field use that key instead. This prevents notification floods during rapid retry cycles.
+  </Accordion>
+  <Accordion title="Notification Payload Shape">
+    Every notification event carries this structure:
+
+    ```typescript
+    interface NotificationEvent {
+      type: NotificationEventType;       // "issue_claimed" | "worker_launched" | ...
+      severity: "info" | "critical";
+      timestamp: string;                 // ISO 8601
+      message: string;                   // Human-readable summary
+      issue: {
+        id: string | null;
+        identifier: string;              // e.g. "FE-123"
+        title: string;
+        state: string | null;
+        url: string | null;              // Link to Linear issue
+      };
+      attempt: number | null;
+      metadata?: Record<string, unknown>;
+      dedupeKey?: string;
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ## Repository Routing
 
-Route issues to different repositories based on identifiers or labels:
+Route issues to different repositories based on identifier prefix or Linear label:
 
 ```yaml
 repos:
@@ -41,51 +130,56 @@ repos:
 ```
 
 **Routing precedence:**
-1. **Label routes** are checked first
-2. **Identifier-prefix routes** are the fallback
-
-Use labels for per-issue overrides and prefixes for the default team-to-repo mapping.
+1. **Label routes** are checked first (per-issue overrides)
+2. **Identifier-prefix routes** are the fallback (team-to-repo mapping)
 
 ### Managing Routes via API
 
-```bash
-# List routes
+<CodeGroup>
+```bash List routes
 curl -s http://127.0.0.1:4000/api/v1/setup/repo-routes
+```
 
-# Add a route
+```bash Add a route
 curl -s -X POST http://127.0.0.1:4000/api/v1/setup/repo-route \
   -H 'Content-Type: application/json' \
   -d '{"prefix":"API-","url":"https://github.com/org/api.git","default_branch":"main"}'
+```
 
-# Remove a route
+```bash Remove a route
 curl -s -X DELETE http://127.0.0.1:4000/api/v1/setup/repo-route/0
 ```
+</CodeGroup>
 
 ## Git Automation
 
 When a routed issue reports `RISOLUTO_STATUS: DONE`, Risoluto can automatically:
 
-1. **Commit** changes in the workspace branch
-2. **Push** the branch to the remote
-3. **Open a GitHub pull request**
-4. **Expose GitHub tools** to the agent via the `github_api` dynamic tool
+<Steps>
+  <Step title="Commit">
+    Stage and commit all changes in the workspace branch.
+  </Step>
+  <Step title="Push">
+    Push the branch to the remote repository.
+  </Step>
+  <Step title="Open PR">
+    Create a GitHub pull request with the issue context, agent summary, and a link back to the Linear issue.
+  </Step>
+</Steps>
 
-### Agent GitHub Access
-
-Agents can read and comment on GitHub issues/PRs through the dynamic tool system. This allows the agent to:
-
-- Read PR review comments for context
-- Post progress updates as PR comments
-- Reference related issues
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token |
-| `LINEAR_API_KEY` | Linear API key |
-| `OPENAI_API_KEY` | OpenAI API key |
+Agents can also interact with GitHub during execution through the `github_api` dynamic tool — reading PR review comments, posting progress updates, and referencing related issues.
 
 <Tip>
-  Store credentials via the setup wizard rather than environment variables. The encrypted secrets store (`secrets.enc`) is more secure than plaintext env vars.
+  Store credentials via the setup wizard rather than environment variables. The encrypted secrets store (`secrets.enc`) is more secure than plaintext env vars in `.env` files.
 </Tip>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="shield-halved" href="/guides/security">
+    Harden API access and sandbox isolation.
+  </Card>
+  <Card title="Monitoring Stack" icon="chart-line" href="/recipes/monitoring-stack">
+    Set up Prometheus + Grafana for production alerting.
+  </Card>
+</CardGroup>

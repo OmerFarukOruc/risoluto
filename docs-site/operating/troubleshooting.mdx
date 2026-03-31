@@ -1,69 +1,279 @@
 ---
 title: Troubleshooting
+sidebarTitle: Troubleshooting
 description: "Common failure cases, diagnostic commands, and recovery procedures for Risoluto."
+icon: "wrench"
 ---
 
 # Troubleshooting
 
-## Common Failures
+## Common Issues
+
+### Startup Issues
 
 <AccordionGroup>
   <Accordion title="Missing Tracker API Key">
-    **Error:** `missing_tracker_api_key`
+    **Symptom:** Risoluto exits with `missing_tracker_api_key` on startup.
 
     **Cause:** `tracker.api_key` resolves to an empty value.
 
-    **Fix:** Run the setup wizard at `/setup` and re-enter your Linear API key, or ensure `LINEAR_API_KEY` is set in your environment.
+    **Fix:** Run the setup wizard at `/setup` and re-enter your Linear API key, or set the environment variable:
+
+    ```bash
+    export LINEAR_API_KEY=lin_api_...
+    ```
   </Accordion>
 
   <Accordion title="Missing Codex Auth">
-    **Error:** `account/read` failure during startup
+    **Symptom:** `account/read` failure during startup.
 
-    **Cause:** `codex app-server` cannot authenticate.
+    **Cause:** The Codex app-server cannot authenticate with the configured provider.
 
     **Fix:** Verify your auth mode:
-    - **API key**: Check `OPENAI_API_KEY` is set
-    - **Codex Login**: Run `codex login` and re-upload `auth.json` via the setup wizard
+
+    | Mode | Check |
+    |------|-------|
+    | API Key | `echo $OPENAI_API_KEY` returns a valid key |
+    | Codex Login | Run `codex login` and re-upload `auth.json` via the setup wizard |
+    | Browser PKCE | Re-authenticate via the setup wizard at `/setup` |
   </Accordion>
 
-  <Accordion title="Required MCP Startup Failure">
-    **Error:** `thread/start failed because a required MCP server did not initialize`
+  <Accordion title="Port already in use">
+    **Symptom:** `EADDRINUSE: address already in use :::4000`
 
-    **Cause:** This is a **Codex runtime** problem, not a Risoluto bug. The agent's MCP configuration references a server that failed to start.
+    **Cause:** Another process is bound to the port.
 
-    **Fix:** Check the `codex.sandbox.extraMounts` and ensure any required MCP server binaries are available inside the container.
+    **Fix:**
+
+    ```bash
+    # Find what's using port 4000
+    lsof -i :4000
+
+    # Use a different port
+    node dist/cli/index.js --port 4001
+    ```
   </Accordion>
 
-  <Accordion title="Invalid External Credentials">
-    **Cause:** Linear token or provider credentials are invalid or expired.
+  <Accordion title="Master Key Mismatch">
+    **Symptom:** `secrets.enc` decryption failure on startup.
 
-    **Fix:** Re-enter credentials via the setup wizard at `/setup`. Risoluto surfaces the upstream error message.
+    **Cause:** The `MASTER_KEY` environment variable doesn't match the key used to encrypt secrets.
+
+    **Fix:** Use the correct master key, or factory reset:
+
+    ```bash
+    # Docker Compose factory reset
+    docker compose down -v && docker compose up --build -d
+
+    # Manual reset — removes all encrypted secrets
+    rm .risoluto/secrets.enc .risoluto/master.key
+    ```
+
+    <Warning>
+      Factory reset deletes all stored credentials. You will need to re-run the setup wizard.
+    </Warning>
   </Accordion>
+</AccordionGroup>
 
+### Agent Failures
+
+<AccordionGroup>
   <Accordion title="Container OOM (Out of Memory)">
-    **Error:** Exit code 137 with `OOMKilled=true`
+    **Symptom:** Agent exit code 137, `OOMKilled=true` in container inspect.
 
-    **Fix:** Increase `codex.sandbox.resources.memory` in your config:
+    **Cause:** The agent exceeded the container memory limit.
+
+    **Fix:** Increase the memory allocation:
+
     ```bash
     curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
       -H 'Content-Type: application/json' \
       -d '{"codex":{"sandbox":{"resources":{"memory":"8g"}}}}'
     ```
+
+    Verify OOM status:
+
+    ```bash
+    docker inspect <container-id> | jq '.[0].State.OOMKilled'
+    ```
   </Accordion>
 
-  <Accordion title="Master Key Mismatch">
-    **Cause:** `secrets.enc` cannot be decrypted with the current `MASTER_KEY`.
+  <Accordion title="Agent stalls (no progress)">
+    **Symptom:** Issue stays in `agent_running` state with no new events.
 
-    **Fix:** Use the correct master key, or perform a factory reset:
+    **Cause:** The agent is stuck — infinite loop, network timeout, or model API hang.
+
+    **Fix:** Risoluto auto-kills stalled agents after `agent.stallTimeoutMs` (default: 5 minutes). To kill manually:
+
     ```bash
-    docker compose down -v && docker compose up --build -d
+    curl -s -X POST http://127.0.0.1:4000/api/v1/NIN-6/abort
     ```
+
+    Reduce the stall timeout for faster detection:
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"agent":{"stallTimeoutMs":120000}}'
+    ```
+  </Accordion>
+
+  <Accordion title="Required MCP Startup Failure">
+    **Symptom:** `thread/start failed because a required MCP server did not initialize`
+
+    **Cause:** This is a **Codex runtime** error, not a Risoluto bug. The agent's MCP configuration references a server binary that is missing or failing inside the container.
+
+    **Fix:** Check `codex.sandbox.extraMounts` and ensure all required MCP server binaries are available inside the container. Verify with:
+
+    ```bash
+    docker exec <container-id> which <mcp-binary>
+    ```
+  </Accordion>
+
+  <Accordion title="Agent exhausted all retries">
+    **Symptom:** Issue marked as failed after 5 attempts.
+
+    **Cause:** The agent could not complete the task within the retry budget.
+
+    **Fix:** Inspect the attempt timeline to understand why:
+
+    ```bash
+    curl -s http://127.0.0.1:4000/api/v1/NIN-6/attempts | jq
+    ```
+
+    Options:
+    - Simplify the issue description
+    - Increase `agent.maxContinuationAttempts`
+    - Switch to a more capable model via per-issue override
+    - Force a retry: transition the issue back to the trigger state
+  </Accordion>
+</AccordionGroup>
+
+### Docker Problems
+
+<AccordionGroup>
+  <Accordion title="Docker daemon not running">
+    **Symptom:** `Cannot connect to the Docker daemon`
+
+    **Fix:**
+
+    ```bash
+    # Linux
+    sudo systemctl start docker
+
+    # macOS / Windows
+    # Open Docker Desktop
+    ```
+
+    Verify: `docker info` should complete without errors.
+  </Accordion>
+
+  <Accordion title="Sandbox image not found">
+    **Symptom:** `No such image: risoluto-codex:latest`
+
+    **Fix:** Build the sandbox image:
+
+    ```bash
+    bash bin/build-sandbox.sh
+    ```
+
+    If using a custom image, verify it exists:
+
+    ```bash
+    docker images | grep risoluto
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied on Docker socket">
+    **Symptom:** `permission denied while trying to connect to the Docker daemon socket`
+
+    **Fix:** Add your user to the `docker` group:
+
+    ```bash
+    sudo usermod -aG docker $USER
+    # Log out and back in, or:
+    newgrp docker
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Network Issues
+
+<AccordionGroup>
+  <Accordion title="Linear API connection failures">
+    **Symptom:** Poll errors with `ECONNREFUSED` or `ETIMEDOUT` to `api.linear.app`.
+
+    **Cause:** Network connectivity or DNS issues, or Linear API outage.
+
+    **Fix:**
+
+    ```bash
+    # Test connectivity
+    curl -s https://api.linear.app/graphql -X POST \
+      -H "Authorization: $LINEAR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"query":"{ viewer { id } }"}'
+    ```
+
+    Check [Linear Status](https://linearstatus.com) for outages.
+  </Accordion>
+
+  <Accordion title="OpenAI API rate limiting">
+    **Symptom:** Agents fail with 429 status codes.
+
+    **Cause:** Too many concurrent agents hitting your API rate limit.
+
+    **Fix:** Reduce concurrency:
+
+    ```bash
+    curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+      -H 'Content-Type: application/json' \
+      -d '{"agent":{"maxConcurrentAgents":3}}'
+    ```
+  </Accordion>
+
+  <Accordion title="Invalid or expired credentials">
+    **Symptom:** 401/403 errors from Linear, OpenAI, or GitHub APIs.
+
+    **Cause:** Credentials have expired or been revoked.
+
+    **Fix:** Re-enter credentials via the setup wizard at `/setup`. Risoluto validates credentials before storing them and surfaces the upstream error message.
+  </Accordion>
+</AccordionGroup>
+
+### Linear Integration
+
+<AccordionGroup>
+  <Accordion title="Issues not being picked up">
+    **Symptom:** In Progress issues in Linear are not dispatched by Risoluto.
+
+    **Cause:** The issue's project or state doesn't match Risoluto's configuration.
+
+    **Fix:**
+
+    ```bash
+    # Check which project Risoluto is watching
+    curl -s http://127.0.0.1:4000/api/v1/runtime | jq '.tracker'
+
+    # Check the current poll state
+    curl -s http://127.0.0.1:4000/api/v1/state | jq '.queues'
+    ```
+
+    Ensure the issue belongs to the configured project and is in a state that maps to the trigger state.
+  </Accordion>
+
+  <Accordion title="Webhook events not arriving">
+    **Symptom:** Webhook is configured but Risoluto doesn't react to issue changes.
+
+    **Cause:** Webhook URL is unreachable from Linear's servers, or the webhook secret doesn't match.
+
+    **Fix:** Verify webhook delivery in Linear's webhook settings (Settings > API > Webhooks). Check that the webhook URL is publicly reachable (ngrok, Cloudflare Tunnel, or public IP).
   </Accordion>
 </AccordionGroup>
 
 ## Diagnostic Commands
 
-### Check System State
+### System state
 
 ```bash
 # Full runtime snapshot
@@ -76,7 +286,7 @@ curl -s http://127.0.0.1:4000/api/v1/runtime | jq
 curl -s http://127.0.0.1:4000/api/v1/setup/status | jq
 ```
 
-### Inspect Issues
+### Issue inspection
 
 ```bash
 # Issue detail with recent events
@@ -89,7 +299,7 @@ curl -s http://127.0.0.1:4000/api/v1/NIN-6/attempts | jq
 curl -s http://127.0.0.1:4000/api/v1/attempts/<attempt-id> | jq
 ```
 
-### CLI Log Inspector
+### CLI log inspector
 
 ```bash
 # Inspect by issue identifier
@@ -102,7 +312,7 @@ curl -s http://127.0.0.1:4000/api/v1/attempts/<attempt-id> | jq
 ./risoluto NIN-3 --dir /var/lib/risoluto
 ```
 
-### Container Inspection
+### Container inspection
 
 ```bash
 # List running agent containers
@@ -122,10 +332,30 @@ docker inspect <container-id> | jq '.[0].State.OOMKilled'
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOG_LEVEL` | `info` | Pino log level (`debug` for verbose) |
-| `RISOLUTO_LOG_FORMAT` | `logfmt` | `logfmt` or `json` |
-| `SENTRY_DSN` | — | Error tracking endpoint |
+| `LOG_LEVEL` | `info` | Pino log level (`debug` for verbose output) |
+| `RISOLUTO_LOG_FORMAT` | `logfmt` | Log format: `logfmt` or `json` |
+| `SENTRY_DSN` | -- | Error tracking endpoint |
+| `LINEAR_API_KEY` | -- | Linear API key (alternative to wizard setup) |
+| `OPENAI_API_KEY` | -- | OpenAI API key (alternative to wizard setup) |
+| `GITHUB_TOKEN` | -- | GitHub PAT for PR creation |
 
 <Tip>
-  Set `LOG_LEVEL=debug` for verbose diagnostic output when troubleshooting startup or dispatch issues.
+  Set `LOG_LEVEL=debug` for verbose diagnostic output when troubleshooting startup, dispatch, or agent lifecycle issues. This logs every poll cycle, workspace operation, and container lifecycle event.
 </Tip>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Observability" icon="eye" href="/operating/observability">
+    Prometheus metrics, SSE events, audit logs, and data persistence.
+  </Card>
+  <Card title="FAQ" icon="circle-question" href="/faq">
+    Common questions about models, privacy, and configuration.
+  </Card>
+  <Card title="Monitoring Stack" icon="chart-line" href="/recipes/monitoring-stack">
+    Set up Prometheus and Grafana for dashboards and alerting.
+  </Card>
+  <Card title="Security" icon="shield" href="/guides/security">
+    Secure the API with write tokens and bind address controls.
+  </Card>
+</CardGroup>

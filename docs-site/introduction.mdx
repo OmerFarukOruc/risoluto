@@ -1,36 +1,38 @@
 ---
 title: Introduction
 sidebarTitle: Introduction
-description: "Risoluto turns your issue tracker into an autonomous coding pipeline. Linear issues in → sandboxed AI agents out → PRs delivered."
-og:url: "https://docs.risolu.to"
+description: "Risoluto turns your issue tracker into an autonomous coding pipeline. Linear issues in, sandboxed AI agents out, PRs delivered."
+icon: "house"
 ---
 
-# Welcome to Risoluto
+# Every issue finds its resolution.
 
-Risoluto is a **local orchestration engine** that watches your project tracker for actionable issues, spins up sandboxed AI coding agents to work on each one, and delivers the results — all without you supervising a single prompt.
+**Your issue tracker becomes an autonomous coding pipeline.**
+
+Risoluto watches your project tracker for actionable issues, spins up sandboxed AI coding agents inside Docker containers, and delivers pull requests — all running on your machine, with zero prompts to write.
 
 ```
 You create an issue  →  Risoluto picks it up  →  AI agent writes code  →  PR lands on GitHub
 ```
 
 <Info>
-  **No cloud service. No SaaS. Your code stays on your machine.** Risoluto runs on your local machine or a VDS you control, connecting your existing Linear project to AI-powered agents running inside isolated Docker containers.
+  **No cloud service. No SaaS. No telemetry.** Your source code stays on your machine. Risoluto runs locally or on a VDS you control, connecting your existing Linear project to AI agents running in isolated Docker containers.
 </Info>
 
-## What Ships Today
+## What Ships Today <Badge>v0.6.0</Badge> <Badge variant="info">Open Source</Badge>
 
 <CardGroup cols={2}>
-  <Card title="Core Engine" icon="engine">
-    Linear polling, Docker sandbox with resource limits, workspace isolation, retry & stall handling, model overrides, and orchestrator health monitoring.
+  <Card title="Orchestration Engine" icon="engine">
+    Linear and GitHub Issues polling, Docker sandbox with resource limits and gVisor, workspace isolation, retry with exponential backoff, stall detection, model overrides, and health monitoring.
   </Card>
-  <Card title="Dashboard & API" icon="chart-mixed">
-    Real-time dashboard with board and overview views, 50+ JSON API endpoints, cost tracking, live agent feed via SSE, and Prometheus metrics.
+  <Card title="Dashboard and API" icon="chart-mixed">
+    Real-time Kanban board with issue inspector, 50+ JSON API endpoints, per-issue cost tracking, live agent feed via SSE, Prometheus metrics, and interactive API playground.
   </Card>
   <Card title="Integrations" icon="plug">
-    Git automation (clone, commit, push, PR), GitHub Issues adapter, Slack notifications, and Codex integration via JSON-RPC.
+    Git automation (clone, branch, commit, push, PR creation), Linear webhooks for real-time updates, GitHub Issues adapter, Slack notifications, and Codex agent runtime via JSON-RPC.
   </Card>
-  <Card title="Operations" icon="shield-check">
-    SQLite-backed attempt history, CLI log inspector, AES-encrypted credential storage, and full Playwright E2E test coverage.
+  <Card title="Security and Operations" icon="shield-check">
+    AES-256 encrypted credential store, setup wizard with PKCE browser sign-in, SQLite-backed attempt history, CLI log inspector, audit trail, and full Playwright E2E test coverage.
   </Card>
 </CardGroup>
 
@@ -38,15 +40,32 @@ You create an issue  →  Risoluto picks it up  →  AI agent writes code  →  
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Go from zero to your first automated PR in 10 minutes.
+    Go from zero to your first automated PR in under 10 minutes.
   </Card>
   <Card title="How It Works" icon="diagram-project" href="/concepts/how-it-works">
     Understand the architecture — polling, workspaces, sandboxes, and delivery.
   </Card>
+</CardGroup>
+
+## Quick Links
+
+<CardGroup cols={3}>
   <Card title="API Reference" icon="code" href="/api-reference/overview">
-    Explore 50+ endpoints for runtime state, config, events, and issue management.
+    Explore 50+ endpoints for state, config, events, and issue management.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Customize models, timeouts, retries, and workspace strategies.
   </Card>
   <Card title="Docker Deployment" icon="docker" href="/guides/docker">
-    Deploy with Docker Compose — zero-config start or control/data plane split.
+    Deploy with Docker Compose for persistent, zero-config operation.
+  </Card>
+  <Card title="Dashboard" icon="chart-mixed" href="/guides/dashboard">
+    Board view, issue inspector, live events, and cost tracking.
+  </Card>
+  <Card title="FAQ" icon="circle-question" href="/faq">
+    Common questions about models, privacy, Docker, and more.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operating/troubleshooting">
+    Diagnose common failures and recovery procedures.
   </Card>
 </CardGroup>

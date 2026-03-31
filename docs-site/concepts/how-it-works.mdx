@@ -1,135 +1,178 @@
 ---
 title: How It Works
+sidebarTitle: Architecture
 description: "Understand Risoluto's architecture — from issue polling to sandboxed agent execution to PR delivery."
+icon: "diagram-project"
+mode: "wide"
 ---
 
 # How It Works
 
-Risoluto is a **local orchestration engine** that connects your issue tracker to AI coding agents. Here's the full pipeline:
+Risoluto is a **local orchestration engine** that connects your issue tracker to AI coding agents.
+It polls Linear, claims eligible issues, spins up isolated Docker sandboxes, runs an AI agent inside each one, and delivers the result as a GitHub pull request.
 
+<Frame>
 ```mermaid
+%%{init: {'flowchart': {'defaultRenderer': 'elk'}, 'theme': 'base', 'themeVariables': {'primaryColor': '#9a472b', 'primaryTextColor': '#fff', 'primaryBorderColor': '#c96e4a', 'lineColor': '#c96e4a', 'secondaryColor': '#0c1016', 'tertiaryColor': '#1a1f2e'}}}%%
 flowchart LR
-    A["🗂️ Linear\nIssue Tracker"] -->|poll| B["🎵 Risoluto\nOrchestrator"]
-    B -->|create| C["📁 Workspace\nPer-Issue Dir"]
-    C -->|mount| D["🐳 Docker\nSandbox"]
-    D -->|run| E["🤖 Codex\nAI Agent"]
-    E -->|commit| F["🔀 GitHub\nPull Request"]
-
-    style B fill:#6366f1,stroke:#4f46e5,color:#fff
-    style D fill:#d97706,stroke:#b45309,color:#fff
-    style F fill:#059669,stroke:#047857,color:#fff
+    A["Linear\nIssue Tracker"] -->|"poll every 15 s"| B["Risoluto\nOrchestrator"]
+    B -->|create| C["Workspace\nPer-Issue Dir"]
+    C -->|mount into| D["Docker\nSandbox"]
+    D -->|execute| E["Codex\nAI Agent"]
+    E -->|commit & push| F["GitHub\nPull Request"]
 ```
+</Frame>
 
-## The Pipeline
+## Issue Lifecycle
 
-### 1. Polling
+Every issue that Risoluto processes follows the same six-stage pipeline.
 
-Risoluto polls Linear on a configurable interval (default: 30 seconds) looking for issues in active states (typically "In Progress"). Issues are sorted by priority, then by age.
+<Steps>
+  <Step title="Polling" icon="satellite-dish">
+    Risoluto polls Linear every **15 seconds** (configurable via `polling.interval_ms`).
+    Issues in active states (default: *In Progress*) are sorted by priority, then by age, then by identifier as a tiebreaker.
+  </Step>
 
-### 2. Workspace Creation
+  <Step title="Workspace Creation" icon="folder-open">
+    Each claimed issue gets its own isolated directory under `workspace.root`. Two strategies are available:
 
-Each issue gets its own isolated directory under `workspace.root`. Two strategies are available:
+    | Strategy | How it works | Disk usage |
+    |----------|-------------|------------|
+    | **`directory`** (default) | Full `git clone` per issue | Higher — full repo each time |
+    | **`worktree`** | Git worktree from a shared bare clone | Lower — shares object store |
+  </Step>
 
-| Strategy | How it works | Disk usage |
-|----------|-------------|------------|
-| **`directory`** (default) | Full `git clone` per issue | Higher — full repo each time |
-| **`worktree`** | Git worktree from a shared bare clone | Lower — shares object store |
+  <Step title="Sandbox Launch" icon="docker">
+    Risoluto launches a Docker container for each issue with strict isolation:
 
-### 3. Sandbox Execution
+    - **Image** — `risoluto-codex:latest` (Ubuntu 24.04 + Node.js 22 + Codex CLI)
+    - **Isolation** — workspace bind-mounted at its original absolute path
+    - **Permissions** — runs as your UID/GID (`--user $(id -u):$(id -g)`)
+    - **Resources** — configurable memory (default 4 GB), CPU (default 2 cores), and tmpfs limits
+    - **Security** — `--cap-drop=ALL`, `--security-opt=no-new-privileges`, optional egress allowlist
+  </Step>
 
-Risoluto launches a Docker container for each issue:
+  <Step title="Agent Execution" icon="robot">
+    Inside the container, the Codex agent:
 
-- **Image**: `risoluto-codex:latest` (Node 22 + Codex CLI)
-- **Isolation**: Workspace bind-mounted at its original path
-- **Permissions**: Runs as your UID/GID — no ownership drift
-- **Resources**: Configurable memory, CPU, and tmpfs limits
-- **Security**: `--cap-drop=ALL`, `--security-opt=no-new-privileges`, optional egress allowlist
+    1. Reads the issue description as its task prompt
+    2. Has access to the full repository in its workspace
+    3. Executes tools (file edits, shell commands) per the configured approval policy
+    4. Reports progress via JSON-RPC events streamed back to Risoluto
+  </Step>
 
-### 4. Agent Execution
+  <Step title="Delivery" icon="code-pull-request">
+    When the agent completes successfully:
 
-Inside the container, the Codex agent:
+    1. Risoluto commits changes to a feature branch (`risoluto/<issue-id>`)
+    2. Opens a GitHub pull request with the issue context
+    3. Transitions the Linear issue to the configured success state
+    4. Sends a Slack notification (if configured)
+  </Step>
 
-- Reads the issue description as its task
-- Has access to the full repository in its workspace
-- Executes tools (file edits, shell commands, etc.) per the configured approval policy
-- Reports progress via JSON-RPC events streamed back to Risoluto
+  <Step title="Cleanup" icon="broom">
+    After delivery (or on failure after exhausting retries), the workspace is cleaned up and resources released. Archived run data persists in the SQLite database for observability.
+  </Step>
+</Steps>
 
-### 5. Delivery
+## Architecture Overview
 
-When the agent completes successfully:
-
-1. Risoluto commits changes to a feature branch
-2. Opens a GitHub pull request
-3. Transitions the Linear issue to the configured success state
-4. Sends a Slack notification (if configured)
-
-## Architecture Diagram
-
+<Frame>
 ```mermaid
+%%{init: {'flowchart': {'defaultRenderer': 'elk'}, 'theme': 'base', 'themeVariables': {'primaryColor': '#9a472b', 'primaryTextColor': '#fff', 'primaryBorderColor': '#c96e4a', 'lineColor': '#c96e4a', 'secondaryColor': '#0c1016', 'tertiaryColor': '#1a1f2e'}}}%%
 flowchart TD
-    subgraph Host ["🖥️ Host Machine"]
-        SYM["🎵 Risoluto\nport 4000"]
-        LINEAR["🗂️ Linear API"]
+    subgraph Host ["Host Machine"]
+        direction TB
+        SYM["Risoluto Orchestrator\nport 4000"]
+        DB["SQLite\nAttempts + Events"]
+        LINEAR["Linear API"]
     end
 
-    subgraph Docker ["🐳 Docker Containers"]
-        CX1["🤖 Worker 1"]
-        CX2["🤖 Worker 2"]
-        CXN["🤖 Worker N"]
+    subgraph Containers ["Docker Containers"]
+        direction TB
+        CX1["Worker 1\nCodex Agent"]
+        CX2["Worker 2\nCodex Agent"]
+        CXN["Worker N\nCodex Agent"]
     end
 
-    SYM -->|poll| LINEAR
-    SYM -->|spawn| CX1
-    SYM -->|spawn| CX2
-    SYM -->|spawn| CXN
-
-    style SYM fill:#6366f1,stroke:#4f46e5,color:#fff
-    style CX1 fill:#d97706,stroke:#b45309,color:#fff
-    style CX2 fill:#d97706,stroke:#b45309,color:#fff
-    style CXN fill:#d97706,stroke:#b45309,color:#fff
+    SYM -->|"poll every 15 s"| LINEAR
+    SYM -->|spawn + monitor| CX1
+    SYM -->|spawn + monitor| CX2
+    SYM -->|spawn + monitor| CXN
+    CX1 -->|JSON-RPC events| SYM
+    CX2 -->|JSON-RPC events| SYM
+    CXN -->|JSON-RPC events| SYM
+    SYM -->|persist| DB
 ```
+</Frame>
 
 ## Lifecycle Hooks
 
-Workspaces support lifecycle hooks at each stage:
+Workspaces support lifecycle hooks at each stage, letting you run linters, install dependencies, or clean up artifacts.
 
+<Frame>
 ```mermaid
+%%{init: {'flowchart': {'defaultRenderer': 'elk'}, 'theme': 'base', 'themeVariables': {'primaryColor': '#9a472b', 'primaryTextColor': '#fff', 'primaryBorderColor': '#c96e4a', 'lineColor': '#c96e4a', 'secondaryColor': '#0c1016', 'tertiaryColor': '#1a1f2e'}}}%%
 flowchart LR
-    A["📁 Created"] -->|after_create| B["🔧 Before Run"]
-    B -->|before_run| C["🤖 Worker Active"]
-    C -->|after_run| D["🧹 Before Removal"]
-    D -->|before_remove| E["🗑️ Cleaned Up"]
-
-    style A fill:#059669,stroke:#047857,color:#fff
-    style C fill:#6366f1,stroke:#4f46e5,color:#fff
-    style E fill:#6b7280,stroke:#4b5563,color:#fff
+    A["Created"] -->|after_create| B["Before Run"]
+    B -->|before_run| C["Worker Active"]
+    C -->|after_run| D["Before Removal"]
+    D -->|before_remove| E["Cleaned Up"]
 ```
+</Frame>
 
-Use hooks to run linters, install dependencies, or clean up artifacts at each stage.
+<Tip>
+  Hooks time out after 60 seconds by default. Override with `hooks.timeout_ms` in your config overlay.
+</Tip>
 
 ## Concurrency & Scheduling
 
-- **Global limit**: `agent.maxConcurrentAgents` (default: 10)
-- **Per-state limits**: `agent.maxConcurrentAgentsByState` (e.g., `{"In Progress": 5}`)
-- **Priority sorting**: Higher priority issues are dispatched first
-- **Blocked suppression**: Issues in blocked states are skipped automatically
+| Setting | Config key | Default | Description |
+|---------|-----------|---------|-------------|
+| Global limit | `agent.max_concurrent_agents` | `10` | Maximum simultaneous workers |
+| Per-state limits | `agent.max_concurrent_agents_by_state` | — | e.g. `{"In Progress": 5}` |
+| Priority sorting | — | enabled | Higher priority issues dispatch first |
+| Blocked suppression | — | enabled | Issues in blocked states are skipped |
 
 ## Retry & Recovery
 
 When an agent fails, Risoluto applies exponential backoff:
 
-- Retries up to `agent.maxContinuationAttempts` times (default: 5)
-- Backoff capped at `agent.maxRetryBackoffMs` (default: 5 minutes)
-- OOM kills (exit code 137) are detected and surfaced as `container_oom`
-- Stalled agents (no events for `agent.stallTimeoutMs`) are killed
+| Behavior | Config key | Default |
+|----------|-----------|---------|
+| Max retries | `agent.max_continuation_attempts` | `5` |
+| Backoff cap | `agent.max_retry_backoff_ms` | `300000` (5 min) |
+| OOM detection | — | Exit code 137 surfaced as `container_oom` |
+| Stall detection | `agent.stall_timeout_ms` | `1200000` (20 min) |
 
 ## Data Storage
 
 All runtime state lives in a single directory (default: `~/.risoluto/`):
 
-| Path | Purpose |
-|------|---------|
-| `risoluto.db` | SQLite database — attempts, events, issue index |
-| `config/overlay.yaml` | Persistent operator config |
-| `master.key` | AES encryption key |
-| `secrets.enc` | Encrypted credential store |
+<Tree>
+  <TreeItem name="~/.risoluto/" type="directory">
+    <TreeItem name="risoluto.db" type="file" description="SQLite — attempts, events, issue index" />
+    <TreeItem name="config/" type="directory">
+      <TreeItem name="overlay.yaml" type="file" description="Persistent operator config" />
+    </TreeItem>
+    <TreeItem name="master.key" type="file" description="AES-256 encryption key" />
+    <TreeItem name="secrets.enc" type="file" description="Encrypted credential store" />
+  </TreeItem>
+</Tree>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Runtime Behavior" icon="gauge-high" href="/concepts/runtime">
+    Polling intervals, timeouts, retries, and the state machine.
+  </Card>
+  <Card title="Trust Model" icon="shield-halved" href="/concepts/trust-model">
+    Sandbox policies, credential handling, and security posture.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Customize models, workspaces, hooks, and resource limits.
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/guides/docker">
+    Run Risoluto as a persistent service with Docker Compose.
+  </Card>
+</CardGroup>

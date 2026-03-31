@@ -1,0 +1,148 @@
+---
+title: Multi-Repository Setup
+sidebarTitle: Multi-repo
+description: "Route Linear issues to different Git repositories based on identifier prefixes or labels."
+icon: "code-branch"
+---
+
+# Multi-Repository Setup
+
+Route issues from a single Linear project to multiple Git repositories. Useful when your team splits work across frontend, backend, infrastructure, or service repos.
+
+## How routing works
+
+Risoluto matches each incoming issue against a set of routing rules. Rules are evaluated in order:
+
+1. **Label match** — if the issue has a label that matches a route, that route wins
+2. **Prefix match** — the issue identifier prefix (e.g., `FE-`, `BE-`) selects the repo
+3. **Default** — if nothing matches, the repo configured during setup is used
+
+## Configure routes
+
+<Steps>
+  <Step title="Define your repos">
+    Add routes via the setup wizard at `/setup`, or use the API directly.
+
+    <CodeGroup>
+      ```bash Prefix routing
+      # Frontend repo for all FE-* issues
+      curl -s -X POST http://127.0.0.1:4000/api/v1/setup/repo-route \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "prefix": "FE-",
+          "url": "https://github.com/org/frontend.git",
+          "default_branch": "main"
+        }'
+
+      # Backend repo for all BE-* issues
+      curl -s -X POST http://127.0.0.1:4000/api/v1/setup/repo-route \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "prefix": "BE-",
+          "url": "https://github.com/org/backend.git",
+          "default_branch": "main"
+        }'
+      ```
+
+      ```bash Label routing
+      # Route any issue labeled "infra" to the infrastructure repo
+      curl -s -X POST http://127.0.0.1:4000/api/v1/setup/repo-route \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "label": "infra",
+          "url": "https://github.com/org/infrastructure.git",
+          "default_branch": "main"
+        }'
+      ```
+
+      ```json Config overlay
+      {
+        "repos": [
+          {
+            "prefix": "FE-",
+            "url": "https://github.com/org/frontend.git",
+            "default_branch": "main"
+          },
+          {
+            "prefix": "BE-",
+            "url": "https://github.com/org/backend.git",
+            "default_branch": "main"
+          },
+          {
+            "label": "infra",
+            "url": "https://github.com/org/infrastructure.git",
+            "default_branch": "main"
+          }
+        ]
+      }
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify routes">
+    ```bash
+    curl -s http://127.0.0.1:4000/api/v1/setup/repo-routes | jq
+    ```
+
+    Expected output:
+
+    ```json
+    [
+      { "prefix": "FE-", "url": "https://github.com/org/frontend.git", "default_branch": "main" },
+      { "prefix": "BE-", "url": "https://github.com/org/backend.git", "default_branch": "main" },
+      { "label": "infra", "url": "https://github.com/org/infrastructure.git", "default_branch": "main" }
+    ]
+    ```
+  </Step>
+
+  <Step title="Test with a real issue">
+    Create a Linear issue with identifier `FE-42` and move it to **In Progress**. Confirm Risoluto clones the frontend repo for the agent workspace.
+
+    ```bash
+    # Check which repo was cloned
+    curl -s http://127.0.0.1:4000/api/v1/FE-42 | jq '.workspace'
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Use **identifier prefixes** (`FE-`, `BE-`) for stable team-to-repo mapping. Use **labels** for per-issue overrides — for example, when a backend developer needs to fix a frontend bug.
+</Tip>
+
+## Managing routes
+
+```bash
+# List all routes
+curl -s http://127.0.0.1:4000/api/v1/setup/repo-routes | jq
+
+# Remove a route by index
+curl -s -X DELETE http://127.0.0.1:4000/api/v1/setup/repo-route/0
+```
+
+## Workspace strategy
+
+When using the `worktree` strategy with multiple repos, each repository gets its own bare clone. Worktrees are created per-issue from the bare clone, sharing the Git object store for efficiency.
+
+```bash
+curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+  -H 'Content-Type: application/json' \
+  -d '{"workspace":{"strategy":"worktree","root":"../risoluto-workspaces"}}'
+```
+
+<Note>
+  With the `directory` strategy, each issue gets a full `git clone`. For large repos, `worktree` saves significant disk space and clone time.
+</Note>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Custom Sandbox" icon="box" href="/recipes/custom-sandbox">
+    Build a Docker image with project-specific tools and runtimes.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Full config reference for workspace, agent, and routing options.
+  </Card>
+  <Card title="Monitoring Stack" icon="chart-line" href="/recipes/monitoring-stack">
+    Set up Prometheus and Grafana for multi-repo visibility.
+  </Card>
+</CardGroup>

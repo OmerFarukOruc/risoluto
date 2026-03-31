@@ -1,104 +1,314 @@
 ---
-title: Endpoints
-description: "Complete list of all Risoluto API endpoints with methods, paths, and descriptions."
+title: "All Endpoints"
+sidebarTitle: "All Endpoints"
+description: "Complete reference of all Risoluto API endpoints grouped by category, with request/response examples."
+icon: "list"
+mode: "wide"
 ---
 
-# API Endpoints
+## State & Metrics
 
-## Runtime & State
+Core orchestrator state, runtime metadata, real-time events, and observability.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/state` | Full orchestrator snapshot — queued, running, completed issues and token totals |
+| `GET` | `/api/v1/runtime` | Runtime info — version, data directory, feature flags |
+| `POST` | `/api/v1/refresh` | Trigger an immediate poll/reconciliation cycle |
+| `GET` | `/api/v1/transitions` | Available state machine transitions per issue |
 | `GET` | `/metrics` | Prometheus-format service metrics |
-| `GET` | `/api/v1/runtime` | Runtime metadata — version, data dir, provider |
-| `GET` | `/api/v1/state` | Full snapshot — queued, running, completed, token totals |
-| `POST` | `/api/v1/refresh` | Trigger immediate reconciliation pass |
-| `GET` | `/api/v1/transitions` | Available workflow transitions per issue |
-| `GET` | `/api/v1/models` | List available Codex models from provider |
+| `GET` | `/api/v1/events` | SSE stream of real-time orchestrator events |
+| `GET` | `/api/v1/models` | List available AI models from the configured provider |
 
-## Issues
+<Tip>
+  `POST /api/v1/refresh` returns **202 Accepted**, not 200. The reconciliation runs asynchronously.
+</Tip>
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/:identifier` | Issue detail with recent events and attempts |
-| `GET` | `/api/v1/:identifier/attempts` | Archived attempts + current live attempt ID |
-| `GET` | `/api/v1/attempts/:attempt_id` | Per-attempt event timeline |
-| `POST` | `/api/v1/:identifier/model` | Save per-issue model override |
-| `POST` | `/api/v1/:identifier/transition` | Transition issue to another workflow state |
-| `POST` | `/api/v1/:identifier/abort` | Abort a running issue |
-| `POST` | `/api/v1/:identifier/steer` | Inject steering message into running agent |
+<CodeGroup>
+
+```bash "Get state"
+curl http://127.0.0.1:4000/api/v1/state
+```
+
+```bash "Trigger refresh"
+curl -X POST http://127.0.0.1:4000/api/v1/refresh
+# → 202 Accepted
+```
+
+```bash "Stream events"
+curl -N http://127.0.0.1:4000/api/v1/events
+# SSE stream — keep connection open
+```
+
+</CodeGroup>
+
+---
+
+## Issue Management
+
+Inspect individual issues, control running agents, override models and templates, and transition issue state.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/:id` | Issue detail with recent events and attempts |
+| `POST` | `/api/v1/:id/abort` | Abort a running issue |
+| `POST` | `/api/v1/:id/model` | Set per-issue model override |
+| `POST` | `/api/v1/:id/steer` | Send mid-turn guidance to the running agent |
+| `POST` | `/api/v1/:id/template` | Override the prompt template for this issue |
+| `DELETE` | `/api/v1/:id/template` | Clear the template override |
+| `POST` | `/api/v1/:id/transition` | Transition issue to a new workflow state |
+
+<Note>
+  The `:id` parameter is the Linear issue identifier (e.g. `ENG-123`).
+</Note>
+
+### Model Override
+
+<ParamField body="model" type="string" required>
+  The model identifier to use for this issue (e.g. `o4-mini`, `gpt-4.1`).
+</ParamField>
+
+```bash
+curl -X POST http://127.0.0.1:4000/api/v1/ENG-123/model \
+  -H "Content-Type: application/json" \
+  -d '{"model": "o4-mini"}'
+```
+
+### Mid-Turn Steering
+
+<ParamField body="message" type="string" required>
+  Guidance text injected into the running agent's context.
+</ParamField>
+
+```bash
+curl -X POST http://127.0.0.1:4000/api/v1/ENG-123/steer \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Focus on the auth module first, skip the tests for now."}'
+```
+
+### State Transition
+
+<ParamField body="to" type="string" required>
+  Target state name. Use `GET /api/v1/transitions` to see valid transitions.
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Optional human-readable reason for the transition.
+</ParamField>
+
+```bash
+curl -X POST http://127.0.0.1:4000/api/v1/ENG-123/transition \
+  -H "Content-Type: application/json" \
+  -d '{"to": "queued", "reason": "Retry after fix"}'
+```
+
+---
+
+## Attempts
+
+Each issue can have multiple attempts. An attempt represents a single agent execution run.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/:id/attempts` | List all attempts for an issue |
+| `GET` | `/api/v1/attempts/:aid` | Detail for a specific attempt including event timeline |
+
+<CodeGroup>
+
+```bash "List attempts"
+curl http://127.0.0.1:4000/api/v1/ENG-123/attempts
+```
+
+```bash "Attempt detail"
+curl http://127.0.0.1:4000/api/v1/attempts/att_01234
+```
+
+</CodeGroup>
+
+---
 
 ## Configuration
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/config` | Effective merged operator config |
-| `GET` | `/api/v1/config/schema` | Config schema and example payloads |
-| `GET` | `/api/v1/config/overlay` | Persistent overlay values only |
-| `PUT` | `/api/v1/config/overlay` | Apply an overlay patch |
-| `PATCH` | `/api/v1/config/overlay/:path` | Set one overlay path |
-| `DELETE` | `/api/v1/config/overlay/:path` | Remove one overlay path |
+Read the effective merged config, inspect the schema, and manage runtime overlay overrides.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/config` | Effective merged configuration (base + overlay) |
+| `GET` | `/api/v1/config/schema` | Config JSON schema with example payloads |
+| `GET` | `/api/v1/config/overlay` | Current overlay values only |
+| `PUT` | `/api/v1/config/overlay` | Replace the entire overlay |
+| `DELETE` | `/api/v1/config/overlay/:path` | Delete a specific overlay path |
+
+<Tip>
+  The overlay is persisted to disk and survives restarts. It merges on top of the base config file and environment variables.
+</Tip>
+
+<CodeGroup>
+
+```bash "Read effective config"
+curl http://127.0.0.1:4000/api/v1/config
+```
+
+```bash "Update overlay"
+curl -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
+  -H "Content-Type: application/json" \
+  -d '{"polling_interval_seconds": 30, "max_concurrent": 3}'
+```
+
+```bash "Delete overlay path"
+curl -X DELETE http://127.0.0.1:4000/api/v1/config/overlay/polling_interval_seconds
+```
+
+</CodeGroup>
+
+---
 
 ## Secrets
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/secrets` | List configured secret keys |
-| `POST` | `/api/v1/secrets/:key` | Store one secret |
-| `DELETE` | `/api/v1/secrets/:key` | Delete one secret |
+Manage runtime secrets without restarting the service. Secrets are encrypted at rest.
 
-## Setup Wizard
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/secrets` | List configured secret keys (values are not exposed) |
+| `POST` | `/api/v1/secrets/:key` | Store a secret |
+| `DELETE` | `/api/v1/secrets/:key` | Delete a secret |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/setup/status` | Wizard completion status per step |
-| `POST` | `/api/v1/setup/master-key` | Generate encryption master key |
-| `GET` | `/api/v1/setup/linear-projects` | List Linear projects |
-| `POST` | `/api/v1/setup/linear-project` | Save selected Linear project |
-| `POST` | `/api/v1/setup/openai-key` | Validate and store OpenAI key |
-| `POST` | `/api/v1/setup/codex-auth` | Upload `auth.json` |
-| `POST` | `/api/v1/setup/pkce-auth/start` | Start browser PKCE login |
-| `GET` | `/api/v1/setup/pkce-auth/status` | Poll PKCE auth status |
-| `POST` | `/api/v1/setup/pkce-auth/cancel` | Cancel active PKCE flow |
-| `POST` | `/api/v1/setup/github-token` | Validate and store GitHub PAT |
-| `POST` | `/api/v1/setup/create-test-issue` | Create a smoke test issue |
-| `POST` | `/api/v1/setup/create-label` | Create a workflow label |
-| `POST` | `/api/v1/setup/create-project` | Create a new tracker project |
-| `GET` | `/api/v1/setup/repo-routes` | List repo routing rules |
-| `POST` | `/api/v1/setup/repo-route` | Add a repo routing rule |
-| `DELETE` | `/api/v1/setup/repo-route/:index` | Remove a repo routing rule |
-| `POST` | `/api/v1/setup/detect-default-branch` | Detect repo default branch |
-| `POST` | `/api/v1/setup/reset` | Clear secrets and restart setup |
+<Warning>
+  `GET /api/v1/secrets` returns key names only, never the secret values.
+</Warning>
+
+<CodeGroup>
+
+```bash "List keys"
+curl http://127.0.0.1:4000/api/v1/secrets
+```
+
+```bash "Set a secret"
+curl -X POST http://127.0.0.1:4000/api/v1/secrets/OPENAI_API_KEY \
+  -H "Content-Type: application/json" \
+  -d '{"value": "sk-..."}'
+```
+
+```bash "Delete a secret"
+curl -X DELETE http://127.0.0.1:4000/api/v1/secrets/OPENAI_API_KEY
+```
+
+</CodeGroup>
+
+---
 
 ## Templates
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/templates` | List prompt templates |
-| `POST` | `/api/v1/templates` | Create a template |
-| `GET` | `/api/v1/templates/:id` | Get template by ID |
-| `PUT` | `/api/v1/templates/:id` | Update a template |
+Manage prompt templates for agent instructions. Templates support variable interpolation.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/templates` | List all prompt templates |
+| `GET` | `/api/v1/templates/:id` | Get a specific template |
+| `POST` | `/api/v1/templates` | Create a new template |
+| `PUT` | `/api/v1/templates/:id` | Update an existing template |
 | `DELETE` | `/api/v1/templates/:id` | Delete a template |
-| `POST` | `/api/v1/templates/:id/preview` | Preview rendered template |
+| `POST` | `/api/v1/templates/:id/preview` | Preview rendered output with sample variables |
 
-## Events & Audit
+<CodeGroup>
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/events` | SSE stream of real-time events |
-| `GET` | `/api/v1/audit` | Query audit log entries |
+```bash "List templates"
+curl http://127.0.0.1:4000/api/v1/templates
+```
 
-## Git & Workspaces
+```bash "Create template"
+curl -X POST http://127.0.0.1:4000/api/v1/templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "bug-fix",
+    "body": "Fix the bug described in {{issue.title}}. Focus on {{issue.labels}}."
+  }'
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/git/context` | Git repo context and routes |
-| `GET` | `/api/v1/workspaces` | Workspace inventory with disk usage |
-| `DELETE` | `/api/v1/workspaces/:key` | Remove a workspace |
+```bash "Preview render"
+curl -X POST http://127.0.0.1:4000/api/v1/templates/tpl_01234/preview \
+  -H "Content-Type: application/json" \
+  -d '{"variables": {"issue": {"title": "Login crash", "labels": ["bug"]}}}'
+```
 
-## OpenAPI
+</CodeGroup>
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+---
+
+## Workspaces & Git
+
+Inspect and manage the working directory pool and git routing context.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/workspaces` | List workspaces with disk usage |
+| `DELETE` | `/api/v1/workspaces/:key` | Remove a workspace and free disk |
+| `GET` | `/api/v1/git/context` | Git repo context — branches, remotes, routing rules |
+
+<CodeGroup>
+
+```bash "List workspaces"
+curl http://127.0.0.1:4000/api/v1/workspaces
+```
+
+```bash "Remove workspace"
+curl -X DELETE http://127.0.0.1:4000/api/v1/workspaces/ws_abc123
+```
+
+```bash "Git context"
+curl http://127.0.0.1:4000/api/v1/git/context
+```
+
+</CodeGroup>
+
+---
+
+## Audit
+
+Paginated audit log of all orchestrator actions for compliance and debugging.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/audit` | Query audit log entries (supports pagination) |
+
+```bash
+curl "http://127.0.0.1:4000/api/v1/audit?limit=50&offset=0"
+```
+
+---
+
+## Webhooks
+
+Inbound webhook receivers for external integrations.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/webhooks/linear` | Linear webhook receiver — processes issue and comment events |
+
+<Tip>
+  Webhook endpoints have a separate rate limit of **600 requests/minute**. Configure the webhook URL in your Linear workspace settings.
+</Tip>
+
+---
+
+## Docs & Spec
+
+Machine-readable API specification and interactive documentation.
+
+| Method | Path | Description |
+|--------|------|-------------|
 | `GET` | `/api/v1/openapi.json` | OpenAPI 3.0 specification |
-| `GET` | `/api/docs` | Swagger UI |
+| `GET` | `/api/docs` | Swagger UI — interactive API explorer |
+
+```bash
+curl http://127.0.0.1:4000/api/v1/openapi.json | jq .info
+```
+
+---
+
+## Related
+
+- [API Overview](/api-reference/overview) — authentication, rate limits, and quick-start examples
+- [Configuration Guide](/guides/configuration) — config file format and environment variables
+- [Observability](/operating/observability) — Prometheus metrics and alerting setup
+- [Troubleshooting](/operating/troubleshooting) — common issues and solutions

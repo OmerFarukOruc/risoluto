@@ -1,52 +1,106 @@
 ---
 title: Docker Deployment
+sidebarTitle: Docker
 description: "Deploy Risoluto with Docker Compose — zero-config start, persistent volumes, and control/data plane split mode."
+icon: "docker"
 ---
-
-# Docker Deployment
 
 Risoluto always launches agent workers in Docker containers. The orchestrator itself can run either directly on the host or inside its own container.
 
-## Zero-Config Docker Compose
+## Project Structure
 
-The simplest way to get started — no environment variables needed:
+The repo ships three Dockerfiles:
 
-```bash
-docker compose up --build
-```
+<Tree>
+  <File name="Dockerfile" description="Main orchestrator — Node.js 24, Docker CLI, port 4000" />
+  <File name="Dockerfile.sandbox" description="Agent sandbox — Ubuntu 24.04, Node.js 22, Codex CLI, bubblewrap" />
+  <File name="Dockerfile.data-plane" description="Remote dispatch worker — Node.js 24, Docker CLI, port 9100" />
+  <File name="docker-compose.yml" description="Compose stack with named volumes and internal network" />
+</Tree>
 
-Open [http://localhost:4000](http://localhost:4000) and the **setup wizard** guides you through all credentials.
+## Deployment Modes
 
-### Named Volumes
+<Tabs>
+  <Tab title="Zero-Config (Wizard)">
+    The simplest way to get started — no environment variables needed:
 
-| Volume | Purpose |
-|--------|---------|
-| `risoluto-archives` | Encrypted secrets, config overlay, auth tokens, run archives |
-| `risoluto-workspaces` | Cloned repositories for each issue |
-| `codex-auth` | OpenAI Codex login tokens |
+    ```bash
+    docker compose up --build
+    ```
 
-## Traditional Docker Compose
+    Open [http://localhost:4000](http://localhost:4000) and the **setup wizard** guides you through all credentials.
 
-For pre-seeded credentials:
+    ### Named Volumes
 
-```bash
-cp .env.example .env
-# Fill in absolute host paths and credentials
-docker compose up --build
-```
+    | Volume | Purpose |
+    |--------|---------|
+    | `risoluto-archives` | Encrypted secrets, config overlay, auth tokens, run archives |
+    | `risoluto-workspaces` | Cloned repositories for each issue |
+    | `codex-auth` | OpenAI Codex login tokens |
+  </Tab>
+  <Tab title="Pre-seeded Credentials">
+    For environments where you want to skip the wizard:
 
-Key container-specific behavior:
+    ```bash
+    cp .env.example .env
+    # Fill in credentials and host paths
+    docker compose up --build
+    ```
 
-- `DATA_DIR=/data` makes the archive root `/data/archives`
-- `workspace.root` resolves to `/data/workspaces` inside the service container
-- `PathRegistry` translates container paths back to host bind-mount sources before launching workers
+    Key environment variables:
+
+    ```bash
+    LINEAR_API_KEY=lin_api_...
+    LINEAR_PROJECT_SLUG=my-project
+    MASTER_KEY=your-encryption-key
+    OPENAI_API_KEY=sk-...
+    GITHUB_TOKEN=ghp_...
+    ```
+
+    <Tip>
+      When `MASTER_KEY` is set before first boot, Risoluto skips setup mode and starts the orchestrator immediately.
+    </Tip>
+  </Tab>
+  <Tab title="Host (No Docker for Orchestrator)">
+    Run the orchestrator directly on the host — only agent workers use Docker:
+
+    ```bash
+    # 1. Install Node.js 22+ and Docker
+    # 2. Clone and build
+    git clone https://github.com/OmerFarukOruc/risoluto.git && cd risoluto
+    pnpm install && pnpm run build
+
+    # 3. Build the sandbox image
+    bash bin/build-sandbox.sh
+
+    # 4. Start — complete setup via the wizard
+    node dist/cli/index.js --data-dir /var/lib/risoluto --port 4000
+    ```
+
+    <Tip>
+      For persistent operation, run Risoluto under `systemd`, `tmux`, or `screen`.
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Container Behavior
+
+Inside Docker, paths resolve differently:
+
+| Setting | Container Value | Purpose |
+|---------|----------------|---------|
+| `DATA_DIR` | `/data` | Archive root becomes `/data/archives` |
+| `workspace.root` | `/data/workspaces` | Cloned repos live here inside the container |
+| `RISOLUTO_BIND` | `0.0.0.0` | Listen on all interfaces (required inside Docker) |
+
+The `PathRegistry` automatically translates container paths back to host bind-mount sources before launching worker containers.
 
 ## Docker Networking
 
 Containers cannot reach the host's `127.0.0.1`. Risoluto automatically:
 
-1. Adds `--add-host=host.docker.internal:host-gateway` to every container
-2. Rewrites `127.0.0.1` → `host.docker.internal` in the Codex `config.toml`
+1. Adds `--add-host=host.docker.internal:host-gateway` to every worker container
+2. Rewrites `127.0.0.1` to `host.docker.internal` in the Codex `config.toml`
 
 <Note>
   If you use a host-side proxy like CLIProxyAPI, run it once on the host. All sandbox containers reach it over the Docker bridge network.
@@ -63,22 +117,27 @@ DISPATCH_URL=http://data-plane:9100/dispatch
 DISPATCH_SHARED_SECRET=your-secure-secret-here
 ```
 
+```bash
+# Start both services
+docker compose --profile full up --build
+```
+
 ```mermaid
 flowchart TD
-    subgraph Docker ["🐳 Docker Compose"]
-        CP["🎵 Control Plane\n:4000\n• Linear polling\n• Dashboard/API\n• Config/secrets"]
-        DP["⚙️ Data Plane\n:9100 (internal)\n• Agent execution\n• Container spawning"]
+    subgraph Docker ["Docker Compose"]
+        CP["Control Plane\n:4000\n- Linear polling\n- Dashboard/API\n- Config/secrets"]
+        DP["Data Plane\n:9100 (internal)\n- Agent execution\n- Container spawning"]
     end
 
     CP -->|"HTTP + SSE\nBearer auth"| DP
-    DP -->|"Docker CLI"| CX1["🤖 Worker 1"]
-    DP -->|"Docker CLI"| CX2["🤖 Worker 2"]
+    DP -->|"Docker CLI"| CX1["Worker 1"]
+    DP -->|"Docker CLI"| CX2["Worker 2"]
 
     style CP fill:#6366f1,stroke:#4f46e5,color:#fff
     style DP fill:#059669,stroke:#047857,color:#fff
 ```
 
-The data plane is **not exposed to the host** — it only listens on the private Docker bridge network.
+The data plane is **not exposed to the host** — it only listens on the private `risoluto-internal` bridge network.
 
 | Scenario | Benefit |
 |----------|---------|
@@ -88,42 +147,75 @@ The data plane is **not exposed to the host** — it only listens on the private
 | Multi-repo orchestration | Multiple data planes with different checkouts |
 
 <Note>
-  Remote dispatch mode is opt-in. The default `DISPATCH_MODE=local` runs everything in one process.
+  Remote dispatch is opt-in. The default `DISPATCH_MODE=local` runs everything in one process.
 </Note>
 
-## VDS / Server Deployment
+<AccordionGroup>
+  <Accordion title="Custom Docker Networks">
+    Attach worker containers to a specific network:
 
-```bash
-# 1. Install Node.js 22+ and Docker
-# 2. Clone the repo and install
-git clone <repo-url> && cd risoluto
-pnpm install && pnpm run build
+    ```yaml
+    # config overlay
+    codex:
+      sandbox:
+        network: my-custom-network
+    ```
 
-# 3. Build the sandbox image
-bash bin/build-sandbox.sh
+    This passes `--network=my-custom-network` to every `docker run` invocation.
+  </Accordion>
+  <Accordion title="gVisor Runtime">
+    For defense-in-depth sandbox isolation, enable gVisor:
 
-# 4. Start — complete setup via the wizard at http://server:4000
-node dist/cli/index.js --data-dir /var/lib/risoluto --port 4000
-```
+    ```yaml
+    codex:
+      sandbox:
+        security:
+          gvisor: true
+    ```
 
-<Tip>
-  For persistent operation, run Risoluto under `systemd`, `tmux`, or `screen`.
-</Tip>
+    Requires `runsc` installed on the Docker host. See the [Security guide](/guides/security) for details.
+  </Accordion>
+  <Accordion title="Egress Allowlists">
+    Restrict outbound network access from worker containers:
 
-## Container Image Tooling
+    ```yaml
+    codex:
+      sandbox:
+        egressAllowlist:
+          - "api.openai.com"
+          - "api.github.com"
+          - "registry.npmjs.org"
+    ```
 
-The sandbox Docker image ships with:
+    Only listed domains are reachable from inside the sandbox.
+  </Accordion>
+</AccordionGroup>
+
+## Sandbox Image Tooling
+
+The `Dockerfile.sandbox` image ships with:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Node.js | 22 (bookworm) | Runtime |
-| Codex CLI | 0.116.0 | AI agent execution |
-| bubblewrap | system | Sandbox isolation |
+| Node.js | 22 (via nodesource) | Runtime |
+| Codex CLI | latest | AI agent execution |
+| bubblewrap | system | Sandbox isolation (`--argv0`) |
 | git | system | Source control |
-| curl, jq, ripgrep | system | HTTP, JSON, search |
+| jq, ripgrep | system | JSON processing, search |
 
-The container runs as your user (`--user $(id -u):$(id -g)`) to avoid ownership drift.
+The container runs as your user (`--user $(id -u):$(id -g)`) to avoid ownership drift on bind-mounted volumes.
 
 <Warning>
   Named Docker volumes survive container/image replacement but **not** `docker system prune --volumes`. Do not prune volumes prefixed with `risoluto-`.
 </Warning>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Setup Wizard" icon="wand-magic-sparkles" href="/guides/setup-wizard">
+    Walk through first-time credential configuration.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Tune agent concurrency, models, timeouts, and sandbox resources.
+  </Card>
+</CardGroup>

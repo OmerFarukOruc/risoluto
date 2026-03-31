@@ -1,87 +1,231 @@
 ---
-title: Network Security
-description: "Secure the Risoluto API with bind address controls, write tokens, and rate limiting."
+title: Security
+sidebarTitle: Security
+description: "Secure the Risoluto API with bind address controls, write tokens, credential encryption, and sandbox hardening."
+icon: "shield-halved"
 ---
 
-# Network Security
+Risoluto's HTTP surface is designed for local, trusted environments by default. This guide covers the controls available when you need to expose it or harden the sandbox.
 
-Risoluto's HTTP surface is designed for local, trusted environments. These controls help you expose it safely when needed.
+## Hardening Checklist
 
-## Bind Address
+<Steps>
+  <Step title="Set a Write Token">
+    When binding to a non-loopback address, **always** set a write token:
 
-By default, Risoluto binds to `127.0.0.1` (loopback only):
+    ```bash
+    export RISOLUTO_BIND="0.0.0.0"
+    export RISOLUTO_WRITE_TOKEN="$(openssl rand -hex 32)"
+    ```
 
-```bash
-# Listen on all interfaces
-export RISOLUTO_BIND="0.0.0.0"
-```
+    All mutating requests (POST, PUT, PATCH, DELETE) then require:
 
-<Warning>
-  Never bind to `0.0.0.0` without also setting `RISOLUTO_WRITE_TOKEN`.
-</Warning>
+    ```
+    Authorization: Bearer <your-token>
+    ```
+  </Step>
+  <Step title="Enable Sandbox Security Defaults">
+    Verify these are enabled (they are by default):
+
+    ```yaml
+    codex:
+      sandbox:
+        security:
+          noNewPrivileges: true     # --security-opt=no-new-privileges
+          dropCapabilities: true    # Drop ALL Linux capabilities
+    ```
+  </Step>
+  <Step title="Restrict Egress">
+    Lock down outbound network access from worker containers:
+
+    ```yaml
+    codex:
+      sandbox:
+        egressAllowlist:
+          - "api.openai.com"
+          - "api.github.com"
+          - "registry.npmjs.org"
+    ```
+  </Step>
+  <Step title="Enable gVisor (Optional)">
+    For defense-in-depth container isolation:
+
+    ```yaml
+    codex:
+      sandbox:
+        security:
+          gvisor: true
+    ```
+
+    Requires `runsc` installed on the Docker host.
+  </Step>
+  <Step title="Back Up the Master Key">
+    The `MASTER_KEY` protects all encrypted secrets. Store it in a password manager or secrets vault — if lost, all credentials become unrecoverable.
+  </Step>
+</Steps>
 
 ## Write Guard
 
-All mutating API requests (POST, PUT, PATCH, DELETE) are protected by a write guard:
+<Warning>
+  Never bind to `0.0.0.0` without also setting `RISOLUTO_WRITE_TOKEN`. Without it, anyone on your network can mutate configuration and secrets.
+</Warning>
+
+All mutating API requests are protected by a write guard middleware:
 
 | Scenario | Behavior |
 |----------|----------|
-| Request from loopback (`127.0.0.1`, `::1`) | ✅ Allowed — no token required |
-| Non-loopback, no `RISOLUTO_WRITE_TOKEN` set | ❌ **403 `write_forbidden`** |
-| `RISOLUTO_WRITE_TOKEN` set, valid bearer token | ✅ Allowed from any address |
-| `RISOLUTO_WRITE_TOKEN` set, missing/invalid token | ❌ **401 `write_unauthorized`** |
+| Request from loopback (`127.0.0.1`, `::1`) | Allowed — no token required |
+| Non-loopback, no `RISOLUTO_WRITE_TOKEN` set | **403** `write_forbidden` |
+| `RISOLUTO_WRITE_TOKEN` set, valid bearer token | Allowed from any address |
+| `RISOLUTO_WRITE_TOKEN` set, missing/invalid token | **401** `write_unauthorized` |
 
-### Enable Remote Write Access
+Read-only methods (`GET`, `HEAD`, `OPTIONS`) are exempt from write guard checks and always allowed from any address.
 
-```bash
-export RISOLUTO_BIND="0.0.0.0"
-export RISOLUTO_WRITE_TOKEN="your-secret-token"
-```
+Webhook routes (`/webhooks/*`) bypass IP/token checks — they use their own HMAC signature verification.
 
-All mutating requests then require:
+## Credential Encryption
 
-```
-Authorization: Bearer your-secret-token
-```
+Risoluto encrypts all stored credentials using **AES-256-GCM** with a key derived from `MASTER_KEY` via SHA-256:
 
-### Read-Only Methods
+| Property | Value |
+|----------|-------|
+| Algorithm | AES-256-GCM |
+| IV length | 12 bytes (random per write) |
+| Auth tag | 16 bytes (GCM authentication) |
+| Key derivation | SHA-256 of `MASTER_KEY` |
+| Storage | `secrets.enc` (file-backed) or `encrypted_secrets` table (SQLite) |
+| Audit trail | `secrets.audit.log` records every set/delete operation |
 
-`GET`, `HEAD`, and `OPTIONS` are exempt from write guard checks and always allowed from any address.
+The DB-backed store (`DbSecretsStore`) encrypts each secret individually with its own IV and auth tag, stored as separate rows. Key names are plaintext; values are encrypted.
+
+<AccordionGroup>
+  <Accordion title="Network Isolation">
+    Worker containers run on the `risoluto-internal` Docker bridge network by default. The data plane (when using control/data plane split) is **not exposed to the host** — it only listens on this private network.
+
+    For additional isolation, use a custom Docker network:
+
+    ```yaml
+    codex:
+      sandbox:
+        network: my-isolated-network
+    ```
+  </Accordion>
+
+  <Accordion title="Capability Dropping">
+    When `codex.sandbox.security.dropCapabilities` is `true` (default), worker containers start with `--cap-drop=ALL`. Combined with `noNewPrivileges: true`, this ensures containers cannot escalate privileges.
+
+    The resulting `docker run` flags:
+
+    ```
+    --cap-drop=ALL
+    --security-opt=no-new-privileges
+    ```
+  </Accordion>
+
+  <Accordion title="gVisor Runtime">
+    gVisor (`runsc`) provides a user-space kernel that intercepts all syscalls from the container, adding a strong isolation boundary between the agent and the host kernel.
+
+    ```yaml
+    codex:
+      sandbox:
+        security:
+          gvisor: true
+    ```
+
+    This passes `--runtime=runsc` to Docker. Install gVisor first:
+
+    ```bash
+    # Debian/Ubuntu
+    curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | sudo tee /etc/apt/sources.list.d/gvisor.list
+    sudo apt-get update && sudo apt-get install -y runsc
+    sudo systemctl restart docker
+    ```
+  </Accordion>
+
+  <Accordion title="Egress Allowlists">
+    The `egressAllowlist` restricts which domains worker containers can reach. When the list is non-empty, only listed domains are reachable:
+
+    ```yaml
+    codex:
+      sandbox:
+        egressAllowlist:
+          - "api.openai.com"
+          - "api.github.com"
+          - "registry.npmjs.org"
+          - "pypi.org"
+    ```
+
+    This is enforced via the Codex sandbox policy. An empty list (default) allows all outbound traffic.
+  </Accordion>
+
+  <Accordion title="Seccomp Profiles">
+    For fine-grained syscall filtering, specify a custom seccomp profile:
+
+    ```yaml
+    codex:
+      sandbox:
+        security:
+          seccompProfile: /etc/docker/seccomp-risoluto.json
+    ```
+
+    This passes `--security-opt=seccomp=/etc/docker/seccomp-risoluto.json` to Docker.
+  </Accordion>
+</AccordionGroup>
+
+## Sandbox Policy Summary
+
+| Policy | Default | Effect |
+|--------|---------|--------|
+| `noNewPrivileges` | `true` | Prevents privilege escalation via setuid/setgid binaries |
+| `dropCapabilities` | `true` | Drops ALL Linux capabilities (`--cap-drop=ALL`) |
+| `gvisor` | `false` | User-space kernel for syscall interception |
+| `seccompProfile` | `""` | Custom seccomp profile (empty = Docker default) |
+| `egressAllowlist` | `[]` | Domain-level egress filtering (empty = allow all) |
+| `threadSandbox` | `"workspace-write"` | Agent can only write to its workspace directory |
+| `turnSandboxPolicy` | `{type: "workspaceWrite"}` | Per-turn sandbox: workspace write + no network access |
 
 ## Rate Limiting
 
-All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 seconds** per client. Exceeding the limit returns HTTP `429 Too Many Requests`.
+All `/api/*` and `/metrics` endpoints are rate-limited to **300 requests per 60 seconds** per client. Webhook endpoints (`/webhooks/linear`) have a separate limit of **600 requests per 60 seconds**. Exceeding the limit returns HTTP `429 Too Many Requests`.
+
+## Filesystem Paths
+
+### Host-Side
+
+| Path | Purpose | Safe to delete? |
+|------|---------|----------------|
+| `.risoluto/` (or `$DATA_DIR`) | SQLite DB, config overlay, encrypted secrets | No — lose all history |
+| `../risoluto-workspaces/` | Per-issue workspace directories | Yes — re-created on dispatch |
+| `~/.codex/` | Codex CLI auth credentials | Partial — need `codex login` again |
+
+### Inside Worker Containers
+
+| Path | Purpose |
+|------|---------|
+| `/home/agent/.codex-runtime` | Ephemeral per-attempt `CODEX_HOME` |
+| `/home/agent` | Container `HOME` with build caches |
+| `/workspace` | Bind-mounted issue workspace |
+
+<Tip>
+  Directories like `~/.risoluto-codex` or `~/.risoluto-codex-home` are **not** created by Risoluto. If found on your host, they are leftover Codex CLI data and can be safely deleted.
+</Tip>
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RISOLUTO_BIND` | `127.0.0.1` | HTTP bind address |
-| `RISOLUTO_WRITE_TOKEN` | — | Bearer token for remote writes |
+| `RISOLUTO_WRITE_TOKEN` | — | Bearer token for remote write access |
+| `MASTER_KEY` | — | Encryption key for the secrets store |
 
-## Filesystem Paths
+## What's Next
 
-### Host-Side Paths
-
-| Path | Purpose | Safe to delete? |
-|------|---------|----------------|
-| `.risoluto/` | SQLite DB, config overlay, encrypted secrets | ⚠️ Lose all history |
-| `../risoluto-workspaces/` | Per-issue workspace directories | ✅ Re-created on dispatch |
-| `~/.codex/` | Codex CLI auth credentials | ⚠️ Need to re-run `codex login` |
-
-### Inside Docker Containers
-
-| Path | Purpose |
-|------|---------|
-| `/home/agent/.codex-runtime` | Ephemeral per-attempt `CODEX_HOME` |
-| `/home/agent` | Container `HOME` with build caches |
-
-### Named Docker Volumes
-
-| Volume | Purpose |
-|--------|---------|
-| `risoluto-cache-<runId>` | Persistent build caches per worker |
-
-<Tip>
-  Directories like `~/.risoluto-codex` or `~/.risoluto-codex-home` are **not** created by Risoluto. If found on your host, they are leftover Codex CLI data and can be safely deleted.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Trust Model" icon="lock" href="/concepts/trust-model">
+    Understand Risoluto's trust boundaries and threat model.
+  </Card>
+  <Card title="Custom Sandbox" icon="box" href="/recipes/custom-sandbox">
+    Build a custom sandbox image with your project's toolchain.
+  </Card>
+</CardGroup>

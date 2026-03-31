@@ -1,0 +1,218 @@
+---
+title: Monitoring Stack
+sidebarTitle: Monitoring stack
+description: "Set up Prometheus and Grafana to monitor Risoluto agent runs, error rates, poll health, and API latency."
+icon: "chart-line"
+---
+
+# Monitoring Stack
+
+Risoluto exposes Prometheus metrics at `GET /metrics`. This recipe wires up Prometheus + Grafana for dashboards and alerting.
+
+## Available metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `risoluto_http_requests_total` | Counter | HTTP requests by `method` and `status` |
+| `risoluto_http_request_duration_seconds` | Histogram | Request latency distribution (buckets) |
+| `risoluto_orchestrator_polls_total` | Counter | Poll cycles by `status` (success, error, skipped) |
+| `risoluto_agent_runs_total` | Counter | Agent completions by `outcome` (completed, failed, oom, stalled) |
+
+All metrics follow Prometheus naming conventions and include help text in the exposition output.
+
+## Setup
+
+<Steps>
+  <Step title="Create Prometheus config">
+    Create `prometheus.yml` alongside your `docker-compose.yml`:
+
+    <CodeGroup>
+      ```yaml prometheus.yml
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      scrape_configs:
+        - job_name: risoluto
+          static_configs:
+            - targets: ["risoluto:4000"]
+          metrics_path: /metrics
+          scrape_interval: 10s
+      ```
+
+      ```yaml prometheus.yml (host-mode)
+      # When Risoluto runs on the host, not in Docker
+      global:
+        scrape_interval: 15s
+
+      scrape_configs:
+        - job_name: risoluto
+          static_configs:
+            - targets: ["host.docker.internal:4000"]
+          metrics_path: /metrics
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Add monitoring services">
+    Create `docker-compose.monitoring.yml`:
+
+    ```yaml docker-compose.monitoring.yml
+    services:
+      prometheus:
+        image: prom/prometheus:latest
+        volumes:
+          - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+          - prometheus-data:/prometheus
+        ports:
+          - "9090:9090"
+        restart: unless-stopped
+
+      grafana:
+        image: grafana/grafana:latest
+        volumes:
+          - grafana-data:/var/lib/grafana
+        ports:
+          - "3001:3000"
+        environment:
+          - GF_SECURITY_ADMIN_PASSWORD=changeme
+        depends_on:
+          - prometheus
+        restart: unless-stopped
+
+    volumes:
+      prometheus-data:
+      grafana-data:
+    ```
+  </Step>
+
+  <Step title="Start the stack">
+    ```bash
+    docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+    ```
+
+    Verify scraping:
+
+    ```bash
+    # Prometheus targets should show risoluto as UP
+    curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[].health'
+    ```
+  </Step>
+
+  <Step title="Configure Grafana">
+    1. Open Grafana at [http://localhost:3001](http://localhost:3001) (admin / changeme)
+    2. **Data Sources** > Add Prometheus: `http://prometheus:9090`
+    3. Import or build dashboards using the queries below
+  </Step>
+</Steps>
+
+## Grafana dashboard queries
+
+### Agent success rate (1h window)
+
+```promql
+sum(rate(risoluto_agent_runs_total{outcome="completed"}[1h]))
+/
+sum(rate(risoluto_agent_runs_total[1h]))
+```
+
+### Active polls per minute
+
+```promql
+rate(risoluto_orchestrator_polls_total{status="success"}[5m]) * 60
+```
+
+### HTTP error rate
+
+```promql
+sum(rate(risoluto_http_requests_total{status=~"5.."}[5m]))
+/
+sum(rate(risoluto_http_requests_total[5m]))
+```
+
+### P95 API latency
+
+```promql
+histogram_quantile(0.95, rate(risoluto_http_request_duration_seconds_bucket[5m]))
+```
+
+### Agent runs by outcome (stacked)
+
+```promql
+sum by (outcome) (increase(risoluto_agent_runs_total[1h]))
+```
+
+## Alert rules
+
+Add alert rules to your Prometheus config or a separate `rules.yml`:
+
+```yaml
+groups:
+  - name: risoluto
+    rules:
+      - alert: HighAgentFailureRate
+        expr: >
+          rate(risoluto_agent_runs_total{outcome="failed"}[15m])
+          / rate(risoluto_agent_runs_total[15m]) > 0.3
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent failure rate above 30%"
+
+      - alert: PollStalled
+        expr: increase(risoluto_orchestrator_polls_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Orchestrator hasn't polled in 10 minutes"
+
+      - alert: HighApiLatency
+        expr: >
+          histogram_quantile(0.95,
+            rate(risoluto_http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 API latency above 2 seconds"
+
+      - alert: HighErrorRate
+        expr: >
+          rate(risoluto_http_requests_total{status=~"5.."}[5m])
+          / rate(risoluto_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP 5xx error rate above 5%"
+```
+
+<Tip>
+  For lightweight monitoring without Prometheus, Risoluto's built-in **Slack notifications** cover agent lifecycle events (start, complete, fail, PR delivered). See [Notifications](/guides/notifications) for setup.
+</Tip>
+
+## Scraping from outside Docker
+
+If Risoluto runs directly on the host (not in a container), point Prometheus at `host.docker.internal:4000` or your machine's LAN IP:
+
+```bash
+# Quick test — confirm metrics are reachable
+curl -s http://127.0.0.1:4000/metrics | head -20
+```
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Observability" icon="eye" href="/operating/observability">
+    Full observability reference — SSE events, audit logs, and data persistence.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operating/troubleshooting">
+    Common failure cases and recovery procedures.
+  </Card>
+  <Card title="Notifications" icon="bell" href="/guides/notifications">
+    Configure Slack notifications for agent lifecycle events.
+  </Card>
+</CardGroup>

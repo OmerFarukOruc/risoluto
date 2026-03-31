@@ -1,0 +1,71 @@
+---
+title: Changelog
+sidebarTitle: Changelog
+description: "Release history and notable changes in each Risoluto version."
+icon: "clock-rotate-left"
+---
+
+# Changelog
+
+<Update label="2026-03-31" description="v0.6.0" tags={["Feature", "Docs", "Rebrand"]}>
+  ## Webhook integration, Mintlify docs, Risoluto rebrand
+
+  - **Linear webhooks** — real-time issue updates without polling delay
+  - **Mintlify documentation site** with interactive API playground, recipes, and operator guides
+  - **Rebrand from Symphony to Risoluto** — new name, domains (`risolu.to`, `risoluto.dev`), and updated branding throughout
+  - Dependency bumps across all packages
+</Update>
+
+<Update label="2026-03-29" description="v0.5.0" tags={["Feature", "Dashboard"]}>
+  ## Dashboard overhaul, prompt templates, model overrides
+
+  - **Dashboard redesign** — board view, overview panels, live event feed via SSE
+  - **Prompt template editor** with CodeMirror syntax highlighting
+  - **Per-issue model overrides** — switch models from the dashboard or API
+  - **Cost tracking** — per-issue and aggregate token usage visible in the UI
+  - Improved agent lifecycle notifications in Slack
+</Update>
+
+<Update label="2026-03-27" description="v0.4.0" tags={["Feature", "Security"]}>
+  ## Setup wizard, encrypted credentials, GitHub Issues adapter
+
+  - **Interactive setup wizard** at `/setup` with PKCE browser sign-in
+  - **AES-256 encrypted credential store** with master key rotation support
+  - **GitHub Issues adapter** — use GitHub Issues as an alternative to Linear
+  - **OpenAPI 3.1 spec** exported with auto-generated endpoint pages
+  - Configuration overlay API (`PUT /api/v1/config/overlay`)
+  - Audit log for config and secret mutations
+</Update>
+
+<Update label="2026-03-26" description="v0.3.0" tags={["Feature", "Infra"]}>
+  ## Docker sandbox, Codex integration, retry logic
+
+  - **Docker sandbox** with `--cap-drop=ALL`, resource limits, and optional gVisor runtime
+  - **Codex CLI integration** via JSON-RPC app-server protocol
+  - **Retry with exponential backoff** — up to 5 continuation attempts per issue
+  - **Stall detection** — agents with no events for the configured timeout are killed automatically
+  - Sandbox image build integrated into CI pipeline
+  - E2E lifecycle test suite against real Linear + GitHub APIs
+</Update>
+
+<Update label="2026-03-25" description="v0.2.0" tags={["Feature", "Dashboard"]}>
+  ## Linear polling, workspace management, basic dashboard
+
+  - **Linear polling** with priority-based dispatch and configurable interval
+  - **Workspace isolation** — directory and worktree strategies
+  - **Basic dashboard** with issue list and status indicators
+  - Git automation: clone, branch, commit, push
+  - Prometheus metrics endpoint (`GET /metrics`)
+  - Sentry error tracking support
+</Update>
+
+<Update label="2026-03-24" description="v0.1.0" tags={["Release"]}>
+  ## Initial release
+
+  - Core orchestration engine with poll-dispatch-deliver loop
+  - Linear adapter with project selection and state transitions
+  - SQLite-backed attempt history with WAL mode
+  - CLI entry point with port configuration
+  - Pino structured logging (`logfmt` and `json` formats)
+  - 50+ REST API endpoints for runtime state, config, and issue management
+</Update>

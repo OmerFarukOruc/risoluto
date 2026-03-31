@@ -15,13 +15,14 @@
   },
   "logo": {
     "dark": "/logo/dark.svg",
-    "light": "/logo/light.svg"
+    "light": "/logo/light.svg",
+    "href": "https://risolu.to"
   },
   "favicon": "/favicon.svg",
   "navbar": {
     "links": [
       {
-        "label": "GitHub",
+        "type": "github",
         "href": "https://github.com/OmerFarukOruc/risoluto"
       }
     ],
@@ -30,6 +31,10 @@
       "label": "Dashboard",
       "href": "https://risolu.to"
     }
+  },
+  "banner": {
+    "content": "Risoluto is in active development — [Star us on GitHub](https://github.com/OmerFarukOruc/risoluto) to follow along!",
+    "dismissible": true
   },
   "contextual": {
     "options": [
@@ -50,14 +55,45 @@
       "devin-mcp"
     ]
   },
+  "search": {
+    "prompt": "Search Risoluto docs..."
+  },
+  "metadata": {
+    "timestamp": true
+  },
+  "api": {
+    "openapi": "openapi.json",
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": ["bash", "javascript", "python"],
+      "defaults": "all"
+    },
+    "mdx": {
+      "server": "http://127.0.0.1:4000",
+      "auth": {
+        "method": "bearer"
+      }
+    }
+  },
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Changelog",
+          "icon": "clock-rotate-left",
+          "href": "/changelog"
+        }
+      ]
+    },
     "tabs": [
       {
         "tab": "Documentation",
         "groups": [
           {
             "group": "Get Started",
-            "pages": ["introduction", "quickstart"]
+            "pages": ["introduction", "quickstart", "faq"]
           },
           {
             "group": "Core Concepts",
@@ -75,6 +111,11 @@
             ]
           },
           {
+            "group": "Recipes",
+            "icon": "flask",
+            "pages": ["recipes/multi-repo", "recipes/custom-sandbox", "recipes/monitoring-stack"]
+          },
+          {
             "group": "Operating",
             "pages": ["operating/observability", "operating/troubleshooting"]
           }
@@ -84,14 +125,67 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "API Reference",
-            "pages": ["api-reference/overview", "api-reference/endpoints"]
+            "group": "Overview",
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "State & Metrics",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /api/v1/state",
+              "GET /api/v1/runtime",
+              "POST /api/v1/refresh",
+              "GET /api/v1/transitions",
+              "GET /metrics"
+            ]
+          },
+          {
+            "group": "Issues",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /api/v1/{issue_identifier}",
+              "POST /api/v1/{issue_identifier}/abort",
+              "POST /api/v1/{issue_identifier}/model",
+              "POST /api/v1/{issue_identifier}/transition"
+            ]
+          },
+          {
+            "group": "Attempts",
+            "openapi": "openapi.json",
+            "pages": ["GET /api/v1/{issue_identifier}/attempts", "GET /api/v1/attempts/{attempt_id}"]
+          },
+          {
+            "group": "Configuration",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /api/v1/config",
+              "GET /api/v1/config/schema",
+              "GET /api/v1/config/overlay",
+              "PUT /api/v1/config/overlay",
+              "PATCH /api/v1/config/overlay/{path}",
+              "DELETE /api/v1/config/overlay/{path}"
+            ]
+          },
+          {
+            "group": "Secrets",
+            "openapi": "openapi.json",
+            "pages": ["GET /api/v1/secrets", "POST /api/v1/secrets/{key}", "DELETE /api/v1/secrets/{key}"]
+          },
+          {
+            "group": "Workspaces & Git",
+            "openapi": "openapi.json",
+            "pages": ["GET /api/v1/workspaces", "DELETE /api/v1/workspaces/{workspace_key}", "GET /api/v1/git/context"]
+          },
+          {
+            "group": "All Endpoints",
+            "pages": ["api-reference/endpoints"]
           }
         ]
       }
     ]
   },
   "footer": {
+    "brand": "*con risoluto*",
     "socials": {
       "github": "https://github.com/OmerFarukOruc/risoluto",
       "website": "https://risolu.to"
@@ -104,10 +198,18 @@
       "og:site_name": "Risoluto",
       "og:type": "website",
       "og:url": "https://docs.risolu.to",
+      "og:image": "/images/og-image.png",
       "og:locale": "en_US",
       "twitter:card": "summary_large_image",
+      "twitter:image": "/images/og-image.png",
       "description": "Risoluto turns your issue tracker into an autonomous coding pipeline. Local orchestration engine that dispatches sandboxed AI agents to close Linear issues automatically.",
       "keywords": "AI coding agent, autonomous coding, Linear integration, issue automation, code generation, AI orchestration, developer tools"
+    }
+  },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_syRRQjw8q6HqFgTPnqwFEMKqJeeJBjLzmX8ysNfmVgyD",
+      "apiHost": "https://app.posthog.com"
     }
   }
 }

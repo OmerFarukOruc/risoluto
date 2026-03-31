@@ -1,81 +1,104 @@
 ---
 title: Dashboard
-description: "Tour the Risoluto real-time dashboard — board view, overview, issue inspector, and live agent feed."
+sidebarTitle: Dashboard
+description: "Tour the Risoluto real-time dashboard — overview, queue, issue inspector, logs, settings, and live event stream."
+icon: "chart-mixed"
 ---
 
-# Dashboard
+Risoluto serves a real-time web dashboard at [http://127.0.0.1:4000](http://127.0.0.1:4000) that shows everything happening in the system. All views update in real time via Server-Sent Events — no manual refresh needed.
 
-Risoluto serves a real-time web dashboard at [http://127.0.0.1:4000](http://127.0.0.1:4000) that shows everything happening in the system.
+## Dashboard Pages
 
-## Views
+<CardGroup cols={2}>
+  <Card title="Overview" icon="gauge-high">
+    Landing page with live summary: running agents with progress, queued issues waiting for slots, completed work with success/failure breakdown, and aggregate token usage across all workers.
+  </Card>
+  <Card title="Queue" icon="list-check">
+    Kanban-style board showing issues organized by workflow stage. Each card displays the issue identifier, title, current status, model in use, attempt count, and token usage.
+  </Card>
+  <Card title="Issue Detail" icon="magnifying-glass">
+    Click any issue to inspect its full event timeline, attempt history (current + archived), model override controls, agent conversation log, and workspace status.
+  </Card>
+  <Card title="Attempts" icon="rotate">
+    Per-issue attempt history showing each run's outcome, duration, token consumption, model used, and the complete event stream for debugging.
+  </Card>
+  <Card title="Logs" icon="scroll">
+    Streaming view of all orchestrator events — issue lifecycle (queued, started, completed), worker events (spawn, failure, OOM), agent events (tool calls, file edits), and system events (polls, errors).
+  </Card>
+  <Card title="Git Context" icon="code-branch">
+    Repository and workspace information: current branch, commit history, and diff viewer for each active workspace.
+  </Card>
+  <Card title="Runs" icon="play">
+    Historical view of all agent runs with filtering by status, duration, and model. Drill into any run to see its full event timeline.
+  </Card>
+  <Card title="Notifications" icon="bell">
+    Notification delivery history showing which events were sent to which channels, delivery status, and any failures.
+  </Card>
+  <Card title="Observability" icon="chart-line">
+    Prometheus metrics endpoint at `/metrics` with agent run counts, token usage histograms, poll duration, and error rates.
+  </Card>
+  <Card title="Settings" icon="gear">
+    Visual editor for the config overlay. Changes take effect immediately — equivalent to `PUT /api/v1/config/overlay`.
+  </Card>
+  <Card title="Setup" icon="wand-magic-sparkles">
+    Re-run the setup wizard to reconfigure credentials without a factory reset. Located under **System → Setup**.
+  </Card>
+  <Card title="Templates" icon="file-code">
+    Prompt template editor with CodeMirror for syntax highlighting. Customize the system prompt, planning prompt, and review prompt sent to agents.
+  </Card>
+  <Card title="Workspaces" icon="folder-tree">
+    Inventory of all active workspaces: path, associated issue, branch name, disk usage, and a delete action for cleanup.
+  </Card>
+  <Card title="Audit Log" icon="clipboard-list">
+    Immutable history of all config, secret, and template mutations — who changed what, when, and the before/after values.
+  </Card>
+</CardGroup>
 
-### Board View
+## Real-time Events (SSE)
 
-A Kanban-style board showing issues organized by workflow stage. Each card shows:
-
-- Issue identifier and title
-- Current status and model in use
-- Attempt count and token usage
-- Real-time progress indicator
-
-### Overview
-
-A summary view with:
-
-- **Running agents** with live progress
-- **Queued issues** waiting for slots
-- **Completed work** with success/failure breakdown
-- **Token totals** across all agents
-
-### Issue Inspector
-
-Click any issue to see:
-
-- Full event timeline with timestamps
-- Attempt history (current + archived)
-- Model override controls
-- Agent output and conversation log
-- Workspace status
-
-### Live Log
-
-A streaming view of all orchestrator events powered by [Server-Sent Events](#real-time-events). Shows:
-
-- Issue lifecycle events (queued, started, completed)
-- Worker events (spawn, failure, OOM)
-- Agent events (tool calls, file edits, messages)
-- System events (polls, errors)
-
-## Navigation
-
-The dashboard sidebar provides access to:
-
-| Section | Description |
-|---------|-------------|
-| **Board** | Kanban board view |
-| **Overview** | Summary dashboard |
-| **Logs** | Full event log view |
-| **Templates** | Prompt template editor (CodeMirror) |
-| **Audit Log** | Config and secret mutation history |
-| **System → Setup** | Re-run the setup wizard |
-| **System → Configuration** | Edit the config overlay |
-
-## Real-time Events
-
-The dashboard connects to `GET /api/v1/events` via SSE and updates all views in real time. Event types include:
+The dashboard connects to `GET /api/v1/events` via SSE and updates all views live. On connect, the client receives `{"type":"connected"}`. Subsequent frames carry typed event payloads:
 
 | Event | Description |
 |-------|-------------|
-| `issue.started` | Agent launched for an issue |
-| `issue.completed` | Agent finished (any outcome) |
-| `issue.stalled` | Stall detected, agent killed |
-| `issue.queued` | Issue waiting for a slot |
-| `worker.failed` | Worker crash or timeout |
-| `model.updated` | Model selection changed |
-| `agent.event` | Raw agent event from worker stream |
+| `issue.started` | Agent worker launched for an issue |
+| `issue.completed` | Agent finished (any terminal outcome) |
+| `issue.stalled` | Stall detected — agent killed |
+| `issue.queued` | Issue waiting for an available slot |
+| `worker.failed` | Worker crash, timeout, or OOM |
+| `model.updated` | Model selection changed at runtime |
+| `workspace.event` | Workspace lifecycle (preparing, ready, failed) |
+| `agent.event` | Raw agent event from the worker stream |
 | `poll.complete` | Polling cycle finished |
-| `audit.mutation` | Config/secret/template change logged |
+| `system.error` | System-level error not tied to a specific issue |
+| `audit.mutation` | Config, secret, or template change logged |
+| `webhook.received` | Verified webhook delivery from Linear |
+| `webhook.health_changed` | Webhook health state machine transition |
+
+<Note>
+  A keep-alive comment (`:`) is sent every 30 seconds to prevent proxy timeouts. If the SSE connection drops, the dashboard reconnects automatically and shows a stale-data banner until events resume.
+</Note>
 
 ## Keyboard Shortcuts
 
-The dashboard supports keyboard navigation throughout. All interactive elements (buttons, cards, step indicators) are accessible via `Tab`, `Enter`, and `Space`.
+The dashboard supports full keyboard navigation. All interactive elements — buttons, cards, step indicators — are accessible via standard keys:
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move focus between interactive elements |
+| `Enter` / `Space` | Activate the focused element |
+| `Cmd+K` / `Ctrl+K` | Open the command palette |
+
+<Tip>
+  The command palette provides quick navigation to any page, issue search, and common actions like triggering a manual poll refresh.
+</Tip>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell" href="/guides/notifications">
+    Configure Slack alerts and webhook integrations.
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/operating/observability">
+    Set up Prometheus/Grafana monitoring for production.
+  </Card>
+</CardGroup>

@@ -1,26 +1,135 @@
 ---
-title: API Overview
-description: "Explore Risoluto's 50+ JSON API endpoints for runtime state, configuration, events, and issue management."
+title: "API Reference"
+sidebarTitle: "Overview"
+description: "Overview of the Risoluto REST API — authentication, rate limits, response format, and quick-start examples."
+icon: "code"
 ---
 
-# API Reference
-
-Risoluto exposes a comprehensive REST API at `http://127.0.0.1:4000/api/v1/`. All endpoints return JSON.
+Risoluto exposes a JSON REST API for orchestrator state, issue management, configuration, secrets, and real-time events. Every endpoint returns JSON unless otherwise noted (SSE, Prometheus text).
 
 <Info>
-  Interactive API docs are available at [http://127.0.0.1:4000/api/docs](http://127.0.0.1:4000/api/docs) (Swagger UI) and the OpenAPI 3.0 spec at [http://127.0.0.1:4000/api/v1/openapi.json](http://127.0.0.1:4000/api/v1/openapi.json).
+  Interactive docs are available at [/api/docs](http://127.0.0.1:4000/api/docs) (Swagger UI) and the machine-readable spec at [/api/v1/openapi.json](http://127.0.0.1:4000/api/v1/openapi.json).
 </Info>
+
+## Base URL
+
+```
+http://127.0.0.1:4000
+```
+
+The port is configurable via the `--port` CLI flag:
+
+```bash
+risoluto --port 5000
+```
+
+All versioned endpoints live under `/api/v1/`. Prometheus metrics are at `/metrics`.
 
 ## Authentication
 
-- **Loopback requests** (`127.0.0.1`, `::1`): No auth required
-- **Remote requests**: Require `Authorization: Bearer <RISOLUTO_WRITE_TOKEN>` for mutating operations
-- **Read-only methods** (`GET`, `HEAD`, `OPTIONS`): Always allowed from any address
+| Scenario | Requirement |
+|----------|-------------|
+| Loopback requests (`127.0.0.1`, `::1`) | No auth required |
+| Remote read-only (`GET`, `HEAD`, `OPTIONS`) | No auth required |
+| Remote mutating (`POST`, `PUT`, `PATCH`, `DELETE`) | `Authorization: Bearer <token>` required |
 
-## Rate Limiting
+Set the token via the `RISOLUTO_WRITE_TOKEN` environment variable:
 
-All `/api/*` and `/metrics` endpoints: **300 requests per 60 seconds** per client.
+```bash
+export RISOLUTO_WRITE_TOKEN="your-secret-token"
+```
 
-## Endpoint Reference
+<Tip>
+  Loopback requests skip auth entirely, so local development and the dashboard work without a token.
+</Tip>
 
-See the [full endpoint table](/api-reference/endpoints) for all 50+ endpoints.
+## Rate Limits
+
+| Scope | Limit |
+|-------|-------|
+| API endpoints (`/api/*`, `/metrics`) | 300 requests / minute per client |
+| Webhooks (`/webhooks/*`) | 600 requests / minute per client |
+
+Exceeding the limit returns `429 Too Many Requests` with a `Retry-After` header.
+
+## Response Format
+
+Successful responses return JSON with the relevant payload directly:
+
+```json
+{
+  "version": "1.2.0",
+  "uptime": 3600,
+  "issues": []
+}
+```
+
+## Error Format
+
+All errors follow a consistent envelope:
+
+```json
+{
+  "error": "Issue not found",
+  "status": 404
+}
+```
+
+## Quick Start
+
+<CodeGroup>
+
+```bash curl
+curl http://127.0.0.1:4000/api/v1/state
+```
+
+```javascript JavaScript
+const res = await fetch("http://127.0.0.1:4000/api/v1/state");
+const state = await res.json();
+console.log(state);
+```
+
+```python Python
+import requests
+
+state = requests.get("http://127.0.0.1:4000/api/v1/state").json()
+print(state)
+```
+
+</CodeGroup>
+
+## Endpoint Groups
+
+<CardGroup cols={2}>
+
+<Card title="State & Metrics" icon="gauge" href="/api-reference/endpoints#state--metrics">
+  Orchestrator state, runtime info, Prometheus metrics, SSE events, and available models.
+</Card>
+
+<Card title="Issues" icon="circle-dot" href="/api-reference/endpoints#issue-management">
+  Issue detail, abort, model override, mid-turn steering, templates, and state transitions.
+</Card>
+
+<Card title="Attempts" icon="clock-rotate-left" href="/api-reference/endpoints#attempts">
+  List attempts per issue and inspect individual attempt timelines.
+</Card>
+
+<Card title="Configuration" icon="sliders" href="/api-reference/endpoints#configuration">
+  Read effective config, inspect the schema, and manage overlay overrides.
+</Card>
+
+<Card title="Secrets" icon="key" href="/api-reference/endpoints#secrets">
+  List, set, and delete runtime secrets without restarting.
+</Card>
+
+<Card title="Workspaces & Git" icon="code-branch" href="/api-reference/endpoints#workspaces--git">
+  Workspace inventory, cleanup, and git repo context.
+</Card>
+
+</CardGroup>
+
+## Related
+
+- [All Endpoints](/api-reference/endpoints) — full endpoint table with request/response examples
+- [Operator Guide](/guides/configuration) — configuration reference
+- [Observability](/operating/observability) — Prometheus metrics and alerting

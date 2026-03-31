@@ -13,7 +13,7 @@ const baseTmpDir = os.tmpdir();
 let originalEnv = { ...process.env };
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(baseTmpDir, "symphony-workflow-test-"));
+  const dir = await mkdtemp(path.join(baseTmpDir, "risoluto-workflow-test-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -69,7 +69,7 @@ describe("config store", () => {
     const workflowPath = path.join(dir, "WORKFLOW.md");
     await writeFile(
       workflowPath,
-      "---\ntracker:\n  api_key: $LINEAR_API_KEY\n  project_slug: $LINEAR_PROJECT_SLUG\nworkspace:\n  root: $TMPDIR/symphony\ncodex:\n  command: codex app-server\n---\nPrompt\n",
+      "---\ntracker:\n  api_key: $LINEAR_API_KEY\n  project_slug: $LINEAR_PROJECT_SLUG\nworkspace:\n  root: $TMPDIR/risoluto\ncodex:\n  command: codex app-server\n---\nPrompt\n",
       "utf8",
     );
 
@@ -80,7 +80,7 @@ describe("config store", () => {
     const store = new ConfigStore(workflowPath, createLogger());
     await store.start();
 
-    expect(store.getConfig().workspace.root).toBe(path.join(dir, "symphony"));
+    expect(store.getConfig().workspace.root).toBe(path.join(dir, "risoluto"));
     expect(store.getConfig().tracker.projectSlug).toBe("TEST");
     expect(store.validateDispatch()).toEqual({
       code: "missing_tracker_api_key",
@@ -157,7 +157,7 @@ describe("config store", () => {
     await store.stop();
   });
 
-  it("defaults workspace root to ../symphony-workspaces and falls back hook timeout when configured non-positive", async () => {
+  it("defaults workspace root to ../risoluto-workspaces and falls back hook timeout when configured non-positive", async () => {
     const dir = await createTempDir();
     const workflowPath = path.join(dir, "WORKFLOW.md");
     process.env.LINEAR_API_KEY = "linear-token";
@@ -171,7 +171,7 @@ describe("config store", () => {
     const store = new ConfigStore(workflowPath, createLogger());
     await store.start();
 
-    expect(store.getConfig().workspace.root).toBe(path.resolve("../symphony-workspaces"));
+    expect(store.getConfig().workspace.root).toBe(path.resolve("../risoluto-workspaces"));
     expect(store.getConfig().workspace.hooks.timeoutMs).toBe(60000);
     expect(store.getConfig().tracker.endpoint).toBe("https://api.linear.app/graphql");
     expect(store.getConfig().tracker.activeStates).toEqual(["Backlog", "Todo", "In Progress"]);

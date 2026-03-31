@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
 import { ConfigStore } from "../../src/config/store.js";
-import type { SymphonyLogger } from "../../src/core/types.js";
+import type { RisolutoLogger } from "../../src/core/types.js";
 
-function makeLogger(): SymphonyLogger {
+function makeLogger(): RisolutoLogger {
   return {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
     child: vi.fn(),
-  } as unknown as SymphonyLogger;
+  } as unknown as RisolutoLogger;
 }
 
 // Uses front-matter format (starts with ---) so the loader parses the YAML config section
@@ -37,7 +37,7 @@ codex:
 agent: {}
 server: {}
 workspace:
-  root: /tmp/symphony
+  root: /tmp/risoluto
 ---
 Work on the issue.
 `;
@@ -209,7 +209,7 @@ describe("ConfigStore", () => {
     }
   });
 
-  it("logs a warning when repo routing points back to symphony-orchestrator", async () => {
+  it("logs a warning when repo routing points back to risoluto-orchestrator", async () => {
     const dir = await makeTestDir();
     const workflowPath = await writeTempWorkflow(
       dir,
@@ -226,9 +226,9 @@ codex:
 agent: {}
 server: {}
 workspace:
-  root: /tmp/symphony
+  root: /tmp/risoluto
 repos:
-  - repo_url: https://github.com/OmerFarukOruc/symphony-orchestrator.git
+  - repo_url: https://github.com/OmerFarukOruc/risoluto-orchestrator.git
     identifier_prefix: NIN
 ---
 Work on the issue.
@@ -241,7 +241,7 @@ Work on the issue.
     try {
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({ code: "self_routing_repo" }),
-        expect.stringContaining("points to symphony-orchestrator itself"),
+        expect.stringContaining("points to risoluto-orchestrator itself"),
       );
     } finally {
       await store.stop();

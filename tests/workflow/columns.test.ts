@@ -40,7 +40,7 @@ function makeConfig(overrides?: Partial<ServiceConfig>): ServiceConfig {
         timeoutMs: 60000,
       },
       strategy: "directory",
-      branchPrefix: "symphony/",
+      branchPrefix: "risoluto/",
     },
     agent: {
       maxConcurrentAgents: 2,

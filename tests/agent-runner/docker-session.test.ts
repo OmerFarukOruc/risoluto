@@ -4,7 +4,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
 import { createMockLogger } from "../helpers.js";
 import { createIssue, createWorkspace, createModelSelection } from "../orchestrator/issue-test-factories.js";
-import type { ServiceConfig, SymphonyLogger } from "../../src/core/types.js";
+import type { ServiceConfig, RisolutoLogger } from "../../src/core/types.js";
 import type { DockerSessionDeps } from "../../src/agent-runner/docker-session.js";
 
 // ---------------------------------------------------------------------------
@@ -14,9 +14,9 @@ import type { DockerSessionDeps } from "../../src/agent-runner/docker-session.js
 const mocks = vi.hoisted(() => {
   const buildDockerRunArgs = vi.fn().mockReturnValue({
     program: "docker",
-    args: ["run", "--name", "symphony-MT-42-123"],
-    containerName: "symphony-MT-42-123",
-    cacheVolumeName: "symphony-cache-MT-42-123",
+    args: ["run", "--name", "risoluto-MT-42-123"],
+    containerName: "risoluto-MT-42-123",
+    cacheVolumeName: "risoluto-cache-MT-42-123",
   });
 
   const buildInitCacheVolumeArgs = vi.fn().mockReturnValue({
@@ -149,9 +149,9 @@ function resetMockDefaults() {
   });
   mocks.buildDockerRunArgs.mockReturnValue({
     program: "docker",
-    args: ["run", "--name", "symphony-MT-42-123"],
-    containerName: "symphony-MT-42-123",
-    cacheVolumeName: "symphony-cache-MT-42-123",
+    args: ["run", "--name", "risoluto-MT-42-123"],
+    containerName: "risoluto-MT-42-123",
+    cacheVolumeName: "risoluto-cache-MT-42-123",
   });
   mocks.buildInitCacheVolumeArgs.mockReturnValue({
     program: "docker",
@@ -210,7 +210,7 @@ function makeConfig(): ServiceConfig {
   return {
     codex: {
       command: "codex",
-      sandbox: { image: "symphony:latest", resources: {} },
+      sandbox: { image: "risoluto:latest", resources: {} },
       readTimeoutMs: 30_000,
       drainTimeoutMs: 0,
       model: "gpt-5.4",
@@ -247,7 +247,7 @@ function makeTurnState() {
 // ---------------------------------------------------------------------------
 
 describe("createDockerSession", () => {
-  let logger: SymphonyLogger;
+  let logger: RisolutoLogger;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -281,7 +281,7 @@ describe("createDockerSession", () => {
 
     const session = await createDockerSession(makeConfig(), makeInput(), deps, makeTurnState());
 
-    expect(session.containerName).toBe("symphony-MT-42-123");
+    expect(session.containerName).toBe("risoluto-MT-42-123");
   });
 
   it("initializes threadId and turnId to null", async () => {
@@ -451,9 +451,9 @@ describe("DockerSession.cleanup", () => {
     await session.cleanup(makeConfig(), cleanupSignal);
 
     expect(session.connection.close).toHaveBeenCalled();
-    expect(mocks.stopContainer).toHaveBeenCalledWith("symphony-MT-42-123", 5);
-    expect(mocks.removeContainer).toHaveBeenCalledWith("symphony-MT-42-123");
-    expect(mocks.removeVolume).toHaveBeenCalledWith("symphony-cache-MT-42-123");
+    expect(mocks.stopContainer).toHaveBeenCalledWith("risoluto-MT-42-123", 5);
+    expect(mocks.removeContainer).toHaveBeenCalledWith("risoluto-MT-42-123");
+    expect(mocks.removeVolume).toHaveBeenCalledWith("risoluto-cache-MT-42-123");
   });
 
   it("removes abort signal listener during cleanup", async () => {
@@ -535,7 +535,7 @@ describe("abort signal wiring", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(session.connection.close).toHaveBeenCalled();
-    expect(mocks.stopContainer).toHaveBeenCalledWith("symphony-MT-42-123", 5);
+    expect(mocks.stopContainer).toHaveBeenCalledWith("risoluto-MT-42-123", 5);
   });
 });
 

@@ -16,7 +16,7 @@ const tempDirs: string[] = [];
 const fixturePath = path.resolve("tests/fixtures/mock-codex-server.mjs");
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "symphony-runner-test-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "risoluto-runner-test-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -30,7 +30,7 @@ function baseIssue(): Issue {
   return {
     id: "issue-1",
     identifier: "MT-42",
-    title: "Ship Symphony",
+    title: "Ship Risoluto",
     description: null,
     priority: 1,
     state: "In Progress",
@@ -98,7 +98,7 @@ async function createRunner(
       },
       provider: null,
       sandbox: {
-        image: "symphony-codex:latest",
+        image: "risoluto-codex:latest",
         network: "",
         security: { noNewPrivileges: true, dropCapabilities: true, gvisor: false, seccompProfile: "" },
         resources: { memory: "4g", memoryReservation: "1g", memorySwap: "4g", cpus: "2.0", tmpfsSize: "512m" },
@@ -423,7 +423,7 @@ describe("AgentRunner", () => {
           type: "client_request",
           method: "turn/start",
           params: expect.objectContaining({
-            title: "MT-42: Ship Symphony",
+            title: "MT-42: Ship Risoluto",
             model: "gpt-5.4",
             effort: "high",
           }),
@@ -506,7 +506,7 @@ describe("AgentRunner", () => {
     expect(outcome.threadId).toBe("thread-1");
   });
 
-  it("stops after the first turn when the agent emits SYMPHONY_STATUS: DONE", async () => {
+  it("stops after the first turn when the agent emits RISOLUTO_STATUS: DONE", async () => {
     const tempDir = await createTempDir();
     const { runner, workspaceManager } = await createRunner(tempDir, "done_signal");
     const workspace = await workspaceManager.ensureWorkspace("MT-42");

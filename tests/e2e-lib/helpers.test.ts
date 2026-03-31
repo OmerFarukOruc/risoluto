@@ -126,7 +126,7 @@ describe("generateWorkflowScaffold", () => {
     },
     server: { port: 4111 },
     timeouts: {
-      symphony_startup_ms: 15_000,
+      risoluto_startup_ms: 15_000,
       setup_complete_ms: 30_000,
       issue_pickup_ms: 60_000,
       lifecycle_complete_ms: 1_800_000,

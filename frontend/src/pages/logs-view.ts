@@ -265,7 +265,7 @@ export function createLogsPage(id: string): HTMLElement {
   }
 
   function restartPolling(): void {
-    globalThis.clearInterval(timer);
+    window.clearInterval(timer);
     unsubscribeLifecycle?.();
     unsubscribeStream?.();
     unsubscribeLifecycle = null;
@@ -289,7 +289,7 @@ export function createLogsPage(id: string): HTMLElement {
         }
       });
       unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void reconcile());
-      timer = globalThis.setInterval(() => void reconcile(), 30_000);
+      timer = window.setInterval(() => void reconcile(), 30_000);
     }
   }
 
@@ -381,7 +381,7 @@ export function createLogsPage(id: string): HTMLElement {
   void refresh();
   restartPolling();
   registerPageCleanup(page, () => {
-    globalThis.clearInterval(timer);
+    window.clearInterval(timer);
     unsubscribeLifecycle?.();
     unsubscribeStream?.();
   });

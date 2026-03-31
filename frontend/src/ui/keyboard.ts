@@ -17,7 +17,7 @@ function shouldIgnoreTarget(target: EventTarget | null): boolean {
 
 function resetPrefix(): void {
   prefixActive = false;
-  globalThis.clearTimeout(prefixTimer);
+  window.clearTimeout(prefixTimer);
 }
 
 function dispatchKeyEvent(name: string): void {
@@ -81,8 +81,8 @@ export function initKeyboard(router: Router, options: KeyboardOptions = {}): voi
     }
     if (event.key === "g") {
       prefixActive = true;
-      globalThis.clearTimeout(prefixTimer);
-      prefixTimer = globalThis.setTimeout(() => resetPrefix(), 1_500);
+      window.clearTimeout(prefixTimer);
+      prefixTimer = window.setTimeout(() => resetPrefix(), 1_500);
       return;
     }
     if (prefixActive) {

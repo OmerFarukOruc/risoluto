@@ -72,15 +72,6 @@ export class ConfigStore {
     }
   }
 
-  /**
-   * @deprecated ConfigStore no longer loads workflow files. Returns an empty
-   * WorkflowDefinition stub. Use getConfig() for runtime configuration.
-   * Will be removed when worker-launcher.ts is updated in a subsequent unit.
-   */
-  getWorkflow(): WorkflowDefinition {
-    return { config: {}, promptTemplate: "" };
-  }
-
   getConfig(): ServiceConfig {
     if (!this.config) {
       throw new Error("config store has not been started");

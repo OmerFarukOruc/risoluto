@@ -4,6 +4,10 @@ import type { RuntimeSnapshot } from "../core/types.js";
 import { redactSensitiveValue } from "../core/content-sanitizer.js";
 import { isRecord } from "../utils/type-guards.js";
 
+export function issueNotFound(response: Response): void {
+  response.status(404).json({ error: { code: "not_found", message: "Unknown issue identifier" } });
+}
+
 export function methodNotAllowed(response: Response): void {
   response.status(405).json({
     error: {

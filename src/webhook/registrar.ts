@@ -190,7 +190,7 @@ export class WebhookRegistrar {
       this.logger.error(
         { webhookId: result.id },
         "Linear API did not return a signing secret — manual setup is required. " +
-          "Create a webhook manually in Linear workspace settings and set webhook_secret in your workflow file.",
+          "Create a webhook manually in Linear workspace settings and configure webhook_secret in Settings.",
       );
       return;
     }

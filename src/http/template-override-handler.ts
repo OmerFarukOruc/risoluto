@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { PromptTemplateStore } from "../prompt/store.js";
 import type { TemplateOverrideBody } from "./request-schemas.js";
+import { issueNotFound } from "./route-helpers.js";
 
 /**
  * Handles POST /:issue_identifier/template.
@@ -35,12 +36,7 @@ export function handleTemplateOverride(
 
   const updated = orchestrator.updateIssueTemplateOverride(identifier, templateId);
   if (!updated) {
-    response.status(404).json({
-      error: {
-        code: "not_found",
-        message: "Unknown issue identifier",
-      },
-    });
+    issueNotFound(response);
     return;
   }
 
@@ -60,12 +56,7 @@ export function handleTemplateClear(orchestrator: OrchestratorPort, request: Req
 
   const cleared = orchestrator.clearIssueTemplateOverride(identifier);
   if (!cleared) {
-    response.status(404).json({
-      error: {
-        code: "not_found",
-        message: "Unknown issue identifier",
-      },
-    });
+    issueNotFound(response);
     return;
   }
 

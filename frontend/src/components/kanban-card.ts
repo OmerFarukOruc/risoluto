@@ -89,12 +89,7 @@ export function createKanbanCard(options: KanbanCardOptions): KanbanCardHandle {
   const lifecycleState = createLifecycleSyncState();
 
   function syncMeta(issue: RuntimeIssueView): void {
-    const sig = [
-      issue.priority ?? "low",
-      issue.status,
-      String(issue.modelChangePending),
-      issue.configuredTemplateId ?? "",
-    ].join("|");
+    const sig = [issue.priority ?? "low", issue.status, String(issue.modelChangePending)].join("|");
     if (sig === prevMetaSig) return;
 
     const priBadge = priorityBadge(issue.priority);
@@ -104,12 +99,6 @@ export function createKanbanCard(options: KanbanCardOptions): KanbanCardHandle {
       pending.className = "mc-badge is-sm";
       pending.textContent = "Next run pending";
       children.push(pending);
-    }
-    if (issue.configuredTemplateId) {
-      const tmpl = document.createElement("span");
-      tmpl.className = "mc-badge is-sm";
-      tmpl.textContent = issue.configuredTemplateName ?? "Custom template";
-      children.push(tmpl);
     }
     meta.replaceChildren(...children);
     if (prevMetaSig) {

@@ -83,6 +83,16 @@ export class IssueConfigStore {
   clearTemplateId(identifier: string): void {
     this.db.update(issueConfig).set({ templateId: null }).where(eq(issueConfig.identifier, identifier)).run();
   }
+
+  /** Returns the template_id for a single identifier, or null if not set / row absent. */
+  getTemplateId(identifier: string): string | null {
+    const row = this.db
+      .select({ templateId: issueConfig.templateId })
+      .from(issueConfig)
+      .where(eq(issueConfig.identifier, identifier))
+      .get();
+    return row?.templateId ?? null;
+  }
 }
 
 /**
@@ -109,5 +119,9 @@ class NoopIssueConfigStore extends IssueConfigStore {
 
   override clearTemplateId(_identifier: string): void {
     // no-op
+  }
+
+  override getTemplateId(_identifier: string): string | null {
+    return null;
   }
 }

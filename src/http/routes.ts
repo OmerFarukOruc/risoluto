@@ -26,7 +26,7 @@ import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { getOpenApiSpec } from "./openapi.js";
 import { modelUpdateSchema, steerSchema, templateOverrideSchema, transitionSchema } from "./request-schemas.js";
-import { methodNotAllowed, refreshReason, sanitizeConfigValue } from "./route-helpers.js";
+import { issueNotFound, methodNotAllowed, refreshReason, sanitizeConfigValue } from "./route-helpers.js";
 import { createSSEHandler } from "./sse.js";
 import { getSwaggerHtml } from "./swagger-html.js";
 import { handleTemplateClear, handleTemplateOverride } from "./template-override-handler.js";
@@ -228,7 +228,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
     .get((req, res) => {
       const detail = deps.orchestrator.getIssueDetail(req.params.issue_identifier);
       if (!detail) {
-        res.status(404).json({ error: { code: "not_found", message: "Unknown issue identifier" } });
+        issueNotFound(res);
         return;
       }
       res.json({ attempts: detail.attempts ?? [], current_attempt_id: detail.currentAttemptId ?? null });
@@ -278,7 +278,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
     .get((req, res) => {
       const detail = deps.orchestrator.getIssueDetail(req.params.issue_identifier);
       if (!detail) {
-        res.status(404).json({ error: { code: "not_found", message: "Unknown issue identifier" } });
+        issueNotFound(res);
         return;
       }
       res.json(detail);

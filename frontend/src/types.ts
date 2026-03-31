@@ -154,7 +154,6 @@ export interface RateLimits {
 
 export interface RuntimeInfo {
   version: string;
-  workflow_path: string;
   data_dir: string;
   feature_flags: Record<string, boolean>;
   provider_summary: string;

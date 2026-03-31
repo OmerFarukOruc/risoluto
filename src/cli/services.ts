@@ -39,7 +39,7 @@ export function evaluateWebhookConfig(
   if (webhookConfig?.webhookUrl && !webhookConfig.webhookSecret) {
     logger.warn(
       { webhookUrl: webhookConfig.webhookUrl },
-      "webhook_url is configured but webhook_secret is missing — set $LINEAR_WEBHOOK_SECRET or add webhook_secret to your workflow file",
+      "webhook_url is configured but webhook_secret is missing — set $LINEAR_WEBHOOK_SECRET or configure webhook_secret in Settings",
     );
   }
 
@@ -129,11 +129,9 @@ export async function createServices(
   const auditLogger = persistence.db ? new AuditLogger(persistence.db, eventBus) : undefined;
   const issueConfigStore = IssueConfigStore.create(persistence.db);
 
-  const lateRef: { orchestrator?: { getTemplateOverride(id: string): string | null } } = {};
-
   const resolveTemplate = async (identifier: string): Promise<string> => {
     if (templateStore) {
-      const overrideTemplateId = lateRef.orchestrator?.getTemplateOverride(identifier);
+      const overrideTemplateId = issueConfigStore.getTemplateId(identifier);
       if (overrideTemplateId) {
         const tmpl = templateStore.get(overrideTemplateId);
         if (tmpl) return tmpl.body;
@@ -161,8 +159,6 @@ export async function createServices(
     logger: logger.child({ component: "orchestrator" }),
     resolveTemplate,
   });
-  lateRef.orchestrator = orchestrator;
-
   const httpServer = new HttpServer({
     orchestrator,
     logger: logger.child({ component: "http" }),

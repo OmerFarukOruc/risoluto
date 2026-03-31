@@ -236,21 +236,35 @@ describe("detectAndKillStalledWorkers", () => {
 
   it("does NOT abort entry at exactly the timeout boundary", () => {
     // silentMs === stallTimeoutMs should NOT trigger abort (uses <=)
-    const now = Date.now();
-    const entry = makeEntry({ lastEventAtMs: now - 60000 });
-    const ctx = makeCtx([entry], 60000);
-    // At exactly 60000ms, silentMs <= stallTimeoutMs -> continue (not killed)
-    const result = detectAndKillStalledWorkers(ctx);
-    expect(result.killed).toBe(0);
-    expect(entry.abortController.signal.aborted).toBe(false);
+    // Freeze time so both makeEntry and detectAndKillStalledWorkers see the same Date.now()
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      vi.setSystemTime(now);
+      const entry = makeEntry({ lastEventAtMs: now - 60000 });
+      const ctx = makeCtx([entry], 60000);
+      // At exactly 60000ms, silentMs <= stallTimeoutMs -> continue (not killed)
+      const result = detectAndKillStalledWorkers(ctx);
+      expect(result.killed).toBe(0);
+      expect(entry.abortController.signal.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("aborts entry one ms past the timeout boundary", () => {
-    const entry = makeEntry({ lastEventAtMs: Date.now() - 60001 });
-    const ctx = makeCtx([entry], 60000);
-    const result = detectAndKillStalledWorkers(ctx);
-    expect(result.killed).toBe(1);
-    expect(entry.abortController.signal.aborted).toBe(true);
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      vi.setSystemTime(now);
+      const entry = makeEntry({ lastEventAtMs: now - 60001 });
+      const ctx = makeCtx([entry], 60000);
+      const result = detectAndKillStalledWorkers(ctx);
+      expect(result.killed).toBe(1);
+      expect(entry.abortController.signal.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("aborts with 'stalled' reason string", () => {

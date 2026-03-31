@@ -440,6 +440,10 @@ jobs:
           key: build-${{ github.sha }}
       - name: Build Codex sandbox image
         run: docker build -f Dockerfile.sandbox -t risoluto-codex:latest .
+      - name: Configure git identity for workspace commits
+        run: |
+          git config --global user.email "ci@risoluto.dev"
+          git config --global user.name "Risoluto CI"
       - name: Decode Codex auth
         run: mkdir -p /tmp/codex-auth && echo "$CODEX_AUTH_JSON" | base64 -d > /tmp/codex-auth/auth.json
       - name: Run E2E lifecycle test

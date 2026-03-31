@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ConfigStore } from "../../src/config/store.js";
-import type { SymphonyLogger } from "../../src/core/types.js";
+import type { RisolutoLogger } from "../../src/core/types.js";
 
-function makeLogger(): SymphonyLogger {
+function makeLogger(): RisolutoLogger {
   return {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
     child: vi.fn(),
-  } as unknown as SymphonyLogger;
+  } as unknown as RisolutoLogger;
 }
 
 describe("ConfigStore", () => {
@@ -108,7 +108,7 @@ describe("ConfigStore", () => {
       toMap: vi.fn().mockReturnValue({
         repos: [
           {
-            repo_url: "https://github.com/OmerFarukOruc/symphony-orchestrator.git",
+            repo_url: "https://github.com/OmerFarukOruc/risoluto.git",
             identifier_prefix: "NIN",
           },
         ],
@@ -122,7 +122,7 @@ describe("ConfigStore", () => {
     try {
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({ code: "self_routing_repo" }),
-        expect.stringContaining("points to symphony-orchestrator itself"),
+        expect.stringContaining("points to risoluto itself"),
       );
     } finally {
       await store.stop();

@@ -1,5 +1,5 @@
 /**
- * Drizzle ORM schema for Symphony's SQLite persistence layer.
+ * Drizzle ORM schema for Risoluto's SQLite persistence layer.
  *
  * Tables mirror the in-memory `AttemptRecord` and `AttemptEvent` types
  * from `src/core/types.ts`, providing queryable, durable storage for

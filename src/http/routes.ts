@@ -9,7 +9,7 @@ import type { ConfigOverlayPort } from "../config/overlay.js";
 import type { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import { fetchCodexModels } from "../codex/model-list.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import { globalMetrics } from "../observability/metrics.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import { registerSecretsApi } from "../secrets/api.js";
@@ -44,7 +44,7 @@ interface HttpRouteDeps {
   configStore?: ConfigStore;
   configOverlayStore?: ConfigOverlayPort;
   secretsStore?: SecretsStore;
-  eventBus?: TypedEventBus<SymphonyEventMap>;
+  eventBus?: TypedEventBus<RisolutoEventMap>;
 
   templateStore?: PromptTemplateStore;
   auditLogger?: AuditLogger;
@@ -97,8 +97,8 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
     .get((_req, res) => {
       res.json({
         version: process.env.npm_package_version ?? "unknown",
-        workflow_path: process.env.SYMPHONY_WORKFLOW_PATH ?? "",
-        data_dir: process.env.SYMPHONY_DATA_DIR ?? "",
+        workflow_path: process.env.RISOLUTO_WORKFLOW_PATH ?? "",
+        data_dir: process.env.RISOLUTO_DATA_DIR ?? "",
         feature_flags: {},
         provider_summary: "Codex",
       });

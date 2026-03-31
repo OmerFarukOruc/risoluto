@@ -2,7 +2,7 @@ import type { RunAttemptDispatcher } from "../dispatch/types.js";
 import type { AttemptStorePort } from "../core/attempt-store-port.js";
 import { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { GitIntegrationPort } from "../git/port.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { NotificationManager } from "../notification/manager.js";
@@ -12,7 +12,7 @@ import type {
   Issue,
   ModelSelection,
   RetryEntry,
-  SymphonyLogger,
+  RisolutoLogger,
   TokenUsageSnapshot,
   Workspace,
 } from "../core/types.js";
@@ -50,10 +50,10 @@ export interface OrchestratorDeps {
   tracker: TrackerPort;
   workspaceManager: WorkspaceManager;
   agentRunner: RunAttemptDispatcher;
-  eventBus?: TypedEventBus<SymphonyEventMap>;
+  eventBus?: TypedEventBus<RisolutoEventMap>;
   notificationManager?: NotificationManager;
   repoRouter?: Pick<RepoRouter, "matchIssue">;
   gitManager?: GitIntegrationPort;
   webhookHealthTracker?: WebhookHealthTracker;
-  logger: SymphonyLogger;
+  logger: RisolutoLogger;
 }

@@ -24,10 +24,10 @@ export function detectStopSignal(content: string | null): StopSignal | null {
   }
 
   const normalized = normalizeForDetection(content);
-  if (normalized.includes("symphony_status: done") || normalized.includes("symphony status: done")) {
+  if (normalized.includes("risoluto_status: done") || normalized.includes("risoluto status: done")) {
     return "done";
   }
-  if (normalized.includes("symphony_status: blocked") || normalized.includes("symphony status: blocked")) {
+  if (normalized.includes("risoluto_status: blocked") || normalized.includes("risoluto status: blocked")) {
     return "blocked";
   }
   return null;

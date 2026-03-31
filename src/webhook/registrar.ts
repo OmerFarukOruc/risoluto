@@ -13,19 +13,19 @@
 import type { LinearClient } from "../linear/client.js";
 import { LinearClientError } from "../linear/errors.js";
 import type { SecretsStore } from "../secrets/store.js";
-import type { SymphonyLogger, WebhookConfig } from "../core/types.js";
+import type { RisolutoLogger, WebhookConfig } from "../core/types.js";
 
 const SECRETS_KEY = "LINEAR_WEBHOOK_SECRET";
 
 const RESOURCE_TYPES = ["Issue", "Comment", "Project"];
-const WEBHOOK_LABEL = "Symphony Orchestrator";
+const WEBHOOK_LABEL = "Risoluto";
 
 export interface WebhookRegistrarDeps {
   linearClient: Pick<LinearClient, "listWebhooks" | "createWebhook" | "updateWebhook" | "deleteWebhook">;
   secretsStore: Pick<SecretsStore, "get" | "set" | "delete">;
   getWebhookConfig: () => WebhookConfig | null | undefined;
   onSecretResolved: (secret: string) => void;
-  logger: SymphonyLogger;
+  logger: RisolutoLogger;
 }
 
 export class WebhookRegistrar {
@@ -33,7 +33,7 @@ export class WebhookRegistrar {
   private readonly secretsStore: WebhookRegistrarDeps["secretsStore"];
   private readonly getWebhookConfig: WebhookRegistrarDeps["getWebhookConfig"];
   private readonly onSecretResolved: WebhookRegistrarDeps["onSecretResolved"];
-  private readonly logger: SymphonyLogger;
+  private readonly logger: RisolutoLogger;
   private stopped = false;
 
   constructor(deps: WebhookRegistrarDeps) {

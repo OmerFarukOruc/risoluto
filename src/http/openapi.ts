@@ -1,5 +1,5 @@
 /**
- * OpenAPI 3.1 spec generator for Symphony Orchestrator.
+ * OpenAPI 3.1 spec generator for Risoluto.
  *
  * Assembles the spec from path definitions in `./openapi-paths.js`.
  * Uses Zod 4's built-in `z.toJSONSchema()` — no external OpenAPI library needed.
@@ -16,12 +16,11 @@ export function getOpenApiSpec(): Record<string, unknown> {
     cachedSpec = {
       openapi: "3.1.0",
       info: {
-        title: "Symphony Orchestrator API",
+        title: "Risoluto API",
         version: "0.4.0",
-        description:
-          "REST API for the Symphony Orchestrator — manages issues, workspaces, config, and agent lifecycle.",
+        description: "REST API for Risoluto — manages issues, workspaces, config, and agent lifecycle.",
       },
-      servers: [{ url: "http://localhost:4000", description: "Local Symphony instance" }],
+      servers: [{ url: "http://localhost:4000", description: "Local Risoluto instance" }],
       paths: {
         ...buildStateAndMetricsPaths(),
         ...buildIssuePaths(),

@@ -11,7 +11,7 @@ import { getErrorTracker, initErrorTracking } from "../core/error-tracking.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import { SecretsStore } from "../secrets/store.js";
-import type { SymphonyEventMap } from "../core/symphony-events.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { ValidationError } from "../core/types.js";
 import type { WebhookHealthTracker } from "../webhook/health-tracker.js";
 import type { WebhookRegistrar } from "../webhook/registrar.js";
@@ -149,7 +149,7 @@ function parseCliArgs(argv: string[]) {
     parsed.values["log-dir"] ??
       (process.env.DATA_DIR
         ? path.join(process.env.DATA_DIR, "archives")
-        : path.join(path.dirname(resolvedWorkflowPath), ".symphony")),
+        : path.join(path.dirname(resolvedWorkflowPath), ".risoluto")),
   );
   const selectedPort = parsePortValue(parsed.values.port);
   return { workflowPath, resolvedWorkflowPath, archiveDir, selectedPort, logger };
@@ -198,7 +198,7 @@ function buildShutdown({
   orchestrator: OrchestratorPort;
   configStore: ConfigStore;
   overlayStore: ConfigOverlayStore;
-  eventBus: TypedEventBus<SymphonyEventMap>;
+  eventBus: TypedEventBus<RisolutoEventMap>;
   persistence: PersistenceRuntime;
   webhookHealthTracker?: WebhookHealthTracker;
   webhookRegistrar?: WebhookRegistrar;

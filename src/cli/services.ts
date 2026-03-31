@@ -129,10 +129,15 @@ export async function createServices(
   const auditLogger = persistence.db ? new AuditLogger(persistence.db, eventBus) : undefined;
   const issueConfigStore = IssueConfigStore.create(persistence.db);
 
+  const lateRef: { orchestrator?: { getTemplateOverride(id: string): string | null } } = {};
+
   const resolveTemplate = async (identifier: string): Promise<string> => {
     if (templateStore) {
-      const override = templateStore.get(identifier);
-      if (override) return override.body;
+      const overrideTemplateId = lateRef.orchestrator?.getTemplateOverride(identifier);
+      if (overrideTemplateId) {
+        const tmpl = templateStore.get(overrideTemplateId);
+        if (tmpl) return tmpl.body;
+      }
       const def = templateStore.get("default");
       if (def) return def.body;
     }
@@ -147,6 +152,7 @@ export async function createServices(
     workspaceManager,
     agentRunner,
     issueConfigStore,
+    templateStore,
     eventBus,
     notificationManager,
     repoRouter,
@@ -155,6 +161,7 @@ export async function createServices(
     logger: logger.child({ component: "orchestrator" }),
     resolveTemplate,
   });
+  lateRef.orchestrator = orchestrator;
 
   const httpServer = new HttpServer({
     orchestrator,

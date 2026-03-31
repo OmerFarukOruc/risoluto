@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://docs.risolu.to"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.risolu.to-6366f1?style=flat-square&logo=mintlify" /></a>
   <a href="https://github.com/OmerFarukOruc/risoluto/releases"><img alt="Version" src="https://img.shields.io/github/v/tag/OmerFarukOruc/risoluto?label=version&color=blue&style=flat-square" /></a>
   <a href="https://github.com/OmerFarukOruc/risoluto/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/OmerFarukOruc/risoluto?color=green&style=flat-square" /></a>
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square&logo=node.js" />

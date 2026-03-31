@@ -74,15 +74,17 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/OmerFarukOruc/risoluto"
+      "github": "https://github.com/OmerFarukOruc/risoluto",
+      "website": "https://risolu.to"
     }
   },
   "seo": {
     "indexing": "all",
     "metatags": {
-      "canonical": "https://risolu.to",
+      "canonical": "https://docs.risolu.to",
       "og:site_name": "Risoluto",
       "og:type": "website",
+      "og:url": "https://docs.risolu.to",
       "og:locale": "en_US",
       "twitter:card": "summary_large_image",
       "description": "Risoluto turns your issue tracker into an autonomous coding pipeline. Local orchestration engine that dispatches sandboxed AI agents to close Linear issues automatically.",

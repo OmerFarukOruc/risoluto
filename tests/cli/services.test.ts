@@ -151,7 +151,7 @@ function makeSecretsStore() {
 
 describe("createServices", () => {
   const logger = createMockLogger();
-  const archiveDir = "/tmp/symphony-test";
+  const archiveDir = "/tmp/risoluto-test";
 
   beforeEach(() => {
     vi.clearAllMocks();

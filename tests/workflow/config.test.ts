@@ -4,7 +4,8 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { deriveServiceConfig } from "../../src/config/builders.js";
+import { ConfigStore } from "../../src/config/store.js";
+import { createLogger } from "../../src/core/logger.js";
 import { loadWorkflowDefinition } from "../../src/workflow/loader.js";
 
 const tempDirs: string[] = [];
@@ -12,7 +13,7 @@ const baseTmpDir = os.tmpdir();
 let originalEnv = { ...process.env };
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(baseTmpDir, "symphony-workflow-test-"));
+  const dir = await mkdtemp(path.join(baseTmpDir, "risoluto-workflow-test-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -62,13 +63,13 @@ describe("workflow loader", () => {
   });
 });
 
-describe("config derivation", () => {
+describe("config store", () => {
   it("resolves env-backed tracker fields and validates missing tracker key", async () => {
     const dir = await createTempDir();
     const workflowPath = path.join(dir, "WORKFLOW.md");
     await writeFile(
       workflowPath,
-      "---\ntracker:\n  api_key: $LINEAR_API_KEY\n  project_slug: $LINEAR_PROJECT_SLUG\nworkspace:\n  root: $TMPDIR/symphony\ncodex:\n  command: codex app-server\n---\nPrompt\n",
+      "---\ntracker:\n  api_key: $LINEAR_API_KEY\n  project_slug: $LINEAR_PROJECT_SLUG\nworkspace:\n  root: $TMPDIR/risoluto\ncodex:\n  command: codex app-server\n---\nPrompt\n",
       "utf8",
     );
 
@@ -76,13 +77,17 @@ describe("config derivation", () => {
     process.env.LINEAR_PROJECT_SLUG = "TEST";
     process.env.TMPDIR = dir;
 
-    const workflow = await loadWorkflowDefinition(workflowPath);
-    const config = deriveServiceConfig(workflow, {
-      secretResolver: (name) => process.env[name],
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
+
+    expect(store.getConfig().workspace.root).toBe(path.join(dir, "risoluto"));
+    expect(store.getConfig().tracker.projectSlug).toBe("TEST");
+    expect(store.validateDispatch()).toEqual({
+      code: "missing_tracker_api_key",
+      message: "tracker.api_key is required after env resolution",
     });
 
-    expect(config.workspace.root).toBe(path.join(dir, "symphony"));
-    expect(config.tracker.projectSlug).toBe("TEST");
+    await store.stop();
   });
 
   it("validates missing tracker project slug after env resolution", async () => {
@@ -97,36 +102,37 @@ describe("config derivation", () => {
     process.env.LINEAR_API_KEY = "linear-token";
     delete process.env.LINEAR_PROJECT_SLUG;
 
-    const workflow = await loadWorkflowDefinition(workflowPath);
-    const config = deriveServiceConfig(workflow, {
-      secretResolver: (name) => process.env[name],
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
+
+    expect(store.validateDispatch()).toEqual({
+      code: "missing_tracker_project_slug",
+      message: "tracker.project_slug is required when tracker.kind is linear",
     });
 
-    // project_slug resolves to empty string → projectSlug is null
-    expect(config.tracker.projectSlug).toBeNull();
+    await store.stop();
   });
 
-  it("defaults workspace root to ../symphony-workspaces and falls back hook timeout when configured non-positive", async () => {
+  it("keeps the last known good config on invalid reload", async () => {
     const dir = await createTempDir();
     const workflowPath = path.join(dir, "WORKFLOW.md");
     process.env.LINEAR_API_KEY = "linear-token";
 
     await writeFile(
       workflowPath,
-      "---\ntracker:\n  kind: linear\n  api_key: $LINEAR_API_KEY\nhooks:\n  timeout_ms: 0\n---\nPrompt\n",
+      "---\ntracker:\n  api_key: $LINEAR_API_KEY\ncodex:\n  command: codex app-server\nserver:\n  port: 4001\n---\nPrompt\n",
       "utf8",
     );
 
-    const workflow = await loadWorkflowDefinition(workflowPath);
-    const config = deriveServiceConfig(workflow, {
-      secretResolver: (name) => process.env[name],
-    });
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
+    expect(store.getConfig().server.port).toBe(4001);
 
-    expect(config.workspace.root).toBe(path.resolve("../symphony-workspaces"));
-    expect(config.workspace.hooks.timeoutMs).toBe(60000);
-    expect(config.tracker.endpoint).toBe("https://api.linear.app/graphql");
-    expect(config.tracker.activeStates).toEqual(["Backlog", "Todo", "In Progress"]);
-    expect(config.tracker.terminalStates).toEqual(["Done", "Canceled"]);
+    await writeFile(workflowPath, "---\ninvalid: [\n---\nPrompt\n", "utf8");
+    await store.refresh("test-invalid-reload");
+
+    expect(store.getConfig().server.port).toBe(4001);
+    await store.stop();
   });
 
   it("validates file-based login auth when openai_login mode is selected", async () => {
@@ -140,16 +146,38 @@ describe("config derivation", () => {
       "utf8",
     );
 
-    const workflow = await loadWorkflowDefinition(workflowPath);
-    const config = deriveServiceConfig(workflow, {
-      secretResolver: (name) => process.env[name],
-    });
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
 
-    const { validateDispatch } = await import("../../src/config/validators.js");
-    expect(validateDispatch(config)).toEqual({
+    expect(store.validateDispatch()).toEqual({
       code: "missing_codex_auth_json",
       message: `codex.auth.mode=openai_login requires auth.json at ${path.join(process.env.HOME ?? "", ".missing-codex-home", "auth.json")}`,
     });
+
+    await store.stop();
+  });
+
+  it("defaults workspace root to ../risoluto-workspaces and falls back hook timeout when configured non-positive", async () => {
+    const dir = await createTempDir();
+    const workflowPath = path.join(dir, "WORKFLOW.md");
+    process.env.LINEAR_API_KEY = "linear-token";
+
+    await writeFile(
+      workflowPath,
+      "---\ntracker:\n  kind: linear\n  api_key: $LINEAR_API_KEY\nhooks:\n  timeout_ms: 0\n---\nPrompt\n",
+      "utf8",
+    );
+
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
+
+    expect(store.getConfig().workspace.root).toBe(path.resolve("../risoluto-workspaces"));
+    expect(store.getConfig().workspace.hooks.timeoutMs).toBe(60000);
+    expect(store.getConfig().tracker.endpoint).toBe("https://api.linear.app/graphql");
+    expect(store.getConfig().tracker.activeStates).toEqual(["Backlog", "Todo", "In Progress"]);
+    expect(store.getConfig().tracker.terminalStates).toEqual(["Done", "Canceled"]);
+
+    await store.stop();
   });
 
   it("rejects unsupported tracker kinds", async () => {
@@ -163,15 +191,14 @@ describe("config derivation", () => {
       "utf8",
     );
 
-    const workflow = await loadWorkflowDefinition(workflowPath);
-    const config = deriveServiceConfig(workflow, {
-      secretResolver: (name) => process.env[name],
-    });
+    const store = new ConfigStore(workflowPath, createLogger());
+    await store.start();
 
-    const { validateDispatch } = await import("../../src/config/validators.js");
-    expect(validateDispatch(config)).toEqual({
+    expect(store.validateDispatch()).toEqual({
       code: "invalid_tracker_kind",
       message: 'tracker.kind must be "linear"; received "github"',
     });
+
+    await store.stop();
   });
 });

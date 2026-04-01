@@ -90,8 +90,8 @@
 .config-content {
   display: grid;
   grid-template-columns: 1fr var(--config-sidebar-width);
-  gap: var(--space-5);
-  padding: var(--space-5);
+  gap: var(--space-6);
+  padding: var(--space-6);
   align-items: start;
 }
 
@@ -330,7 +330,7 @@
 .config-sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
 .config-sidebar-section {

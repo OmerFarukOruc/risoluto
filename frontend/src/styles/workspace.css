@@ -1,7 +1,6 @@
 .ws-page-body {
   display: grid;
   gap: var(--space-6);
-  padding: 0 var(--space-4) var(--space-6);
 }
 
 /* ---- Stat cards ---- */

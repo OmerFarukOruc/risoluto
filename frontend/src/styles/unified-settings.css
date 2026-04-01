@@ -1,5 +1,5 @@
 .settings-unified-page {
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .settings-unified-body {
@@ -46,7 +46,7 @@
 }
 
 .settings-devtools-section {
-  padding: var(--space-5);
+  padding: var(--space-6);
 }
 
 .settings-devtools-section summary {
@@ -89,7 +89,7 @@
 }
 
 .settings-devtools-content {
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .settings-devtools-content .config-help-banner {

@@ -11,7 +11,7 @@
 }
 
 .page-section + .page-section {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
 }
 
 .page-section.is-primary {
@@ -19,11 +19,11 @@
 }
 
 .page-section.is-primary + .page-section.is-primary {
-  margin-top: var(--space-8);
+  margin-top: var(--space-4);
 }
 
 .page-body {
-  padding: var(--space-5);
+  padding: var(--space-6);
 }
 
 .page-header {
@@ -564,7 +564,7 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   color: var(--text-muted);
-  padding: 10px 16px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 2px solid var(--border-stitch);
   text-align: left;
 }
@@ -572,7 +572,7 @@
 .data-table td {
   font-family: var(--font-body);
   font-size: var(--text-ui);
-  padding: 10px 16px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--bg-surface);
   color: var(--text-primary);
 }

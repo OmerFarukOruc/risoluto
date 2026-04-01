@@ -217,7 +217,7 @@
   background: transparent;
   cursor: pointer;
   text-align: left;
-  transition: background var(--motion-fast) var(--ease-out-quart);
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
 }
 
 .overview-collapsible-header:hover {

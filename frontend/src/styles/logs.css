@@ -368,7 +368,7 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1;
-  transition: color var(--motion-fast), background var(--motion-fast);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 
 .mc-log-copy-btn:hover {

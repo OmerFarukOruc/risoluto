@@ -41,7 +41,7 @@
   border-radius: calc(var(--radius-md) - 2px);
   cursor: pointer;
   transition:
-    background var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
     color var(--motion-fast) var(--ease-out-quart),
     box-shadow var(--motion-fast) var(--ease-out-quart);
   white-space: nowrap;

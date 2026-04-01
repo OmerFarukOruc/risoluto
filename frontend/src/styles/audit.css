@@ -72,7 +72,7 @@
 
 .audit-table tr {
   cursor: pointer;
-  transition: background var(--motion-instant) var(--ease-out-quart);
+  transition: background-color var(--motion-instant) var(--ease-out-quart);
 }
 
 .audit-table tr:hover {

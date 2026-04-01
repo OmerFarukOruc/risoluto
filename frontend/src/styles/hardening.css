@@ -434,6 +434,41 @@
 /* shimmerGpu keyframes consolidated to animations.css — single source of truth */
 
 /* ============================================
+   RENDERING CONTAINMENT
+   Reduce layout/paint cost for off-screen or
+   independently-sized regions.
+   ============================================ */
+
+/* Off-screen page sections skip rendering until scrolled into view.
+   `content-visibility: auto` enables the browser to skip layout,
+   paint, and compositing for sections not in the viewport.
+   `contain-intrinsic-size` prevents layout shift when sections
+   appear by reserving a height estimate.                        */
+.page-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+
+/* Skeleton cards are layout-independent — hint the browser that
+   they won't affect siblings so it can optimize reflows.        */
+.skeleton-card,
+.skeleton-column {
+  contain: content;
+}
+
+/* Data tables can be large — contain their layout to prevent
+   row additions from triggering full-page reflows.              */
+.data-table {
+  contain: layout style;
+}
+
+/* Log scroll area is independently scrollable — containment
+   prevents log entry additions from affecting the rest of the page. */
+.logs-scroll {
+  contain: content;
+}
+
+/* ============================================
    LONG-CONTENT OVERFLOW GUARDS
    Prevent layout breakage from long identifiers,
    URLs, and titles across all pages

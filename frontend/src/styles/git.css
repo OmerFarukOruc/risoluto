@@ -380,7 +380,7 @@ a.git-repo-name:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   font-size: var(--text-sm);
-  transition: background var(--motion-fast) var(--ease-out-quart);
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
 }
 
 .git-branch-row:hover {
@@ -443,7 +443,7 @@ a.git-repo-name:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   font-size: var(--text-sm);
-  transition: background var(--motion-fast) var(--ease-out-quart);
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
 }
 
 .git-pr-row:hover {

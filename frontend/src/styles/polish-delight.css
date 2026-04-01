@@ -10,28 +10,54 @@
 
 /* ── Success state — completed/terminal items ────────── */
 /* A brief, calm accent flash when a completed item first
-   renders, signaling "this finished cleanly."             */
+   renders, signaling "this finished cleanly."
+   GPU-optimized: uses opacity on a pseudo-element overlay
+   instead of animating border-left-color (paint-heavy).   */
 
 .overview-terminal-item[data-status="completed"],
 .overview-terminal-item[data-status="closed"] {
   border-left: 3px solid color-mix(in srgb, var(--status-completed) 50%, var(--border-stitch));
+  position: relative;
 }
 
 .overview-terminal-item.delight-entered {
-  animation: delightTerminalEnter var(--motion-medium) var(--ease-out-quart) both;
+  animation: delightTerminalEnterGpu var(--motion-medium) var(--ease-out-quart) both;
 }
 
-@keyframes delightTerminalEnter {
-  0% {
-    border-left-color: var(--status-running);
+.overview-terminal-item.delight-entered::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 3px;
+  height: 100%;
+  background: var(--status-running);
+  pointer-events: none;
+  will-change: opacity;
+  animation: delightTerminalOverlayGpu var(--motion-medium) var(--ease-out-quart) both;
+}
+
+@keyframes delightTerminalEnterGpu {
+  from {
     opacity: 0.7;
   }
   60% {
-    border-left-color: color-mix(in srgb, var(--status-running) 40%, var(--status-completed));
     opacity: 1;
   }
-  100% {
-    border-left-color: color-mix(in srgb, var(--status-completed) 50%, var(--border-stitch));
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes delightTerminalOverlayGpu {
+  from {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 0;
   }
 }
 
@@ -196,33 +222,44 @@
 }
 
 /* ── Form submission confirmation ────────────────────── */
-/* Settings save / form submit gets a border-color flash. */
+/* Settings save / form submit gets a brief confirmation flash.
+   GPU-optimized: uses opacity on a pseudo-element overlay
+   instead of animating box-shadow + border-color (paint-heavy). */
 
-.setup-callout-success.delight-confirmed {
-  animation: delightConfirm var(--motion-medium) var(--ease-out-quart) both;
-}
-
+.setup-callout-success.delight-confirmed,
 .setup-quick-start-card.is-success.delight-confirmed {
-  animation: delightConfirm var(--motion-medium) var(--ease-out-quart) both;
+  position: relative;
+  border-color: var(--status-running);
 }
 
-@keyframes delightConfirm {
-  0% {
-    border-color: var(--status-running);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-running) 20%, transparent);
+.setup-callout-success.delight-confirmed::after,
+.setup-quick-start-card.is-success.delight-confirmed::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid color-mix(in srgb, var(--status-running) 20%, transparent);
+  pointer-events: none;
+  will-change: opacity;
+  animation: delightConfirmGpu var(--motion-medium) var(--ease-out-quart) both;
+}
+
+@keyframes delightConfirmGpu {
+  from {
+    opacity: 1;
   }
-  100% {
-    border-color: var(--status-running);
-    box-shadow: 0 0 0 0 transparent;
+  to {
+    opacity: 0;
   }
 }
 
 /* ── Settings mode toggle — satisfying slide ─────────── */
-/* Active indicator transitions smoothly between buttons. */
+/* Enhances the base transition in settings.css with
+   refined per-state timing. Uses background-color (not
+   the background shorthand) to avoid repainting gradients. */
 
 .settings-mode-btn.is-active {
   transition:
-    background 200ms var(--ease-out-quart),
+    background-color 200ms var(--ease-out-quart),
     color 150ms var(--ease-out-quart),
     box-shadow 200ms var(--ease-out-quart),
     font-weight 0ms;
@@ -230,7 +267,7 @@
 
 .settings-mode-btn:not(.is-active) {
   transition:
-    background 150ms var(--ease-out-quart),
+    background-color 150ms var(--ease-out-quart),
     color 150ms var(--ease-out-quart),
     box-shadow 150ms var(--ease-out-quart);
 }
@@ -272,5 +309,14 @@
 
   .setup-step-connector.delight-fill::after {
     transform: scaleX(1);
+  }
+
+  .overview-terminal-item.delight-entered::before {
+    opacity: 0;
+  }
+
+  .setup-callout-success.delight-confirmed::after,
+  .setup-quick-start-card.is-success.delight-confirmed::after {
+    opacity: 0;
   }
 }

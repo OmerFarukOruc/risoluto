@@ -352,7 +352,7 @@
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out-quart);
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
 }
 
 .config-sidebar-header:hover {

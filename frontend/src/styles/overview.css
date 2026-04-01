@@ -457,7 +457,7 @@
   background: var(--bg-surface);
   font-size: var(--text-sm);
   transition:
-    background var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
     border-color var(--motion-fast) var(--ease-out-quart);
 }
 
@@ -559,7 +559,7 @@
   border: 1px solid transparent;
   background: var(--bg-surface);
   transition:
-    background var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart),
     border-color var(--motion-fast) var(--ease-out-quart);
 }
 

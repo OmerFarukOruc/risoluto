@@ -322,7 +322,7 @@
 }
 
 .kanban-card-desc {
-  font-size: var(--text-ui, var(--text-xs));
+  font-size: var(--text-ui);
   color: var(--text-secondary);
   line-height: var(--leading-normal);
   display: -webkit-box;
@@ -407,7 +407,7 @@
 .kanban-card-lifecycle-meta {
   grid-column: 2;
   font-family: var(--font-mono);
-  font-size: var(--text-2xs, 10px);
+  font-size: var(--text-2xs);
   color: var(--text-muted);
 }
 
@@ -519,7 +519,7 @@
 }
 
 .kanban-board.is-compact .kanban-card-identifier {
-  font-size: var(--text-2xs, 10px);
+  font-size: var(--text-2xs);
 }
 
 .kanban-board.is-compact .kanban-card-meta {
@@ -527,7 +527,7 @@
 }
 
 .kanban-board.is-compact .kanban-card-footer {
-  font-size: var(--text-2xs, 10px);
+  font-size: var(--text-2xs);
 }
 
 .kanban-board.is-compact .kanban-column-body {

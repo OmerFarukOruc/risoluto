@@ -326,6 +326,11 @@
   border-color: var(--border-strong);
 }
 
+.setup-project-card:focus-visible {
+  outline: var(--stroke-accent) solid var(--text-accent);
+  outline-offset: 2px;
+}
+
 .setup-project-card.is-selected {
   border-color: var(--text-accent);
   background: var(--bg-elevated);
@@ -513,6 +518,11 @@
   background: var(--bg-muted);
   cursor: pointer;
   transition: border-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.setup-auth-card:focus-visible {
+  outline: var(--stroke-accent) solid var(--text-accent);
+  outline-offset: 2px;
 }
 
 .setup-auth-card.is-selected {

@@ -46,6 +46,11 @@
   background: var(--bg-subtle);
 }
 
+.template-item:focus-visible {
+  outline: var(--stroke-accent) solid var(--text-accent);
+  outline-offset: -2px;
+}
+
 .template-item.is-selected {
   background: var(--bg-subtle);
   color: var(--text-primary);

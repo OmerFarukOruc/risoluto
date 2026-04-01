@@ -229,35 +229,8 @@
   outline-offset: 2px;
 }
 
-/* Skip link for keyboard navigation */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-stitch);
-  color: var(--text-primary);
-  z-index: 100;
-  transition: top var(--motion-fast);
-}
-
-.skip-link:focus {
-  top: var(--space-2);
-}
-
-/* Screen reader only content */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* .skip-link consolidated to polish-brand.css — single source of truth */
+/* .sr-only consolidated to polish-brand.css — single source of truth */
 
 /* Visible on focus for keyboard users */
 .sr-only-focusable:focus {
@@ -308,7 +281,9 @@
    ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  /* Disable all animations and transitions */
+  /* Universal safety net — all durations and iterations collapse.
+     Specific transform/opacity/visual overrides live in their
+     respective CSS files (animations.css, polish-motion.css, etc.). */
   *,
   *::before,
   *::after {
@@ -316,19 +291,6 @@
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
     scroll-behavior: auto;
-  }
-
-  /* Keep instant feedback visible */
-  .skeleton-line,
-  .skeleton-block {
-    animation: none;
-    opacity: 0.6;
-  }
-
-  /* Remove pulsing animations */
-  .is-status-running::before,
-  .is-status-claimed::before {
-    animation: none;
   }
 }
 
@@ -469,15 +431,7 @@
   min-height: 120px;
 }
 
-/* Loading shimmer — GPU-optimized: uses translateX on pseudo-element */
-@keyframes shimmerGpu {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+/* shimmerGpu keyframes consolidated to animations.css — single source of truth */
 
 /* ============================================
    LONG-CONTENT OVERFLOW GUARDS

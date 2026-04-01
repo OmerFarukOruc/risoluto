@@ -261,34 +261,16 @@
 }
 
 /* ── Reduced motion — respect user preference ────────── */
+/* Duration/delay overrides handled by hardening.css universal rule.
+   Only transform and opacity endpoint overrides remain here. */
 
 @media (prefers-reduced-motion: reduce) {
-  .overview-terminal-item.delight-entered,
-  .setup-done.delight-entered .setup-done-icon,
-  .setup-done.delight-entered .setup-done-title,
-  .setup-done.delight-entered .setup-done-desc,
-  .setup-step-indicator.is-done .setup-step-dot.delight-check,
-  .mc-button.is-primary.delight-click::after,
-  .setup-callout-success.delight-confirmed,
-  .setup-quick-start-card.is-success.delight-confirmed,
-  .overview-getting-started-step.delight-stagger {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-  }
-
   .overview-attention-zone.is-all-clear .overview-teaching-empty::before {
-    animation: none !important;
     opacity: 1;
     transform: scaleX(1);
   }
 
   .setup-step-connector.delight-fill::after {
-    animation: none !important;
     transform: scaleX(1);
-  }
-
-  .settings-mode-btn.is-active,
-  .settings-mode-btn:not(.is-active) {
-    transition-duration: 0.01ms;
   }
 }

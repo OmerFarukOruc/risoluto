@@ -80,14 +80,7 @@
   animation: polishFocusRingGpu var(--motion-fast) var(--ease-out-quart);
 }
 
-@keyframes polishFocusRingGpu {
-  from {
-    opacity: 0.4;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* polishFocusRingGpu consolidated to animations.css — single source of truth */
 
 /* ── Skeleton shimmer enhancement ─────────────────────── */
 /* GPU-optimized: translates a pseudo-element highlight
@@ -110,17 +103,10 @@
     transparent 100%
   );
   will-change: transform;
-  animation: polishShimmerGpu 1.8s ease-in-out infinite;
+  animation: shimmerGpu 1.8s ease-in-out infinite;
 }
 
-@keyframes polishShimmerGpu {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+/* polishShimmerGpu consolidated — now reuses shimmerGpu from animations.css */
 
 /* ── Toast entrance ───────────────────────────────────── */
 
@@ -240,25 +226,11 @@
 
 /* ── Reduced motion — respect user preference ─────────── */
 
+/* ── Reduced motion — respect user preference ─────────── */
+/* Duration/delay overrides handled by hardening.css universal rule.
+   Only transform neutralizations and opacity overrides remain here. */
+
 @media (prefers-reduced-motion: reduce) {
-  .page-enter,
-  .page-auto-stagger {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-  }
-
-  .mc-button,
-  .sidebar-item,
-  .kanban-card,
-  .issue-card,
-  .setup-project-card,
-  .mc-stat-card,
-  .mc-panel,
-  .overview-live-metric,
-  .event-row {
-    transition-duration: 0.01ms;
-  }
-
   .mc-button:active:not(:disabled),
   .setup-project-card:active {
     transform: none;
@@ -272,28 +244,10 @@
   }
 
   .skeleton {
-    animation: none !important;
     opacity: 0.5;
   }
 
   .skeleton::after {
-    animation: none !important;
     opacity: 0;
-  }
-
-  .page-section.is-loaded,
-  .metric-updated {
-    animation-duration: 0.01ms !important;
-  }
-
-  .mc-badge[class*="is-status-"],
-  .mc-chip[class*="is-status-"],
-  .mc-status-chip {
-    transition-duration: 0.01ms;
-  }
-
-  .toast,
-  .toast.is-exiting {
-    animation-duration: 0.01ms !important;
   }
 }

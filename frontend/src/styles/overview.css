@@ -443,17 +443,10 @@
   inset: 0;
   background: linear-gradient(90deg, transparent 0%, var(--bg-elevated) 50%, transparent 100%);
   will-change: transform;
-  animation: overviewShimmerGpu 1.5s ease-in-out infinite;
+  animation: shimmerGpu 1.5s ease-in-out infinite;
 }
 
-@keyframes overviewShimmerGpu {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+/* overviewShimmerGpu consolidated — now reuses shimmerGpu from animations.css */
 
 .system-health-badge {
   display: flex;

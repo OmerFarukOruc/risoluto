@@ -117,6 +117,29 @@ const CREATE_TABLES_SQL = `
     template_id       TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS webhook_inbox (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    delivery_id       TEXT NOT NULL UNIQUE,
+    received_at       TEXT NOT NULL,
+    type              TEXT NOT NULL,
+    action            TEXT NOT NULL,
+    entity_id         TEXT,
+    issue_id          TEXT,
+    issue_identifier  TEXT,
+    webhook_timestamp INTEGER,
+    payload_json      TEXT,
+    status            TEXT NOT NULL DEFAULT 'received'
+                      CHECK(status IN ('received','processing','applied','ignored','retry','dead_letter')),
+    attempt_count     INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at   TEXT,
+    last_error        TEXT,
+    applied_at        TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_webhook_inbox_status ON webhook_inbox(status);
+  CREATE INDEX IF NOT EXISTS idx_webhook_inbox_issue_id ON webhook_inbox(issue_id);
+  CREATE INDEX IF NOT EXISTS idx_webhook_inbox_next_attempt ON webhook_inbox(next_attempt_at);
+
   CREATE TABLE IF NOT EXISTS schema_version (
     version    INTEGER PRIMARY KEY,
     applied_at TEXT NOT NULL
@@ -144,10 +167,10 @@ export function openDatabase(dbPath: string): RisolutoDatabase {
   const versionRow = sqlite.prepare("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").get() as
     | { version: number }
     | undefined;
-  if (!versionRow || versionRow.version < 2) {
+  if (!versionRow || versionRow.version < 3) {
     sqlite
       .prepare("INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)")
-      .run(2, new Date().toISOString());
+      .run(3, new Date().toISOString());
   }
 
   return drizzle(sqlite, { schema });

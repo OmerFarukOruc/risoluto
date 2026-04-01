@@ -14,10 +14,18 @@ export interface WebhookHealthStats {
   lastEventType: string | null;
 }
 
+export interface WebhookInboxStats {
+  backlogCount: number;
+  oldestBacklogAgeSeconds: number | null;
+  dlqCount: number;
+  lastAppliedAt: string | null;
+}
+
 export interface WebhookHealthState {
   status: WebhookHealthStatus;
   effectiveIntervalMs: number;
   stats: WebhookHealthStats;
+  inboxStats?: WebhookInboxStats;
   lastDeliveryAt: string | null;
   lastEventType: string | null;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { openDatabase, closeDatabase } from "../../../src/persistence/sqlite/database.js";
 
-describe("Schema v2 — config tables", () => {
+describe("Schema v3 — config + webhook inbox tables", () => {
   it("creates all Phase 1 tables on fresh database", () => {
     const db = openDatabase(":memory:");
     try {
@@ -21,12 +21,13 @@ describe("Schema v2 — config tables", () => {
       expect(tables).toContain("attempts");
       expect(tables).toContain("attempt_events");
       expect(tables).toContain("issue_index");
+      expect(tables).toContain("webhook_inbox");
     } finally {
       closeDatabase(db);
     }
   });
 
-  it("seeds schema_version with v2", () => {
+  it("seeds schema_version with v3", () => {
     const db = openDatabase(":memory:");
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +35,7 @@ describe("Schema v2 — config tables", () => {
       const row = raw.prepare("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").get() as {
         version: number;
       };
-      expect(row.version).toBe(2);
+      expect(row.version).toBe(3);
     } finally {
       closeDatabase(db);
     }

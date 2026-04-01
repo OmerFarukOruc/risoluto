@@ -186,6 +186,40 @@ export class Orchestrator implements OrchestratorPort {
     return { queued: !coalesced, coalesced, requestedAt };
   }
 
+  requestTargetedRefresh(issueId: string, issueIdentifier: string, reason: string): void {
+    this.deps.logger.info({ issueId, issueIdentifier, reason }, "targeted refresh requested");
+    // For now, trigger a full refresh — the orchestrator will coalesce multiple calls.
+    // Future: implement issue-specific fetch via tracker.fetchIssueStatesByIds() to avoid full poll.
+    this.requestRefresh(reason);
+  }
+
+  stopWorkerForIssue(issueIdentifier: string, reason: string): void {
+    const entry = [...this._state.runningEntries.values()].find(
+      (runningEntry) => runningEntry.issue.identifier === issueIdentifier,
+    );
+    if (!entry) {
+      this.deps.logger.debug({ issueIdentifier, reason }, "stopWorkerForIssue: no running worker found");
+      return;
+    }
+    if (entry.status === "stopping" || entry.abortController.signal.aborted) {
+      this.deps.logger.debug({ issueIdentifier, reason }, "stopWorkerForIssue: already stopping");
+      return;
+    }
+    this.deps.logger.info({ issueIdentifier, reason }, "stopping worker via webhook signal");
+    entry.status = "stopping";
+    this.markStateDirty();
+    this.ctx().pushEvent({
+      at: nowIso(),
+      issueId: entry.issue.id,
+      issueIdentifier: entry.issue.identifier,
+      sessionId: entry.sessionId,
+      event: "worker_webhook_stop",
+      message: `worker stopped via webhook: ${reason}`,
+    });
+    entry.abortController.abort("webhook_stop");
+    this.requestRefresh("webhook_worker_stopped");
+  }
+
   getSnapshot(): RuntimeSnapshot {
     return this.getCachedSnapshot().snapshot;
   }

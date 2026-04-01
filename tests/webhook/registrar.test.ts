@@ -292,7 +292,7 @@ describe("WebhookRegistrar", () => {
 
       expect(linearClient.createWebhook).toHaveBeenCalledWith({
         url: config.webhookUrl,
-        resourceTypes: ["Issue", "Comment", "Project"],
+        resourceTypes: ["Issue", "Comment"],
         label: "Risoluto",
       });
       expect(secretsStore.set).toHaveBeenCalledWith("LINEAR_WEBHOOK_SECRET", "auto_secret");

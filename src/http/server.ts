@@ -63,6 +63,7 @@ export class HttpServer {
     });
     this.app.use(
       express.json({
+        limit: "1mb",
         verify: (req: IncomingMessage, _res, buf: Buffer) => {
           if (req.url?.startsWith("/webhooks/")) {
             (req as unknown as WebhookRequest).rawBody = buf;

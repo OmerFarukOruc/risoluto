@@ -20,6 +20,7 @@ function renderUnconfiguredState(): HTMLElement {
     "Open notification settings",
     () => router.navigate("/settings"),
     "events",
+    { headingLevel: "h2" },
   );
 }
 
@@ -30,6 +31,7 @@ function renderConfiguredState(): HTMLElement {
     "Open board",
     () => router.navigate("/queue"),
     "events",
+    { headingLevel: "h2" },
   );
 }
 
@@ -40,6 +42,7 @@ function renderErrorState(): HTMLElement {
     "Open settings",
     () => router.navigate("/settings"),
     "error",
+    { headingLevel: "h2" },
   );
 }
 

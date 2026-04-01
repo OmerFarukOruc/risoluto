@@ -24,6 +24,7 @@ function buildEmptyStateForSnapshot(snapshot: RuntimeSnapshot): HTMLElement {
       "View observability",
       () => router.navigate("/observability"),
       "network",
+      { headingLevel: "h2" },
     );
   }
 
@@ -33,7 +34,7 @@ function buildEmptyStateForSnapshot(snapshot: RuntimeSnapshot): HTMLElement {
     "Open board",
     () => router.navigate("/queue"),
     "default",
-    { secondaryActionLabel: "View observability", secondaryActionHref: "/observability" },
+    { secondaryActionLabel: "View observability", secondaryActionHref: "/observability", headingLevel: "h2" },
   );
 }
 
@@ -44,6 +45,7 @@ function buildFallbackEmptyState(onRetry: () => void): HTMLElement {
     "Retry",
     onRetry,
     "error",
+    { headingLevel: "h2" },
   );
 }
 

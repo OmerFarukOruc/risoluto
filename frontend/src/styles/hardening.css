@@ -137,7 +137,7 @@
 .error-state-title {
   font-family: var(--font-heading);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .error-state-message {
@@ -171,7 +171,7 @@
 .empty-state-title {
   font-family: var(--font-heading);
   color: var(--text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .empty-state-detail {

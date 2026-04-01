@@ -540,7 +540,7 @@
   color: #fff;
   border-color: var(--color-copper-400);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   box-shadow: var(--shadow-lg);
 }
 

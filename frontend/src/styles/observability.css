@@ -33,7 +33,7 @@
 .observability-hero-value {
   font-family: var(--font-heading);
   font-size: clamp(28px, 3vw, 42px);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   line-height: 1;
   letter-spacing: var(--tracking-tightest);
   font-feature-settings: var(--font-features-tabular);
@@ -105,7 +105,7 @@
 .observability-raw-header h2 {
   font-family: var(--font-heading);
   font-size: var(--dashboard-h2-size);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   letter-spacing: var(--tracking-snug);
 }
 
@@ -127,7 +127,7 @@
 .observability-value {
   font-family: var(--font-heading);
   font-size: clamp(22px, 2.2vw, 30px);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tightest);
   font-feature-settings: var(--font-features-tabular);

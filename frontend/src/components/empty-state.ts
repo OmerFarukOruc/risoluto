@@ -33,6 +33,7 @@ interface StateBoxConfig {
   title: string;
   detail: string;
   variant: EmptyStateVariant;
+  headingLevel: "h2" | "h3";
   actionLabel?: string;
   onAction?: () => void;
   secondaryActionLabel?: string;
@@ -42,6 +43,7 @@ interface StateBoxConfig {
 export interface EmptyStateOptions {
   secondaryActionLabel?: string;
   secondaryActionHref?: string;
+  headingLevel?: "h2" | "h3";
 }
 
 function buildStateBox(config: StateBoxConfig): HTMLElement {
@@ -58,7 +60,7 @@ function buildStateBox(config: StateBoxConfig): HTMLElement {
   kicker.className = config.kickerClass;
   kicker.textContent = config.kicker;
 
-  const heading = document.createElement("h3");
+  const heading = document.createElement(config.headingLevel);
   heading.className = config.headingClass;
   heading.textContent = config.title;
 
@@ -108,6 +110,7 @@ export function createEmptyState(
     title,
     detail,
     variant,
+    headingLevel: options.headingLevel ?? "h3",
     actionLabel,
     onAction,
     secondaryActionLabel: options.secondaryActionLabel,

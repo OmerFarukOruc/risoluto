@@ -311,6 +311,8 @@ function renderGitContext(page: HTMLElement, data: GitContextResponse): void {
         "Add repos in Settings \u2192 Repositories to see git context here. Each repo entry maps a Linear identifier prefix to a GitHub repository.",
         "Open advanced settings",
         () => router.navigate("/settings#devtools"),
+        "default",
+        { headingLevel: "h2" },
       ),
     );
     return;
@@ -366,6 +368,7 @@ export function createGitPage(): HTMLElement {
           "Retry",
           () => void fetchAndRender(),
           "error",
+          { headingLevel: "h2" },
         ),
       );
     }

@@ -46,6 +46,7 @@
   font-weight: var(--font-bold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
+  font-feature-settings: var(--font-features-heading);
 }
 
 .page-subtitle {

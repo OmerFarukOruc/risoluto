@@ -49,7 +49,7 @@
 .template-item.is-selected {
   background: var(--bg-subtle);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .template-active-badge {

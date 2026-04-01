@@ -60,7 +60,7 @@
   border: var(--stroke-default) solid var(--border-stitch);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-accent);
   flex-shrink: 0;
 }
@@ -71,7 +71,7 @@
 
 .welcome-step-title {
   font-family: var(--font-heading);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   font-size: var(--text-md);
   color: var(--text-primary);
 }

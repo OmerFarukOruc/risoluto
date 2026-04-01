@@ -76,7 +76,7 @@
   font-family: var(--font-mono);
   text-transform: uppercase;
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   letter-spacing: var(--tracking-caps);
   text-align: left;
   cursor: pointer;
@@ -157,7 +157,7 @@
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   transition:
     color var(--motion-fast) var(--ease-out-quart),
     background-color var(--motion-fast) var(--ease-out-quart),
@@ -179,7 +179,7 @@
   border-left-color: var(--text-accent);
   border-left-width: 3px;
   background: color-mix(in srgb, var(--text-accent) 14%, var(--bg-surface));
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .sidebar-item.is-active:hover {
@@ -269,7 +269,7 @@
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -469,7 +469,7 @@
 
 .header-brand {
   font-family: var(--font-heading);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   font-size: var(--text-xl);
   color: var(--text-primary);
   letter-spacing: var(--tracking-snug);
@@ -503,7 +503,7 @@
   padding: 2px var(--space-2);
   margin-left: var(--space-1);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--status-running) 10%, var(--bg-elevated));
   border: 1px solid color-mix(in srgb, var(--status-running) 25%, var(--border-stitch));
@@ -521,7 +521,7 @@
 }
 
 .header-env-label {
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: capitalize;
 }
 

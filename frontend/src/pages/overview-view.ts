@@ -369,7 +369,7 @@ function createGettingStartedCard(onDismiss: () => void): HTMLElement {
     onDismiss();
   });
 
-  const heading = document.createElement("h3");
+  const heading = document.createElement("h2");
   heading.className = "overview-getting-started-title";
   heading.textContent = "The queue is ready";
 

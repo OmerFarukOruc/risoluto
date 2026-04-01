@@ -1278,7 +1278,7 @@ function buildPage(): HTMLElement {
     const intro = document.createElement("div");
     intro.className = "setup-intro";
 
-    const introHeading = document.createElement("h2");
+    const introHeading = document.createElement("h1");
     introHeading.className = "setup-intro-heading";
     introHeading.textContent = "Welcome to Risoluto";
 

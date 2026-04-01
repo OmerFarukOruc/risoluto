@@ -17,7 +17,7 @@
   color: var(--text-accent);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   border: 1px solid var(--border-stitch);
   box-shadow: var(--shadow-md);
   transition: top var(--motion-fast) var(--ease-out-quart);

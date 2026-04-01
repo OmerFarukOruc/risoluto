@@ -35,7 +35,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--text-primary);
 }
 
@@ -56,7 +56,7 @@
   cursor: pointer;
   font-family: var(--font-heading);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-secondary);
   list-style: none;
   user-select: none;

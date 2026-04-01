@@ -223,6 +223,26 @@
     opacity: 0.6;
   }
 
+  /* Skeleton shimmer pseudo-elements */
+  .skeleton::after,
+  .overview-skeleton::after {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0;
+  }
+
+  /* Diff flash pseudo-element */
+  .diff-flash::before {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  /* Audit live entry pseudo-element */
+  .audit-row--live::after {
+    animation: none !important;
+    opacity: 0;
+  }
+
   /* Status pseudo-element pulses */
   .is-status-running::before,
   .is-status-claimed::before {

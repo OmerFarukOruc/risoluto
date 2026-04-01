@@ -428,20 +428,30 @@
   margin-top: var(--space-2);
 }
 
+/* GPU-optimized: translateX on pseudo-element instead of background-position */
 .overview-skeleton {
+  position: relative;
   min-height: 80px;
-  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--bg-elevated) 50%, var(--bg-muted) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  overflow: hidden;
+  background: var(--bg-muted);
   border-radius: 0;
 }
 
-@keyframes shimmer {
+.overview-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--bg-elevated) 50%, transparent 100%);
+  will-change: transform;
+  animation: overviewShimmerGpu 1.5s ease-in-out infinite;
+}
+
+@keyframes overviewShimmerGpu {
   0% {
-    background-position: 200% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: -200% 0;
+    transform: translateX(100%);
   }
 }
 

@@ -266,20 +266,20 @@
   color: var(--text-primary);
 }
 
-/* Focus ring animation */
-@keyframes focusRing {
+/* Focus ring animation — GPU-optimized opacity fade */
+@keyframes focusRingGpu {
   from {
-    outline-offset: 0;
+    opacity: 0.4;
   }
   to {
-    outline-offset: 2px;
+    opacity: 1;
   }
 }
 
 .mc-list-item:focus-visible,
 .mc-rail-item:focus-visible,
 .mc-button:focus-visible {
-  animation: focusRing var(--motion-fast) var(--ease-out-quart);
+  animation: focusRingGpu var(--motion-fast) var(--ease-out-quart);
 }
 
 .summary-strip {
@@ -605,12 +605,13 @@
   background: var(--bg-elevated);
 }
 
-@keyframes shimmer {
+/* Shimmer — GPU-optimized: uses translateX on pseudo-element */
+@keyframes shimmerGpu {
   0% {
-    background-position: -200% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: 200% 0;
+    transform: translateX(100%);
   }
 }
 

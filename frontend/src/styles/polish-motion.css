@@ -68,6 +68,8 @@
 }
 
 /* ── Focus ring animation ─────────────────────────────── */
+/* GPU-optimized: uses opacity fade-in instead of animating
+   outline-offset (triggers layout recalc).                 */
 
 .mc-button:focus-visible,
 .mc-input:focus-visible,
@@ -75,40 +77,48 @@
 .sidebar-item:focus-visible {
   outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, var(--text-accent));
   outline-offset: var(--focus-ring-offset, 2px);
-  animation: polishFocusRing var(--motion-fast) var(--ease-out-quart);
+  animation: polishFocusRingGpu var(--motion-fast) var(--ease-out-quart);
 }
 
-@keyframes polishFocusRing {
+@keyframes polishFocusRingGpu {
   from {
-    outline-offset: 4px;
-    outline-color: transparent;
+    opacity: 0.4;
   }
   to {
-    outline-offset: var(--focus-ring-offset, 2px);
-    outline-color: var(--focus-ring-color, var(--text-accent));
+    opacity: 1;
   }
 }
 
 /* ── Skeleton shimmer enhancement ─────────────────────── */
+/* GPU-optimized: translates a pseudo-element highlight
+   instead of animating background-position (paint-heavy).  */
 
 .skeleton {
-  background:
-    linear-gradient(
-      90deg,
-      var(--bg-muted) 0%,
-      color-mix(in srgb, var(--bg-muted) 60%, var(--bg-elevated)) 40%,
-      var(--bg-muted) 80%
-    );
-  background-size: 200% 100%;
-  animation: polishShimmer 1.8s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-muted);
 }
 
-@keyframes polishShimmer {
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--bg-elevated) 50%, transparent) 50%,
+    transparent 100%
+  );
+  will-change: transform;
+  animation: polishShimmerGpu 1.8s ease-in-out infinite;
+}
+
+@keyframes polishShimmerGpu {
   0% {
-    background-position: 200% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: -200% 0;
+    transform: translateX(100%);
   }
 }
 
@@ -140,6 +150,94 @@
   }
 }
 
+/* ── Card hover/focus — subtle lift ──────────────────── */
+/* GPU-composited: transform + opacity only.
+   Reflects real state: "this element is interactive."     */
+
+.mc-stat-card,
+.mc-panel,
+.overview-live-metric,
+.event-row {
+  transition:
+    transform var(--motion-fast) var(--ease-out-quint),
+    opacity var(--motion-fast) var(--ease-out-quart);
+}
+
+.mc-stat-card:hover,
+.mc-panel:hover,
+.overview-live-metric:hover {
+  transform: translateY(-1px);
+}
+
+.event-row:hover {
+  transform: translateX(2px);
+}
+
+/* ── Status change transition ───────────────────────── */
+/* Smooth opacity crossfade when issue status changes.
+   Applied to badge/chip status classes.                  */
+
+.mc-badge[class*="is-status-"],
+.mc-chip[class*="is-status-"],
+.mc-status-chip {
+  transition:
+    color var(--motion-medium) var(--ease-out-quart),
+    background-color var(--motion-medium) var(--ease-out-quart),
+    border-color var(--motion-medium) var(--ease-out-quart),
+    opacity var(--motion-fast) var(--ease-out-quart);
+}
+
+/* ── Loading-to-loaded reveal ───────────────────────── */
+/* Skeleton placeholders crossfade to real content.
+   The .is-loaded class is toggled by page JS.            */
+
+.page-section {
+  transition: opacity var(--motion-medium) var(--ease-out-quart);
+}
+
+.page-section.is-loading {
+  opacity: 0.6;
+}
+
+.page-section.is-loaded {
+  animation: contentReveal var(--motion-medium) var(--ease-out-quart) both;
+}
+
+@keyframes contentReveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Metric value transition ────────────────────────── */
+/* Smooth opacity pulse when a KPI number updates.
+   Triggered via .metric-updated class by JS.             */
+
+.overview-live-value,
+.text-metric {
+  transition: opacity var(--motion-fast) var(--ease-out-quart);
+}
+
+.metric-updated {
+  animation: metricPulse var(--motion-medium) var(--ease-out-quart);
+}
+
+@keyframes metricPulse {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ── Reduced motion — respect user preference ─────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -153,7 +251,11 @@
   .sidebar-item,
   .kanban-card,
   .issue-card,
-  .setup-project-card {
+  .setup-project-card,
+  .mc-stat-card,
+  .mc-panel,
+  .overview-live-metric,
+  .event-row {
     transition-duration: 0.01ms;
   }
 
@@ -162,9 +264,32 @@
     transform: none;
   }
 
+  .mc-stat-card:hover,
+  .mc-panel:hover,
+  .overview-live-metric:hover,
+  .event-row:hover {
+    transform: none;
+  }
+
   .skeleton {
     animation: none !important;
     opacity: 0.5;
+  }
+
+  .skeleton::after {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .page-section.is-loaded,
+  .metric-updated {
+    animation-duration: 0.01ms !important;
+  }
+
+  .mc-badge[class*="is-status-"],
+  .mc-chip[class*="is-status-"],
+  .mc-status-chip {
+    transition-duration: 0.01ms;
   }
 
   .toast,

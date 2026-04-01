@@ -1,20 +1,28 @@
+/* GPU-optimized: animates opacity on a pseudo-element overlay
+   instead of background + border-color (paint-heavy).         */
+
 .diff-flash {
-  animation: diffFlash 0.9s var(--ease-out-quart);
+  position: relative;
 }
 
-@keyframes diffFlash {
+.diff-flash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-copper-500) 12%, transparent);
+  pointer-events: none;
+  will-change: opacity;
+  animation: diffFlashGpu 0.9s var(--ease-out-quart) both;
+}
+
+@keyframes diffFlashGpu {
   0% {
-    background: color-mix(in srgb, var(--color-copper-500) 10%, var(--bg-surface));
-    border-color: color-mix(in srgb, var(--color-copper-500) 42%, var(--border-stitch));
+    opacity: 1;
   }
-
   55% {
-    background: color-mix(in srgb, var(--color-copper-500) 6%, var(--bg-surface));
-    border-color: color-mix(in srgb, var(--color-copper-500) 26%, var(--border-stitch));
+    opacity: 0.5;
   }
-
   100% {
-    background: initial;
-    border-color: initial;
+    opacity: 0;
   }
 }

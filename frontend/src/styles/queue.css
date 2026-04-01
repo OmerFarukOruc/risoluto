@@ -349,7 +349,8 @@
   opacity: 0.75;
 }
 
-/* Running card pulse - enhanced */
+/* Running card pulse - enhanced (GPU-optimized) */
+/* Uses opacity + scaleX instead of width animation (layout-heavy) */
 .queue-page .kanban-card[data-status="running"]::after {
   width: 3px;
   height: 70%;
@@ -359,18 +360,19 @@
     color-mix(in srgb, var(--status-running) 40%, transparent) 50%,
     var(--status-running) 100%
   );
-  animation: kanban-pulse-strong 1.5s ease-in-out infinite;
+  will-change: transform, opacity;
+  animation: kanbanPulseStrongGpu 1.5s ease-in-out infinite;
 }
 
-@keyframes kanban-pulse-strong {
+@keyframes kanbanPulseStrongGpu {
   0%,
   100% {
     opacity: 1;
-    width: 3px;
+    transform: scaleX(1);
   }
   50% {
     opacity: 0.4;
-    width: 4px;
+    transform: scaleX(1.33);
   }
 }
 

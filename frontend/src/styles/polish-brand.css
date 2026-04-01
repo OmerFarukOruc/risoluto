@@ -82,25 +82,26 @@
 }
 
 /* ── Status chip glow — running state indicator ──────── */
+/* GPU-optimized: uses opacity on a pseudo-element instead
+   of animating box-shadow / border-color (paint-heavy).   */
 
 .is-status-running::before {
   content: "";
   position: absolute;
   inset: -1px;
-  border: 1px solid color-mix(in srgb, var(--status-running) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-running) 40%, transparent);
   pointer-events: none;
-  animation: statusGlow 2s ease-in-out infinite;
+  will-change: opacity;
+  animation: statusGlowGpu 2s ease-in-out infinite;
 }
 
-@keyframes statusGlow {
+@keyframes statusGlowGpu {
   0%,
   100% {
-    border-color: color-mix(in srgb, var(--status-running) 20%, transparent);
-    box-shadow: 0 0 4px color-mix(in srgb, var(--status-running) 10%, transparent);
+    opacity: 0.5;
   }
   50% {
-    border-color: color-mix(in srgb, var(--status-running) 40%, transparent);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--status-running) 20%, transparent);
+    opacity: 1;
   }
 }
 

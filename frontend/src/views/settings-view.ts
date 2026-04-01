@@ -126,11 +126,11 @@ export function createSettingsPage(options: SettingsPageOptions = {}): HTMLEleme
     renderAsyncState(shell, loadState, {
       isEmpty: (data) => buildSettingsSections(data.schema, data.effective).length === 0,
       renderLoading: () => skeletonBlock("320px"),
-      renderError: (error) => createEmptyState("Settings unavailable", error, "Retry", () => void load()),
+      renderError: (error) => createEmptyState("Could not load settings", error, "Retry", () => void load()),
       renderEmpty: () =>
         createEmptyState(
-          "No settings available",
-          "Risoluto did not return any settings to edit yet.",
+          "No settings available yet",
+          "Risoluto has not returned any editable settings. This usually resolves after the backend finishes initializing.",
           "Retry",
           () => void load(),
         ),

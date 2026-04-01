@@ -141,8 +141,8 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     summary.hidden = true;
     content.replaceChildren(
       createEmptyState(
-        "Issue unavailable",
-        message,
+        "Issue not found",
+        message || "This issue could not be loaded. It may have been removed, or the identifier may be incorrect.",
         "Retry",
         () => {
           void refresh();

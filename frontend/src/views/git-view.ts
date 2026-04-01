@@ -197,7 +197,11 @@ function buildBranchSection(data: GitContextResponse): HTMLElement {
     section.append(list);
   } else {
     section.append(
-      el("p", "git-empty-hint", "No active branches — issues need to be running with a branchName to appear here."),
+      el(
+        "p",
+        "git-empty-hint",
+        "No active branches right now. Branches appear here when a running issue has an assigned branch name.",
+      ),
     );
   }
   return section;
@@ -245,7 +249,7 @@ function buildQuickLinksRail(githubAvailable: boolean): HTMLElement[] {
       el(
         "p",
         "git-empty-hint",
-        "No GitHub token configured. Add a GITHUB_TOKEN in Settings → Credentials to see PRs, commits, and repo details.",
+        "No GitHub token found. Add a GITHUB_TOKEN under Settings \u2192 Credentials to unlock pull requests, commits, and repo details.",
       ),
     );
   }
@@ -307,9 +311,9 @@ function renderGitContext(page: HTMLElement, data: GitContextResponse): void {
   if (data.repos.length === 0) {
     body.append(
       createEmptyState(
-        "No repositories configured",
-        "Add repos in Settings \u2192 Repositories to see git context here. Each repo entry maps a Linear identifier prefix to a GitHub repository.",
-        "Open advanced settings",
+        "No repositories linked yet",
+        "Repositories connect your Linear issues to GitHub. Add one under Settings \u2192 Repositories \u2014 each entry maps a Linear identifier prefix to a GitHub repo so Risoluto knows where to commit.",
+        "Open repository settings",
         () => router.navigate("/settings#devtools"),
         "default",
         { headingLevel: "h2" },
@@ -363,8 +367,8 @@ export function createGitPage(): HTMLElement {
       body.innerHTML = "";
       body.append(
         createEmptyState(
-          "Failed to load git context",
-          "The git context API returned an error. Check server logs or try refreshing.",
+          "Could not load git context",
+          "Something went wrong fetching repository data. Check the server logs for details, or try refreshing the page.",
           "Retry",
           () => void fetchAndRender(),
           "error",

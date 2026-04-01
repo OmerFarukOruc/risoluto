@@ -81,19 +81,19 @@ function describeCurrentMoment(
   if (completed > 0) {
     return {
       state: "Queue is clear",
-      detail: "No active work needs attention. Review the latest outcomes and recent activity below.",
+      detail: "Everything is handled. Review the latest outcomes and recent activity below.",
     };
   }
 
   return {
     state: "Ready for the first issue",
-    detail: "Create a Linear issue, move it into progress, and Risoluto will take it from there.",
+    detail: "Create an issue in Linear and move it to In Progress \u2014 Risoluto will take it from there.",
   };
 }
 
 function describeAttentionZone(attentionCount: number): string {
   if (attentionCount === 0) {
-    return "Nothing is waiting on you. When an issue blocks, retries, or needs a decision, it will surface here first.";
+    return "Nothing needs your attention right now. When an issue blocks, retries, or needs a decision, it will surface here.";
   }
 
   if (attentionCount === 1) {
@@ -371,20 +371,20 @@ function createGettingStartedCard(onDismiss: () => void): HTMLElement {
 
   const heading = document.createElement("h2");
   heading.className = "overview-getting-started-title";
-  heading.textContent = "The queue is ready";
+  heading.textContent = "Ready when you are";
 
   const desc = document.createElement("p");
   desc.className = "overview-getting-started-desc";
   desc.textContent =
-    "Create one issue, move it into progress, and Risoluto will pick it up on the next poll. This screen will turn into your live control room as soon as work starts.";
+    "Create an issue in Linear, move it into progress, and Risoluto picks it up on the next poll. This page becomes your live control room the moment work begins.";
 
   const steps = document.createElement("div");
   steps.className = "overview-getting-started-steps";
 
   const stepItems = [
-    { n: "1", text: "Create a Linear issue" },
-    { n: "2", text: "Move it into progress" },
-    { n: "3", text: "Watch the first run appear here" },
+    { n: "1", text: "Create an issue in Linear" },
+    { n: "2", text: "Move it to In Progress" },
+    { n: "3", text: "Watch the first run land here" },
   ];
 
   for (const s of stepItems) {
@@ -557,8 +557,8 @@ export function createOverviewPage(): HTMLElement {
     if (attentionList.childElementCount === 0) {
       attentionList.replaceChildren(
         createTeachingEmptyState(
-          "Nothing needs intervention",
-          "Blocked, retrying, and queued work will surface here the moment it needs a decision.",
+          "All clear",
+          "Blocked, retrying, or stalled work will appear here the moment it needs your attention.",
           "Open queue",
           () => router.navigate("/queue"),
         ),
@@ -569,7 +569,7 @@ export function createOverviewPage(): HTMLElement {
       recentList.replaceChildren(
         createTeachingEmptyState(
           "No activity yet",
-          "Workflow events will appear here as Risoluto starts processing work.",
+          "Workflow events will stream in here once Risoluto starts processing issues.",
         ),
       );
     }
@@ -578,7 +578,7 @@ export function createOverviewPage(): HTMLElement {
       terminalList.replaceChildren(
         createTeachingEmptyState(
           "No finished issues yet",
-          "Completed and failed issues will collect here once the first run lands.",
+          "Completed and failed issues will appear here after the first run finishes.",
         ),
       );
     }

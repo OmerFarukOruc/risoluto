@@ -215,8 +215,8 @@ export function buildActivitySection(detail: IssueDetail): HTMLElement {
   if (events.length === 0) {
     list.append(
       createEmptyState(
-        "No recent activity",
-        "This issue has not emitted any recent events yet. Live logs and archived attempts will appear here after the next worker update.",
+        "No activity yet",
+        "Events will appear here once the worker starts processing this issue. Check live logs to follow work in progress.",
         "Open logs",
         () => router.navigate(`/issues/${detail.identifier}/logs`),
       ),

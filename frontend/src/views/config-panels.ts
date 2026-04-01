@@ -45,8 +45,8 @@ export function renderSchemaPanel(
   if (!state.schema) {
     content.append(
       createEmptyState(
-        "Schema unavailable",
-        "Common config paths:\n• tracker.project_slug\n• codex.sandbox.memory\n• server.port",
+        "Schema not loaded",
+        "The config schema could not be fetched. Common paths include tracker.project_slug, codex.sandbox.memory, and server.port.",
       ),
     );
   } else {

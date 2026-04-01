@@ -135,7 +135,8 @@ export function createAuditPage(): HTMLElement {
   /* ── Empty state ────────────────────────────── */
   const emptyEl = document.createElement("div");
   emptyEl.className = "audit-empty";
-  emptyEl.textContent = "No audit entries found.";
+  emptyEl.textContent =
+    "No audit entries match the current filters. Adjust the filters above, or wait for new configuration changes to arrive.";
   emptyEl.hidden = true;
   page.append(emptyEl);
 

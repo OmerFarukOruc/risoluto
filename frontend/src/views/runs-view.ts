@@ -90,7 +90,7 @@ export function createRunsPage(issueId: string): HTMLElement {
         ),
       );
       detailColumn.replaceChildren(
-        createEmptyState("No run selected", "Retry once archived runs are available.", "View issue logs", () =>
+        createEmptyState("No run selected", "Resolve the error on the left, then try again.", "View issue logs", () =>
           router.navigate(`/issues/${state.issueIdentifier}/logs`),
         ),
       );
@@ -100,7 +100,7 @@ export function createRunsPage(issueId: string): HTMLElement {
       tableColumn.replaceChildren(
         createEmptyState(
           "No archived runs yet",
-          "Archived runs appear after the first attempt finishes and Risoluto persists the summary.",
+          "Run summaries appear here after an attempt finishes. Check live logs to follow work in progress.",
           "View live logs",
           () => router.navigate(`/issues/${state.issueIdentifier}/logs`),
         ),
@@ -108,7 +108,7 @@ export function createRunsPage(issueId: string): HTMLElement {
       detailColumn.replaceChildren(
         createEmptyState(
           "No run selected",
-          "Archived run summaries appear here once the first attempt lands.",
+          "Run detail will appear here once the first attempt completes.",
           "Back to issue",
           () => router.navigate(`/issues/${state.issueIdentifier}`),
         ),
@@ -149,7 +149,7 @@ export function createRunsPage(issueId: string): HTMLElement {
     const attempt = activeAttempt(state);
     if (!attempt) {
       detailColumn.replaceChildren(
-        createEmptyState("No run selected", "Pick a run to inspect its summary.", "Back to issue", () =>
+        createEmptyState("No run selected", "Pick a run from the list to see its summary here.", "Back to issue", () =>
           router.navigate(`/issues/${state.issueIdentifier}`),
         ),
       );

@@ -306,8 +306,8 @@ function renderContent(
   if (!sections.length) {
     content.append(
       createEmptyState(
-        "No settings match that search",
-        "Try a broader term like provider, sandbox, or tracker.",
+        "No matching settings",
+        "Nothing matches that search. Try a broader term like provider, sandbox, or tracker.",
         "Clear search",
         () => options.onFilter(""),
       ),

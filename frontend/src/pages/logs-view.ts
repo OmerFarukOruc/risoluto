@@ -174,10 +174,10 @@ export function createLogsPage(id: string): HTMLElement {
     if (events.length === 0) {
       scroll.replaceChildren(
         createEmptyState(
-          mode === "live" ? "No activity yet" : "No archived events recorded",
+          mode === "live" ? "No activity yet" : "No archived events found",
           mode === "live"
-            ? "Waiting for the worker to start."
-            : "Switch back to live mode to watch the current stream.",
+            ? "Log entries will stream in once the worker starts processing this issue."
+            : "No events match the current view. Switch to live mode to follow the active stream.",
           mode === "live" ? "Refresh logs" : "Switch to live logs",
           () => {
             if (mode === "live") {

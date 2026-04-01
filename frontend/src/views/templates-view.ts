@@ -189,7 +189,7 @@ export function createTemplatesPage(): HTMLElement {
 
   const emptyState = document.createElement("div");
   emptyState.className = "templates-empty";
-  emptyState.textContent = "Select a template or create a new one";
+  emptyState.textContent = "Select a template from the list, or create a new one to get started.";
 
   editorPane.append(nameInput, cmContainer, actionsBar, previewPanel);
 

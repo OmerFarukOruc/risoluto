@@ -113,7 +113,11 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
 
   if (data.workspaces.length === 0) {
     section.append(
-      el("p", "ws-empty-hint", "No workspaces on disk. Workspaces appear after an agent run creates one."),
+      el(
+        "p",
+        "ws-empty-hint",
+        "No workspaces on disk yet. A workspace will appear here the first time an agent run clones a repository.",
+      ),
     );
     return section;
   }
@@ -199,8 +203,8 @@ export function createWorkspacesPage(): HTMLElement {
       body.innerHTML = "";
       body.append(
         createEmptyState(
-          "Failed to load workspace inventory",
-          "The workspace inventory API returned an error. Check server logs or try refreshing.",
+          "Could not load workspaces",
+          "Something went wrong fetching workspace data. Check the server logs for details, or try refreshing the page.",
           "Retry",
           () => void fetchAndRender(),
           "error",

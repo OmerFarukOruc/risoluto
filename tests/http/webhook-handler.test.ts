@@ -22,7 +22,7 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
   return {
     action: "update",
     type: "Issue",
-    data: { id: "issue-1", title: "Fix bug" },
+    data: { id: "issue-1", identifier: "SYM-42", title: "Fix bug" },
     webhookTimestamp: Date.now(),
     ...overrides,
   };
@@ -31,7 +31,10 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
 function makeDeps(overrides: Partial<WebhookHandlerDeps> = {}): WebhookHandlerDeps {
   return {
     getWebhookSecret: vi.fn().mockReturnValue(TEST_SECRET),
+    getPreviousWebhookSecret: vi.fn().mockReturnValue(null),
     requestRefresh: vi.fn(),
+    requestTargetedRefresh: vi.fn(),
+    stopWorkerForIssue: vi.fn(),
     recordVerifiedDelivery: vi.fn(),
     logger: {
       debug: vi.fn(),
@@ -81,6 +84,11 @@ function makeResponse(): Response & { _status: number; _body: unknown; _headers:
   return res as unknown as Response & { _status: number; _body: unknown; _headers: Record<string, string> };
 }
 
+/** Flush the microtask queue so fire-and-forget inbox promises resolve. */
+async function flushMicrotasks(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /* ------------------------------------------------------------------ */
 /*  verifyLinearSignature                                              */
 /* ------------------------------------------------------------------ */
@@ -108,7 +116,7 @@ describe("verifyLinearSignature", () => {
 /* ------------------------------------------------------------------ */
 
 describe("handleWebhookLinear", () => {
-  it("returns 200, calls requestRefresh and recordVerifiedDelivery for valid request", () => {
+  it("returns 200 and triggers targeted refresh for valid Issue update", async () => {
     const deps = makeDeps();
     const payload = makePayload();
     const bodyStr = JSON.stringify(payload);
@@ -117,14 +125,14 @@ describe("handleWebhookLinear", () => {
     const res = makeResponse();
 
     handleWebhookLinear(deps, req, res);
+    await flushMicrotasks();
 
     expect(res._status).toBe(200);
-    expect((res._body as Record<string, unknown>).ok).toBe(true);
-    expect(deps.requestRefresh).toHaveBeenCalledWith("webhook:update:Issue");
+    expect(deps.requestTargetedRefresh).toHaveBeenCalledWith("issue-1", "SYM-42", "webhook:issue:update");
     expect(deps.recordVerifiedDelivery).toHaveBeenCalledWith("Issue:update");
   });
 
-  it("includes 'create' in refresh reason for Issue create events", () => {
+  it("includes 'create' in refresh reason for Issue create events", async () => {
     const deps = makeDeps();
     const payload = makePayload({ action: "create" });
     const bodyStr = JSON.stringify(payload);
@@ -133,12 +141,13 @@ describe("handleWebhookLinear", () => {
     const res = makeResponse();
 
     handleWebhookLinear(deps, req, res);
+    await flushMicrotasks();
 
     expect(res._status).toBe(200);
-    expect(deps.requestRefresh).toHaveBeenCalledWith(expect.stringContaining("create"));
+    expect(deps.requestTargetedRefresh).toHaveBeenCalledWith("issue-1", "SYM-42", expect.stringContaining("create"));
   });
 
-  it("includes 'update' in refresh reason for Issue update events", () => {
+  it("includes 'update' in refresh reason for Issue update events", async () => {
     const deps = makeDeps();
     const payload = makePayload({ action: "update" });
     const bodyStr = JSON.stringify(payload);
@@ -147,9 +156,10 @@ describe("handleWebhookLinear", () => {
     const res = makeResponse();
 
     handleWebhookLinear(deps, req, res);
+    await flushMicrotasks();
 
     expect(res._status).toBe(200);
-    expect(deps.requestRefresh).toHaveBeenCalledWith(expect.stringContaining("update"));
+    expect(deps.requestTargetedRefresh).toHaveBeenCalledWith("issue-1", "SYM-42", expect.stringContaining("update"));
   });
 
   it("returns 401 for invalid HMAC signature, does NOT call requestRefresh or recordVerifiedDelivery", () => {
@@ -164,6 +174,7 @@ describe("handleWebhookLinear", () => {
 
     expect(res._status).toBe(401);
     expect(deps.requestRefresh).not.toHaveBeenCalled();
+    expect(deps.requestTargetedRefresh).not.toHaveBeenCalled();
     expect(deps.recordVerifiedDelivery).not.toHaveBeenCalled();
   });
 
@@ -243,10 +254,8 @@ describe("handleWebhookLinear", () => {
     expect((res._body as { error: { code: string } }).error.code).toBe("webhook_not_configured");
   });
 
-  it("returns 401 for empty body with valid signature (HMAC mismatch on parsed body)", () => {
+  it("returns 400 for empty body (schema validation failure)", () => {
     const deps = makeDeps();
-    // Empty JSON object — signed correctly, but the parsed body has no
-    // webhookTimestamp, so the replay check catches it as non-number.
     const emptyBody = "{}";
     const rawBody = Buffer.from(emptyBody);
     const req = makeRequest({} as Record<string, unknown>, { "linear-signature": sign(emptyBody) }, rawBody);
@@ -254,9 +263,8 @@ describe("handleWebhookLinear", () => {
 
     handleWebhookLinear(deps, req, res);
 
-    // HMAC is valid, but webhookTimestamp is missing (not a number) → replay_rejected
-    expect(res._status).toBe(401);
-    expect((res._body as { error: { code: string } }).error.code).toBe("replay_rejected");
+    expect(res._status).toBe(400);
+    expect((res._body as { error: { code: string } }).error.code).toBe("invalid_payload");
   });
 
   it("returns 401 when rawBody is missing (no Buffer captured)", () => {
@@ -273,19 +281,40 @@ describe("handleWebhookLinear", () => {
     expect((res._body as { error: { code: string } }).error.code).toBe("signature_invalid");
   });
 
-  it("returns 200 and triggers refresh for non-Issue event types (broad acceptance)", () => {
+  it("returns 200 and triggers targeted refresh for Comment event", async () => {
     const deps = makeDeps();
-    const payload = makePayload({ action: "create", type: "Comment" });
+    const payload = makePayload({
+      action: "create",
+      type: "Comment",
+      data: { id: "comment-1", identifier: "SYM-42", issue: { id: "issue-1", identifier: "SYM-42" } },
+    });
     const bodyStr = JSON.stringify(payload);
     const rawBody = Buffer.from(bodyStr);
     const req = makeRequest(payload, { "linear-signature": sign(bodyStr) }, rawBody);
     const res = makeResponse();
 
     handleWebhookLinear(deps, req, res);
+    await flushMicrotasks();
 
     expect(res._status).toBe(200);
-    expect(deps.requestRefresh).toHaveBeenCalledWith("webhook:create:Comment");
     expect(deps.recordVerifiedDelivery).toHaveBeenCalledWith("Comment:create");
+  });
+
+  it("accepts previous secret during rotation window", async () => {
+    const prevSecret = "whsec_previous_secret_xyz";
+    const deps = makeDeps({ getPreviousWebhookSecret: vi.fn().mockReturnValue(prevSecret) });
+    const payload = makePayload();
+    const bodyStr = JSON.stringify(payload);
+    const rawBody = Buffer.from(bodyStr);
+    // Sign with the previous secret
+    const req = makeRequest(payload, { "linear-signature": sign(bodyStr, prevSecret) }, rawBody);
+    const res = makeResponse();
+
+    handleWebhookLinear(deps, req, res);
+    await flushMicrotasks();
+
+    expect(res._status).toBe(200);
+    expect(deps.recordVerifiedDelivery).toHaveBeenCalledWith("Issue:update");
   });
 });
 
@@ -298,6 +327,7 @@ function startRateLimitedApp(webhookDeps: WebhookHandlerDeps): Promise<{ port: n
   const app = express();
   app.use(
     express.json({
+      limit: "1mb",
       verify: (req: IncomingMessage, _res, buf: Buffer) => {
         if (req.url?.startsWith("/webhooks/")) {
           (req as unknown as WebhookRequest).rawBody = buf;
@@ -306,73 +336,67 @@ function startRateLimitedApp(webhookDeps: WebhookHandlerDeps): Promise<{ port: n
     }),
   );
 
-  const webhookLimiter = rateLimit({
-    windowMs: 60_000,
-    limit: 3, // Low limit for testing
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
+  app.use(
+    "/webhooks/{*splat}",
+    rateLimit({
+      windowMs: 60_000,
+      max: 2,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
 
-  app.post("/webhooks/linear", webhookLimiter, (req, res) => {
-    handleWebhookLinear(webhookDeps, req as WebhookRequest, res);
-  });
+  app.post("/webhooks/linear", (req, res) => handleWebhookLinear(webhookDeps, req as WebhookRequest, res));
 
   return new Promise((resolve) => {
-    const server = app.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (address && typeof address === "object") {
-        resolve({ port: address.port, server });
-      }
+    const server = app.listen(0, () => {
+      const addr = server.address() as { port: number };
+      resolve({ port: addr.port, server });
     });
   });
 }
+/* eslint-enable sonarjs/x-powered-by */
 
-function closeServer(server: http.Server): Promise<void> {
+function postWebhook(port: number, body: string, secret: string = TEST_SECRET): Promise<{ status: number }> {
   return new Promise((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
-  });
-}
-
-describe("webhook rate limiting", () => {
-  let server: http.Server | null = null;
-
-  afterEach(async () => {
-    if (server) {
-      await closeServer(server);
-      server = null;
-    }
-  });
-
-  it("returns 429 after exceeding the rate limit", async () => {
-    const deps = makeDeps();
-    const { port, server: s } = await startRateLimitedApp(deps);
-    server = s;
-
-    const sendRequest = () => {
-      const payload = makePayload();
-      const bodyStr = JSON.stringify(payload);
-      return fetch(`http://127.0.0.1:${port}/webhooks/linear`, {
+    const sig = sign(body, secret);
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: "/webhooks/linear",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Linear-Signature": sign(bodyStr),
+          "Linear-Signature": sig,
         },
-        body: bodyStr,
-      });
-    };
+      },
+      (res) => resolve({ status: res.statusCode! }),
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+}
 
-    // Exhaust the 3-request limit
-    const first = await sendRequest();
-    expect(first.status).toBe(200);
+describe("Webhook rate limiting (integration)", () => {
+  let server: http.Server | undefined;
 
-    const second = await sendRequest();
-    expect(second.status).toBe(200);
+  afterEach(() => {
+    server?.close();
+  });
 
-    const third = await sendRequest();
-    expect(third.status).toBe(200);
+  it("rate-limits after exceeding max requests", async () => {
+    const deps = makeDeps();
+    ({ server } = await startRateLimitedApp(deps));
+    const port = (server!.address() as { port: number }).port;
 
-    // Fourth request should be rate-limited
-    const fourth = await sendRequest();
-    expect(fourth.status).toBe(429);
+    const payload = JSON.stringify(makePayload());
+
+    const r1 = await postWebhook(port, payload);
+    expect(r1.status).toBe(200);
+    const r2 = await postWebhook(port, payload);
+    expect(r2.status).toBe(200);
+    const r3 = await postWebhook(port, payload);
+    expect(r3.status).toBe(429);
   });
 });

@@ -7,6 +7,7 @@ import { createGitHubToolProvider, createRepoRouterProvider } from "./runtime-pr
 import type { ConfigOverlayPort } from "../config/overlay.js";
 import type { ConfigStore } from "../config/store.js";
 import { createDispatcher } from "../dispatch/factory.js";
+import type { WebhookHandlerDeps } from "../http/webhook-handler.js";
 import { HttpServer } from "../http/server.js";
 import type { createLogger } from "../core/logger.js";
 import { NotificationManager } from "../notification/manager.js";
@@ -15,6 +16,7 @@ import { DefaultWebhookHealthTracker, type WebhookHealthTracker } from "../webho
 import { WebhookRegistrar } from "../webhook/registrar.js";
 import { initPersistenceRuntime, type PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
+import { SqliteWebhookInbox } from "../persistence/sqlite/webhook-inbox.js";
 import { PathRegistry } from "../workspace/path-registry.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { createTracker } from "../tracker/factory.js";
@@ -45,6 +47,96 @@ export function evaluateWebhookConfig(
   }
 
   return false;
+}
+
+/**
+ * Build webhook handler deps when webhook URL is configured.
+ */
+function buildWebhookHandlerDeps(input: {
+  orchestrator: Orchestrator;
+  webhookHealthTracker: WebhookHealthTracker | undefined;
+  webhookInbox: SqliteWebhookInbox | undefined;
+  getWebhookSecret: () => string | null;
+  getPreviousWebhookSecret: () => string | null;
+  logger: ReturnType<typeof createLogger>;
+}): WebhookHandlerDeps {
+  return {
+    getWebhookSecret: input.getWebhookSecret,
+    getPreviousWebhookSecret: input.getPreviousWebhookSecret,
+    requestRefresh: (reason: string) => input.orchestrator.requestRefresh(reason),
+    requestTargetedRefresh: (issueId: string, issueIdentifier: string, reason: string) =>
+      input.orchestrator.requestTargetedRefresh(issueId, issueIdentifier, reason),
+    stopWorkerForIssue: (issueIdentifier: string, reason: string) =>
+      input.orchestrator.stopWorkerForIssue(issueIdentifier, reason),
+    recordVerifiedDelivery: (eventType: string) => input.webhookHealthTracker?.recordVerifiedDelivery(eventType),
+    webhookInbox: input.webhookInbox,
+    logger: input.logger.child({ component: "webhook-handler" }),
+  };
+}
+
+/**
+ * Initialize webhook infrastructure: inbox, health tracker, registrar.
+ * Returns a mutable secret reference that the registrar can update.
+ */
+function initWebhookInfrastructure(input: {
+  persistence: PersistenceRuntime;
+  webhookConfig: WebhookConfig | null | undefined;
+  linearClient: ReturnType<typeof createTracker>["linearClient"];
+  eventBus: TypedEventBus<RisolutoEventMap>;
+  secretsStore: SecretsStore;
+  logger: ReturnType<typeof createLogger>;
+}): {
+  webhookUrlSet: boolean;
+  webhookEnabled: boolean;
+  webhookHealthTracker: WebhookHealthTracker | undefined;
+  webhookInbox: SqliteWebhookInbox | undefined;
+  webhookRegistrar: WebhookRegistrar | undefined;
+  resolvedWebhookSecret: { current: string | null };
+  resolvedPreviousWebhookSecret: string | null;
+} {
+  const webhookConfig = input.webhookConfig;
+  const webhookUrlSet = !!webhookConfig?.webhookUrl;
+  const webhookEnabled = evaluateWebhookConfig(webhookConfig, input.logger);
+
+  const webhookInbox =
+    webhookUrlSet && input.persistence.db
+      ? new SqliteWebhookInbox(input.persistence.db, input.logger.child({ component: "webhook-inbox" }))
+      : undefined;
+
+  const webhookHealthTracker = webhookEnabled
+    ? new DefaultWebhookHealthTracker({
+        config: webhookConfig!,
+        eventBus: input.eventBus,
+        logger: input.logger.child({ component: "webhook-health" }),
+        linearClient: input.linearClient ?? undefined,
+      })
+    : undefined;
+
+  const resolvedWebhookSecret = { current: webhookConfig?.webhookSecret ?? null };
+  const resolvedPreviousWebhookSecret = webhookConfig?.previousWebhookSecret ?? null;
+
+  const webhookRegistrar =
+    webhookUrlSet && input.linearClient
+      ? new WebhookRegistrar({
+          linearClient: input.linearClient,
+          secretsStore: input.secretsStore,
+          getWebhookConfig: () => input.webhookConfig,
+          onSecretResolved: (secret) => {
+            resolvedWebhookSecret.current = secret;
+          },
+          logger: input.logger.child({ component: "webhook-registrar" }),
+        })
+      : undefined;
+
+  return {
+    webhookUrlSet,
+    webhookEnabled,
+    webhookHealthTracker,
+    webhookInbox,
+    webhookRegistrar,
+    resolvedWebhookSecret,
+    resolvedPreviousWebhookSecret,
+  };
 }
 
 export async function createServices(
@@ -98,34 +190,15 @@ export async function createServices(
   const eventBus = new TypedEventBus<RisolutoEventMap>();
   const notificationManager = new NotificationManager({ logger: logger.child({ component: "notifications" }) });
 
-  // --- Webhook integration (manual receive mode) ---
-  const webhookEnabled = evaluateWebhookConfig(configStore.getConfig().webhook, logger);
-  let webhookHealthTracker: WebhookHealthTracker | undefined;
-  if (webhookEnabled) {
-    webhookHealthTracker = new DefaultWebhookHealthTracker({
-      config: configStore.getConfig().webhook!,
-      eventBus,
-      logger: logger.child({ component: "webhook-health" }),
-      linearClient: linearClient ?? undefined,
-    });
-  }
-
-  // --- Webhook handler secret (mutable — registrar can update after auto-registration) ---
-  let resolvedWebhookSecret: string | null = configStore.getConfig().webhook?.webhookSecret ?? null;
-
-  // --- Webhook registrar (Phase 2: managed registration) ---
-  let webhookRegistrar: WebhookRegistrar | undefined;
-  if (webhookEnabled && linearClient) {
-    webhookRegistrar = new WebhookRegistrar({
-      linearClient,
-      secretsStore,
-      getWebhookConfig: () => configStore.getConfig().webhook,
-      onSecretResolved: (secret) => {
-        resolvedWebhookSecret = secret;
-      },
-      logger: logger.child({ component: "webhook-registrar" }),
-    });
-  }
+  // --- Webhook integration ---
+  const webhook = initWebhookInfrastructure({
+    persistence,
+    webhookConfig: configStore.getConfig().webhook,
+    linearClient,
+    eventBus,
+    secretsStore,
+    logger,
+  });
 
   const templateStore = persistence.db
     ? new PromptTemplateStore(persistence.db, logger.child({ component: "templates" }))
@@ -174,7 +247,7 @@ export async function createServices(
     notificationManager,
     repoRouter,
     gitManager,
-    webhookHealthTracker,
+    webhookHealthTracker: webhook.webhookHealthTracker,
     logger: logger.child({ component: "orchestrator" }),
     resolveTemplate,
   });
@@ -189,13 +262,15 @@ export async function createServices(
     archiveDir,
     templateStore,
     auditLogger,
-    webhookHandlerDeps: webhookEnabled
-      ? {
-          getWebhookSecret: () => resolvedWebhookSecret,
-          requestRefresh: (reason: string) => orchestrator.requestRefresh(reason),
-          recordVerifiedDelivery: (eventType: string) => webhookHealthTracker?.recordVerifiedDelivery(eventType),
-          logger: logger.child({ component: "webhook-handler" }),
-        }
+    webhookHandlerDeps: webhook.webhookUrlSet
+      ? buildWebhookHandlerDeps({
+          orchestrator,
+          webhookHealthTracker: webhook.webhookHealthTracker,
+          webhookInbox: webhook.webhookInbox,
+          getWebhookSecret: () => webhook.resolvedWebhookSecret.current,
+          getPreviousWebhookSecret: () => webhook.resolvedPreviousWebhookSecret,
+          logger,
+        })
       : undefined,
   });
 
@@ -206,7 +281,8 @@ export async function createServices(
     linearClient,
     eventBus,
     persistence,
-    webhookHealthTracker,
-    webhookRegistrar,
+    webhookHealthTracker: webhook.webhookHealthTracker,
+    webhookRegistrar: webhook.webhookRegistrar,
+    webhookInbox: webhook.webhookInbox,
   };
 }

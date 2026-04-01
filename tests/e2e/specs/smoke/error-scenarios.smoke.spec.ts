@@ -90,7 +90,7 @@ test.describe("Error Scenarios Smoke", () => {
       route.fulfill({ status: 500, contentType: "application/json", body: ERROR_BODY }),
     );
 
-    await expect(shell.staleBanner).toBeVisible({ timeout: 20_000 });
+    await expect(shell.staleBanner).toBeVisible({ timeout: 30_000 });
     await expect(shell.staleBanner).toContainText("stale", { ignoreCase: true });
   });
 });

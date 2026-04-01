@@ -557,7 +557,7 @@ export function createOverviewPage(): HTMLElement {
     const totalCost = formatCostUsd(snapshot.codex_totals.cost_usd);
     const totalRuntime = formatDuration(snapshot.codex_totals.seconds_running);
     tokenCollapsible.summary.textContent =
-      snapshot.codex_totals.cost_usd > 0 ? `${totalCost} \u00B7 ${totalRuntime}` : "no usage";
+      (snapshot.codex_totals.cost_usd ?? 0) > 0 ? `${totalCost} \u00B7 ${totalRuntime}` : "no usage";
 
     const stallCount = snapshot.stall_events?.length ?? 0;
     stallCollapsible.summary.textContent =

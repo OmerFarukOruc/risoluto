@@ -5,6 +5,10 @@ export interface OrchestratorPort {
   start(): Promise<void>;
   stop(): Promise<void>;
   requestRefresh(reason: string): { queued: boolean; coalesced: boolean; requestedAt: string };
+  /** Request a targeted refresh for a specific issue (lower latency than full poll). */
+  requestTargetedRefresh(issueId: string, issueIdentifier: string, reason: string): void;
+  /** Stop a running worker for an issue (e.g., when webhook shows issue moved to Done). */
+  stopWorkerForIssue(issueIdentifier: string, reason: string): void;
   getSnapshot(): RuntimeSnapshot;
   getSerializedState(): Record<string, unknown>;
   getIssueDetail(identifier: string): IssueDetailView | null;

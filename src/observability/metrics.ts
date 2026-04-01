@@ -121,6 +121,18 @@ export class MetricsCollector {
   readonly containerCpuPercent = new Gauge();
   readonly containerMemoryPercent = new Gauge();
 
+  // Webhook metrics
+  readonly webhookDeliveriesTotal = new Counter();
+  readonly webhookDuplicatesTotal = new Counter();
+  readonly webhookEventsProcessedTotal = new Counter();
+  readonly webhookProcessorRetriesTotal = new Counter();
+  readonly webhookDlqTotal = new Counter();
+  readonly webhookSubscriptionChecksTotal = new Counter();
+  readonly webhookBacklogCount = new Gauge();
+  readonly webhookDlqCount = new Gauge();
+  readonly webhookLastDeliveryAgeSeconds = new Gauge();
+  readonly webhookProcessingLatencySeconds = new Histogram();
+
   serialize(): string {
     return [
       this.httpRequestsTotal.serialize("risoluto_http_requests_total", "Total HTTP requests"),
@@ -132,6 +144,37 @@ export class MetricsCollector {
       this.agentRunsTotal.serialize("risoluto_agent_runs_total", "Agent run completions by status"),
       this.containerCpuPercent.serialize("risoluto_container_cpu_percent", "Container CPU usage percentage"),
       this.containerMemoryPercent.serialize("risoluto_container_memory_percent", "Container memory usage percentage"),
+      this.webhookDeliveriesTotal.serialize(
+        "risoluto_webhook_deliveries_total",
+        "Total verified webhook deliveries by result, type, and action",
+      ),
+      this.webhookDuplicatesTotal.serialize(
+        "risoluto_webhook_duplicates_total",
+        "Duplicate webhook deliveries (dedup hits)",
+      ),
+      this.webhookEventsProcessedTotal.serialize(
+        "risoluto_webhook_events_processed_total",
+        "Webhook events processed by result and mode",
+      ),
+      this.webhookProcessorRetriesTotal.serialize(
+        "risoluto_webhook_processor_retries_total",
+        "Webhook processor retries by reason",
+      ),
+      this.webhookDlqTotal.serialize("risoluto_webhook_dlq_total", "Events moved to dead-letter queue by reason"),
+      this.webhookSubscriptionChecksTotal.serialize(
+        "risoluto_webhook_subscription_checks_total",
+        "Periodic subscription check results",
+      ),
+      this.webhookBacklogCount.serialize("risoluto_webhook_backlog_count", "Number of unprocessed webhook events"),
+      this.webhookDlqCount.serialize("risoluto_webhook_dlq_count", "Number of events in dead-letter queue"),
+      this.webhookLastDeliveryAgeSeconds.serialize(
+        "risoluto_webhook_last_delivery_age_seconds",
+        "Seconds since last verified webhook delivery",
+      ),
+      this.webhookProcessingLatencySeconds.serialize(
+        "risoluto_webhook_processing_latency_seconds",
+        "Time from webhook receipt to application",
+      ),
     ].join("\n\n");
   }
 }

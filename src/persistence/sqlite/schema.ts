@@ -152,3 +152,33 @@ export const configHistory = sqliteTable("config_history", {
   requestId: text("request_id"),
   timestamp: text("timestamp").notNull(),
 });
+
+/**
+ * Durable webhook inbox — persists verified Linear deliveries BEFORE
+ * returning 200. Serves as the foundation for dedup, retry, DLQ,
+ * and audit trail.
+ *
+ * delivery_id is the unique Linear-Delivery header UUID.
+ * status tracks the lifecycle: received → processing → applied | ignored | retry | dead_letter
+ */
+export const webhookInbox = sqliteTable("webhook_inbox", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  deliveryId: text("delivery_id").notNull().unique(),
+  receivedAt: text("received_at").notNull(),
+  type: text("type").notNull(),
+  action: text("action").notNull(),
+  entityId: text("entity_id"),
+  issueId: text("issue_id"),
+  issueIdentifier: text("issue_identifier"),
+  webhookTimestamp: integer("webhook_timestamp"),
+  payloadJson: text("payload_json"),
+  status: text("status", {
+    enum: ["received", "processing", "applied", "ignored", "retry", "dead_letter"],
+  })
+    .notNull()
+    .default("received"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  nextAttemptAt: text("next_attempt_at"),
+  lastError: text("last_error"),
+  appliedAt: text("applied_at"),
+});

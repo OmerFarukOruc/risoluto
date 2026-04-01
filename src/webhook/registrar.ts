@@ -17,7 +17,7 @@ import type { RisolutoLogger, WebhookConfig } from "../core/types.js";
 
 const SECRETS_KEY = "LINEAR_WEBHOOK_SECRET";
 
-const RESOURCE_TYPES = ["Issue", "Comment", "Project"];
+const RESOURCE_TYPES = ["Issue", "Comment"];
 const WEBHOOK_LABEL = "Risoluto";
 
 export interface WebhookRegistrarDeps {

@@ -249,6 +249,8 @@ export interface PollingConfig {
 export interface WebhookConfig {
   webhookUrl: string;
   webhookSecret: string;
+  /** Previous secret during rotation window (optional, for dual-secret validation). */
+  previousWebhookSecret?: string | null;
   pollingStretchMs: number;
   pollingBaseMs: number;
   healthCheckIntervalMs: number;

@@ -4,7 +4,7 @@
  * Uses event delegation on the document for efficiency.
  */
 
-const delightTimers = new WeakMap<Element, number>();
+const delightTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>();
 
 export function initDelightClicks(): void {
   document.addEventListener("click", (event) => {

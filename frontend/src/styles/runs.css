@@ -5,7 +5,7 @@
 .runs-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
-  gap: var(--space-4);
+  gap: var(--space-6);
   min-height: 0;
 }
 
@@ -17,7 +17,7 @@
   display: grid;
   align-content: start;
   border-left: 1px solid var(--border-stitch);
-  padding-left: var(--space-5);
+  padding-left: var(--space-6);
 }
 
 .runs-table-wrap,
@@ -82,7 +82,7 @@
 .runs-time-cell {
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .runs-live-pill {
@@ -120,7 +120,7 @@
 .runs-summary-item,
 .runs-compare-card-list {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .runs-detail-card {

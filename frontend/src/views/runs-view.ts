@@ -74,33 +74,47 @@ export function createRunsPage(issueId: string): HTMLElement {
     render();
   }
 
+  /** True when the API returned a real identifier (not just the raw URL slug). */
+  function hasResolvedIdentifier(): boolean {
+    return state.issueIdentifier !== issueId || state.issueTitle !== issueId;
+  }
+
   function render(): void {
-    title.textContent = `${state.issueIdentifier} Run History`;
-    subtitle.textContent = state.issueTitle;
-    backButton.textContent = `Back to ${state.issueIdentifier}`;
     if (state.loading) {
+      title.textContent = "Run History";
+      subtitle.textContent = "Loading\u2026";
       tableColumn.replaceChildren(skeletonBlock("320px"));
       detailColumn.replaceChildren(renderRunsLoadingPanel());
       return;
     }
     if (state.error) {
+      // When the issue was never resolved, show a generic heading
+      // instead of the raw URL slug (BUG-06).
+      title.textContent = hasResolvedIdentifier() ? `${state.issueIdentifier} Run History` : "Run History";
+      subtitle.textContent = hasResolvedIdentifier() ? state.issueTitle : "";
+      backButton.textContent = hasResolvedIdentifier() ? `Back to ${state.issueIdentifier}` : "Back to board";
+      const backTarget = hasResolvedIdentifier() ? `/issues/${state.issueIdentifier}` : "/queue";
       tableColumn.replaceChildren(
-        createEmptyState("Run history unavailable", state.error, "Back to issue", () =>
-          router.navigate(`/issues/${state.issueIdentifier}`),
+        createEmptyState("Run history unavailable", state.error, backButton.textContent, () =>
+          router.navigate(backTarget),
         ),
       );
       detailColumn.replaceChildren(
-        createEmptyState("No run selected", "Retry once archived runs are available.", "View issue logs", () =>
-          router.navigate(`/issues/${state.issueIdentifier}/logs`),
+        createEmptyState("No run selected", "Resolve the error on the left, then try again.", "Open board", () =>
+          router.navigate("/queue"),
         ),
       );
       return;
     }
+
+    title.textContent = `${state.issueIdentifier} Run History`;
+    subtitle.textContent = state.issueTitle;
+    backButton.textContent = `Back to ${state.issueIdentifier}`;
     if (state.attempts.length === 0) {
       tableColumn.replaceChildren(
         createEmptyState(
           "No archived runs yet",
-          "Archived runs appear after the first attempt finishes and Risoluto persists the summary.",
+          "Run summaries appear here after an attempt finishes. Check live logs to follow work in progress.",
           "View live logs",
           () => router.navigate(`/issues/${state.issueIdentifier}/logs`),
         ),
@@ -108,7 +122,7 @@ export function createRunsPage(issueId: string): HTMLElement {
       detailColumn.replaceChildren(
         createEmptyState(
           "No run selected",
-          "Archived run summaries appear here once the first attempt lands.",
+          "Run detail will appear here once the first attempt completes.",
           "Back to issue",
           () => router.navigate(`/issues/${state.issueIdentifier}`),
         ),
@@ -149,7 +163,7 @@ export function createRunsPage(issueId: string): HTMLElement {
     const attempt = activeAttempt(state);
     if (!attempt) {
       detailColumn.replaceChildren(
-        createEmptyState("No run selected", "Pick a run to inspect its summary.", "Back to issue", () =>
+        createEmptyState("No run selected", "Pick a run from the list to see its summary here.", "Back to issue", () =>
           router.navigate(`/issues/${state.issueIdentifier}`),
         ),
       );

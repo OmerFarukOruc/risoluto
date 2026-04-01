@@ -137,7 +137,7 @@
 .error-state-title {
   font-family: var(--font-heading);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .error-state-message {
@@ -171,7 +171,7 @@
 .empty-state-title {
   font-family: var(--font-heading);
   color: var(--text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .empty-state-detail {
@@ -229,35 +229,8 @@
   outline-offset: 2px;
 }
 
-/* Skip link for keyboard navigation */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-stitch);
-  color: var(--text-primary);
-  z-index: 100;
-  transition: top var(--motion-fast);
-}
-
-.skip-link:focus {
-  top: var(--space-2);
-}
-
-/* Screen reader only content */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* .skip-link consolidated to polish-brand.css — single source of truth */
+/* .sr-only consolidated to polish-brand.css — single source of truth */
 
 /* Visible on focus for keyboard users */
 .sr-only-focusable:focus {
@@ -308,7 +281,9 @@
    ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  /* Disable all animations and transitions */
+  /* Universal safety net — all durations and iterations collapse.
+     Specific transform/opacity/visual overrides live in their
+     respective CSS files (animations.css, polish-motion.css, etc.). */
   *,
   *::before,
   *::after {
@@ -316,19 +291,6 @@
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
     scroll-behavior: auto;
-  }
-
-  /* Keep instant feedback visible */
-  .skeleton-line,
-  .skeleton-block {
-    animation: none;
-    opacity: 0.6;
-  }
-
-  /* Remove pulsing animations */
-  .is-status-running::before,
-  .is-status-claimed::before {
-    animation: none;
   }
 }
 
@@ -469,27 +431,119 @@
   min-height: 120px;
 }
 
-/* Loading shimmer effect (respects reduced motion) */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+/* shimmerGpu keyframes consolidated to animations.css — single source of truth */
+
+/* ============================================
+   RENDERING CONTAINMENT
+   Reduce layout/paint cost for off-screen or
+   independently-sized regions.
+   ============================================ */
+
+/* Off-screen page sections skip rendering until scrolled into view.
+   `content-visibility: auto` enables the browser to skip layout,
+   paint, and compositing for sections not in the viewport.
+   `contain-intrinsic-size` prevents layout shift when sections
+   appear by reserving a height estimate.                        */
+.page-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
-/* Touch-friendly tap targets */
+/* Skeleton cards are layout-independent — hint the browser that
+   they won't affect siblings so it can optimize reflows.        */
+.skeleton-card,
+.skeleton-column {
+  contain: content;
+}
+
+/* Data tables can be large — contain their layout to prevent
+   row additions from triggering full-page reflows.              */
+.data-table {
+  contain: layout style;
+}
+
+/* Log scroll area is independently scrollable — containment
+   prevents log entry additions from affecting the rest of the page. */
+.logs-scroll {
+  contain: content;
+}
+
+/* ============================================
+   LONG-CONTENT OVERFLOW GUARDS
+   Prevent layout breakage from long identifiers,
+   URLs, and titles across all pages
+   ============================================ */
+
+/* Mono-spaced identifiers that can get long (thread IDs, workspace keys) */
+.text-mono {
+  word-break: break-all;
+}
+
+/* Log messages with long unbroken strings */
+.mc-log-message {
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Event row message overflow */
+.event-row-message,
+.event-row-identifier {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sidebar labels should never break layout */
+.sidebar-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Page header eyebrow (issue-identifier) overflow */
+.mc-strip .issue-identifier {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Touch-friendly tap targets — all interactive elements meet 44px minimum.
+   Base sizes already use --control-height-xl (44px). This block provides
+   reinforcement for touch devices and covers edge-case elements. */
 @media (pointer: coarse) {
   .mc-button,
+  .mc-chip,
   .mc-chip.is-interactive,
+  .mc-filter-chip,
   .mc-list-item,
-  .mc-rail-item {
+  .mc-rail-item,
+  .mc-status-chip {
     min-height: 44px;
   }
 
-  .header-action-btn {
+  .header-action-btn,
+  .toolbar-icon-btn {
     width: 44px;
     height: 44px;
+  }
+
+  .overview-getting-started-dismiss,
+  .stale-banner-dismiss,
+  .config-help-dismiss,
+  .toast-dismiss {
+    width: 44px;
+    height: 44px;
+  }
+
+  .breadcrumb {
+    min-height: 44px;
+  }
+
+  .overview-collapsible-header {
+    min-height: 44px;
   }
 }

@@ -106,7 +106,6 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
   const section = el("section", "ws-section");
 
   const header = el("div", "ws-section-header");
-  header.append(el("h2", "heading-section", "Workspaces"));
   const count = el("span", "mc-badge is-sm is-status");
   count.textContent = String(data.total);
   header.append(count);
@@ -114,7 +113,11 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
 
   if (data.workspaces.length === 0) {
     section.append(
-      el("p", "ws-empty-hint", "No workspaces on disk. Workspaces appear after an agent run creates one."),
+      el(
+        "p",
+        "ws-empty-hint",
+        "No workspaces on disk yet. A workspace will appear here the first time an agent run clones a repository.",
+      ),
     );
     return section;
   }
@@ -135,7 +138,7 @@ function buildWorkspaceSection(data: WorkspaceInventoryResponse, onRemove: (key:
 function renderWorkspaces(page: HTMLElement, data: WorkspaceInventoryResponse, onRemove: (key: string) => void): void {
   const body = page.querySelector(".ws-page-body");
   if (!body) return;
-  body.innerHTML = "";
+  body.replaceChildren();
 
   body.append(buildStatsRow(data), buildWorkspaceSection(data, onRemove));
 }
@@ -197,11 +200,11 @@ export function createWorkspacesPage(): HTMLElement {
       currentData = await api.getWorkspaces();
       renderWorkspaces(page, currentData, handleRemove);
     } catch {
-      body.innerHTML = "";
+      body.replaceChildren();
       body.append(
         createEmptyState(
-          "Failed to load workspace inventory",
-          "The workspace inventory API returned an error. Check server logs or try refreshing.",
+          "Could not load workspaces",
+          "Something went wrong fetching workspace data. Check the server logs for details, or try refreshing the page.",
           "Retry",
           () => void fetchAndRender(),
           "error",

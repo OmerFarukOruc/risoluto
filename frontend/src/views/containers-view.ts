@@ -20,30 +20,32 @@ function buildEmptyStateForSnapshot(snapshot: RuntimeSnapshot): HTMLElement {
   if (hasRunningIssues(snapshot)) {
     return createEmptyState(
       "Containers are active",
-      "Container metrics populate while agents are active — check Observability for live CPU and memory data.",
+      "Agents are running in sandboxed containers. Head to Observability for live CPU and memory metrics while work is in progress.",
       "View observability",
       () => router.navigate("/observability"),
       "network",
+      { headingLevel: "h2" },
     );
   }
 
   return createEmptyState(
     "No containers running",
-    "Container metrics appear here when agent workers are active. Start an issue from the board to launch a sandboxed container.",
+    "This page shows container health and resource usage once agent workers start. Pick an issue from the board to launch a sandboxed container.",
     "Open board",
     () => router.navigate("/queue"),
     "default",
-    { secondaryActionLabel: "View observability", secondaryActionHref: "/observability" },
+    { secondaryActionLabel: "View observability", secondaryActionHref: "/observability", headingLevel: "h2" },
   );
 }
 
 function buildFallbackEmptyState(onRetry: () => void): HTMLElement {
   return createEmptyState(
-    "Unable to load container status",
-    "The state API returned an error. Check server logs or try refreshing the page.",
+    "Could not load container status",
+    "Something went wrong fetching container data. Check the server logs for details, or try refreshing.",
     "Retry",
     onRetry,
     "error",
+    { headingLevel: "h2" },
   );
 }
 

@@ -170,10 +170,14 @@ export function createAttemptPage(attemptId: string): HTMLElement {
       }
     } catch (error) {
       if (!disposed) {
+        const message = error instanceof Error ? error.message : "Could not load the archived attempt detail.";
         root.replaceChildren(
           createEmptyState(
-            "Attempt detail unavailable",
-            error instanceof Error ? error.message : "Failed to load archived attempt detail.",
+            "Attempt not found",
+            `${message} The attempt may have been cleaned up, or the ID may be incorrect. Try navigating back to the issue or the queue board.`,
+            "Open board",
+            () => router.navigate("/queue"),
+            "error",
           ),
         );
       }

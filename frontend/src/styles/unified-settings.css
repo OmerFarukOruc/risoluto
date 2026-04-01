@@ -1,5 +1,5 @@
 .settings-unified-page {
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .settings-unified-body {
@@ -35,7 +35,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--text-primary);
 }
 
@@ -46,7 +46,7 @@
 }
 
 .settings-devtools-section {
-  padding: var(--space-5);
+  padding: var(--space-6);
 }
 
 .settings-devtools-section summary {
@@ -56,7 +56,7 @@
   cursor: pointer;
   font-family: var(--font-heading);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-secondary);
   list-style: none;
   user-select: none;
@@ -69,7 +69,7 @@
 .settings-devtools-section summary::before {
   content: "\25B6";
   font-size: var(--text-xs);
-  transition: transform 0.15s ease;
+  transition: transform var(--motion-fast) var(--ease-out-quart);
   color: var(--text-muted);
 }
 
@@ -89,7 +89,7 @@
 }
 
 .settings-devtools-content {
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .settings-devtools-content .config-help-banner {

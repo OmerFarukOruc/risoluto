@@ -15,31 +15,34 @@ function isSlackConfigured(config: Record<string, unknown>): boolean {
 
 function renderUnconfiguredState(): HTMLElement {
   return createEmptyState(
-    "Notifications not configured",
-    "Configure a Slack webhook and set verbosity to start receiving notifications when issues complete, fail, or need attention.",
+    "Notifications not configured yet",
+    "Add a Slack webhook URL and choose a verbosity level so Risoluto can notify you when issues complete, fail, or need attention.",
     "Open notification settings",
-    () => router.navigate("/settings"),
+    () => router.navigate("/settings#notifications"),
     "events",
+    { headingLevel: "h2" },
   );
 }
 
 function renderConfiguredState(): HTMLElement {
   return createEmptyState(
-    "No notification history yet",
-    "Notifications are configured and will be sent as Slack messages when issues are processed. Delivery history will appear here in a future update.",
+    "Notifications are configured",
+    "Slack messages will be delivered as issues are processed. Delivery history for this page is coming in a future update \u2014 for now, check your Slack channel.",
     "Open board",
     () => router.navigate("/queue"),
     "events",
+    { headingLevel: "h2" },
   );
 }
 
 function renderErrorState(): HTMLElement {
   return createEmptyState(
-    "Could not load notification status",
-    "Unable to check notification configuration. Try refreshing the page, or visit Settings to configure notifications manually.",
-    "Open settings",
-    () => router.navigate("/settings"),
+    "Could not check notification status",
+    "Something went wrong loading the notification configuration. Try refreshing the page, or head to Settings to configure notifications directly.",
+    "Open notification settings",
+    () => router.navigate("/settings#notifications"),
     "error",
+    { headingLevel: "h2" },
   );
 }
 

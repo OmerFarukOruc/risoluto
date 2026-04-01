@@ -48,7 +48,7 @@ export function openProjectPicker(options: ProjectPickerOptions): void {
       list.append(
         createEmptyState(
           "No projects found",
-          "Risoluto could not load any Linear projects for the current credentials. Recheck the API key or finish setup first.",
+          "No Linear projects were returned for the current API key. Double-check the key permissions, or create a project in Linear first.",
           "Open setup",
           () => {
             close();

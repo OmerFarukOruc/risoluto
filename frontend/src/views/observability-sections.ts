@@ -48,8 +48,8 @@ export function renderObservabilitySections(
   if (!snapshot) {
     container.append(
       createEmptyState(
-        "Waiting for backend state",
-        "Observability cards populate after the next /api/v1/state snapshot arrives from the backend.",
+        "Waiting for the first snapshot",
+        "Observability metrics will populate once the backend delivers its first state snapshot. This usually takes a few seconds.",
         "Refresh now",
         actions.onRefresh,
       ),

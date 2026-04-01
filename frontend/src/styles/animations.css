@@ -113,71 +113,64 @@
   }
 }
 
+/* ── Shared shimmer keyframe ────────────────────────── */
+/* GPU-optimized: translateX on pseudo-element.
+   Single source of truth — consumed by .skeleton::after,
+   .overview-skeleton::after, and polish-motion.css.       */
+
+@keyframes shimmerGpu {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Shared focus ring keyframe ─────────────────────── */
+/* GPU-optimized: opacity fade-in instead of animating
+   outline-offset (triggers layout recalc).               */
+
+@keyframes polishFocusRingGpu {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ── Reduced motion ──────────────────────────────────── */
 /* Respects prefers-reduced-motion: animations resolve
    instantly, transitions collapse to near-zero duration,
    and transforms are neutralized.                        */
 
-@media (prefers-reduced-motion: reduce) {
-  .transition-base {
-    transition-duration: 0.01ms;
-  }
+/* Duration/delay overrides handled by hardening.css universal rule.
+   Only transform neutralizations, opacity endpoints, and
+   non-animation property overrides remain here.              */
 
-  /* Entrance animations — instant resolve */
+@media (prefers-reduced-motion: reduce) {
+  /* Entrance animations — neutralize transforms */
   .fade-in,
   .page-enter,
   .stagger-item,
   .timeline-enter,
-  .expand-in,
-  .skeleton,
-  .status-running .mc-status-chip-dot,
-  .toast.is-exiting,
-  .modal-root.is-closing .modal-backdrop,
-  .modal-root.is-closing .modal-panel {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
+  .expand-in {
     transform: none !important;
   }
 
-  /* Shell sidebar collapse */
-  .sidebar-group-items {
-    transition-duration: 0.01ms;
-  }
-
-  /* Focus ring animations */
-  .mc-list-item:focus-visible,
-  .mc-rail-item:focus-visible,
-  .mc-button:focus-visible {
-    animation-duration: 0.01ms !important;
-  }
-
-  /* Kanban board */
-  .kanban-column.stagger-item,
-  .kanban-card.stagger-item {
-    animation-duration: 0.01ms;
-  }
-
+  /* Kanban board — neutralize hover lift */
   .kanban-card:hover {
     transform: none;
   }
 
-  .kanban-card[data-status="running"]::after {
-    animation-duration: 0.01ms;
-  }
-
   /* Queue page kanban — preserve dragging feedback */
-  .queue-page .kanban-card {
-    transition: none;
-  }
-
   .queue-page .kanban-card:hover,
   .queue-page .kanban-card:active {
     transform: none;
   }
 
   .queue-page .kanban-card[data-status="running"]::after {
-    animation: none;
     opacity: 1;
     width: 3px;
   }
@@ -186,52 +179,31 @@
     transform: scale(0.96);
   }
 
-  /* Interactive components — near-instant transitions */
-  .mc-button,
-  .mc-input,
-  .mc-select,
-  .mc-chip,
-  .issue-card,
-  .event-row,
-  .attempts-table tbody tr,
-  .mc-status-chip,
-  .mc-badge.is-status-queued,
-  .mc-chip.is-status-queued,
-  .mc-badge.is-status-running,
-  .mc-chip.is-status-running,
-  .mc-badge.is-status-retrying,
-  .mc-chip.is-status-retrying,
-  .mc-badge.is-status-blocked,
-  .mc-chip.is-status-blocked,
-  .mc-badge.is-status-completed,
-  .mc-chip.is-status-completed,
-  .mc-badge.is-status-claimed,
-  .mc-chip.is-status-claimed {
-    transition-duration: 0.01ms;
-  }
-
-  /* Overlays */
-  .toast,
-  .drawer {
-    animation-duration: 0.01ms !important;
-  }
-
-  /* Skeleton variants */
+  /* Skeleton variants — show static state */
   .skeleton-line,
   .skeleton-block {
-    animation: none !important;
     opacity: 0.6;
   }
 
-  /* Status pseudo-element pulses */
-  .is-status-running::before,
-  .is-status-claimed::before {
-    animation: none !important;
+  /* Skeleton shimmer pseudo-elements — hide overlay */
+  .skeleton::after,
+  .overview-skeleton::after {
+    transform: none !important;
+    opacity: 0;
   }
 
-  /* Mobile backdrop */
+  /* Diff flash pseudo-element */
+  .diff-flash::before {
+    opacity: 0;
+  }
+
+  /* Audit live entry pseudo-element */
+  .audit-row--live::after {
+    opacity: 0;
+  }
+
+  /* Mobile backdrop — remove blur */
   .shell-sidebar-backdrop {
-    animation: none !important;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }

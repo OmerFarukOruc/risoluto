@@ -24,7 +24,7 @@
 .attempt-section h2 {
   font-family: var(--font-heading);
   font-size: var(--text-sm-plus);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-secondary);
 }
 
@@ -45,6 +45,15 @@
   padding: var(--space-3);
   border: 1px solid var(--border-stitch);
   background: var(--bg-elevated);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.attempt-meta-item strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .attempt-external-link {

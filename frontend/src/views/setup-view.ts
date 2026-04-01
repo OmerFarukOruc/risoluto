@@ -115,61 +115,89 @@ function setLoading(loading: boolean): void {
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 
-function buildStepIndicator(): HTMLElement {
-  const steps: Array<{ key: SetupStep; label: string; n: string }> = [
-    { key: "master-key", label: "Secure credentials", n: "1" },
-    { key: "linear-project", label: "Connect Linear", n: "2" },
-    { key: "repo-config", label: "Link a repository", n: "3" },
-    { key: "openai-key", label: "Set up OpenAI", n: "4" },
-    { key: "github-token", label: "Add GitHub access", n: "5" },
-  ];
+const SETUP_STEP_DEFS: ReadonlyArray<{ key: SetupStep; label: string; n: string }> = [
+  { key: "master-key", label: "Credentials", n: "1" },
+  { key: "linear-project", label: "Linear", n: "2" },
+  { key: "repo-config", label: "Repository", n: "3" },
+  { key: "openai-key", label: "OpenAI", n: "4" },
+  { key: "github-token", label: "GitHub", n: "5" },
+];
 
-  const order: SetupStep[] = ["master-key", "linear-project", "repo-config", "openai-key", "github-token", "done"];
-  const currentIdx = order.indexOf(state.step);
+const SETUP_STEP_ORDER: SetupStep[] = [...SETUP_STEP_DEFS.map((s) => s.key), "done"];
+
+function resolveStepState(stepKey: SetupStep, currentIdx: number): "done" | "active" | "upcoming" {
+  const stepIdx = SETUP_STEP_ORDER.indexOf(stepKey);
+  if (currentIdx > stepIdx) return "done";
+  if (stepKey === state.step) return "active";
+  return "upcoming";
+}
+
+function buildStepItem(
+  stepDef: (typeof SETUP_STEP_DEFS)[number],
+  stepState: "done" | "active" | "upcoming",
+): HTMLElement {
+  const indicator = document.createElement("div");
+  indicator.className = `setup-step-indicator is-${stepState} is-clickable`;
+  indicator.setAttribute("aria-current", stepState === "active" ? "step" : "false");
+  indicator.setAttribute("role", "button");
+  indicator.setAttribute("tabindex", "0");
+
+  const targetStep = stepDef.key;
+  const handleNav = (): void => {
+    state.step = targetStep;
+    state.error = null;
+    rerender();
+  };
+  indicator.addEventListener("click", handleNav);
+  indicator.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleNav();
+    }
+  });
+
+  const dot = document.createElement("div");
+  dot.className = "setup-step-dot";
+  dot.textContent = stepState === "done" ? "\u2713" : stepDef.n;
+
+  /* Delight: pulse the check dot when arriving at the final "done" screen */
+  if (stepState === "done" && state.step === "done") {
+    dot.classList.add("delight-check");
+  }
+
+  const label = document.createElement("span");
+  label.className = "setup-step-label";
+  label.textContent = stepDef.label;
+
+  indicator.append(dot, label);
+  return indicator;
+}
+
+function buildStepIndicator(): HTMLElement {
+  const currentIdx = SETUP_STEP_ORDER.indexOf(state.step);
 
   const row = document.createElement("div");
   row.className = "setup-steps";
+  row.setAttribute("role", "navigation");
+  row.setAttribute(
+    "aria-label",
+    `Setup progress: step ${Math.min(currentIdx + 1, SETUP_STEP_DEFS.length)} of ${SETUP_STEP_DEFS.length}`,
+  );
 
-  for (let i = 0; i < steps.length; i++) {
-    const s = steps[i];
-    const stepIdx = order.indexOf(s.key);
-    const isDone = currentIdx > stepIdx;
-    const isActive = s.key === state.step;
-    const isClickable = true;
+  for (let i = 0; i < SETUP_STEP_DEFS.length; i++) {
+    const stepDef = SETUP_STEP_DEFS[i];
+    const stepState = resolveStepState(stepDef.key, currentIdx);
+    row.append(buildStepItem(stepDef, stepState));
 
-    const indicator = document.createElement("div");
-    indicator.className = `setup-step-indicator${isActive ? " is-active" : ""}${isDone ? " is-done" : ""}${isClickable ? " is-clickable" : ""}`;
-    if (isClickable) {
-      indicator.setAttribute("role", "button");
-      indicator.setAttribute("tabindex", "0");
-      const targetStep = s.key;
-      const handleNav = (): void => {
-        state.step = targetStep;
-        state.error = null;
-        rerender();
-      };
-      indicator.addEventListener("click", handleNav);
-      indicator.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleNav();
-        }
-      });
-    }
-
-    const dot = document.createElement("div");
-    dot.className = "setup-step-dot";
-    dot.textContent = isDone ? "✓" : s.n;
-
-    const label = document.createElement("span");
-    label.textContent = s.label;
-
-    indicator.append(dot, label);
-    row.append(indicator);
-
-    if (i < steps.length - 1) {
+    if (i < SETUP_STEP_DEFS.length - 1) {
       const connector = document.createElement("div");
-      connector.className = "setup-step-connector";
+      const isFilled = stepState === "done";
+      connector.className = `setup-step-connector${isFilled ? " is-filled" : ""}`;
+      /* Delight: animate the connector fill when all steps complete */
+      if (isFilled && state.step === "done") {
+        connector.classList.add("delight-fill");
+        connector.style.animationDelay = `${i * 80}ms`;
+      }
       row.append(connector);
     }
   }
@@ -206,10 +234,20 @@ function buildMasterKeyStep(): HTMLElement {
     const actions = document.createElement("div");
     actions.className = "setup-actions";
 
+    const next = document.createElement("button");
+    next.className = "mc-button is-primary";
+    next.type = "button";
+    next.textContent = "Continue \u2192";
+    next.addEventListener("click", () => advanceMasterKey());
+    actions.append(next);
+
+    const dangerZone = document.createElement("div");
+    dangerZone.className = "setup-danger-zone";
+
     const reconfigure = document.createElement("button");
     reconfigure.className = "mc-button is-ghost is-sm";
     reconfigure.type = "button";
-    reconfigure.textContent = state.loading ? "Resetting…" : "Reset setup";
+    reconfigure.textContent = state.loading ? "Resetting\u2026" : "Reset all credentials";
     reconfigure.disabled = state.loading;
     reconfigure.addEventListener("click", async () => {
       if (
@@ -244,17 +282,12 @@ function buildMasterKeyStep(): HTMLElement {
       }
     });
 
-    const next = document.createElement("button");
-    next.className = "mc-button is-primary";
-    next.type = "button";
-    next.textContent = "Continue →";
-    next.addEventListener("click", () => advanceMasterKey());
-    actions.append(reconfigure, next);
+    dangerZone.append(reconfigure);
 
     if (state.error) {
-      el.append(title, sub, badge, buildSetupError(state.error), actions);
+      el.append(title, sub, badge, buildSetupError(state.error), actions, dangerZone);
     } else {
-      el.append(title, sub, badge, actions);
+      el.append(title, sub, badge, actions, dangerZone);
     }
     return el;
   }
@@ -299,7 +332,7 @@ function buildMasterKeyStep(): HTMLElement {
   actions.className = "setup-actions";
 
   const regen = document.createElement("button");
-  regen.className = "mc-button is-ghost is-sm";
+  regen.className = "mc-button is-ghost is-sm setup-actions-secondary";
   regen.type = "button";
   regen.textContent = "Generate new key";
   regen.disabled = state.loading;
@@ -310,7 +343,7 @@ function buildMasterKeyStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Continue →";
+  next.textContent = state.loading ? "Saving\u2026" : "Continue \u2192";
   next.disabled = state.loading || !state.generatedKey;
   next.addEventListener("click", () => advanceMasterKey());
 
@@ -599,7 +632,7 @@ function buildLinearProjectStep(): HTMLElement {
   actions.className = "setup-actions";
 
   const skip = document.createElement("button");
-  skip.className = "mc-button is-ghost is-sm";
+  skip.className = "mc-button is-ghost is-sm setup-actions-secondary";
   skip.type = "button";
   skip.textContent = "Skip this step";
   skip.addEventListener("click", () => {
@@ -611,7 +644,7 @@ function buildLinearProjectStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Continue →";
+  next.textContent = state.loading ? "Saving\u2026" : "Continue \u2192";
   next.disabled = state.loading || !state.selectedProject;
   next.addEventListener("click", () => {
     advanceLinearProject().catch(() => {});
@@ -896,7 +929,7 @@ function buildGithubTokenStep(): HTMLElement {
   actions.className = "setup-actions";
 
   const skip = document.createElement("button");
-  skip.className = "mc-button is-ghost is-sm";
+  skip.className = "mc-button is-ghost is-sm setup-actions-secondary";
   skip.type = "button";
   skip.textContent = "Skip this step";
   skip.addEventListener("click", () => {
@@ -985,7 +1018,7 @@ function buildQuickStartCard(opts: {
   onClick: () => void;
 }): HTMLElement {
   const card = document.createElement("div");
-  card.className = `setup-quick-start-card${opts.loading ? " is-loading" : ""}${opts.created ? " is-success" : ""}`;
+  card.className = `setup-quick-start-card${opts.loading ? " is-loading" : ""}${opts.created ? " is-success delight-confirmed" : ""}`;
 
   const kicker = document.createElement("div");
   kicker.className = "setup-quick-start-kicker";
@@ -1037,7 +1070,7 @@ function buildQuickStartCard(opts: {
 
 function buildDoneStep(): HTMLElement {
   const el = document.createElement("div");
-  el.className = "setup-done";
+  el.className = "setup-done delight-entered";
 
   const icon = document.createElement("div");
   icon.className = "setup-done-icon";
@@ -1278,7 +1311,7 @@ function buildPage(): HTMLElement {
     const intro = document.createElement("div");
     intro.className = "setup-intro";
 
-    const introHeading = document.createElement("h2");
+    const introHeading = document.createElement("h1");
     introHeading.className = "setup-intro-heading";
     introHeading.textContent = "Welcome to Risoluto";
 

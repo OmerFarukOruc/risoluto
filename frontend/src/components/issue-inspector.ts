@@ -137,12 +137,12 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   }
 
   function renderError(message: string): void {
-    headerActions.hidden = true;
+    header.hidden = true;
     summary.hidden = true;
     content.replaceChildren(
       createEmptyState(
         "Issue unavailable",
-        message,
+        message || "This issue could not be loaded. It may have been removed, or the identifier may be incorrect.",
         "Retry",
         () => {
           void refresh();
@@ -164,6 +164,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     trackerLink.href = detail.url ?? "#";
     trackerLink.hidden = !detail.url;
     abortAction.sync(detail);
+    header.hidden = false;
     headerActions.hidden = false;
     summary.hidden = false;
 

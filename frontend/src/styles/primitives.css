@@ -11,7 +11,7 @@
 }
 
 .page-section + .page-section {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
 }
 
 .page-section.is-primary {
@@ -19,11 +19,11 @@
 }
 
 .page-section.is-primary + .page-section.is-primary {
-  margin-top: var(--space-8);
+  margin-top: var(--space-4);
 }
 
 .page-body {
-  padding: var(--space-5);
+  padding: var(--space-6);
 }
 
 .page-header {
@@ -46,6 +46,14 @@
   font-weight: var(--font-bold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
+  font-feature-settings: var(--font-features-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .page-subtitle {
@@ -128,8 +136,9 @@
 .mc-status-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-nudge, 6px);
-  padding: 4px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height-xl);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
@@ -226,13 +235,13 @@
 
 .toast-dismiss {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: var(--space-1);
+  right: var(--space-1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-height-xs);
-  height: var(--control-height-xs);
+  width: var(--control-height-xl);
+  height: var(--control-height-xl);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
@@ -257,20 +266,12 @@
   color: var(--text-primary);
 }
 
-/* Focus ring animation */
-@keyframes focusRing {
-  from {
-    outline-offset: 0;
-  }
-  to {
-    outline-offset: 2px;
-  }
-}
+/* Focus ring animation — consolidated to animations.css as polishFocusRingGpu */
 
 .mc-list-item:focus-visible,
 .mc-rail-item:focus-visible,
 .mc-button:focus-visible {
-  animation: focusRing var(--motion-fast) var(--ease-out-quart);
+  animation: polishFocusRingGpu var(--motion-fast) var(--ease-out-quart);
 }
 
 .summary-strip {
@@ -284,7 +285,7 @@
 
 .summary-strip-item {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .summary-strip-label {
@@ -324,33 +325,7 @@
   flex-wrap: wrap;
 }
 
-.mc-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
-  letter-spacing: var(--tracking-wide);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-stitch);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    color var(--motion-fast) var(--ease-out-quart),
-    border-color var(--motion-fast) var(--ease-out-quart);
-}
-
-.mc-filter-chip:hover {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-}
-
-.mc-filter-chip.is-active {
-  color: var(--text-accent);
-  border-color: var(--text-accent);
-}
+/* .mc-filter-chip consolidated to components.css — single source of truth */
 
 .drawer-overlay {
   position: fixed;
@@ -441,17 +416,17 @@
   outline-offset: 2px;
 }
 
-/* Size variants */
+/* Size variants — all meet 44px touch target minimum */
 .mc-list-item.is-sm,
 .mc-rail-item.is-sm {
-  min-height: var(--control-height-sm);
+  min-height: var(--control-height-xl);
   padding: 0 var(--space-2);
   font-size: var(--text-sm);
 }
 
 .mc-list-item.is-md,
 .mc-rail-item.is-md {
-  min-height: var(--control-height-lg);
+  min-height: var(--control-height-xl);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
 }
@@ -536,7 +511,7 @@
   font-family: var(--font-body);
   font-size: var(--text-ui);
   color: var(--text-secondary);
-  min-height: 36px;
+  min-height: var(--control-height-xl);
 }
 
 .breadcrumb a {
@@ -564,7 +539,7 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   color: var(--text-muted);
-  padding: 10px 16px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 2px solid var(--border-stitch);
   text-align: left;
 }
@@ -572,7 +547,7 @@
 .data-table td {
   font-family: var(--font-body);
   font-size: var(--text-ui);
-  padding: 10px 16px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--bg-surface);
   color: var(--text-primary);
 }
@@ -595,14 +570,7 @@
   background: var(--bg-elevated);
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
+/* Shimmer — consolidated to animations.css as shimmerGpu */
 
 /* ============================================
    MISSION CONTROL LAYOUT

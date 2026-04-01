@@ -127,8 +127,8 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
 
       if (list.length === 0) {
         const emptyHint = column.terminal
-          ? "Completed work appears here after it finishes."
-          : "New work appears here when Linear syncs.";
+          ? "Finished work will collect here as issues complete."
+          : "Issues will appear here as Linear syncs new work.";
         const hasFilters =
           options.filters.search.trim().length > 0 ||
           options.filters.stages.size > 0 ||
@@ -137,7 +137,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
         handle.body.replaceChildren(
           createEmptyState(
             `No issues in ${column.label}`,
-            hasFilters ? `${emptyHint} Clear filters to see the full board again.` : emptyHint,
+            hasFilters ? `${emptyHint} Try clearing filters to see the full board.` : emptyHint,
             hasFilters ? "Clear filters" : "Open overview",
             hasFilters ? options.clearFilters : () => router.navigate("/"),
             column.terminal ? "terminal" : "queue",

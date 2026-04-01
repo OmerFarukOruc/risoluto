@@ -43,12 +43,74 @@ function createLiveMetric(label: string): { root: HTMLElement; value: HTMLElemen
   return { root, value };
 }
 
+function describeCurrentMoment(
+  snapshot: NonNullable<AppState["snapshot"]>,
+  attentionCount: number,
+): {
+  state: string;
+  detail: string;
+} {
+  const queued = (snapshot.queued ?? []).length;
+  const running = snapshot.counts.running;
+  const completed = (snapshot.completed ?? []).length;
+
+  if (attentionCount > 0) {
+    return {
+      state: attentionCount === 1 ? "1 issue needs intervention" : `${attentionCount} issues need intervention`,
+      detail: "Blocked, retrying, and waiting work is collected here first so the next decision is always obvious.",
+    };
+  }
+
+  if (running > 0) {
+    return {
+      state: running === 1 ? "1 issue is in flight" : `${running} issues are in flight`,
+      detail:
+        queued > 0
+          ? `${queued} more ${queued === 1 ? "issue is" : "issues are"} queued behind the active work.`
+          : "Active work is progressing cleanly without intervention right now.",
+    };
+  }
+
+  if (queued > 0) {
+    return {
+      state: queued === 1 ? "1 issue is queued" : `${queued} issues are queued`,
+      detail: "The queue is ready and waiting for the next poll cycle to pick it up.",
+    };
+  }
+
+  if (completed > 0) {
+    return {
+      state: "Queue is clear",
+      detail: "No active work needs attention. Review the latest outcomes and recent activity below.",
+    };
+  }
+
+  return {
+    state: "Ready for the first issue",
+    detail: "Create a Linear issue, move it into progress, and Risoluto will take it from there.",
+  };
+}
+
+function describeAttentionZone(attentionCount: number): string {
+  if (attentionCount === 0) {
+    return "Nothing is waiting on you. When an issue blocks, retries, or needs a decision, it will surface here first.";
+  }
+
+  if (attentionCount === 1) {
+    return "One issue is waiting on a recovery, unblock, or decision. Resolve it here before scanning the rest of the system.";
+  }
+
+  return `${attentionCount} issues are competing for attention. Start with the oldest or most blocked item and work downward.`;
+}
+
 /**
  * Creates the hero metrics band - a strong top strip showing "Now" metrics.
  * Running, Queue Depth, Rate-limit, Attention count inline.
  */
 function createHeroMetricsBand(): {
   band: HTMLElement;
+  state: HTMLElement;
+  detail: HTMLElement;
   metrics: {
     running: HTMLElement;
     queued: HTMLElement;
@@ -59,9 +121,24 @@ function createHeroMetricsBand(): {
   const band = document.createElement("section");
   band.className = "overview-hero-band";
 
+  const intro = document.createElement("div");
+  intro.className = "overview-hero-intro";
+
   const label = document.createElement("span");
   label.className = "overview-hero-label";
-  label.textContent = "Now";
+  label.textContent = "Overview";
+
+  const title = document.createElement("h1");
+  title.className = "overview-hero-title";
+  title.textContent = "Calm control of the queue";
+
+  const detail = document.createElement("p");
+  detail.className = "overview-hero-detail";
+
+  const state = document.createElement("div");
+  state.className = "overview-hero-state";
+
+  intro.append(label, title, detail, state);
 
   const metricsContainer = document.createElement("div");
   metricsContainer.className = "overview-hero-metrics";
@@ -72,10 +149,12 @@ function createHeroMetricsBand(): {
   const attention = createLiveMetric("Attention");
 
   metricsContainer.append(running.root, queued.root, headroom.root, attention.root);
-  band.append(label, metricsContainer);
+  band.append(intro, metricsContainer);
 
   return {
     band,
+    state,
+    detail,
     metrics: {
       running: running.value,
       queued: queued.value,
@@ -99,7 +178,7 @@ function createSectionHeader(title: string, kicker?: string): HTMLElement {
 
   if (kicker) {
     const kickerEl = document.createElement("span");
-    kickerEl.className = "mc-badge";
+    kickerEl.className = "overview-section-kicker";
     kickerEl.textContent = kicker;
     header.append(kickerEl);
   }
@@ -187,7 +266,7 @@ function createGettingStartedCard(onDismiss: () => void): HTMLElement {
   dismiss.type = "button";
   dismiss.className = "overview-getting-started-dismiss";
   dismiss.textContent = "×";
-  dismiss.setAttribute("aria-label", "Dismiss");
+  dismiss.setAttribute("aria-label", "Dismiss tip");
   dismiss.addEventListener("click", () => {
     dismissGettingStarted();
     onDismiss();
@@ -195,20 +274,20 @@ function createGettingStartedCard(onDismiss: () => void): HTMLElement {
 
   const heading = document.createElement("h3");
   heading.className = "overview-getting-started-title";
-  heading.textContent = "No issues yet";
+  heading.textContent = "The queue is ready";
 
   const desc = document.createElement("p");
   desc.className = "overview-getting-started-desc";
   desc.textContent =
-    "Risoluto is polling your Linear project every 30 seconds. Create an issue and move it to In Progress to get started.";
+    "Create one issue, move it into progress, and Risoluto will pick it up on the next poll. This screen will turn into your live control room as soon as work starts.";
 
   const steps = document.createElement("div");
   steps.className = "overview-getting-started-steps";
 
   const stepItems = [
-    { n: "1", text: "Create an issue in Linear" },
-    { n: "2", text: "Move it to In Progress" },
-    { n: "3", text: "Risoluto picks it up within 30 seconds" },
+    { n: "1", text: "Create a Linear issue" },
+    { n: "2", text: "Move it into progress" },
+    { n: "3", text: "Watch the first run appear here" },
   ];
 
   for (const s of stepItems) {
@@ -232,7 +311,7 @@ export function createOverviewPage(): HTMLElement {
   page.className = "page overview-page fade-in";
 
   // Hero metrics band - the strong top "Now" strip
-  const { band: heroBand, metrics: heroMetrics } = createHeroMetricsBand();
+  const { band: heroBand, state: heroState, detail: heroDetail, metrics: heroMetrics } = createHeroMetricsBand();
   page.append(heroBand);
 
   // Getting started card (shown when dashboard is empty)
@@ -264,12 +343,16 @@ export function createOverviewPage(): HTMLElement {
   // Primary attention zone - dominant area
   const attentionZone = document.createElement("article");
   attentionZone.className = "overview-attention-zone";
-  const attentionHeader = createSectionHeader("Attention", "Intervention queue");
+  const attentionHeader = createSectionHeader("Needs action", "Focus now");
   const attentionCount = document.createElement("span");
-  attentionCount.className = "mc-badge is-sm overview-attention-count";
+  attentionCount.className = "overview-attention-count";
   attentionCount.hidden = true;
   attentionHeader.append(attentionCount);
   attentionZone.append(attentionHeader);
+
+  const attentionContext = document.createElement("p");
+  attentionContext.className = "overview-attention-context";
+  attentionZone.append(attentionContext);
 
   const attentionList = document.createElement("div");
   attentionList.className = "overview-attention-list";
@@ -278,10 +361,19 @@ export function createOverviewPage(): HTMLElement {
   const secondary = document.createElement("aside");
   secondary.className = "overview-secondary";
 
+  // System health section
+  const healthSection = document.createElement("div");
+  healthSection.className = "overview-health-section";
+  healthSection.append(createSectionHeader("System health", "Watchdog"));
+  const { root: healthBadge, update: updateHealthBadge } = createSystemHealthBadge();
+  const { root: webhookPanel, update: updateWebhookPanel } = createWebhookHealthPanel();
+  healthSection.append(healthBadge, webhookPanel);
+  secondary.append(healthSection);
+
   // Token burn section
   const tokenSection = document.createElement("div");
   tokenSection.className = "overview-token-section";
-  tokenSection.append(createSectionHeader("Token burn", "Session totals"));
+  tokenSection.append(createSectionHeader("Token burn", "This session"));
 
   const tokenGrid = document.createElement("div");
   tokenGrid.className = "overview-token-grid";
@@ -296,10 +388,18 @@ export function createOverviewPage(): HTMLElement {
   tokenSection.append(tokenGrid);
   secondary.append(tokenSection);
 
+  // Stall events section
+  const stallSection = document.createElement("div");
+  stallSection.className = "overview-stall-section";
+  stallSection.append(createSectionHeader("Recovered stalls", "If the watchdog stepped in"));
+  const { root: stallList, update: updateStallEvents } = createStallEventsTable();
+  stallSection.append(stallList);
+  secondary.append(stallSection);
+
   // Recent events section
   const recentSection = document.createElement("div");
   recentSection.className = "overview-recent-section";
-  recentSection.append(createSectionHeader("Recent events"));
+  recentSection.append(createSectionHeader("Latest activity", "What just changed"));
 
   const recentList = document.createElement("div");
   recentList.className = "overview-events";
@@ -308,26 +408,11 @@ export function createOverviewPage(): HTMLElement {
   // Terminal issues section (lower priority)
   const terminalSection = document.createElement("div");
   terminalSection.className = "overview-terminal-section";
-  terminalSection.append(createSectionHeader("Latest completed / failed"));
+  terminalSection.append(createSectionHeader("Recently finished", "Completed or failed"));
 
   const terminalList = document.createElement("div");
   terminalList.className = "overview-list";
   terminalSection.append(terminalList);
-
-  // System health section
-  const healthSection = document.createElement("div");
-  healthSection.className = "overview-health-section";
-  healthSection.append(createSectionHeader("System health", "Watchdog"));
-  const { root: healthBadge, update: updateHealthBadge } = createSystemHealthBadge();
-  const { root: webhookPanel, update: updateWebhookPanel } = createWebhookHealthPanel();
-  healthSection.append(healthBadge, webhookPanel);
-
-  // Stall events section
-  const stallSection = document.createElement("div");
-  stallSection.className = "overview-stall-section";
-  stallSection.append(createSectionHeader("Stall events"));
-  const { root: stallList, update: updateStallEvents } = createStallEventsTable();
-  stallSection.append(stallList);
 
   // Assemble main grid
   mainGrid.append(attentionZone, secondary);
@@ -335,7 +420,7 @@ export function createOverviewPage(): HTMLElement {
 
   const lowerGrid = document.createElement("section");
   lowerGrid.className = "overview-lower-grid";
-  lowerGrid.append(recentSection, healthSection, terminalSection, stallSection);
+  lowerGrid.append(recentSection, terminalSection);
   page.append(lowerGrid);
 
   // Loading state
@@ -370,13 +455,17 @@ export function createOverviewPage(): HTMLElement {
 
     // Attention count for hero
     const attentionIssues = buildAttentionList(snapshot.workflow_columns ?? []);
+    const currentMoment = describeCurrentMoment(snapshot, attentionIssues.length);
+    setTextWithDiff(heroState, currentMoment.state);
+    setTextWithDiff(heroDetail, currentMoment.detail);
     setTextWithDiff(heroMetrics.attention, String(attentionIssues.length));
+    setTextWithDiff(attentionContext, describeAttentionZone(attentionIssues.length));
     if (attentionIssues.length === 0) {
       attentionCount.hidden = true;
       attentionCount.textContent = "";
     } else {
       attentionCount.hidden = false;
-      setTextWithDiff(attentionCount, `${attentionIssues.length} in queue`);
+      setTextWithDiff(attentionCount, `${attentionIssues.length} live`);
     }
 
     // Token burn metrics
@@ -408,13 +497,15 @@ export function createOverviewPage(): HTMLElement {
     // Recent events
     fillList(
       recentList,
-      (snapshot.recent_events ?? []).slice(-5).map((event) => createEventRow(event, true)),
+      (snapshot.recent_events ?? []).slice(-4).map((event) => createEventRow(event, true)),
     );
 
     // Terminal issues
     fillList(
       terminalList,
-      latestTerminalIssues(snapshot.completed ?? []).map((issue) => issueRow(issue, "terminal")),
+      latestTerminalIssues(snapshot.completed ?? [])
+        .slice(0, 4)
+        .map((issue) => issueRow(issue, "terminal")),
     );
 
     // System health badge
@@ -429,8 +520,8 @@ export function createOverviewPage(): HTMLElement {
     if (attentionList.childElementCount === 0) {
       attentionList.replaceChildren(
         createTeachingEmptyState(
-          "All clear",
-          "No issues need attention. Blocked, retrying, or pending work will show up here.",
+          "Nothing needs intervention",
+          "Blocked, retrying, and queued work will surface here the moment it needs a decision.",
           "Open queue",
           () => router.navigate("/queue"),
         ),
@@ -440,15 +531,18 @@ export function createOverviewPage(): HTMLElement {
     if (recentList.childElementCount === 0) {
       recentList.replaceChildren(
         createTeachingEmptyState(
-          "Awaiting activity",
-          "Workflow events will appear here as the orchestrator processes issues.",
+          "No activity yet",
+          "Workflow events will appear here as Risoluto starts processing work.",
         ),
       );
     }
 
     if (terminalList.childElementCount === 0) {
       terminalList.replaceChildren(
-        createTeachingEmptyState("No completed work yet", "Finished and failed issues will collect here for review."),
+        createTeachingEmptyState(
+          "No finished issues yet",
+          "Completed and failed issues will collect here once the first run lands.",
+        ),
       );
     }
   }

@@ -100,7 +100,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   const search = Object.assign(document.createElement("input"), {
     className: "mc-input",
-    placeholder: "Search issues\u2026",
+    placeholder: "Search issues, titles, or IDs\u2026",
   });
   search.value = filters.search;
 
@@ -134,7 +134,13 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   function renderPriorities(): void {
     priorityBar.replaceChildren(
-      ...["all", "urgent", "high", "medium", "low"].map((value) => {
+      ...[
+        ["all", "All priorities"],
+        ["urgent", "Urgent"],
+        ["high", "High"],
+        ["medium", "Medium"],
+        ["low", "Low"],
+      ].map(([value, _label]) => {
         const button = chip(value, () => {
           filters.priority = value;
           renderPriorities();
@@ -154,15 +160,19 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   const sort = document.createElement("select");
   sort.className = "mc-select";
-  ["updated", "priority", "tokens"].forEach((value) => {
-    const option = Object.assign(document.createElement("option"), { value, textContent: value });
+  [
+    ["updated", "Recently updated"],
+    ["priority", "Priority"],
+    ["tokens", "Token usage"],
+  ].forEach(([value, label]) => {
+    const option = Object.assign(document.createElement("option"), { value, textContent: label });
     option.selected = filters.sort === value;
     sort.append(option);
   });
 
   const sortGroup = document.createElement("div");
   sortGroup.className = "toolbar-utility-group";
-  sortGroup.append(createIcon("sort", { size: 14, className: "toolbar-utility-icon" }), utilityLabel("Sort"), sort);
+  sortGroup.append(createIcon("sort", { size: 14, className: "toolbar-utility-icon" }), utilityLabel("Sort by"), sort);
 
   const densityBtn = iconButton(
     filters.density === "comfortable" ? "unfold" : "dense",
@@ -180,7 +190,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   const completedBtn = iconButton(
     filters.showCompleted ? "eye" : "eyeOff",
-    filters.showCompleted ? "Hide completed issues" : "Show completed issues",
+    filters.showCompleted ? "Hide completed work" : "Show completed work",
     () => {
       filters.showCompleted = !filters.showCompleted;
       syncControls();
@@ -190,7 +200,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   const completedLabel = document.createElement("span");
   completedLabel.className = "toolbar-icon-btn-label";
-  completedLabel.textContent = "Done";
+  completedLabel.textContent = "Completed";
 
   const completedGroup = document.createElement("div");
   completedGroup.className = "toolbar-utility-group";
@@ -211,7 +221,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
     /* completed */
     completedBtn.replaceChildren(createIcon(filters.showCompleted ? "eye" : "eyeOff", { size: 16 }));
-    completedBtn.title = filters.showCompleted ? "Hide completed issues" : "Show completed issues";
+    completedBtn.title = filters.showCompleted ? "Hide completed work" : "Show completed work";
     completedBtn.setAttribute("aria-label", completedBtn.title);
     completedBtn.classList.toggle("is-active", filters.showCompleted);
 

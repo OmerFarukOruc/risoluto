@@ -97,7 +97,7 @@ export function initHeader(headerEl: HTMLElement): void {
   searchIcon.append(createIcon("overview", { size: 14 }));
   const cmdLabel = document.createElement("span");
   cmdLabel.className = "header-command-label";
-  cmdLabel.textContent = "Search routes, issues, actions\u2026";
+  cmdLabel.textContent = "Search pages, issues, and actions\u2026";
   const cmdHint = document.createElement("span");
   cmdHint.className = "mc-button-hint header-command-hint";
   cmdHint.textContent = "Ctrl+K";

@@ -13,7 +13,7 @@ export interface SettingsState {
   expandedPaths: Set<string>;
   /** Expert toggle state persisted across re-renders. Keyed by `${sectionId}:${groupId}`. */
   openExperts: Set<string>;
-  /** Simple = focused view; advanced = full power-user view. */
+  /** Focused = common settings; advanced = full settings. */
   mode: SettingsMode;
 }
 

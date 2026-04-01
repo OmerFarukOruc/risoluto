@@ -44,9 +44,9 @@ export function createSettingsPage(options: SettingsPageOptions = {}): HTMLEleme
   content.className = "settings-content";
   const searchInput = Object.assign(document.createElement("input"), {
     className: "mc-input",
-    placeholder: "Search settings…",
+    placeholder: "Search sections, fields, or values…",
   });
-  searchInput.setAttribute("aria-label", "Search settings");
+  searchInput.setAttribute("aria-label", "Search sections, fields, or values");
   shell.append(rail, content);
   page.append(header, shell);
 
@@ -130,7 +130,7 @@ export function createSettingsPage(options: SettingsPageOptions = {}): HTMLEleme
       renderEmpty: () =>
         createEmptyState(
           "No settings available",
-          "Risoluto did not return any editable settings.",
+          "Risoluto did not return any settings to edit yet.",
           "Retry",
           () => void load(),
         ),

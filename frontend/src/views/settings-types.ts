@@ -5,7 +5,7 @@
 
 import type { IconName } from "../ui/icons";
 
-/** Controls which settings are visible: "simple" hides power-user sections and expert fields. */
+/** Controls which settings are visible: "simple" keeps the common settings in front. */
 export type SettingsMode = "simple" | "advanced";
 
 /** Section IDs used throughout settings for navigation and conditional logic. */
@@ -94,7 +94,7 @@ export interface SettingsSectionDefinition {
   groupId?: string;
   /** Visual emphasis for onboarding */
   startHere?: boolean;
-  /** When set to "advanced", this section is hidden in Simple mode. */
+  /** When set to "advanced", this section is hidden in Focused mode. */
   mode?: "advanced";
 }
 

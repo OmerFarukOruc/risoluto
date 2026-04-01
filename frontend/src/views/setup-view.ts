@@ -117,11 +117,11 @@ function setLoading(loading: boolean): void {
 
 function buildStepIndicator(): HTMLElement {
   const steps: Array<{ key: SetupStep; label: string; n: string }> = [
-    { key: "master-key", label: "Protect secrets", n: "1" },
+    { key: "master-key", label: "Secure credentials", n: "1" },
     { key: "linear-project", label: "Connect Linear", n: "2" },
-    { key: "repo-config", label: "Link repo", n: "3" },
-    { key: "openai-key", label: "Add OpenAI", n: "4" },
-    { key: "github-token", label: "Add GitHub", n: "5" },
+    { key: "repo-config", label: "Link a repository", n: "3" },
+    { key: "openai-key", label: "Set up OpenAI", n: "4" },
+    { key: "github-token", label: "Add GitHub access", n: "5" },
   ];
 
   const order: SetupStep[] = ["master-key", "linear-project", "repo-config", "openai-key", "github-token", "done"];
@@ -138,9 +138,8 @@ function buildStepIndicator(): HTMLElement {
     const isClickable = true;
 
     const indicator = document.createElement("div");
-    indicator.className = `setup-step-indicator${isActive ? " is-active" : ""}${isDone ? " is-done" : ""}`;
+    indicator.className = `setup-step-indicator${isActive ? " is-active" : ""}${isDone ? " is-done" : ""}${isClickable ? " is-clickable" : ""}`;
     if (isClickable) {
-      indicator.style.cursor = "pointer";
       indicator.setAttribute("role", "button");
       indicator.setAttribute("tabindex", "0");
       const targetStep = s.key;
@@ -186,7 +185,7 @@ function buildMasterKeyStep(): HTMLElement {
 
   const title = document.createElement("div");
   title.className = "setup-title";
-  title.textContent = "Protect your secrets";
+  title.textContent = "Secure your credentials";
 
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
@@ -194,14 +193,14 @@ function buildMasterKeyStep(): HTMLElement {
   if (keyAlreadySet) {
     // Key was set in a previous session — show confirmation with reconfigure option
     sub.textContent =
-      "Your encryption key was generated during a previous setup. It is stored in .risoluto/master.key — make sure you have a backup.";
+      "Risoluto created this encryption key during a previous setup. Keep a backup if you move this machine.";
 
     const badge = document.createElement("div");
     badge.className = "setup-callout";
     const badgeIcon = document.createTextNode("✓ ");
     const badgeStrong = document.createElement("strong");
-    badgeStrong.textContent = "Master key is configured. ";
-    const badgeText = document.createTextNode("Your stored secrets are encrypted and protected.");
+    badgeStrong.textContent = "Encryption key is ready. ";
+    const badgeText = document.createTextNode("Stored secrets on this machine are still encrypted.");
     badge.append(badgeIcon, badgeStrong, badgeText);
 
     const actions = document.createElement("div");
@@ -210,7 +209,7 @@ function buildMasterKeyStep(): HTMLElement {
     const reconfigure = document.createElement("button");
     reconfigure.className = "mc-button is-ghost is-sm";
     reconfigure.type = "button";
-    reconfigure.textContent = state.loading ? "Resetting…" : "Reconfigure";
+    reconfigure.textContent = state.loading ? "Resetting…" : "Reset setup";
     reconfigure.disabled = state.loading;
     reconfigure.addEventListener("click", async () => {
       if (
@@ -248,7 +247,7 @@ function buildMasterKeyStep(): HTMLElement {
     const next = document.createElement("button");
     next.className = "mc-button is-primary";
     next.type = "button";
-    next.textContent = "Next →";
+    next.textContent = "Continue →";
     next.addEventListener("click", () => advanceMasterKey());
     actions.append(reconfigure, next);
 
@@ -262,19 +261,16 @@ function buildMasterKeyStep(): HTMLElement {
 
   // Key was just generated — show it so the user can copy
   sub.textContent =
-    "Risoluto uses an encryption key to protect stored credentials on your machine. A key has been generated for you — copy it somewhere safe before continuing.";
+    "Risoluto uses one encryption key to protect stored credentials on this machine. Copy it somewhere safe before you continue.";
 
   const callout = document.createElement("div");
   callout.className = "setup-callout";
   const calloutStrong = document.createElement("strong");
-  calloutStrong.textContent = "Important: ";
-  const calloutText1 = document.createTextNode(
-    "Save this key somewhere safe. It cannot be recovered if lost — you will need to delete ",
+  calloutStrong.textContent = "Save this key somewhere safe. ";
+  const calloutText = document.createTextNode(
+    "If you lose it, you'll need to create a new one and re-enter your secrets.",
   );
-  const calloutCode = document.createElement("code");
-  calloutCode.textContent = ".risoluto/secrets.enc";
-  const calloutText2 = document.createTextNode(" and re-enter your secrets.");
-  callout.append(calloutStrong, calloutText1, calloutCode, calloutText2);
+  callout.append(calloutStrong, calloutText);
 
   const keyDisplay = document.createElement("div");
   keyDisplay.className = "setup-key-display";
@@ -286,13 +282,13 @@ function buildMasterKeyStep(): HTMLElement {
   const copyBtn = document.createElement("button");
   copyBtn.className = "mc-button is-ghost is-sm";
   copyBtn.type = "button";
-  copyBtn.textContent = "Copy";
+  copyBtn.textContent = "Copy key";
   copyBtn.addEventListener("click", () => {
     if (state.generatedKey) {
       navigator.clipboard.writeText(state.generatedKey).catch(() => {});
-      copyBtn.textContent = "Copied!";
+      copyBtn.textContent = "Copied";
       setTimeout(() => {
-        copyBtn.textContent = "Copy";
+        copyBtn.textContent = "Copy key";
       }, 1500);
     }
   });
@@ -305,7 +301,7 @@ function buildMasterKeyStep(): HTMLElement {
   const regen = document.createElement("button");
   regen.className = "mc-button is-ghost is-sm";
   regen.type = "button";
-  regen.textContent = "Regenerate";
+  regen.textContent = "Generate new key";
   regen.disabled = state.loading;
   regen.addEventListener("click", () => {
     generateAndSetKey().catch(() => {});
@@ -314,7 +310,7 @@ function buildMasterKeyStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Next →";
+  next.textContent = state.loading ? "Saving…" : "Continue →";
   next.disabled = state.loading || !state.generatedKey;
   next.addEventListener("click", () => advanceMasterKey());
 
@@ -358,15 +354,24 @@ function advanceMasterKey(): void {
 // ── Step: Linear Project ─────────────────────────────────────────────────────
 
 function applyStatusBadge(badge: HTMLElement): void {
+  badge.className = "setup-key-status";
+
   if (state.loading) {
-    badge.textContent = "Verifying…";
-    badge.style.color = "var(--text-muted)";
+    badge.textContent = "Checking…";
+    badge.dataset.state = "checking";
+    badge.hidden = false;
   } else if (state.apiKeyVerified) {
-    badge.textContent = "✓ Valid";
-    badge.style.color = "var(--status-running)";
+    badge.textContent = "Connected";
+    badge.dataset.state = "connected";
+    badge.hidden = false;
   } else if (state.error) {
-    badge.textContent = "✗ Invalid";
-    badge.style.color = "var(--status-blocked)";
+    badge.textContent = "Needs attention";
+    badge.dataset.state = "error";
+    badge.hidden = false;
+  } else {
+    badge.textContent = "";
+    badge.dataset.state = "idle";
+    badge.hidden = true;
   }
 }
 
@@ -416,17 +421,19 @@ function buildLinearProjectStep(): HTMLElement {
   const createProjectNameInputId = "setup-linear-create-project-name";
   const projectGridLabelId = "setup-linear-project-grid-label";
 
-  const titleRow = buildTitleWithBadge("Connect to Linear", "is-required", "Required");
+  const titleRow = buildTitleWithBadge("Connect Linear", "is-required", "Required");
 
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
-  const subText = document.createTextNode("Enter your Linear API key and choose the project Risoluto should track. ");
+  const subText = document.createTextNode(
+    "Enter your Linear API key, then choose the project Risoluto should follow. ",
+  );
   const subLink = document.createElement("a");
   subLink.className = "setup-link";
   subLink.href = "https://linear.app/settings/account/security/api-keys/new";
   subLink.target = "_blank";
   subLink.rel = "noopener";
-  subLink.textContent = "Create a personal API key →";
+  subLink.textContent = "Create a Linear API key →";
   sub.append(subText, subLink);
 
   const callout = document.createElement("div");
@@ -437,10 +444,10 @@ function buildLinearProjectStep(): HTMLElement {
   const calloutText2 = document.createTextNode(" and ");
   const writeStrong = document.createElement("strong");
   writeStrong.textContent = "Write";
-  const calloutText3 = document.createTextNode(" permissions with ");
+  const calloutText3 = document.createTextNode(" access and select ");
   const allTeamsStrong = document.createElement("strong");
   allTeamsStrong.textContent = "All teams you have access to";
-  const calloutText4 = document.createTextNode(" selected.");
+  const calloutText4 = document.createTextNode(".");
   callout.append(calloutText1, readStrong, calloutText2, writeStrong, calloutText3, allTeamsStrong, calloutText4);
 
   // ── API key input row ──
@@ -450,7 +457,7 @@ function buildLinearProjectStep(): HTMLElement {
   const label = document.createElement("label");
   label.className = "setup-label";
   label.htmlFor = apiKeyInputId;
-  label.textContent = "Linear API Key";
+  label.textContent = "Linear API key";
 
   const inputRow = document.createElement("div");
   inputRow.className = "setup-input-row";
@@ -460,10 +467,9 @@ function buildLinearProjectStep(): HTMLElement {
   applyStatusBadge(statusBadge);
 
   const verifyBtn = document.createElement("button");
-  verifyBtn.className = "mc-button is-primary is-sm";
+  verifyBtn.className = "mc-button is-primary is-sm setup-verify-btn";
   verifyBtn.type = "button";
-  verifyBtn.style.marginTop = "var(--space-2)";
-  verifyBtn.textContent = state.loading ? "Verifying…" : state.apiKeyVerified ? "Re-verify" : "Verify Key";
+  verifyBtn.textContent = state.loading ? "Checking…" : state.apiKeyVerified ? "Check again" : "Check key";
   verifyBtn.disabled = state.loading || !state.apiKeyInput;
   verifyBtn.addEventListener("click", () => {
     loadLinearProjects().catch(() => {});
@@ -471,8 +477,7 @@ function buildLinearProjectStep(): HTMLElement {
 
   const input = document.createElement("input");
   input.id = apiKeyInputId;
-  input.className = "setup-input";
-  input.style.flex = "1";
+  input.className = "setup-input setup-input-flex";
   input.type = "password";
   input.placeholder = "lin_api_…";
   input.value = state.apiKeyInput;
@@ -501,14 +506,12 @@ function buildLinearProjectStep(): HTMLElement {
     // Show success banner if we just created a project
     if (state.createdProjectName) {
       const successBanner = document.createElement("div");
-      successBanner.className = "setup-callout";
-      successBanner.style.marginTop = "var(--space-4)";
+      successBanner.className = "setup-callout setup-callout-success";
 
-      const icon = document.createTextNode("✓ ");
       const strong = document.createElement("strong");
-      strong.textContent = `Project "${state.createdProjectName}" created successfully! `;
+      strong.textContent = `Project "${state.createdProjectName}" created. `;
       const text = document.createTextNode("It's selected below and ready to use.");
-      successBanner.append(icon, strong, text);
+      successBanner.append(strong, text);
 
       if (state.createdProjectUrl) {
         const link = document.createElement("a");
@@ -516,7 +519,7 @@ function buildLinearProjectStep(): HTMLElement {
         link.href = state.createdProjectUrl;
         link.target = "_blank";
         link.rel = "noopener";
-        link.textContent = " View in Linear →";
+        link.textContent = " Open in Linear →";
         successBanner.append(link);
       }
       el.append(successBanner);
@@ -524,44 +527,37 @@ function buildLinearProjectStep(): HTMLElement {
 
     const gridLabel = document.createElement("div");
     gridLabel.id = projectGridLabelId;
-    gridLabel.className = "setup-label";
-    gridLabel.style.marginTop = "var(--space-4)";
-    gridLabel.textContent = "Select a project";
+    gridLabel.className = "setup-label setup-section-label";
+    gridLabel.textContent = "Choose a project";
     el.append(gridLabel, buildProjectGrid(projectGridLabelId));
   } else if (state.apiKeyVerified && state.projects.length === 0) {
     const emptyMsg = document.createElement("div");
-    emptyMsg.className = "setup-callout";
-    emptyMsg.style.marginTop = "var(--space-4)";
+    emptyMsg.className = "setup-callout setup-callout-muted";
     const emptyStrong = document.createElement("strong");
-    emptyStrong.textContent = "No projects found. ";
+    emptyStrong.textContent = "No projects matched this key yet. ";
     const emptyText = document.createTextNode("Create one below or in Linear directly.");
     emptyMsg.append(emptyStrong, emptyText);
 
     const createRow = document.createElement("div");
-    createRow.style.display = "flex";
-    createRow.style.gap = "var(--space-2)";
-    createRow.style.marginTop = "var(--space-3)";
-    createRow.style.alignItems = "center";
+    createRow.className = "setup-create-project-row";
 
     const nameField = document.createElement("div");
-    nameField.className = "setup-field";
-    nameField.style.flex = "1";
+    nameField.className = "setup-field is-grow";
 
     const nameLabel = document.createElement("label");
     nameLabel.className = "setup-label";
     nameLabel.htmlFor = createProjectNameInputId;
-    nameLabel.textContent = "New project name";
+    nameLabel.textContent = "Create a new project";
 
     const nameInput = document.createElement("input");
     nameInput.id = createProjectNameInputId;
     nameInput.className = "setup-input";
-    nameInput.style.flex = "1";
     nameInput.placeholder = "Project name (e.g. My App)";
 
     const createBtn = document.createElement("button");
     createBtn.className = "mc-button is-primary is-sm";
     createBtn.type = "button";
-    createBtn.textContent = "Create Project";
+    createBtn.textContent = "Create project";
     createBtn.disabled = true;
     nameInput.addEventListener("input", () => {
       createBtn.disabled = !nameInput.value.trim() || state.loading;
@@ -605,7 +601,7 @@ function buildLinearProjectStep(): HTMLElement {
   const skip = document.createElement("button");
   skip.className = "mc-button is-ghost is-sm";
   skip.type = "button";
-  skip.textContent = "Skip";
+  skip.textContent = "Skip this step";
   skip.addEventListener("click", () => {
     state.step = "github-token";
     state.error = null;
@@ -615,7 +611,7 @@ function buildLinearProjectStep(): HTMLElement {
   const next = document.createElement("button");
   next.className = "mc-button is-primary";
   next.type = "button";
-  next.textContent = state.loading ? "Saving…" : "Next →";
+  next.textContent = state.loading ? "Saving…" : "Continue →";
   next.disabled = state.loading || !state.selectedProject;
   next.addEventListener("click", () => {
     advanceLinearProject().catch(() => {});
@@ -812,7 +808,7 @@ async function advanceOpenaiAuth(): Promise<void> {
       if (!state.openaiKeyInput) return;
       const result = await api.postOpenaiKey(state.openaiKeyInput);
       if (!result.valid) {
-        state.error = "Key validation failed — check your key and try again.";
+        state.error = "That OpenAI key wasn't accepted. Double-check it and try again.";
         return;
       }
     } else {
@@ -839,94 +835,29 @@ function buildGithubTokenStep(): HTMLElement {
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
   sub.textContent =
-    "Add a token to enable automatic PR creation. You can skip this and add it later from Settings → Credentials.";
+    "Add a token so Risoluto can create pull requests automatically. You can skip this and add it later from Settings → Credentials.";
 
   const optionWrap = document.createElement("div");
-  optionWrap.style.cssText =
-    "display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)";
+  optionWrap.className = "setup-token-options";
 
-  const optA = document.createElement("div");
-  optA.style.cssText =
-    "border:var(--stroke-default) solid var(--border-stitch);padding:var(--space-3);background:var(--bg-muted)";
-
-  const optATitle = document.createElement("div");
-  optATitle.style.cssText =
-    "font-family:var(--font-body);font-size:var(--text-sm);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)";
-  const optATitleText = document.createTextNode("Fine-grained ");
-  const optARecommended = document.createElement("span");
-  optARecommended.style.cssText = "font-weight:400;color:var(--text-muted);font-size:var(--text-xs)";
-  optARecommended.textContent = "(recommended)";
-  optATitle.append(optATitleText, optARecommended);
-
-  const optALink = document.createElement("a");
-  optALink.className = "setup-link";
-  optALink.style.cssText = "display:inline-block;margin-bottom:var(--space-3)";
-  optALink.href = "https://github.com/settings/personal-access-tokens/new";
-  optALink.target = "_blank";
-  optALink.rel = "noopener";
-  optALink.textContent = "Create token →";
-
-  const optAList = document.createElement("ol");
-  optAList.style.cssText =
-    "margin:0;padding-left:var(--space-4);font-family:var(--font-body);font-size:var(--text-xs);color:var(--text-secondary);line-height:1.8";
-
-  const optAItems = [
-    ["Name it ", "Risoluto"],
-    ["Repository access → ", "Only select repositories", " → pick repos"],
-    ["Permissions → Repository → ", "Contents", " and ", "Pull requests", ": Read and write"],
-    ["Generate token"],
-  ];
-  for (const parts of optAItems) {
-    const li = document.createElement("li");
-    for (let i = 0; i < parts.length; i++) {
-      if (i % 2 === 1) {
-        const strong = document.createElement("strong");
-        strong.textContent = parts[i];
-        li.append(strong);
-      } else {
-        li.append(document.createTextNode(parts[i]));
-      }
-    }
-    optAList.append(li);
-  }
-
-  optA.append(optATitle, optALink, optAList);
-
-  const optB = document.createElement("div");
-  optB.style.cssText =
-    "border:var(--stroke-default) solid var(--border-stitch);padding:var(--space-3);background:var(--bg-muted)";
-
-  const optBTitle = document.createElement("div");
-  optBTitle.style.cssText =
-    "font-family:var(--font-body);font-size:var(--text-sm);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)";
-  optBTitle.textContent = "Classic";
-
-  const optBLink = document.createElement("a");
-  optBLink.className = "setup-link";
-  optBLink.style.cssText = "display:inline-block;margin-bottom:var(--space-3)";
-  optBLink.href = "https://github.com/settings/tokens/new?scopes=repo&description=Risoluto";
-  optBLink.target = "_blank";
-  optBLink.rel = "noopener";
-  optBLink.textContent = "Create token →";
-
-  const optBList = document.createElement("ol");
-  optBList.style.cssText =
-    "margin:0;padding-left:var(--space-4);font-family:var(--font-body);font-size:var(--text-xs);color:var(--text-secondary);line-height:1.8";
-
-  const optBLi1 = document.createElement("li");
-  const optBLi1Text1 = document.createTextNode("Check the ");
-  const optBLi1Strong = document.createElement("strong");
-  optBLi1Strong.textContent = "repo";
-  const optBLi1Text2 = document.createTextNode(" scope");
-  optBLi1.append(optBLi1Text1, optBLi1Strong, optBLi1Text2);
-
-  const optBLi2 = document.createElement("li");
-  optBLi2.textContent = "Generate token";
-
-  optBList.append(optBLi1, optBLi2);
-  optB.append(optBTitle, optBLink, optBList);
-
-  optionWrap.append(optA, optB);
+  optionWrap.append(
+    buildGithubTokenOptionCard({
+      title: "Fine-grained token",
+      badge: "Recommended",
+      href: "https://github.com/settings/personal-access-tokens/new",
+      steps: [
+        ["Give it a name: ", "Risoluto"],
+        ["Repository access: ", "Only select repositories"],
+        ["Permissions: Repository → ", "Contents", " and ", "Pull requests", ": Read and write"],
+        ["Create the token"],
+      ],
+    }),
+    buildGithubTokenOptionCard({
+      title: "Classic token",
+      href: "https://github.com/settings/tokens/new?scopes=repo&description=Risoluto",
+      steps: [["Enable the ", "repo", " scope"], ["Create the token"]],
+    }),
+  );
 
   const field = document.createElement("div");
   field.className = "setup-field";
@@ -934,12 +865,12 @@ function buildGithubTokenStep(): HTMLElement {
   const label = document.createElement("label");
   label.className = "setup-label";
   label.htmlFor = githubTokenInputId;
-  label.textContent = "Personal Access Token";
+  label.textContent = "GitHub access token";
 
   const validate = document.createElement("button");
   validate.className = "mc-button is-primary";
   validate.type = "button";
-  validate.textContent = state.loading ? "Validating…" : "Validate & Save";
+  validate.textContent = state.loading ? "Saving…" : "Save and continue";
   validate.disabled = state.loading || !state.tokenInput;
   validate.addEventListener("click", () => void advanceGithubToken());
 
@@ -967,7 +898,7 @@ function buildGithubTokenStep(): HTMLElement {
   const skip = document.createElement("button");
   skip.className = "mc-button is-ghost is-sm";
   skip.type = "button";
-  skip.textContent = "Skip for now";
+  skip.textContent = "Skip this step";
   skip.addEventListener("click", () => {
     state.step = "done";
     state.error = null;
@@ -987,7 +918,7 @@ async function advanceGithubToken(): Promise<void> {
   try {
     const result = await api.postGithubToken(state.tokenInput);
     if (!result.valid) {
-      state.error = "Token validation failed — check the token and try again.";
+      state.error = "That GitHub token wasn't accepted. Double-check it and try again.";
       return;
     }
     state.step = "done";
@@ -1005,9 +936,9 @@ function buildFlowDiagram(): HTMLElement {
   flow.className = "setup-flow";
 
   const steps = [
-    { icon: "📋", label: "Linear Issue", sub: "Create or tag" },
-    { icon: "🎵", label: "Risoluto", sub: "Agent works" },
-    { icon: "🐙", label: "GitHub PR", sub: "Results delivered" },
+    { marker: "01", label: "Signal in Linear", sub: "Move an issue into progress or tag it for Risoluto." },
+    { marker: "02", label: "Risoluto executes", sub: "The agent pulls context, works the task, and records progress." },
+    { marker: "03", label: "Review the output", sub: "Commits and pull requests land when GitHub access is enabled." },
   ];
 
   for (let i = 0; i < steps.length; i++) {
@@ -1015,9 +946,9 @@ function buildFlowDiagram(): HTMLElement {
     const step = document.createElement("div");
     step.className = "setup-flow-step";
 
-    const icon = document.createElement("div");
-    icon.className = "setup-flow-icon";
-    icon.textContent = s.icon;
+    const marker = document.createElement("div");
+    marker.className = "setup-flow-marker";
+    marker.textContent = s.marker;
 
     const label = document.createElement("div");
     label.className = "setup-flow-label";
@@ -1027,7 +958,7 @@ function buildFlowDiagram(): HTMLElement {
     sub.className = "setup-flow-sub";
     sub.textContent = s.sub;
 
-    step.append(icon, label, sub);
+    step.append(marker, label, sub);
     flow.append(step);
 
     if (i < steps.length - 1) {
@@ -1042,7 +973,7 @@ function buildFlowDiagram(): HTMLElement {
 }
 
 function buildQuickStartCard(opts: {
-  icon: string;
+  kicker: string;
   title: string;
   desc: string;
   buttonText: string;
@@ -1056,9 +987,9 @@ function buildQuickStartCard(opts: {
   const card = document.createElement("div");
   card.className = `setup-quick-start-card${opts.loading ? " is-loading" : ""}${opts.created ? " is-success" : ""}`;
 
-  const iconEl = document.createElement("div");
-  iconEl.className = "setup-quick-start-icon";
-  iconEl.textContent = opts.icon;
+  const kicker = document.createElement("div");
+  kicker.className = "setup-quick-start-kicker";
+  kicker.textContent = opts.kicker;
 
   const titleEl = document.createElement("div");
   titleEl.className = "setup-quick-start-title";
@@ -1069,7 +1000,8 @@ function buildQuickStartCard(opts: {
   descEl.textContent = opts.desc;
 
   const body = document.createElement("div");
-  body.append(titleEl, descEl);
+  body.className = "setup-quick-start-body";
+  body.append(kicker, titleEl, descEl);
 
   if (opts.error) {
     body.append(buildSetupError(opts.error));
@@ -1078,7 +1010,7 @@ function buildQuickStartCard(opts: {
   if (opts.created) {
     const success = document.createElement("div");
     success.className = "setup-quick-start-success";
-    success.textContent = `✓ ${opts.createdText}`;
+    success.textContent = `${opts.createdText}`;
     if (opts.createdLink) {
       const link = document.createElement("a");
       link.className = "setup-link";
@@ -1099,7 +1031,7 @@ function buildQuickStartCard(opts: {
     body.append(btn);
   }
 
-  card.append(iconEl, body);
+  card.append(body);
   return card;
 }
 
@@ -1109,32 +1041,30 @@ function buildDoneStep(): HTMLElement {
 
   const icon = document.createElement("div");
   icon.className = "setup-done-icon";
-  icon.textContent = "✓";
-  icon.style.color = "var(--status-running)";
+  icon.textContent = "Ready";
 
   const title = document.createElement("div");
   title.className = "setup-done-title";
-  title.textContent = "You're all set";
+  title.textContent = "Setup complete";
 
   const desc = document.createElement("div");
   desc.className = "setup-done-desc";
-  desc.textContent = "Risoluto is connected and polling. Here's how it works:";
+  desc.textContent = "Risoluto is connected and polling. Use one of these actions to verify the loop end to end.";
 
   const flow = buildFlowDiagram();
 
   const quickStartLabel = document.createElement("div");
-  quickStartLabel.className = "setup-label";
-  quickStartLabel.style.marginTop = "var(--space-6)";
-  quickStartLabel.textContent = "Quick Start";
+  quickStartLabel.className = "setup-label setup-section-label";
+  quickStartLabel.textContent = "First actions";
 
   const cards = document.createElement("div");
   cards.className = "setup-quick-start-grid";
 
   const testIssueCard = buildQuickStartCard({
-    icon: "⚡",
-    title: "Create a test issue",
-    desc: "Creates a Linear issue and moves it to In Progress. Risoluto will pick it up within 30 seconds.",
-    buttonText: "Create Test Issue",
+    kicker: "Verification",
+    title: "Create a practice issue",
+    desc: "Create a Linear issue, move it into progress, and watch Risoluto pick it up on the next poll.",
+    buttonText: "Create practice issue",
     loading: state.testIssueLoading,
     created: state.testIssueCreated,
     createdText: state.testIssueIdentifier ? `Created ${state.testIssueIdentifier}` : "Created",
@@ -1144,10 +1074,10 @@ function buildDoneStep(): HTMLElement {
   });
 
   const labelCard = buildQuickStartCard({
-    icon: "🏷️",
-    title: "Create Risoluto label",
-    desc: "Adds a risoluto label to your Linear team for tagging issues you want Risoluto to handle.",
-    buttonText: "Create Label",
+    kicker: "Team setup",
+    title: "Create the Risoluto label",
+    desc: "Add a shared label so your team has a clear way to mark work that Risoluto should handle.",
+    buttonText: "Create label",
     loading: state.labelLoading,
     created: state.labelCreated,
     createdText: state.labelName ? `Label "${state.labelName}" ready` : "Created",
@@ -1158,10 +1088,9 @@ function buildDoneStep(): HTMLElement {
   cards.append(testIssueCard, labelCard);
 
   const goBtn = document.createElement("button");
-  goBtn.className = "mc-button is-primary";
+  goBtn.className = "mc-button is-primary setup-done-action";
   goBtn.type = "button";
-  goBtn.style.marginTop = "var(--space-6)";
-  goBtn.textContent = "Go to Dashboard →";
+  goBtn.textContent = "Open dashboard →";
   goBtn.addEventListener("click", () => {
     window.dispatchEvent(new CustomEvent("setup:complete"));
     router.navigate("/");
@@ -1173,7 +1102,7 @@ function buildDoneStep(): HTMLElement {
   const resetBtn = document.createElement("button");
   resetBtn.className = "mc-button is-ghost is-sm setup-reset-btn";
   resetBtn.type = "button";
-  resetBtn.textContent = "Reset & Re-run Setup";
+  resetBtn.textContent = "Reset setup";
   resetBtn.addEventListener("click", async () => {
     if (!confirm("This will clear all stored secrets (Linear, OpenAI, GitHub keys). Are you sure?")) return;
     resetBtn.disabled = true;
@@ -1230,15 +1159,64 @@ function buildDoneStep(): HTMLElement {
         state.step = "master-key";
       }
       rerender();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      console.error("Setup reset failed:", error);
+      alert("We couldn't reset setup. Please try again.");
       resetBtn.disabled = false;
-      resetBtn.textContent = "Reset & Re-run Setup";
+      resetBtn.textContent = "Reset setup";
     }
   });
 
   el.append(icon, title, desc, flow, quickStartLabel, cards, goBtn, divider, resetBtn);
   return el;
+}
+
+function buildGithubTokenOptionCard(opts: {
+  title: string;
+  badge?: string;
+  href: string;
+  steps: string[][];
+}): HTMLElement {
+  const card = document.createElement("div");
+  card.className = "setup-token-option";
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "setup-token-option-title";
+  titleRow.textContent = opts.title;
+
+  if (opts.badge) {
+    const badge = document.createElement("span");
+    badge.className = "setup-token-option-badge";
+    badge.textContent = opts.badge;
+    titleRow.append(badge);
+  }
+
+  const link = document.createElement("a");
+  link.className = "setup-link setup-token-option-link";
+  link.href = opts.href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = "Create a token →";
+
+  const list = document.createElement("ol");
+  list.className = "setup-token-option-list";
+
+  for (const parts of opts.steps) {
+    const item = document.createElement("li");
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        const strong = document.createElement("strong");
+        strong.textContent = parts[i];
+        item.append(strong);
+      } else {
+        item.append(document.createTextNode(parts[i]));
+      }
+    }
+    list.append(item);
+  }
+
+  card.append(titleRow, link, list);
+  return card;
 }
 
 async function handleCreateTestIssue(): Promise<void> {
@@ -1307,7 +1285,7 @@ function buildPage(): HTMLElement {
     const introSub = document.createElement("p");
     introSub.className = "setup-intro-sub";
     introSub.textContent =
-      "This takes about 3–5 minutes. You'll connect Risoluto to your project tracker and add the credentials it needs.";
+      "This takes about 3–5 minutes. You'll connect Linear, set up OpenAI access, and add any optional delivery settings.";
 
     intro.append(introHeading, introSub);
     wrap.append(intro);

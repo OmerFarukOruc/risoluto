@@ -24,7 +24,7 @@ interface SettingsRenderOptions {
   onToggleDiff: (sectionId: string) => void;
   onTogglePaths: (sectionId: string) => void;
   onSaveSection: (sectionId: string) => void;
-  /** Called when the user switches between Simple and Power User modes. */
+  /** Called when the user switches between Focused and Advanced modes. */
   onSetMode?: (mode: SettingsMode) => void;
   /** Called when a field-level action button is clicked (e.g. "Browse" for project slug). */
   onFieldAction?: (sectionId: string, fieldPath: string, actionKind: string) => void;
@@ -156,7 +156,7 @@ function renderRail(
 ): void {
   rail.replaceChildren();
 
-  // ── Mode toggle: Simple / Power User ──────────────────
+  // ── Mode toggle: Focused / Advanced ───────────────────
   rail.append(createModeToggle(state, options, signal));
 
   for (const group of Object.values(SECTION_GROUPS)) {
@@ -185,13 +185,15 @@ function createModeToggle(state: SettingsState, options: SettingsRenderOptions, 
   simpleBtn.type = "button";
   simpleBtn.className = "settings-mode-btn";
   simpleBtn.classList.toggle("is-active", state.mode === "simple");
-  simpleBtn.textContent = "Simple";
+  simpleBtn.textContent = "Focused";
+  simpleBtn.title = "Show the common settings";
 
   const advancedBtn = document.createElement("button");
   advancedBtn.type = "button";
   advancedBtn.className = "settings-mode-btn";
   advancedBtn.classList.toggle("is-active", state.mode === "advanced");
-  advancedBtn.textContent = "Power User";
+  advancedBtn.textContent = "Advanced";
+  advancedBtn.title = "Show all settings and expert options";
 
   simpleBtn.addEventListener("click", () => options.onSetMode?.("simple"), { signal });
   advancedBtn.addEventListener("click", () => options.onSetMode?.("advanced"), { signal });
@@ -288,7 +290,8 @@ function renderContent(
   toolbar.className = "mc-toolbar settings-toolbar";
   const hint = document.createElement("span");
   hint.className = "text-secondary";
-  hint.textContent = "Press / to search, Cmd/Ctrl+Enter to save the current section.";
+  hint.textContent =
+    "Search sections, fields, and values. Press / to focus search. Cmd/Ctrl+Enter saves the current section.";
   searchInput.value = state.filter;
   searchInput.oninput = () => options.onFilter(searchInput.value);
   toolbar.append(searchInput, hint);
@@ -304,7 +307,7 @@ function renderContent(
     content.append(
       createEmptyState(
         "No settings match that search",
-        "No editable settings matched the current search. Try a broader keyword such as model, sandbox, or tracker.",
+        "Try a broader term like provider, sandbox, or tracker.",
         "Clear search",
         () => options.onFilter(""),
       ),
@@ -334,7 +337,7 @@ function buildSectionCard(
   card.append(buildSectionHeader(section));
 
   const allGroups = sectionGroups(section);
-  // In Simple mode, hide expert-tier groups entirely
+  // In Focused mode, hide expert-tier groups entirely
   const groups = state.mode === "simple" ? allGroups.filter((g) => g.tier !== "expert") : allGroups;
   let prevTier: string | undefined;
   groups.forEach((group, index) => {
@@ -344,7 +347,7 @@ function buildSectionCard(
 
   card.append(buildSectionActions(section, state, options, signal));
 
-  // Developer tools: only in Power User mode
+  // Developer tools: only in Advanced mode
   if (state.mode === "advanced") {
     card.append(buildDevTools(section, drafts, state, options, signal));
   }
@@ -560,12 +563,12 @@ function createSettingsIntro(): HTMLElement {
 
   const title = document.createElement("p");
   title.className = "settings-intro-title";
-  title.textContent = "Start with Tracker, then confirm provider access and sandbox defaults.";
+  title.textContent = "Start with Tracker, then provider and sandbox defaults.";
 
   const body = document.createElement("p");
   body.className = "settings-intro-body";
   body.textContent =
-    "Most setups only need a tracker, a project, and the states that mean work is active or done. Everything else can wait.";
+    "Most setups only need a tracker, a project, and the states that mean work is active or done. Switch to Advanced when you need the rest.";
 
   intro.append(title, body);
   return intro;
@@ -574,11 +577,11 @@ function createSettingsIntro(): HTMLElement {
 function createNextStepHint(sectionId: string): HTMLElement | null {
   const text =
     sectionId === SECTION_IDS.TRACKER
-      ? "Next: set your model provider so Risoluto can authenticate and run Codex."
+      ? "Next: choose a model provider and sign-in method."
       : sectionId === SECTION_IDS.MODEL_PROVIDER_AUTH
-        ? "Next: review sandbox defaults so agent runs match your local safety posture."
+        ? "Next: review sandbox defaults so runs use the safety level you expect."
         : sectionId === SECTION_IDS.SANDBOX
-          ? "Next: create or move an issue into an active state so Risoluto can start working."
+          ? "Next: move an issue into an active state so Risoluto can pick it up."
           : null;
 
   if (!text) {

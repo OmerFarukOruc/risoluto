@@ -33,25 +33,26 @@ export function updateSettingsHeader(
   loadState: AsyncState<SettingsPageData>,
 ): void {
   if (loadState.loading) {
-    subtitle.textContent = "Loading your tracker, provider, and runtime settings.";
-    schemaBadge.textContent = "Loading";
+    subtitle.textContent = "Loading tracker, provider, sandbox, and runtime settings.";
+    schemaBadge.textContent = "Loading…";
     return;
   }
   if (loadState.error) {
-    subtitle.textContent = "Settings could not be loaded. Retry after fixing the API or network issue.";
+    subtitle.textContent = "Settings could not be loaded. Check the API or network, then try again.";
     schemaBadge.textContent = "Unavailable";
     return;
   }
   if (!loadState.data) {
     subtitle.textContent = "Settings are not available yet.";
-    schemaBadge.textContent = "Empty";
+    schemaBadge.textContent = "No data";
     return;
   }
   syncLoadedData(state, loadState.data);
-  subtitle.textContent = isSchemaLimited(state.schema)
-    ? "Configure your tracker, provider, and sandbox so Risoluto can start processing issues."
-    : "Select a section to review how Risoluto connects, authenticates, and runs work.";
-  schemaBadge.textContent = isSchemaLimited(state.schema) ? "Schema limited" : "Schema guided";
+  const schemaLimited = isSchemaLimited(state.schema);
+  subtitle.textContent = schemaLimited
+    ? "Risoluto is using guided defaults. Start with Tracker, then choose a provider and confirm sandbox settings."
+    : "Risoluto loaded the full schema. Start with Tracker, then review provider, sandbox, and advanced settings.";
+  schemaBadge.textContent = schemaLimited ? "Guided schema" : "Full schema";
 }
 
 export function renderLoadedSettings(

@@ -48,14 +48,8 @@
 }
 
 .header-brand-name {
-  background: linear-gradient(
-    135deg,
-    var(--text-primary) 0%,
-    color-mix(in srgb, var(--text-accent) 50%, var(--text-primary)) 100%
-  );
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: color-mix(in srgb, var(--text-primary) 86%, var(--text-accent));
+  letter-spacing: var(--tracking-tight);
 }
 
 /* ── Sidebar polish ───────────────────────────────────── */
@@ -78,16 +72,12 @@
 
 .kanban-card,
 .issue-card {
-  box-shadow:
-    var(--shadow-sm),
-    var(--shadow-inset-sm, none);
+  box-shadow: var(--shadow-sm), var(--shadow-inset-sm, none);
 }
 
 .kanban-card:hover,
 .issue-card:hover {
-  box-shadow:
-    var(--shadow-md),
-    var(--shadow-glow-sm, none);
+  box-shadow: var(--shadow-md), var(--shadow-glow-sm, none);
   transform: translateY(var(--hover-lift, -1px));
 }
 
@@ -103,7 +93,8 @@
 }
 
 @keyframes statusGlow {
-  0%, 100% {
+  0%,
+  100% {
     border-color: color-mix(in srgb, var(--status-running) 20%, transparent);
     box-shadow: 0 0 4px color-mix(in srgb, var(--status-running) 10%, transparent);
   }
@@ -153,7 +144,7 @@
 
 .shell-outlet::-webkit-scrollbar-thumb {
   background: var(--border-default);
-  border-radius: var(--radius-full);
+  border-radius: 0;
 }
 
 .shell-outlet::-webkit-scrollbar-thumb:hover {

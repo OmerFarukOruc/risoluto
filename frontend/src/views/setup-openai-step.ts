@@ -1,4 +1,4 @@
-import { buildSetupError, buildTitleWithBadge } from "./setup-shared";
+import { buildSetupError, buildTitleWithBadge, getSetupErrorMessage } from "./setup-shared";
 
 export type OpenaiAuthMode = "api_key" | "codex_login";
 export type DeviceAuthStatus = "idle" | "starting" | "pending" | "complete" | "expired";
@@ -33,11 +33,11 @@ export interface OpenaiSetupStepActions {
 export function buildOpenaiKeyStep(state: OpenaiSetupStepState, actions: OpenaiSetupStepActions): HTMLElement {
   const el = document.createElement("div");
 
-  const titleRow = buildTitleWithBadge("Connect to OpenAI", "is-required", "Required");
+  const titleRow = buildTitleWithBadge("Set up OpenAI access", "is-required", "Required");
 
   const sub = document.createElement("div");
   sub.className = "setup-subtitle";
-  sub.textContent = "Choose how Codex agents authenticate with OpenAI.";
+  sub.textContent = "Choose how Risoluto signs in to OpenAI.";
 
   const modeWrap = document.createElement("div");
   modeWrap.className = "setup-auth-grid";
@@ -48,8 +48,8 @@ export function buildOpenaiKeyStep(state: OpenaiSetupStepState, actions: OpenaiS
   apiKeyCard.setAttribute("tabindex", "0");
   apiKeyCard.setAttribute("aria-pressed", String(state.authMode === "api_key"));
   apiKeyCard.innerHTML =
-    '<div class="setup-auth-card-title">API Key</div>' +
-    '<div class="setup-auth-card-desc">Paste an OpenAI API key directly. Best for pay-as-you-go accounts.</div>';
+    '<div class="setup-auth-card-title">API key</div>' +
+    '<div class="setup-auth-card-desc">Paste an OpenAI API key directly. Best if you already have one.</div>';
   apiKeyCard.addEventListener("click", () => actions.onSelectAuthMode("api_key"));
   apiKeyCard.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -64,8 +64,8 @@ export function buildOpenaiKeyStep(state: OpenaiSetupStepState, actions: OpenaiS
   loginCard.setAttribute("tabindex", "0");
   loginCard.setAttribute("aria-pressed", String(state.authMode === "codex_login"));
   loginCard.innerHTML =
-    '<div class="setup-auth-card-title">Codex Login</div>' +
-    '<div class="setup-auth-card-desc">Sign in with the browser-based OpenAI flow. Best for OpenAI-authenticated accounts.</div>';
+    '<div class="setup-auth-card-title">Browser sign-in</div>' +
+    '<div class="setup-auth-card-desc">Use OpenAI’s browser flow. Best if you already sign in with ChatGPT.</div>';
   loginCard.addEventListener("click", () => actions.onSelectAuthMode("codex_login"));
   loginCard.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -83,13 +83,13 @@ export function buildOpenaiKeyStep(state: OpenaiSetupStepState, actions: OpenaiS
   const skip = document.createElement("button");
   skip.type = "button";
   skip.className = "mc-button is-ghost is-sm";
-  skip.textContent = "Skip for now";
+  skip.textContent = "Skip this step";
   skip.addEventListener("click", actions.onSkip);
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.className = "mc-button is-primary";
-  saveBtn.textContent = state.loading ? "Saving…" : "Validate & Save";
+  saveBtn.textContent = state.loading ? "Saving…" : "Save and continue";
 
   const updateSaveButton = (): void => {
     const hasInput = state.authMode === "api_key" ? !!state.openaiKeyInput : !!state.authJsonInput;
@@ -131,7 +131,7 @@ function buildApiKeyField(
   label.className = "setup-label";
   label.htmlFor = inputId;
   label.innerHTML =
-    'OpenAI API Key &middot; <a class="setup-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Get one →</a>';
+    'OpenAI API key &middot; <a class="setup-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Create one →</a>';
 
   const input = document.createElement("input");
   input.id = inputId;
@@ -153,7 +153,7 @@ function buildApiKeyField(
   const hint = document.createElement("div");
   hint.id = hintId;
   hint.className = "setup-hint";
-  hint.textContent = "Paste a key that begins with sk-. Risoluto stores it encrypted before saving.";
+  hint.textContent = "Paste a key that starts with sk-. Risoluto stores it encrypted before saving.";
 
   field.append(label, input, hint);
   return field;
@@ -170,14 +170,14 @@ function buildCodexLoginFields(
   instructions.className = "setup-callout";
   instructions.innerHTML =
     '<div style="margin-bottom:var(--space-3)">' +
-    '<strong style="color:var(--text-accent)">Prerequisite</strong>' +
+    '<strong style="color:var(--text-accent)">Before you start</strong>' +
     '<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:var(--space-1);line-height:1.6">' +
-    "Before signing in, enable <strong>device code authorization for Codex</strong> in " +
+    "Enable <strong>device code authorization for Codex</strong> in " +
     '<a class="setup-link" href="https://chatgpt.com/#settings/Security" target="_blank" rel="noopener">ChatGPT Settings → Security</a>.' +
     "</div>" +
     "</div>" +
     '<div style="font-size:var(--text-xs);color:var(--text-secondary);line-height:1.7">' +
-    "Click the button below to open OpenAI's sign-in page in your browser. Use the manual <code>auth.json</code> paste only as a fallback." +
+    "Use the button below to open OpenAI sign-in in your browser. If that doesn't work, paste <code>auth.json</code> instead." +
     "</div>";
 
   wrap.append(
@@ -202,7 +202,7 @@ function buildDeviceAuthPanel(state: OpenaiSetupStepState, actions: OpenaiSetupS
 
   const desc = document.createElement("div");
   desc.className = "setup-device-auth-copy";
-  desc.textContent = "Click to open OpenAI's sign-in page. After approving, you'll be redirected back automatically.";
+  desc.textContent = "Open OpenAI sign-in in your browser. After you approve it, Risoluto continues automatically.";
 
   header.append(title, desc);
 
@@ -222,7 +222,7 @@ function buildDeviceAuthPanel(state: OpenaiSetupStepState, actions: OpenaiSetupS
     const cancelBtn = document.createElement("button");
     cancelBtn.type = "button";
     cancelBtn.className = "mc-button is-ghost is-sm";
-    cancelBtn.textContent = "Cancel";
+    cancelBtn.textContent = "Cancel sign-in";
     cancelBtn.addEventListener("click", actions.onCancelDeviceAuth);
     actionRow.append(cancelBtn);
   }
@@ -245,7 +245,7 @@ function buildDeviceAuthStatus(state: OpenaiSetupStepState): HTMLElement {
 
   const badge = document.createElement("span");
   badge.className = `setup-device-auth-badge is-${state.deviceAuthStatus}`;
-  badge.textContent = state.deviceAuthStatus;
+  badge.textContent = getDeviceAuthBadgeLabel(state.deviceAuthStatus);
 
   // Show countdown timer next to badge when pending
   if (state.deviceAuthStatus === "pending" && state.deviceAuthRemainingSeconds > 0) {
@@ -288,7 +288,7 @@ function buildManualFallback(
   const title = document.createElement("div");
   title.className = "setup-label";
   title.style.marginBottom = "0";
-  title.textContent = "Fallback: paste auth.json manually";
+  title.textContent = "Fallback: paste auth.json";
 
   const toggle = document.createElement("button");
   toggle.className = "mc-button is-ghost is-sm";
@@ -311,7 +311,7 @@ function buildManualFallback(
   if (!state.showManualAuthFallback) {
     const hint = document.createElement("div");
     hint.className = "setup-device-auth-copy";
-    hint.textContent = "Only needed if device auth fails or if you already have an auth.json file to reuse.";
+    hint.textContent = "Only needed if browser sign-in fails or you already have an auth.json file.";
     details.append(hint);
     return wrap;
   }
@@ -320,9 +320,9 @@ function buildManualFallback(
   steps.id = stepsId;
   steps.className = "setup-device-auth-copy";
   steps.innerHTML =
-    "1. Run <code>codex login --device-auth</code> in a terminal if needed.<br>" +
-    "2. Finish the authorization flow on OpenAI.<br>" +
-    "3. Paste <code>~/.codex/auth.json</code> below or upload the file.";
+    "1. Run <code>codex login --device-auth</code> in a terminal if you still need an auth.json file.<br>" +
+    "2. Finish the OpenAI sign-in.<br>" +
+    "3. Paste or upload <code>~/.codex/auth.json</code> below.";
 
   const field = document.createElement("div");
   field.className = "setup-field";
@@ -355,7 +355,7 @@ function buildManualFallback(
   const uploadBtn = document.createElement("button");
   uploadBtn.className = "mc-button is-ghost is-sm";
   uploadBtn.type = "button";
-  uploadBtn.textContent = "Upload auth.json";
+  uploadBtn.textContent = "Upload file";
   uploadBtn.addEventListener("click", () => {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
@@ -395,26 +395,42 @@ function getDeviceAuthButtonLabel(status: DeviceAuthStatus): string {
       return "Try again";
     case "idle":
     default:
-      return "Sign in with OpenAI";
+      return "Open sign-in";
+  }
+}
+
+function getDeviceAuthBadgeLabel(status: DeviceAuthStatus): string {
+  switch (status) {
+    case "starting":
+      return "Opening";
+    case "pending":
+      return "Waiting";
+    case "complete":
+      return "Signed in";
+    case "expired":
+      return "Expired";
+    case "idle":
+    default:
+      return "Ready";
   }
 }
 
 function getDeviceAuthStatusMessage(state: OpenaiSetupStepState): string {
   if (state.deviceAuthError) {
-    return state.deviceAuthError;
+    return getSetupErrorMessage(state.deviceAuthError);
   }
 
   switch (state.deviceAuthStatus) {
     case "starting":
-      return "Opening OpenAI sign-in page…";
+      return "Opening OpenAI sign-in…";
     case "pending":
-      return "Waiting for you to sign in on the OpenAI page. Click Cancel to stop waiting, or Retry to open a new sign-in window.";
+      return "Waiting for you to approve the sign-in. Cancel to stop waiting, or retry to open a new window.";
     case "complete":
-      return "Signed in successfully! Saving tokens and continuing…";
+      return "You're signed in. Saving tokens and continuing…";
     case "expired":
-      return "Authentication timed out. Click the button above to try again, or use the manual fallback.";
+      return "The sign-in session expired. Open a new sign-in window or use the manual fallback.";
     case "idle":
     default:
-      return "Click the button above to sign in with your OpenAI account.";
+      return "Click the button above to open OpenAI sign-in.";
   }
 }

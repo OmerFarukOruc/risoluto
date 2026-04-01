@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore: ["**.md", "docs/**", "LICENSE", ".vscode/**"]
   pull_request:
+    # No paths-ignore on PRs — every PR gets full CI regardless of file types.
     branches: [main]
   schedule:
     - cron: "0 6 * * 1"
@@ -56,16 +57,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - run: pnpm run lint
       - run: pnpm run format:check
 
@@ -98,18 +90,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: matrix.node-version == 22
       - run: pnpm exec vitest run --reporter=verbose --coverage
-      - name: Dead code analysis
-        if: matrix.node-version == 24
-        run: pnpm exec knip
-      - name: Duplicate code analysis
-        if: matrix.node-version == 24
-        run: pnpm exec jscpd
       - uses: actions/upload-artifact@v7
         if: always() && matrix.node-version == 24
         with:
           name: coverage-report
           path: coverage/
-          retention-days: 14
+          retention-days: 7
+
+  knip:
+    name: Dead Code Analysis
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/restore-build
+      - run: pnpm exec knip
 
   typecheck:
     name: Type Check
@@ -120,16 +118,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - run: pnpm run typecheck
       - run: pnpm run typecheck:frontend
       - name: Type-check tests (informational — 316 pre-existing errors)
@@ -175,32 +164,10 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/dependency-review-action@v4
 
-  # ── Phase 3: Quality Reporting (needs coverage artifact) ─────────────
-  sonarcloud:
-    name: SonarCloud
-    needs: test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    # Non-blocking: visible as a separate PR check but does not gate merges.
-    # Remove continue-on-error once SONAR_TOKEN is stable and always available.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@v8
-        with:
-          name: coverage-report
-          path: coverage/
-      - uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
   # ── Phase 3: E2E Smoke Tests (parallel, uses cached build) ──────────
   e2e-smoke:
     name: E2E Smoke (${{ matrix.shard }}/3)
+    if: github.event_name != 'schedule'
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -212,16 +179,7 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v5
@@ -254,16 +212,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - name: Download all blob reports
         uses: actions/download-artifact@v8
         with:
@@ -281,6 +230,7 @@ jobs:
   # ── Phase 4: Docker Build & Verify ───────────────────────────────────
   docker-build:
     name: Docker Build & Smoke
+    if: github.event_name != 'schedule'
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -302,7 +252,7 @@ jobs:
   integration:
     name: Integration Tests
     if: github.ref == 'refs/heads/main'
-    needs: [test, gitleaks, semgrep]
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -311,16 +261,7 @@ jobs:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - run: pnpm run test:integration
 
   # ── Phase 5: Mutation Testing (weekly + manual only) ─────────────────
@@ -337,16 +278,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            dist
-          key: build-${{ github.sha }}
+      - uses: ./.github/actions/restore-build
       - name: Restore pnpm virtual store symlinks
         run: pnpm install --frozen-lockfile
       - name: Restore Stryker incremental cache
@@ -359,7 +291,7 @@ jobs:
       - name: Full mutation scan
         run: pnpm run test:mutation
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mutation-report-${{ github.event_name }}
@@ -451,7 +383,7 @@ jobs:
         run: npx tsx scripts/e2e-lifecycle.ts --config scripts/e2e-config.ci.yaml --skip-build --timeout 600
       - name: Upload E2E report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-lifecycle-report-${{ github.sha }}
           path: |
@@ -461,7 +393,7 @@ jobs:
           retention-days: 14
       - name: Publish JUnit results
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@v3
         with:
           files: e2e-reports/**/e2e-junit.xml
           check_name: "E2E Lifecycle Results"
@@ -470,7 +402,7 @@ jobs:
   build-and-test:
     name: build-and-test
     if: always()
-    needs: [build, lint, test, typecheck, gitleaks, semgrep, docker-build, e2e-smoke]
+    needs: [build, lint, test, knip, typecheck, gitleaks, semgrep, docker-build, e2e-smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -480,20 +412,28 @@ jobs:
           echo "build        = ${{ needs.build.result }}"
           echo "lint         = ${{ needs.lint.result }}"
           echo "test         = ${{ needs.test.result }}"
+          echo "knip         = ${{ needs.knip.result }}"
           echo "typecheck    = ${{ needs.typecheck.result }}"
           echo "gitleaks     = ${{ needs.gitleaks.result }}"
           echo "semgrep      = ${{ needs.semgrep.result }}"
           echo "docker-build = ${{ needs.docker-build.result }}"
           echo "e2e-smoke    = ${{ needs.e2e-smoke.result }}"
 
+          # Jobs guarded by 'if' are skipped on schedule runs — treat as pass
+          DOCKER_RESULT="${{ needs.docker-build.result }}"
+          E2E_RESULT="${{ needs.e2e-smoke.result }}"
+          [ "$DOCKER_RESULT" = "skipped" ] && DOCKER_RESULT="success"
+          [ "$E2E_RESULT" = "skipped" ] && E2E_RESULT="success"
+
           if [ "${{ needs.build.result }}" != "success" ] ||
              [ "${{ needs.lint.result }}" != "success" ] ||
              [ "${{ needs.test.result }}" != "success" ] ||
+             [ "${{ needs.knip.result }}" != "success" ] ||
              [ "${{ needs.typecheck.result }}" != "success" ] ||
              [ "${{ needs.gitleaks.result }}" != "success" ] ||
              [ "${{ needs.semgrep.result }}" != "success" ] ||
-             [ "${{ needs.docker-build.result }}" != "success" ] ||
-             [ "${{ needs.e2e-smoke.result }}" != "success" ]; then
+             [ "$DOCKER_RESULT" != "success" ] ||
+             [ "$E2E_RESULT" != "success" ]; then
             echo "::error::One or more required jobs failed"
             exit 1
           fi

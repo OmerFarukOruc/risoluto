@@ -122,6 +122,9 @@ export class Orchestrator implements OrchestratorPort {
       onHealthUpdated: () => this.markStateDirty(),
       logger: deps.logger,
     });
+    this.deps.configStore.subscribe(() => {
+      this.markStateDirty();
+    });
   }
 
   private ctx() {

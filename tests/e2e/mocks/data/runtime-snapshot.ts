@@ -161,6 +161,7 @@ export function buildRuntimeSnapshot(overrides?: Partial<RuntimeSnapshot>): Runt
         count: 1,
         issues: [runningIssue],
       },
+      { key: "in_review", label: "In Review", kind: "gate", terminal: false, count: 0, issues: [] },
       { key: "done", label: "Done", kind: "terminal", terminal: true, count: 1, issues: [completedIssue] },
       { key: "canceled", label: "Canceled", kind: "terminal", terminal: true, count: 0, issues: [] },
     ],

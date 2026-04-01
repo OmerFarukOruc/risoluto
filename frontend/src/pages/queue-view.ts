@@ -1,15 +1,16 @@
-import { api } from "../api";
-import { createIssueInspector } from "../components/issue-inspector";
-import { router } from "../router";
-import { store } from "../state/store";
-import type { AppState } from "../state/store";
-import type { RecentEvent, WorkflowColumn } from "../types";
-import { registerPageCleanup } from "../utils/page";
-import { createQueueBoardRenderer } from "./queue-board";
-import { createDragStateManager } from "./drag-state";
-import { handleQueueKeyboard } from "./queue-keyboard";
-import { createFilters, createUiState } from "./queue-state";
-import { buildQueueToolbar } from "./queue-toolbar";
+import { api } from "../api.js";
+import { createIssueInspector } from "../components/issue-inspector.js";
+import { createStateGuide } from "../components/state-guide.js";
+import { router } from "../router.js";
+import { store } from "../state/store.js";
+import type { AppState } from "../state/store.js";
+import type { RecentEvent, WorkflowColumn } from "../types.js";
+import { registerPageCleanup } from "../utils/page.js";
+import { createQueueBoardRenderer } from "./queue-board.js";
+import { createDragStateManager } from "./drag-state.js";
+import { handleQueueKeyboard } from "./queue-keyboard.js";
+import { createFilters, createUiState } from "./queue-state.js";
+import { buildQueueToolbar } from "./queue-toolbar.js";
 
 function issueFingerprint(i: { identifier: string; status: string; priority: string | number | null }): string {
   return `${i.identifier}:${i.status}:${String(i.priority)}`;
@@ -35,6 +36,7 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   mainPane.className = "queue-main-pane";
   const toolbar = document.createElement("section");
   toolbar.className = "mc-toolbar queue-toolbar";
+  const stateGuide = createStateGuide();
   const layout = document.createElement("section");
   layout.className = "queue-layout";
   const boardWrap = document.createElement("div");
@@ -48,7 +50,7 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   });
   inspector.element.hidden = !params?.id;
   if (params?.id) layout.classList.add("has-panel");
-  boardWrap.append(board);
+  boardWrap.append(stateGuide.element, board);
   mainPane.append(toolbar, boardWrap);
   layout.append(mainPane, inspector.element);
   page.append(layout);

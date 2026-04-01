@@ -1,0 +1,15 @@
+name: Restore Build
+description: Setup pnpm, Node.js 24, and restore cached build artifacts
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v5
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+    - uses: actions/cache/restore@v5
+      with:
+        path: |
+          node_modules
+          dist
+        key: build-${{ github.sha }}

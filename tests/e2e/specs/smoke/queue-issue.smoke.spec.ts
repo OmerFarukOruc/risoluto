@@ -20,10 +20,13 @@ test.describe("Queue / Issue Smoke", () => {
     const queue = new QueuePage(page);
     await queue.navigate();
 
-    // Mock provides 5 columns: Backlog, Todo, In Progress, Done, Canceled
+    // Mock provides 6 columns: Backlog, Todo, In Progress, In Review, Done, Canceled
+    await expect(queue.columnByLabel("Backlog")).toBeVisible({ timeout: 5000 });
     await expect(queue.columnByLabel("Todo")).toBeVisible({ timeout: 5000 });
     await expect(queue.columnByLabel("In Progress")).toBeVisible({ timeout: 5000 });
+    await expect(queue.columnByLabel("In Review")).toBeVisible({ timeout: 5000 });
     await expect(queue.columnByLabel("Done")).toBeVisible({ timeout: 5000 });
+    await expect(queue.columnByLabel("Canceled")).toBeVisible({ timeout: 5000 });
   });
 
   test("kanban shows issue cards with identifiers", async ({ page }) => {

@@ -40,7 +40,23 @@ describe("seedDefaults", () => {
       expect(keys).toContain("system");
 
       const trackerRow = db.select().from(config).where(eq(config.key, "tracker")).get();
-      expect(JSON.parse(trackerRow!.value)).toMatchObject({ kind: "linear" });
+      expect(JSON.parse(trackerRow!.value)).toMatchObject({
+        kind: "linear",
+        active_states: ["Backlog", "Todo", "In Progress"],
+        terminal_states: ["Done", "Canceled"],
+      });
+
+      const stateMachineRow = db.select().from(config).where(eq(config.key, "state_machine")).get();
+      expect(JSON.parse(stateMachineRow!.value)).toEqual({
+        stages: [
+          { name: "Backlog", kind: "backlog" },
+          { name: "Todo", kind: "todo" },
+          { name: "In Progress", kind: "active" },
+          { name: "In Review", kind: "gate" },
+          { name: "Done", kind: "terminal" },
+          { name: "Canceled", kind: "terminal" },
+        ],
+      });
     } finally {
       closeDatabase(db);
     }

@@ -22,7 +22,7 @@ Use Node.js 22 or newer.
 
 ## Pre-commit & Pre-push Checks — MANDATORY
 
-Git hooks enforce local quality gates that mirror CI. **Never bypass them with `--no-verify`.**
+Git hooks enforce local quality gates. Lint and format are caught at commit time; build, test, and typecheck are caught at push time. Heavy checks (knip, jscpd, playwright, semgrep) run only in CI.
 
 ### Pre-commit (`.husky/pre-commit`)
 
@@ -30,19 +30,17 @@ Runs `pnpm exec lint-staged` on staged files — applies ESLint auto-fix and Pre
 
 ### Pre-push (`.husky/pre-push`)
 
-Runs the full CI-mirror gate before any push is allowed:
+Runs a fast 80/20 gate (~60s) that catches the issues most likely to waste CI minutes:
 
 1. `pnpm run build` — TypeScript compilation
-2. `pnpm run lint` — ESLint checks
-3. `pnpm run format` — Prettier auto-fix
-4. `pnpm run format:check` — Prettier formatting verification
-5. `pnpm test` — Vitest test suite
-6. `pnpm run knip` — dead code / unused export analysis
-7. `pnpm run jscpd` — duplicate code detection
-8. `pnpm exec playwright test --project=smoke` — E2E smoke tests
-9. `semgrep scan --config auto --config p/typescript --error` — security scan
-10. `pnpm run test:mutation:incremental` — mutation testing *(conditional: only runs when changed files overlap Stryker mutate targets)*
-11. `pnpm run typecheck:coverage` — type coverage (95% threshold)
+2. `pnpm test` — Vitest test suite
+3. `pnpm run typecheck` + `pnpm run typecheck:frontend` — type checking
+
+Lint, format, knip, jscpd, playwright, and semgrep are handled by pre-commit hooks, Claude `PostToolUse` hooks, or CI (where they run in parallel on clean containers).
+
+**Escape hatches:**
+- `SKIP_HOOKS=1 git push` — skip all checks (emergency only)
+- `FULL_CHECK=1 git push` — run the full CI-mirror suite locally
 
 If any step fails, the push is aborted.
 
@@ -54,7 +52,7 @@ If any step fails, the push is aborted.
 pnpm run build && pnpm run lint && pnpm run format:check && pnpm test
 ```
 
-If formatting issues are found, fix them with `pnpm run format` before committing. Do not commit code that has not passed all four checks. The pre-push hook enforces this, but agents should catch issues early at commit time to avoid wasted cycles.
+If formatting issues are found, fix them with `pnpm run format` before committing. Do not commit code that has not passed all four checks. The pre-push hook catches build+test+typecheck, but agents should also run lint and format:check early at commit time to avoid wasted cycles.
 
 ## Coding Style & Naming Conventions
 

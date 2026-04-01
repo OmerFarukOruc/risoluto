@@ -1,4 +1,4 @@
-import "./agentation-island";
+import "./agentation-island.js";
 import "./styles/tokens.css";
 import "./styles/polish-tokens.css";
 import "./styles/animations.css";
@@ -15,21 +15,22 @@ import "./styles/forms.css";
 import "./styles/modal.css";
 import "./styles/hardening.css";
 import "./styles/kanban.css";
+import "./styles/state-guide.css";
 import "./styles/container-queries.css";
 import "./styles/git.css";
 
-import { api } from "./api";
+import { api } from "./api.js";
 import { initDelightClicks } from "./ui/delight.js";
-import { lazyPage } from "./utils/lazy-page";
-import { router } from "./router";
-import { connectEventSource } from "./state/event-source";
-import { startPolling } from "./state/polling";
-import { initCommandPalette } from "./ui/command-palette";
-import { initHeader } from "./ui/header";
-import { initKeyboard } from "./ui/keyboard";
-import { getRouteAnnouncer, initShell } from "./ui/shell";
-import { initSidebar } from "./ui/sidebar";
-import { initTheme } from "./ui/theme";
+import { lazyPage } from "./utils/lazy-page.js";
+import { router } from "./router.js";
+import { connectEventSource } from "./state/event-source.js";
+import { startPolling } from "./state/polling.js";
+import { initCommandPalette } from "./ui/command-palette.js";
+import { initHeader } from "./ui/header.js";
+import { initKeyboard } from "./ui/keyboard.js";
+import { getRouteAnnouncer, initShell } from "./ui/shell.js";
+import { initSidebar } from "./ui/sidebar.js";
+import { initTheme } from "./ui/theme.js";
 import { deduplicatedToast } from "./utils/toast-events.js";
 
 let lastIssueContextId: string | null = null;
@@ -91,24 +92,24 @@ globalThis.addEventListener("router:navigate", (event) => {
   }
 });
 
-const overview = lazyPage(() => import("./pages/overview"));
-const queue = lazyPage(() => import("./pages/queue"));
-const issue = lazyPage(() => import("./pages/issue"));
-const runs = lazyPage(() => import("./pages/runs"));
-const logs = lazyPage(() => import("./pages/logs"));
-const attempt = lazyPage(() => import("./pages/attempt"));
+const overview = lazyPage(() => import("./pages/overview.js"));
+const queue = lazyPage(() => import("./pages/queue.js"));
+const issue = lazyPage(() => import("./pages/issue.js"));
+const runs = lazyPage(() => import("./pages/runs.js"));
+const logs = lazyPage(() => import("./pages/logs.js"));
+const attempt = lazyPage(() => import("./pages/attempt.js"));
 
-const observability = lazyPage(() => import("./pages/observability"));
-const settings = lazyPage(() => import("./pages/settings"));
-const notifications = lazyPage(() => import("./pages/notifications"));
-const git = lazyPage(() => import("./pages/git"));
-const workspaces = lazyPage(() => import("./pages/workspaces"));
-const containers = lazyPage(() => import("./pages/containers"));
+const observability = lazyPage(() => import("./pages/observability.js"));
+const settings = lazyPage(() => import("./pages/settings.js"));
+const notifications = lazyPage(() => import("./pages/notifications.js"));
+const git = lazyPage(() => import("./pages/git.js"));
+const workspaces = lazyPage(() => import("./pages/workspaces.js"));
+const containers = lazyPage(() => import("./pages/containers.js"));
 
-const templates = lazyPage(() => import("./pages/templates"));
-const audit = lazyPage(() => import("./pages/audit"));
+const templates = lazyPage(() => import("./pages/templates.js"));
+const audit = lazyPage(() => import("./pages/audit.js"));
 
-const setup = lazyPage(() => import("./pages/setup"));
+const setup = lazyPage(() => import("./pages/setup.js"));
 
 function aliasSettingsRoute(
   target: string,

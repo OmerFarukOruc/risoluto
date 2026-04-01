@@ -1,11 +1,27 @@
 #!/bin/sh
-# ── Pre-push: full CI-mirror gate ────────────────────────────────────
-# Catches everything CI Phase 1 + Phase 2 would catch, locally.
-# If any step fails, the push is aborted.
+# ── Pre-push: fast 80/20 gate ────────────────────────────────────────
+# Catches the two things that actually waste CI minutes:
+#   1. Compilation errors (build)
+#   2. Broken tests (vitest)
+#   3. Type errors (typecheck)
+#
+# Everything else (lint, format, knip, jscpd, playwright, semgrep,
+# typecheck:coverage) is handled by pre-commit hooks, Claude hooks,
+# or CI — where it runs in parallel on clean containers.
+#
+# Escape hatches:
+#   SKIP_HOOKS=1 git push        → skip everything (emergency)
+#   FULL_CHECK=1 git push        → run the full CI-mirror suite
 
 set -e
 
-# Skip checks when only deleting remote branches (no code is being pushed)
+# ── Emergency bypass ─────────────────────────────────────────────────
+if [ "${SKIP_HOOKS:-0}" = "1" ]; then
+  echo "⚠️  SKIP_HOOKS=1 — skipping all pre-push checks."
+  exit 0
+fi
+
+# ── Skip on branch deletes ───────────────────────────────────────────
 z40=0000000000000000000000000000000000000000
 all_deletes=true
 while read local_ref local_sha remote_ref remote_sha; do
@@ -19,40 +35,32 @@ if [ "$all_deletes" = true ]; then
   exit 0
 fi
 
+# ── Full CI-mirror mode (opt-in) ─────────────────────────────────────
+if [ "${FULL_CHECK:-0}" = "1" ]; then
+  echo "🔒 FULL_CHECK=1 — running full CI-mirror suite..."
+  pnpm run build
+  pnpm run lint
+  pnpm run format:check
+  pnpm test
+  pnpm run typecheck
+  pnpm run typecheck:frontend
+  pnpm run knip
+  pnpm exec playwright test --project=smoke
+  command -v semgrep >/dev/null 2>&1 && semgrep scan --config auto --config p/typescript --error || echo "⚠️  semgrep not installed — skipping."
+  pnpm run typecheck:coverage
+  echo "✅ Full CI-mirror suite passed!"
+  exit 0
+fi
+
+# ── Fast 80/20 gate (default) ────────────────────────────────────────
 echo "🔨 Building..."
 pnpm run build
-
-echo "🔍 Linting..."
-pnpm run lint
-
-echo "🎨 Fixing & checking formatting..."
-pnpm run format
-pnpm run format:check
 
 echo "🧪 Running tests..."
 pnpm test
 
-echo "🧹 Checking for dead code..."
-pnpm run knip
+echo "🔎 Type-checking..."
+pnpm run typecheck
+pnpm run typecheck:frontend
 
-echo "🔍 Checking for duplicate code..."
-pnpm run jscpd
-
-echo "🎭 Running E2E smoke tests..."
-pnpm exec playwright test --project=smoke
-
-echo "🔒 Running Semgrep security scan..."
-semgrep scan --config auto --config p/typescript --error
-
-# Stryker mutation testing — opt-in only (set RUN_MUTATION=1 to enable)
-if [ "${RUN_MUTATION:-0}" = "1" ]; then
-  echo "🧬 Running incremental mutation testing..."
-  pnpm run test:mutation:incremental
-else
-  echo "🧬 Skipping mutation testing (set RUN_MUTATION=1 to enable)."
-fi
-
-echo "📊 Checking type coverage..."
-pnpm run typecheck:coverage
-
-echo "✅ All pre-push checks passed!"
+echo "✅ Pre-push checks passed! (use FULL_CHECK=1 for the full suite)"

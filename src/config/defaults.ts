@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG_SECTIONS: Record<string, Record<string, unknown>> = 
   tracker: {
     kind: "linear",
     endpoint: "https://api.linear.app/graphql",
-    active_states: ["In Progress"],
+    active_states: ["Backlog", "Todo", "In Progress"],
     terminal_states: ["Done", "Canceled"],
   },
 
@@ -90,7 +90,16 @@ export const DEFAULT_CONFIG_SECTIONS: Record<string, Record<string, unknown>> = 
   notifications: {},
   github: {},
   repos: {},
-  state_machine: {},
+  state_machine: {
+    stages: [
+      { name: "Backlog", kind: "backlog" },
+      { name: "Todo", kind: "todo" },
+      { name: "In Progress", kind: "active" },
+      { name: "In Review", kind: "gate" },
+      { name: "Done", kind: "terminal" },
+      { name: "Canceled", kind: "terminal" },
+    ],
+  },
 
   /** System metadata — setup state, import tracking, active template. */
   system: {

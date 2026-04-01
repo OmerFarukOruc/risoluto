@@ -10,7 +10,7 @@ tracker:
   kind: linear
   project_slug: test-project
   api_key: $LINEAR_API_KEY
-  active_states: ["In Progress"]
+  active_states: ["Backlog", "Todo", "In Progress"]
 agent:
   maxTurns: 1
 codex:

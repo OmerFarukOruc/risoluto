@@ -53,6 +53,9 @@ scripts/e2e-config.yaml
 e2e-reports/
 .claude/worktrees/
 
+# Archived runtime data (contains secrets)
+archives/
+
 # UI Polish pipeline
 .ui-polish/
 screenshots/baseline/

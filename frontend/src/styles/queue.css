@@ -453,12 +453,12 @@
   flex-shrink: 0;
 }
 
-/* Icon-only button */
+/* Icon-only button — meets 44px touch target minimum */
 .toolbar-icon-btn {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: var(--control-height-xl);
+  height: var(--control-height-xl);
   padding: 0;
   border: 1px solid var(--border-stitch);
   border-radius: var(--radius-md, 6px);

@@ -137,7 +137,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-nudge, 6px);
-  padding: 4px 10px;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height-xl);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
@@ -234,13 +235,13 @@
 
 .toast-dismiss {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: var(--space-1);
+  right: var(--space-1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-height-xs);
-  height: var(--control-height-xs);
+  width: var(--control-height-xl);
+  height: var(--control-height-xl);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
@@ -336,7 +337,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height-xl);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
@@ -449,17 +451,17 @@
   outline-offset: 2px;
 }
 
-/* Size variants */
+/* Size variants — all meet 44px touch target minimum */
 .mc-list-item.is-sm,
 .mc-rail-item.is-sm {
-  min-height: var(--control-height-sm);
+  min-height: var(--control-height-xl);
   padding: 0 var(--space-2);
   font-size: var(--text-sm);
 }
 
 .mc-list-item.is-md,
 .mc-rail-item.is-md {
-  min-height: var(--control-height-lg);
+  min-height: var(--control-height-xl);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
 }
@@ -544,7 +546,7 @@
   font-family: var(--font-body);
   font-size: var(--text-ui);
   color: var(--text-secondary);
-  min-height: 36px;
+  min-height: var(--control-height-xl);
 }
 
 .breadcrumb a {

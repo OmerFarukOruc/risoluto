@@ -68,8 +68,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--control-height-xl);
+  height: var(--control-height-xl);
   font-size: var(--text-lg);
   color: var(--text-muted);
   background: transparent;

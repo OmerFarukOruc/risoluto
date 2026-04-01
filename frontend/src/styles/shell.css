@@ -441,7 +441,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: var(--control-height-xl);
   padding: 0 var(--space-5);
   background: color-mix(in srgb, var(--color-copper-700) 42%, var(--bg-surface));
   color: var(--color-copper-100);
@@ -462,8 +462,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--control-height-xl);
+  height: var(--control-height-xl);
   margin-inline-start: auto;
   padding: 0;
   border: none;
@@ -648,12 +648,12 @@
 
   .header-command-trigger {
     max-width: 200px;
-    height: var(--control-height-sm);
+    height: var(--control-height-xl);
   }
 
   .header-action-btn {
-    width: var(--control-height-sm);
-    height: var(--control-height-sm);
+    width: var(--control-height-xl);
+    height: var(--control-height-xl);
   }
 
   .shell-outlet {

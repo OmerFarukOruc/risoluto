@@ -31,6 +31,7 @@
 
 .settings-mode-btn {
   flex: 1;
+  min-height: var(--control-height-xl);
   padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;

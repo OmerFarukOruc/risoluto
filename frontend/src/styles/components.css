@@ -317,7 +317,7 @@
 .mc-input,
 .mc-select,
 .mc-chip {
-  min-height: var(--control-height-md);
+  min-height: var(--control-height-xl);
   border: var(--stroke-default) solid var(--border-stitch);
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -344,9 +344,9 @@
   font-weight: var(--font-semibold);
 }
 
-/* Button sizes */
+/* Button sizes — all meet 44px touch target minimum */
 .mc-button.is-sm {
-  min-height: var(--control-height-sm);
+  min-height: var(--control-height-xl);
   padding: 0 var(--space-2);
   font-size: var(--text-sm);
 }
@@ -400,14 +400,14 @@
   color: var(--text-accent);
 }
 
-/* Button variants — icon-only */
+/* Button variants — icon-only (all meet 44px touch target) */
 .mc-button.is-icon-only {
-  width: var(--control-height-md);
+  width: var(--control-height-xl);
   padding: 0;
 }
 
 .mc-button.is-icon-only.is-sm {
-  width: var(--control-height-sm);
+  width: var(--control-height-xl);
 }
 
 .mc-button.is-icon-only.is-lg {
@@ -443,7 +443,7 @@
 .mc-button.is-command {
   width: 100%;
   max-width: 380px;
-  min-height: var(--control-height-sm);
+  min-height: var(--control-height-xl);
   justify-content: flex-start;
   gap: var(--space-2);
   padding: 0 var(--space-3);

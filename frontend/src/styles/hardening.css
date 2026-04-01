@@ -522,17 +522,39 @@
   max-width: 100%;
 }
 
-/* Touch-friendly tap targets */
+/* Touch-friendly tap targets — all interactive elements meet 44px minimum.
+   Base sizes already use --control-height-xl (44px). This block provides
+   reinforcement for touch devices and covers edge-case elements. */
 @media (pointer: coarse) {
   .mc-button,
+  .mc-chip,
   .mc-chip.is-interactive,
+  .mc-filter-chip,
   .mc-list-item,
-  .mc-rail-item {
+  .mc-rail-item,
+  .mc-status-chip {
     min-height: 44px;
   }
 
-  .header-action-btn {
+  .header-action-btn,
+  .toolbar-icon-btn {
     width: 44px;
     height: 44px;
+  }
+
+  .overview-getting-started-dismiss,
+  .stale-banner-dismiss,
+  .config-help-dismiss,
+  .toast-dismiss {
+    width: 44px;
+    height: 44px;
+  }
+
+  .breadcrumb {
+    min-height: 44px;
+  }
+
+  .overview-collapsible-header {
+    min-height: 44px;
   }
 }

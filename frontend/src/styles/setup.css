@@ -514,7 +514,7 @@
   align-items: center;
   justify-content: center;
   min-width: 132px;
-  min-height: var(--control-height-sm);
+  min-height: var(--control-height-xl);
   padding: 0 var(--space-3);
   border: var(--stroke-default) solid currentColor;
   font-family: var(--font-mono);

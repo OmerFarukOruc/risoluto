@@ -541,8 +541,8 @@ jobs:
         id: release-outputs
         if: steps.release.outcome == 'success'
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if git tag --list "v${VERSION}" | grep -q .; then
+          if git tag --points-at HEAD | grep -q '^v'; then
+            VERSION=$(node -p "require('./package.json').version")
             echo "new_release_published=true" >> "$GITHUB_OUTPUT"
             echo "new_release_version=${VERSION}" >> "$GITHUB_OUTPUT"
           else

@@ -55,8 +55,7 @@ function isAllowedGitHubHost(host: string): boolean {
     host === "github.com" ||
     host.endsWith(".github.com") ||
     host.startsWith("github.") ||
-    host.startsWith("api.github.") ||
-    host.includes(".github.")
+    host.startsWith("api.github.")
   );
 }
 

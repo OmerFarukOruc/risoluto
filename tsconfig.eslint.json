@@ -18,6 +18,7 @@
     "frontend/*.ts",
     "scripts/**/*",
     "playwright.config.ts",
-    "playwright.fullstack.config.ts"
+    "playwright.fullstack.config.ts",
+    "commitlint.config.ts"
   ]
 }

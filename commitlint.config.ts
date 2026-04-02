@@ -25,6 +25,7 @@ const config: UserConfig = {
         "frontend",
         "e2e",
         "deps",
+        "release",
       ],
     ],
   },

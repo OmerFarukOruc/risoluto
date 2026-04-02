@@ -5,6 +5,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     exclude: ["tests/**/*.integration.test.ts", "tests/http/load.test.ts"],
     environment: "node",
+    setupFiles: ["tests/helpers/quarantine.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

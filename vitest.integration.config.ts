@@ -5,6 +5,7 @@ export default defineConfig({
     include: ["tests/**/*.integration.test.ts", "tests/integration/**/*.test.ts"],
     exclude: ["tests/integration/live/**"],
     environment: "node",
+    setupFiles: ["tests/helpers/quarantine.ts"],
     retry: 2,
   },
 });

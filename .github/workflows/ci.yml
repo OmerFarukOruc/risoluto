@@ -300,6 +300,52 @@ jobs:
             reports/stryker-incremental.json
           retention-days: 30
 
+  # ── Nightly Quarantine Healing ───────────────────────────────────────
+  # Runs quarantined tests with enforcement disabled, then updates pass
+  # counts. Tests that pass 5 consecutive nightly runs are auto-healed.
+  # Uses a separate QUARANTINE_TOKEN (contents:write only, no admin bypass).
+  quarantine-heal:
+    name: Quarantine Healing
+    needs: build
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.QUARANTINE_TOKEN }}
+      - uses: ./.github/actions/restore-build
+      - name: Run tests with quarantine disabled
+        run: |
+          mkdir -p reports
+          QUARANTINE_ENFORCE=false pnpm exec vitest run --reporter=json --outputFile=reports/vitest-results.json || true
+      - name: Run healing script
+        run: npx tsx scripts/quarantine-heal.ts --results reports/vitest-results.json
+      - name: Commit and push quarantine changes
+        run: |
+          if git diff --quiet quarantine.json; then
+            echo "No quarantine changes to commit."
+          else
+            git config user.email "ci@risoluto.dev"
+            git config user.name "Risoluto CI"
+            git add quarantine.json
+            git commit -m "chore(ci): update quarantine.json via nightly healing [skip ci]"
+            git push || {
+              echo "Direct push blocked by branch protection — opening PR instead."
+              BRANCH="chore/quarantine-heal-$(date +%Y%m%d)"
+              git checkout -b "$BRANCH"
+              git push -u origin "$BRANCH"
+              gh pr create \
+                --title "chore(ci): nightly quarantine healing $(date +%Y-%m-%d)" \
+                --body "Automated quarantine.json update from nightly healing run." \
+                --base main
+            }
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.QUARANTINE_TOKEN }}
+
   # ── Phase 6: Semantic Release (main only, after gate) ────────────────
   release:
     name: Semantic Release

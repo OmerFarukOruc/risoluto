@@ -32,7 +32,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         // Deterministic viewport for visual regression
-        viewport: { width: 1280, height: 720 },
+        viewport: { width: 2560, height: 1440 },
       },
     },
   ],

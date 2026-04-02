@@ -18,12 +18,7 @@ import path from "node:path";
 
 import { beforeEach } from "vitest";
 
-interface QuarantineEntry {
-  testName: string;
-  file: string;
-  quarantinedAt: string;
-  passCount: number;
-}
+import type { QuarantineEntry } from "../../scripts/quarantine-shared.js";
 
 const QUARANTINE_PATH = path.resolve(import.meta.dirname, "../../quarantine.json");
 

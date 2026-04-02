@@ -18,12 +18,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-interface QuarantineEntry {
-  testName: string;
-  file: string;
-  quarantinedAt: string;
-  passCount: number;
-}
+import { HEAL_THRESHOLD, loadEntries, QUARANTINE_PATH } from "./quarantine-shared.js";
 
 interface VitestTestResult {
   name: string;
@@ -37,20 +32,6 @@ interface VitestTestFile {
 
 interface VitestJsonOutput {
   testResults: VitestTestFile[];
-}
-
-const QUARANTINE_PATH = path.resolve(import.meta.dirname, "../quarantine.json");
-const HEAL_THRESHOLD = 5;
-
-function loadEntries(): QuarantineEntry[] {
-  try {
-    const raw = readFileSync(QUARANTINE_PATH, "utf-8");
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as QuarantineEntry[];
-  } catch {
-    return [];
-  }
 }
 
 function loadTestResults(resultsPath: string): Map<string, Map<string, string>> {

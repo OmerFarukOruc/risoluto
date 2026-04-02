@@ -34,8 +34,14 @@ type SSEFrame =
  * once the first (connected) frame has been received, giving the caller a safe
  * point to emit bus events.
  */
-async function collectFrames(baseUrl: string, count: number, afterConnect?: () => void): Promise<SSEFrame[]> {
+async function collectFrames(
+  baseUrl: string,
+  count: number,
+  afterConnect?: () => void,
+  timeoutMs = 10_000,
+): Promise<SSEFrame[]> {
   const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(`${baseUrl}/api/v1/events`, {
     signal: controller.signal,
   });
@@ -64,6 +70,7 @@ async function collectFrames(baseUrl: string, count: number, afterConnect?: () =
     }
   }
 
+  clearTimeout(timeout);
   controller.abort();
   return frames;
 }

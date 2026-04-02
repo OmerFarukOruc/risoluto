@@ -11,6 +11,9 @@
  */
 
 import { createHmac } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -210,10 +213,6 @@ describe("Webhook dedup (idempotency)", () => {
 
 describe("Restart persistence", () => {
   it("webhook inbox data survives server stop → new server with same DB", async () => {
-    const { mkdtemp } = await import("node:fs/promises");
-    const os = await import("node:os");
-    const path = await import("node:path");
-
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), "risoluto-restart-test-"));
     const dbPath = path.join(tmpDir, "restart-test.db");
 
@@ -275,7 +274,6 @@ describe("Restart persistence", () => {
     await ctx2.server.stop();
     closeDatabase(db2);
 
-    const { rm } = await import("node:fs/promises");
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     // Also teardown ctx1's temp dir (harness created one)
     await ctx1.teardown().catch(() => {});
@@ -501,10 +499,6 @@ describe("Webhook error paths (integration)", () => {
 
 describe("Bootstrap idempotence", () => {
   it("openDatabase() on existing DB preserves all data", async () => {
-    const { mkdtemp, rm } = await import("node:fs/promises");
-    const os = await import("node:os");
-    const path = await import("node:path");
-
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), "risoluto-bootstrap-test-"));
     const dbPath = path.join(tmpDir, "bootstrap.db");
 
@@ -588,10 +582,6 @@ describe("Bootstrap idempotence", () => {
   });
 
   it("openDatabase() on existing DB preserves schema_version", async () => {
-    const { mkdtemp, rm } = await import("node:fs/promises");
-    const os = await import("node:os");
-    const path = await import("node:path");
-
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), "risoluto-version-test-"));
     const dbPath = path.join(tmpDir, "version.db");
 

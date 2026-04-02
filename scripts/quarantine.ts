@@ -10,30 +10,16 @@
  * The quarantine has a hard cap of 5 entries to prevent overuse.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
-interface QuarantineEntry {
-  testName: string;
-  file: string;
-  quarantinedAt: string;
-  passCount: number;
-}
-
-const QUARANTINE_PATH = path.resolve(import.meta.dirname, "../quarantine.json");
-const MAX_QUARANTINED = 5;
-
-function loadEntries(): QuarantineEntry[] {
-  try {
-    const raw = readFileSync(QUARANTINE_PATH, "utf-8");
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as QuarantineEntry[];
-  } catch {
-    return [];
-  }
-}
+import {
+  HEAL_THRESHOLD,
+  loadEntries,
+  MAX_QUARANTINED,
+  QUARANTINE_PATH,
+  type QuarantineEntry,
+} from "./quarantine-shared.js";
 
 function saveEntries(entries: QuarantineEntry[]): void {
   writeFileSync(QUARANTINE_PATH, JSON.stringify(entries, null, 2) + "\n", "utf-8");
@@ -108,7 +94,7 @@ function listEntries(): void {
     console.log(`  - "${entry.testName}"`);
     console.log(`    File: ${entry.file}`);
     console.log(`    Quarantined: ${entry.quarantinedAt} (${age}d ago)`);
-    console.log(`    Pass count: ${entry.passCount}/5`);
+    console.log(`    Pass count: ${entry.passCount}/${HEAL_THRESHOLD}`);
     console.log();
   }
 }

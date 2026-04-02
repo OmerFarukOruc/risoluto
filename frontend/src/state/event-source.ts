@@ -6,6 +6,7 @@
  * On disconnect the interval reverts to 5 s with automatic reconnect.
  */
 
+import { buildReadTokenQueryParam } from "../access-token";
 import { exponentialBackoff } from "../utils/backoff.js";
 import { pollOnce, setPollingInterval } from "./polling";
 
@@ -34,13 +35,18 @@ let source: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let consecutiveFailures = 0;
 
+function buildEventSourceUrl(): string {
+  const tokenQuery = buildReadTokenQueryParam();
+  return tokenQuery ? `${SSE_URL}?${tokenQuery}` : SSE_URL;
+}
+
 export function connectEventSource(): void {
   if (source) return;
   openConnection();
 }
 
 function openConnection(): void {
-  const eventSource = new EventSource(SSE_URL);
+  const eventSource = new EventSource(buildEventSourceUrl());
 
   eventSource.onopen = () => {
     consecutiveFailures = 0;
@@ -52,7 +58,7 @@ function openConnection(): void {
     try {
       data = JSON.parse(String(event.data)) as { type: string; payload?: unknown };
     } catch {
-      return; // Silently ignore malformed SSE payloads
+      return;
     }
     if (LIFECYCLE_EVENTS.has(data.type)) {
       pollOnce().catch(() => {});

@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { isBlockedByNonTerminal, sortIssuesForDispatch } from "./dispatch.js";
 import { issueView, nowIso } from "./views.js";
 import { prepareWorkspaceForLaunch as prepareWorkspace } from "./workspace-preparation.js";
+import { sanitizeIdentifier } from "../workspace/paths.js";
+import { withWorkspaceLifecycleLock } from "../workspace/lifecycle-lock.js";
 import { isActiveState, isTodoState, normalizeStateKey } from "../state/policy.js";
 import type { NotificationEvent } from "../notification/channel.js";
 import type {
@@ -334,45 +336,47 @@ export async function launchWorker(
     ctx.claimIssue(issue.id);
   }
 
-  const workspace = await prepareWorkspace(ctx, issue);
-  const modelSelection = ctx.resolveModelSelection(issue.identifier);
-  const entry = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection);
+  await withWorkspaceLifecycleLock(sanitizeIdentifier(issue.identifier), async () => {
+    const workspace = await prepareWorkspace(ctx, issue);
+    const modelSelection = ctx.resolveModelSelection(issue.identifier);
+    const entry = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection);
 
-  ctx.runningEntries.set(issue.id, entry);
-  ctx.completedViews.delete(issue.identifier);
-  ctx.setQueuedViews(ctx.getQueuedViews().filter((view) => view.issueId !== issue.id));
+    ctx.runningEntries.set(issue.id, entry);
+    ctx.completedViews.delete(issue.identifier);
+    ctx.setQueuedViews(ctx.getQueuedViews().filter((view) => view.issueId !== issue.id));
 
-  await persistInitialAttempt(ctx, entry, issue, workspace, attempt, modelSelection);
-  ctx.detailViews.set(
-    issue.identifier,
-    issueView(issue, {
-      workspaceKey: workspace.workspaceKey,
-      status: "running",
+    await persistInitialAttempt(ctx, entry, issue, workspace, attempt, modelSelection);
+    ctx.detailViews.set(
+      issue.identifier,
+      issueView(issue, {
+        workspaceKey: workspace.workspaceKey,
+        status: "running",
+        attempt,
+        configuredModel: modelSelection.model,
+        configuredReasoningEffort: modelSelection.reasoningEffort,
+        configuredModelSource: modelSelection.source,
+        modelChangePending: false,
+        model: modelSelection.model,
+        reasoningEffort: modelSelection.reasoningEffort,
+        modelSource: modelSelection.source,
+      }),
+    );
+    emitLaunchNotifications(ctx, issue, workspace, attempt, modelSelection);
+
+    const promptTemplate = await ctx.deps.resolveTemplate(issue.identifier);
+    const promise = ctx.deps.agentRunner.runAttempt({
+      issue,
       attempt,
-      configuredModel: modelSelection.model,
-      configuredReasoningEffort: modelSelection.reasoningEffort,
-      configuredModelSource: modelSelection.source,
-      modelChangePending: false,
-      model: modelSelection.model,
-      reasoningEffort: modelSelection.reasoningEffort,
-      modelSource: modelSelection.source,
-    }),
-  );
-  emitLaunchNotifications(ctx, issue, workspace, attempt, modelSelection);
-
-  const promptTemplate = await ctx.deps.resolveTemplate(issue.identifier);
-  const promise = ctx.deps.agentRunner.runAttempt({
-    issue,
-    attempt,
-    modelSelection,
-    promptTemplate,
-    workspace,
-    signal: entry.abortController.signal,
-    onEvent: buildOnEventHandler(ctx, entry),
-    previousThreadId: options?.previousThreadId ?? null,
-    onSteerReady: (steerFn) => {
-      entry.steerTurn = steerFn;
-    },
+      modelSelection,
+      promptTemplate,
+      workspace,
+      signal: entry.abortController.signal,
+      onEvent: buildOnEventHandler(ctx, entry),
+      previousThreadId: options?.previousThreadId ?? null,
+      onSteerReady: (steerFn) => {
+        entry.steerTurn = steerFn;
+      },
+    });
+    entry.promise = ctx.handleWorkerPromise(promise, issue, workspace, entry, attempt);
   });
-  entry.promise = ctx.handleWorkerPromise(promise, issue, workspace, entry, attempt);
 }

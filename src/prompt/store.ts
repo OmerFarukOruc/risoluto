@@ -7,11 +7,11 @@
  */
 
 import { eq } from "drizzle-orm";
-import { Liquid } from "liquidjs";
 
 import type { RisolutoDatabase } from "../persistence/sqlite/database.js";
 import { config, promptTemplates } from "../persistence/sqlite/schema.js";
 import type { RisolutoLogger } from "../core/types.js";
+import { createPromptLiquid, PromptTemplateValidationError, validatePromptTemplate } from "./template-policy.js";
 
 export interface PromptTemplate {
   id: string;
@@ -48,8 +48,12 @@ function buildSampleContext() {
   };
 }
 
+function assertValidTemplateBody(body: string): void {
+  validatePromptTemplate(body);
+}
+
 export class PromptTemplateStore {
-  private readonly liquid = new Liquid({ strictVariables: false, strictFilters: false });
+  private readonly liquid = createPromptLiquid();
 
   constructor(
     private readonly db: RisolutoDatabase,
@@ -66,6 +70,8 @@ export class PromptTemplateStore {
   }
 
   create(template: Omit<PromptTemplate, "createdAt" | "updatedAt">): PromptTemplate {
+    assertValidTemplateBody(template.body);
+
     const now = new Date().toISOString();
     this.db
       .insert(promptTemplates)
@@ -84,6 +90,10 @@ export class PromptTemplateStore {
   update(id: string, patch: Partial<Pick<PromptTemplate, "name" | "body">>): PromptTemplate | null {
     const existing = this.get(id);
     if (!existing) return null;
+
+    if (patch.body !== undefined) {
+      assertValidTemplateBody(patch.body);
+    }
 
     const now = new Date().toISOString();
     const updates: Record<string, unknown> = { updatedAt: now };
@@ -132,11 +142,13 @@ export class PromptTemplateStore {
 
   async renderPreview(body: string): Promise<PreviewResult> {
     try {
+      assertValidTemplateBody(body);
       const parsed = this.liquid.parse(body);
       const rendered = await this.liquid.render(parsed, buildSampleContext());
       return { rendered, error: null };
     } catch (error) {
-      return { rendered: "", error: String(error) };
+      const message = error instanceof PromptTemplateValidationError ? error.message : String(error);
+      return { rendered: "", error: message };
     }
   }
 }

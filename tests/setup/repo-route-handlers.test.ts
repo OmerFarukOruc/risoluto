@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createConfigOverlayStoreMock,
+  createSecretsStoreMock,
   postJson,
   setupAfterEach,
   setupBeforeEach,
@@ -179,6 +180,24 @@ describe("repo route handlers", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       routes: [{ repo_url: "https://github.com/org/repo", default_branch: "main", identifier_prefix: "NIN" }],
+    });
+  });
+
+  it("returns 404 for repo route discovery after bootstrap is configured", async () => {
+    const configOverlayStore = createConfigOverlayStoreMock();
+    vi.spyOn(configOverlayStore, "toMap").mockReturnValue({
+      repos: [{ repo_url: "https://github.com/org/repo", default_branch: "main", identifier_prefix: "NIN" }],
+    });
+    const secretsStore = createSecretsStoreMock();
+    vi.spyOn(secretsStore, "isInitialized").mockReturnValue(true);
+    vi.spyOn(secretsStore, "get").mockImplementation((key) => (key === "LINEAR_API_KEY" ? "lin_api_key" : null));
+
+    const { baseUrl } = await startSetupApiServer({ configOverlayStore, secretsStore });
+    const response = await fetch(`${baseUrl}/api/v1/setup/repo-routes`);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: { code: "not_found", message: "Not found" },
     });
   });
 

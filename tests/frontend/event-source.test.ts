@@ -1,24 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  connectEventSource,
   subscribeIssueEvents,
   subscribeAllEvents,
   type AgentEventPayload,
 } from "../../frontend/src/state/event-source";
 
-// Provide a minimal window stub so subscribeIssueEvents can run in Node.
 const fakeTarget = new EventTarget();
 const originalWindow = global.window;
+const originalEventSource = global.EventSource;
+
+function createSessionStorageMock() {
+  const store = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+    clear: vi.fn(() => store.clear()),
+  };
+}
+
 beforeEach(() => {
+  const sessionStorage = createSessionStorageMock();
   // @ts-expect-error -- intentional stub for tests
   global.window = {
     addEventListener: fakeTarget.addEventListener.bind(fakeTarget),
     removeEventListener: fakeTarget.removeEventListener.bind(fakeTarget),
     dispatchEvent: fakeTarget.dispatchEvent.bind(fakeTarget),
+    sessionStorage,
+    location: { href: "http://127.0.0.1:4000/" },
+    history: { replaceState: vi.fn() },
   };
 });
+
 afterEach(() => {
   global.window = originalWindow;
+  global.EventSource = originalEventSource;
+  vi.restoreAllMocks();
 });
 
 function makePayload(overrides: Partial<AgentEventPayload> = {}): AgentEventPayload {
@@ -137,5 +160,29 @@ describe("subscribeAllEvents", () => {
       type: "worker.failed",
       payload: { identifier: "ENG-1", error: "timeout" },
     });
+  });
+});
+
+describe("connectEventSource", () => {
+  it("appends the stored read token to the SSE URL", () => {
+    const eventSourceSpy = vi.fn();
+    class EventSourceMock {
+      close = vi.fn();
+      onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
+      onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
+      onerror: ((this: EventSource, ev: Event) => unknown) | null = null;
+
+      constructor(url: string) {
+        eventSourceSpy(url);
+      }
+    }
+    global.EventSource = EventSourceMock as unknown as typeof EventSource;
+    // @ts-expect-error test override
+    global.window.location.href = "http://127.0.0.1:4000/?read_token=read-secret";
+
+    connectEventSource();
+
+    expect(eventSourceSpy).toHaveBeenCalledWith("/api/v1/events?read_token=read-secret");
+    expect(global.window.history.replaceState).toHaveBeenCalled();
   });
 });

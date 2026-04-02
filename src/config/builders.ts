@@ -22,6 +22,7 @@ import {
   normalizeStateMachine,
 } from "./normalizers.js";
 import { DEFAULT_ACTIVE_STATES, DEFAULT_TERMINAL_STATES } from "../state/policy.js";
+import { normalizeTrackerEndpoint } from "./url-policy.js";
 
 /**
  * Options for service config derivation.
@@ -55,10 +56,13 @@ function deriveTrackerConfig(
   tracker: Record<string, unknown>,
   secretResolver?: (name: string) => string | undefined,
 ): ServiceConfig["tracker"] {
+  const kind = asString(tracker.kind, "linear");
+  const defaultEndpoint = kind === "github" ? "https://api.github.com" : "https://api.linear.app/graphql";
+  const endpoint = resolveConfigString(tracker.endpoint, secretResolver) || defaultEndpoint;
   return {
-    kind: asString(tracker.kind, "linear"),
+    kind,
     apiKey: resolveConfigString(tracker.api_key, secretResolver) || secretResolver?.("LINEAR_API_KEY") || "",
-    endpoint: resolveConfigString(tracker.endpoint, secretResolver) || "https://api.linear.app/graphql",
+    endpoint: normalizeTrackerEndpoint(kind, endpoint),
     projectSlug:
       resolveConfigString(tracker.project_slug, secretResolver) || secretResolver?.("LINEAR_PROJECT_SLUG") || null,
     owner: asString(tracker.owner, "") || (secretResolver?.("GITHUB_OWNER") ?? ""),

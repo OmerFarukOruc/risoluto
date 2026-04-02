@@ -62,3 +62,8 @@ dogfood-output/
 # UI Polish pipeline
 .ui-polish/
 screenshots/
+
+# External tool state
+.omx/
+sast/
+.codex

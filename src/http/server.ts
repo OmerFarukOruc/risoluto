@@ -18,9 +18,14 @@ import { tracingMiddleware } from "../observability/tracing.js";
 import type { TrackerPort } from "../tracker/port.js";
 
 import { registerHttpRoutes } from "./routes.js";
+import { createReadGuard, hasConfiguredReadAccessToken } from "./read-guard.js";
 import { createWriteGuard } from "./write-guard.js";
 import { serviceErrorHandler } from "./service-errors.js";
 import type { WebhookHandlerDeps } from "./webhook-handler.js";
+
+function isLoopbackBindHost(host: string): boolean {
+  return host === "127.0.0.1" || host === "localhost" || host === "::1";
+}
 
 export class HttpServer {
   private readonly app: Express;
@@ -72,6 +77,7 @@ export class HttpServer {
         },
       }),
     );
+    this.app.use(createReadGuard());
     this.app.use(createWriteGuard());
     registerHttpRoutes(this.app, this.deps);
     this.app.use(serviceErrorHandler);
@@ -82,6 +88,12 @@ export class HttpServer {
       throw new Error("http server already started");
     }
     const host = process.env.RISOLUTO_BIND ?? "127.0.0.1";
+    if (!isLoopbackBindHost(host) && !hasConfiguredReadAccessToken()) {
+      throw new Error(
+        `Refusing to bind Risoluto to non-loopback host ${host} without read auth. ` +
+          `Set RISOLUTO_READ_TOKEN or RISOLUTO_WRITE_TOKEN first.`,
+      );
+    }
     let startedServer: http.Server | null = null;
     await new Promise<void>((resolve, reject) => {
       const server = this.app.listen(port, host, () => {

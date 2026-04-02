@@ -6,6 +6,7 @@ import type { Request, Response } from "express";
 import type { ConfigStore } from "../config/store.js";
 import type { RuntimeIssueView } from "../core/types.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
+import { withWorkspaceLifecycleLock } from "../workspace/lifecycle-lock.js";
 
 /* ------------------------------------------------------------------ */
 /*  Response types                                                     */
@@ -151,7 +152,6 @@ export async function handleWorkspaceInventory(
     throw error;
   }
 
-  // Build inventory entries
   const workspaces: WorkspaceInventoryEntry[] = await Promise.all(
     fsEntries.map(async (key) => {
       const wsPath = path.join(workspaceRoot, key);
@@ -171,7 +171,6 @@ export async function handleWorkspaceInventory(
     }),
   );
 
-  // Sort: running first, then retrying, completed, orphaned
   const statusOrder: Record<string, number> = { running: 0, retrying: 1, completed: 2, orphaned: 3 };
   workspaces.sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
 
@@ -213,30 +212,32 @@ export async function handleWorkspaceRemove(deps: WorkspaceInventoryDeps, req: R
     return;
   }
 
-  const snapshot = deps.orchestrator.getSnapshot();
-  const isActive =
-    snapshot.running.some((v) => v.workspaceKey === workspaceKey) ||
-    (snapshot.retrying ?? []).some((v) => v.workspaceKey === workspaceKey);
+  await withWorkspaceLifecycleLock(workspaceKey, async () => {
+    const snapshot = deps.orchestrator.getSnapshot();
+    const isActive =
+      snapshot.running.some((view) => view.workspaceKey === workspaceKey) ||
+      (snapshot.retrying ?? []).some((view) => view.workspaceKey === workspaceKey);
 
-  if (isActive) {
-    res.status(409).json({ error: { code: "conflict", message: "Cannot remove an active workspace" } });
-    return;
-  }
-
-  try {
-    const info = await stat(wsPath);
-    if (!info.isDirectory()) {
-      res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
+    if (isActive) {
+      res.status(409).json({ error: { code: "conflict", message: "Cannot remove an active workspace" } });
       return;
     }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
-      return;
-    }
-    throw error;
-  }
 
-  await rm(wsPath, { recursive: true, force: true });
-  res.status(204).end();
+    try {
+      const info = await stat(wsPath);
+      if (!info.isDirectory()) {
+        res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
+        return;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
+        return;
+      }
+      throw error;
+    }
+
+    await rm(wsPath, { recursive: true, force: true });
+    res.status(204).end();
+  });
 }

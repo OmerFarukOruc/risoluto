@@ -13,8 +13,16 @@ import type {
   SteerIssueResponse,
   WorkspaceInventoryResponse,
 } from "./types";
+import { getReadAccessToken, getWriteAccessToken } from "./access-token";
 
 const BASE = "";
+
+function withAuthorization(headers: HeadersInit | undefined, token: string | null): HeadersInit | undefined {
+  if (!token) {
+    return headers;
+  }
+  return { ...(headers ?? {}), Authorization: `Bearer ${token}` };
+}
 
 async function readError(response: Response): Promise<string> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -34,7 +42,9 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const response = await fetch(BASE + path);
+  const response = await fetch(BASE + path, {
+    headers: withAuthorization(undefined, getReadAccessToken()),
+  });
   if (!response.ok) {
     throw new Error(await readError(response));
   }
@@ -42,9 +52,13 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers = withAuthorization(
+    body === undefined ? undefined : { "content-type": "application/json" },
+    method === "GET" || method === "HEAD" ? getReadAccessToken() : getWriteAccessToken(),
+  );
   const response = await fetch(BASE + path, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
@@ -166,12 +180,10 @@ export const api = {
   previewTemplate: async (id: string): Promise<{ rendered: string; error: string | null }> => {
     const response = await fetch(`${BASE}/api/v1/templates/${encodeURIComponent(id)}/preview`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: withAuthorization({ "content-type": "application/json" }, getWriteAccessToken()),
       body: "{}",
     });
     const body = (await response.json()) as { rendered: string; error: string | null };
-    // Backend returns { rendered, error } for both 200 (success) and 400 (Liquid errors).
-    // Only throw for truly unexpected failures (no error field at all).
     if (!response.ok && !body.error) {
       throw new Error(`${response.status} ${response.statusText}`);
     }

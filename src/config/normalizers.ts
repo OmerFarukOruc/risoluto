@@ -17,6 +17,7 @@ import type {
 } from "../core/types.js";
 import { asBoolean, asRecord, asString, asStringArray, asStringMap, asRecordArray } from "./coercion.js";
 import { resolveConfigString } from "./resolvers.js";
+import { normalizeGitHubApiBaseUrl, normalizeSlackWebhookUrl } from "./url-policy.js";
 
 /**
  * Normalize a Codex auth mode string.
@@ -70,7 +71,7 @@ export function normalizeNotifications(
   const verbosity = asString(slack.verbosity, "critical");
   return {
     slack: {
-      webhookUrl,
+      webhookUrl: normalizeSlackWebhookUrl(webhookUrl),
       verbosity: verbosity === "off" || verbosity === "critical" || verbosity === "verbose" ? verbosity : "critical",
     },
   };
@@ -91,7 +92,9 @@ export function normalizeGitHub(
   }
   return {
     token,
-    apiBaseUrl: resolveConfigString(root.api_base_url, secretResolver) || "https://api.github.com",
+    apiBaseUrl: normalizeGitHubApiBaseUrl(
+      resolveConfigString(root.api_base_url, secretResolver) || "https://api.github.com",
+    ),
   };
 }
 

@@ -12,10 +12,20 @@
 import type { Express } from "express";
 
 import type { PromptTemplateStore } from "./store.js";
+import { PromptTemplateValidationError } from "./template-policy.js";
 import { isRecord } from "../utils/type-guards.js";
 
 interface TemplateApiDeps {
   templateStore: PromptTemplateStore;
+}
+
+function sendTemplateValidationError(
+  response: { status: (code: number) => { json: (body: unknown) => void } },
+  message: string,
+): void {
+  response.status(400).json({
+    error: { code: "invalid_template_body", message },
+  });
 }
 
 export function registerTemplateApi(app: Express, deps: TemplateApiDeps): void {
@@ -46,12 +56,20 @@ export function registerTemplateApi(app: Express, deps: TemplateApiDeps): void {
         return;
       }
 
-      const template = deps.templateStore.create({
-        id: body.id,
-        name: body.name,
-        body: body.body,
-      });
-      response.status(201).json({ template });
+      try {
+        const template = deps.templateStore.create({
+          id: body.id,
+          name: body.name,
+          body: body.body,
+        });
+        response.status(201).json({ template });
+      } catch (error) {
+        if (error instanceof PromptTemplateValidationError) {
+          sendTemplateValidationError(response, error.message);
+          return;
+        }
+        throw error;
+      }
     })
     .all((_request, response) => {
       response.status(405).json({ error: { code: "method_not_allowed", message: "Method not allowed" } });
@@ -82,14 +100,22 @@ export function registerTemplateApi(app: Express, deps: TemplateApiDeps): void {
       if (typeof body.name === "string") patch.name = body.name;
       if (typeof body.body === "string") patch.body = body.body;
 
-      const updated = deps.templateStore.update(request.params.id, patch);
-      if (!updated) {
-        response.status(404).json({
-          error: { code: "template_not_found", message: `template "${request.params.id}" not found` },
-        });
-        return;
+      try {
+        const updated = deps.templateStore.update(request.params.id, patch);
+        if (!updated) {
+          response.status(404).json({
+            error: { code: "template_not_found", message: `template "${request.params.id}" not found` },
+          });
+          return;
+        }
+        response.json({ template: updated });
+      } catch (error) {
+        if (error instanceof PromptTemplateValidationError) {
+          sendTemplateValidationError(response, error.message);
+          return;
+        }
+        throw error;
       }
-      response.json({ template: updated });
     })
     .delete((request, response) => {
       const result = deps.templateStore.remove(request.params.id);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createConfigOverlayStoreMock,
   createOrchestratorMock,
+  createSecretsStoreMock,
   type HoistedMocks,
   getExternalFetchMock,
   postJson,
@@ -118,6 +119,21 @@ describe("GET /api/v1/setup/linear-projects", () => {
     const body = (await response.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe("linear_api_error");
     expect(body.error.message).toBe("DNS resolution failed");
+  });
+
+  it("returns 404 after bootstrap is configured", async () => {
+    const secretsStore = createSecretsStoreMock();
+    vi.spyOn(secretsStore, "isInitialized").mockReturnValue(true);
+    vi.spyOn(secretsStore, "get").mockImplementation((key) => (key === "LINEAR_API_KEY" ? "lin_api_key" : null));
+
+    const { baseUrl } = await startSetupApiServer({ secretsStore });
+    const response = await fetch(`${baseUrl}/api/v1/setup/linear-projects`);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: { code: "not_found", message: "Not found" },
+    });
+    expect(getExternalFetchMock()).not.toHaveBeenCalled();
   });
 });
 

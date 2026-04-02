@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import express from "express";
 import http from "node:http";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
@@ -10,6 +10,7 @@ import {
   handleWorkspaceRemove,
   type WorkspaceInventoryDeps,
 } from "../../src/http/workspace-inventory.js";
+import { withWorkspaceLifecycleLock } from "../../src/workspace/lifecycle-lock.js";
 
 function createTestDir(suffix: string): string {
   return path.join(tmpdir(), `risoluto-test-${suffix}-${Date.now()}`);
@@ -295,5 +296,36 @@ describe("DELETE /api/v1/workspaces/:workspace_key", () => {
     expect(res.status).toBe(409);
     const body = (await res.json()) as Record<string, unknown>;
     expect((body.error as Record<string, unknown>)?.code).toBe("conflict");
+  });
+
+  it("waits for the workspace lifecycle lock before deleting", async () => {
+    await mkdir(path.join(workspaceRoot, "NIN-1"), { recursive: true });
+    await writeFile(path.join(workspaceRoot, "NIN-1", "file.txt"), "hello");
+
+    ({ server } = await startTestServer({
+      orchestrator: makeOrchestrator() as never,
+      configStore: makeConfigStore(workspaceRoot) as never,
+    }));
+    const port = (server.address() as { port: number }).port;
+
+    let releaseLock: (() => void) | null = null;
+    const holdLock = withWorkspaceLifecycleLock("NIN-1", async () => {
+      await new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const deletePromise = fetch(`http://127.0.0.1:${port}/api/v1/workspaces/NIN-1`, { method: "DELETE" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const entriesBeforeRelease = await readdir(workspaceRoot);
+    expect(entriesBeforeRelease).toContain("NIN-1");
+
+    releaseLock?.();
+    await holdLock;
+
+    const res = await deletePromise;
+    expect(res.status).toBe(204);
   });
 });

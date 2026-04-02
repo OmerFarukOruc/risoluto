@@ -6,6 +6,7 @@ import { waitForStartup, StartupTimeoutError, buildDynamicTools } from "./sessio
 import type { DockerSession } from "./docker-session.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
 import { createLifecycleEvent } from "../core/lifecycle-events.js";
+import { validatePromptTemplate } from "../prompt/template-policy.js";
 import { toErrorString } from "../utils/type-guards.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, RisolutoLogger, Workspace } from "../core/types.js";
 
@@ -242,6 +243,7 @@ async function renderPromptTemplate(
 ): Promise<SessionInitSuccess | EarlyOutcome> {
   let parsedTemplate;
   try {
+    validatePromptTemplate(input.promptTemplate);
     parsedTemplate = liquid.parse(input.promptTemplate);
   } catch (error) {
     return {

@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 
 import { openDatabase, closeDatabase, type RisolutoDatabase } from "../../src/persistence/sqlite/database.js";
 import { PromptTemplateStore } from "../../src/prompt/store.js";
+import { PromptTemplateValidationError } from "../../src/prompt/template-policy.js";
 import { createLogger } from "../../src/core/logger.js";
 
 let db: RisolutoDatabase;
@@ -23,6 +24,12 @@ describe("PromptTemplateStore — CRUD", () => {
     expect(retrieved).toMatchObject({ id: "test", name: "Test" });
   });
 
+  it("rejects unsupported Liquid filters when creating a template", () => {
+    expect(() => store.create({ id: "bad", name: "Bad", body: "{{ 7 | plus: 7 }}" })).toThrow(
+      PromptTemplateValidationError,
+    );
+  });
+
   it("returns null for nonexistent template", () => {
     expect(store.get("nope")).toBeNull();
   });
@@ -42,6 +49,11 @@ describe("PromptTemplateStore — CRUD", () => {
     const retrieved = store.get("t");
     expect(retrieved?.name).toBe("New");
     expect(retrieved?.body).toBe("new body");
+  });
+
+  it("rejects unsupported Liquid statements on update", () => {
+    store.create({ id: "t", name: "Old", body: "{{ issue.title }}" });
+    expect(() => store.update("t", { body: "{% assign x = issue.title %}" })).toThrow(PromptTemplateValidationError);
   });
 
   it("update returns null for nonexistent template", () => {
@@ -73,15 +85,20 @@ describe("PromptTemplateStore — preview", () => {
     expect(result.error).toContain("not found");
   });
 
-  it("returns error for bad Liquid syntax", async () => {
-    store.create({ id: "bad", name: "Bad", body: "{% if %}" });
-    const result = await store.preview("bad");
-    expect(result.error).toBeTruthy();
+  it("returns error for unsupported Liquid syntax", async () => {
+    const result = await store.renderPreview("{{ issue.title | upcase }}");
+    expect(result.error).toContain("unsupported Liquid output expression");
   });
 
   it("renderPreview works with raw body string", async () => {
     const result = await store.renderPreview("Attempt {{ attempt }}");
     expect(result.error).toBeNull();
     expect(result.rendered).toContain("1");
+  });
+
+  it("allows the default conditional shape", async () => {
+    const result = await store.renderPreview("{% if issue.description %}{{ issue.description }}{% endif %}");
+    expect(result.error).toBeNull();
+    expect(result.rendered).toContain("sample issue description");
   });
 });

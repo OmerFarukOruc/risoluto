@@ -25,8 +25,11 @@ import type { RisolutoEventMap } from "../../src/core/risoluto-events.js";
 import type { RisolutoLogger } from "../../src/core/types.js";
 import { HttpServer } from "../../src/http/server.js";
 import type { WebhookHandlerDeps } from "../../src/http/webhook-handler.js";
+import type { ConfigOverlayPort } from "../../src/config/overlay.js";
+import type { ConfigStore } from "../../src/config/store.js";
 import type { OrchestratorPort } from "../../src/orchestrator/port.js";
 import { closeDatabase, openDatabase, type RisolutoDatabase } from "../../src/persistence/sqlite/database.js";
+import type { SecretsStore } from "../../src/secrets/store.js";
 
 /* ------------------------------------------------------------------ */
 /*  Stub builders                                                      */
@@ -150,6 +153,12 @@ export interface TestServerOverrides {
   withDatabase?: boolean;
   /** Path to a directory containing a built frontend (index.html). */
   frontendDir?: string;
+  /** Provide a config store for config/transitions routes (Tier 2). */
+  configStore?: ConfigStore;
+  /** Provide a config overlay store for overlay CRUD routes (Tier 2). */
+  configOverlayStore?: ConfigOverlayPort;
+  /** Provide a secrets store for secrets CRUD routes (Tier 2). */
+  secretsStore?: SecretsStore;
 }
 
 export interface TestServerResult {
@@ -236,6 +245,9 @@ export async function startTestServer(overrides: TestServerOverrides = {}): Prom
     webhookHandlerDeps,
     frontendDir: overrides.frontendDir,
     archiveDir: dataDir,
+    configStore: overrides.configStore,
+    configOverlayStore: overrides.configOverlayStore,
+    secretsStore: overrides.secretsStore,
   });
 
   const { port } = await server.start(0);

@@ -89,6 +89,9 @@ importers:
       agentation-mcp:
         specifier: ^1.2.0
         version: 1.2.0
+      ajv:
+        specifier: ^8.18.0
+        version: 8.18.0
       autocannon:
         specifier: ^8.0.0
         version: 8.0.0

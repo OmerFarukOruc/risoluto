@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/test";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 import { buildAttemptSummary } from "../../mocks/data/attempts";
 
 test.describe("Issue Detail Visual Regression", () => {
@@ -44,7 +44,7 @@ test.describe("Issue Detail Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("issue-detail-running.png", {
@@ -89,7 +89,7 @@ test.describe("Issue Detail Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("issue-detail-completed.png", {

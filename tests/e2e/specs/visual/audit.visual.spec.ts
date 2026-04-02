@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/test";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 
 test.describe("Audit Log Visual Regression", () => {
   test("audit log with entries", async ({ page, apiMock }) => {
@@ -16,7 +16,7 @@ test.describe("Audit Log Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("audit-log-entries.png", {
@@ -47,7 +47,7 @@ test.describe("Audit Log Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("audit-log-empty.png", {

@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/test";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 
 test.describe("Workspaces Visual Regression", () => {
   test("workspaces page default view", async ({ page, apiMock }) => {
@@ -16,7 +16,7 @@ test.describe("Workspaces Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("workspaces-default.png", {
@@ -76,7 +76,7 @@ test.describe("Workspaces Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("workspaces-active.png", {

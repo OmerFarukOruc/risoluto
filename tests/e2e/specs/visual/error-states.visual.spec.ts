@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/test";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 
 test.describe("Error States Visual Regression", () => {
   test("404 unknown issue page", async ({ page, apiMock }) => {
@@ -16,7 +16,7 @@ test.describe("Error States Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("error-404-issue.png", {
@@ -47,7 +47,7 @@ test.describe("Error States Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("error-api-500.png", {
@@ -73,7 +73,7 @@ test.describe("Error States Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("error-timeout.png", {

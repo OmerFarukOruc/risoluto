@@ -1,7 +1,7 @@
 import { test, expect } from "../../fixtures/test";
 import { ConfigPage } from "../../pages/config.page";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 
 test.describe("Settings Tabs Visual Regression", () => {
   test("settings general tab", async ({ page, apiMock }) => {
@@ -17,7 +17,7 @@ test.describe("Settings Tabs Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("settings-general-tab.png", {
@@ -37,7 +37,7 @@ test.describe("Settings Tabs Visual Regression", () => {
     await expect(page.getByText("Stored credentials").first()).toBeVisible();
     await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible();
     await expect(config.addCredentialButton).toBeVisible();
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(100);
 
     await expect(config.credentialsSection).toHaveScreenshot("settings-credentials-tab.png");
@@ -56,7 +56,7 @@ test.describe("Settings Tabs Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("settings-devtools-tab.png", {

@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/test";
 import { freezeClock } from "../../support/clock";
-import { screenshotCss } from "../../support/screenshot-css";
+import { applyScreenshotStyles } from "../../support/screenshot-css";
 
 test.describe("Templates Visual Regression", () => {
   test("templates list view", async ({ page, apiMock }) => {
@@ -16,7 +16,7 @@ test.describe("Templates Visual Regression", () => {
     });
 
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("templates-list.png", {
@@ -39,7 +39,7 @@ test.describe("Templates Visual Regression", () => {
     // Click the default template to open the editor
     await page.locator("text=Default Template").first().click();
     await page.waitForTimeout(1000);
-    await page.addStyleTag({ content: screenshotCss });
+    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot("templates-editor.png", {

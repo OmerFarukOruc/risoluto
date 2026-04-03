@@ -1,0 +1,84 @@
+src/orchestrator/context.ts
+  40c849ad80a0d5a1 22-25
+src/core/attempt-store-port.ts
+  40c849ad80a0d5a1 9-17,33-39
+src/git/pr-monitor.ts
+  40c849ad80a0d5a1 1-30,32-207,209-243
+src/persistence/sqlite/attempt-store-sqlite.ts
+  40c849ad80a0d5a1 10-11,14-15,19,175-228,233-262
+src/persistence/sqlite/database.ts
+  40c849ad80a0d5a1 168-184
+src/core/attempt-store.ts
+  40c849ad80a0d5a1 6-7,170-186
+tests/git/pr-monitor.test.ts
+  40c849ad80a0d5a1 1-286,288-402
+src/cli/services.ts
+  40c849ad80a0d5a1 25,255-265,299
+src/persistence/sqlite/schema.ts
+  40c849ad80a0d5a1 196-213
+src/orchestrator/worker-outcome/stop-signal.ts
+  40c849ad80a0d5a1 40,118-122,124-145
+src/core/risoluto-events.ts
+  40c849ad80a0d5a1 48-53
+src/cli/index.ts
+  40c849ad80a0d5a1 24,81,85,101,267,278,285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "855794742c6b1f39e90e15bccd68880bae62e2e3",
+  "prompts": {
+    "40c849ad80a0d5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0065a08e-0e13-41c0-9e05-c35791d17328",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 906,
+      "total_deletions": 48,
+      "accepted_lines": 860,
+      "overriden_lines": 5
+    },
+    "52b50571d24a5809": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5019-2593-7072-b68f-ef8955d6a000",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 1
+    },
+    "56d61f6b1ec38e43": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e0028769-6980-4666-9737-e1b82b46bc39",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "67376f6f54fc4355": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5061-af9d-74d1-851c-37f2f3ed053d",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

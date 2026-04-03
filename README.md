@@ -181,6 +181,7 @@ codex login                       # ChatGPT/Codex subscription path
 - **📬 Slack notifications** — Lifecycle alerts with verbosity controls
 - **🤖 Codex integration** — `codex app-server` via JSON-RPC with dynamic tool handling
 - **🔌 MCP server** — `linear_graphql` dynamic tool for orchestrator introspection
+- **🔄 PR/CI automation** — Tracker completion comments (success + failure), agent-authored PR summaries, PR review feedback ingestion for retry, auto-merge policy engine, PR lifecycle monitoring (60s polling, merge detection, auto-archive), and attempt checkpoint history
 
 </td>
 <td width="50%" valign="top">

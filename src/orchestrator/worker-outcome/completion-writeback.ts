@@ -25,22 +25,37 @@ export interface FailureWritebackInput {
   errorReason: string;
 }
 
+const integerFormatter = new Intl.NumberFormat("en-US");
+
+function formatTokenCount(value: number): string {
+  return integerFormatter.format(value);
+}
+
 function buildSuccessCommentBody(input: CompletionWritebackInput, durationSeconds: number): string {
-  const lines: string[] = ["**Risoluto** completed this issue."];
-  if (input.turnCount !== null) {
-    lines.push(`- Turns: ${input.turnCount}`);
+  const lines: string[] = ["**Risoluto agent completed**"];
+  if (input.attempt !== null) {
+    lines.push(`- **Attempt:** ${input.attempt}`);
   }
-  lines.push(`- Duration: ${durationSeconds}s`);
+  if (typeof input.turnCount === "number") {
+    lines.push(`- **Turns:** ${input.turnCount}`);
+  }
+  lines.push(`- **Duration:** ${durationSeconds}s`);
   if (input.entry.tokenUsage) {
     const { totalTokens, inputTokens, outputTokens } = input.entry.tokenUsage;
-    lines.push(`- Tokens: ${totalTokens} (in: ${inputTokens}, out: ${outputTokens})`);
+    lines.push(
+      `- **Tokens:** ${formatTokenCount(totalTokens)} ` +
+        `(in: ${formatTokenCount(inputTokens)}, out: ${formatTokenCount(outputTokens)})`,
+    );
     const costUsd = computeAttemptCostUsd({
       model: input.entry.modelSelection.model,
       tokenUsage: { inputTokens, outputTokens },
     });
     if (costUsd !== null) {
-      lines.push(`- Cost: $${costUsd.toFixed(4)}`);
+      lines.push(`- **Cost:** $${costUsd.toFixed(4)}`);
     }
+  }
+  if (input.pullRequestUrl) {
+    lines.push(`- **PR:** ${input.pullRequestUrl}`);
   }
   return lines.join("\n");
 }
@@ -90,7 +105,7 @@ async function postSuccessWriteback(
   } catch (error) {
     ctx.deps.logger.warn(
       { issue_identifier: input.issue.identifier, error: toErrorString(error) },
-      "linear success comment failed (non-fatal)",
+      "linear completion comment failed (non-fatal)",
     );
   }
 
@@ -103,9 +118,10 @@ async function postBlockedWriteback(
   durationSeconds: number,
 ): Promise<void> {
   const commentBody = [
-    `**Risoluto** could not complete this issue after ${input.attempt ?? 1} attempt(s).`,
-    `- Error: agent reported blocked`,
-    `- Duration: ${durationSeconds}s`,
+    `**Risoluto agent blocked**`,
+    `- **Reason:** agent reported blocked`,
+    `- **Attempts:** ${input.attempt ?? 1}`,
+    `- **Duration:** ${durationSeconds}s`,
   ].join("\n");
 
   try {
@@ -145,9 +161,10 @@ export async function writeFailureWriteback(
 ): Promise<void> {
   const durationSeconds = Math.round((Date.now() - input.entry.startedAtMs) / 1000);
   const lines: string[] = [
-    `**Risoluto** could not complete this issue after ${input.attemptCount ?? 1} attempt(s).`,
-    `- Error: ${input.errorReason}`,
-    `- Duration: ${durationSeconds}s`,
+    `**Risoluto agent failed**`,
+    `- **Reason:** ${input.errorReason}`,
+    `- **Attempts:** ${input.attemptCount ?? 1}`,
+    `- **Duration:** ${durationSeconds}s`,
   ];
   const commentBody = lines.join("\n");
 

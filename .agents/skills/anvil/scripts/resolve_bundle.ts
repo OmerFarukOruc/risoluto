@@ -45,11 +45,14 @@ function formatSourceItem(item: string | Record<string, unknown>): string {
 
 async function main(): Promise<void> {
   const root = process.cwd();
-  const rawSlug = process.argv[2] ?? "example-anvil-run";
-  if (/[\\/]/.test(rawSlug) || rawSlug.includes("..")) {
+  const rawSlug = process.argv[2];
+  if (!rawSlug || rawSlug.trim().length === 0 || rawSlug.trim() === ".") {
+    throw new TypeError("invalid slug: must be a non-empty string that is not '.'");
+  }
+  if (/[\/]/.test(rawSlug) || rawSlug.includes("..")) {
     throw new TypeError(`invalid slug: must not contain path separators or dots: ${rawSlug}`);
   }
-  const slug = rawSlug;
+  const slug = rawSlug.trim();
   const title = process.argv[3] ?? "Example bundle";
   const bundlePatch = await maybeReadJson(process.argv[4]);
 

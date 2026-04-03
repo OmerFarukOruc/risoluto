@@ -37,8 +37,13 @@ export async function handleStopSignal(
 
   if (pullRequestUrl) {
     ctx.deps.logger.info({ issue_identifier: issue.identifier, url: pullRequestUrl }, "pull request created");
-    registerPrForMonitoring(ctx, entry, issue, pullRequestUrl);
-  }
+    registerPrForMonitoring(ctx, entry, issue, pullRequestUrl).catch((error) => {
+      ctx.deps.logger.warn(
+        { issue_identifier: issue.identifier, error: toErrorString(error) },
+        "PR registration for monitoring failed (non-fatal)",
+      );
+    });
+}
 
   const isBlocked = stopSignal === "blocked";
   const statusMessage = isBlocked ? "worker reported issue blocked" : "worker reported issue complete";
@@ -132,11 +137,16 @@ async function registerPrForMonitoring(
   const repoName = repoMatch.githubRepo ?? null;
   if (!owner || !repoName) return;
   const pullNumberMatch = /\/pull\/(\d+)$/.exec(pullRequestUrl);
-  const pullNumber = pullNumberMatch ? parseInt(pullNumberMatch[1], 10) : null;
-  if (pullNumber === null) return;
+  if (!pullNumberMatch) return;
+  const pullNumber = parseInt(pullNumberMatch[1], 10);
   const now = new Date().toISOString();
-  await ctx.deps.attemptStore
-    .upsertPr?.({
+  const upsertPr = ctx.deps.attemptStore.upsertPr;
+  if (!upsertPr) {
+    ctx.deps.logger.warn({ issue_identifier: issue.identifier }, "PR registration skipped: upsertPr not available");
+    return;
+  }
+  try {
+    await upsertPr({
       issueId: issue.id,
       owner,
       repo: repoName,
@@ -147,11 +157,11 @@ async function registerPrForMonitoring(
       createdAt: now,
       updatedAt: now,
       branchName: issue.branchName ?? "",
-    })
-    .catch((error) => {
-      ctx.deps.logger.warn(
-        { issue_identifier: issue.identifier, error: toErrorString(error) },
-        "PR registration for monitoring failed (non-fatal)",
-      );
     });
+  } catch (error) {
+    ctx.deps.logger.warn(
+      { issue_identifier: issue.identifier, error: toErrorString(error) },
+      "PR registration for monitoring failed (non-fatal)",
+    );
+  }
 }

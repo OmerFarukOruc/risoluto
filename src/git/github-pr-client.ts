@@ -287,7 +287,7 @@ export class GitHubPrClient implements GithubApiToolClient {
       }
     `;
 
-    const graphqlBase = this.apiBaseUrl.includes("api.github.com") ? "https://api.github.com" : this.apiBaseUrl;
+    const graphqlBase = this.apiBaseUrl === "https://api.github.com" || this.apiBaseUrl.startsWith("https://api.github.com/") ? "https://api.github.com" : this.apiBaseUrl;
 
     const response = await this.fetchImpl(`${graphqlBase}/graphql`, {
       method: "POST",

@@ -1,0 +1,48 @@
+.codex/config.toml
+  22c935fe48538275 9,13
+src/git/pr-summary-generator.ts
+  22c935fe48538275 154,156-159
+tests/git/pr-monitor.test.ts
+  22c935fe48538275 279
+src/git/github-pr-client.ts
+  22c935fe48538275 51-71
+src/persistence/sqlite/attempt-store-sqlite.ts
+  22c935fe48538275 140-141
+src/git/pr-monitor.ts
+  22c935fe48538275 17,185
+src/orchestrator/worker-outcome/stop-signal.ts
+  22c935fe48538275 123,128,138,150-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "5c7b60572126851eb8cda2eee7111e9574069ef6",
+  "prompts": {
+    "22c935fe48538275": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2acb00071ffeV9eV7YUemDTd85",
+        "model": "opencode/qwen3.6-plus-free"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 98,
+      "total_deletions": 42,
+      "accepted_lines": 82,
+      "overriden_lines": 0
+    },
+    "52b50571d24a5809": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5019-2593-7072-b68f-ef8955d6a000",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

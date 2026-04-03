@@ -40,10 +40,19 @@ export function normalizeCodexProvider(
     return null;
   }
 
+  const id = asString(provider.id) || null;
+  const baseUrl = resolveConfigString(provider.base_url, secretResolver) || null;
+
+  // An overlay template writes all fields as empty strings — treat that as
+  // "no provider configured" so the server starts without a validation error.
+  if (!id && !baseUrl) {
+    return null;
+  }
+
   return {
-    id: asString(provider.id) || null,
+    id,
     name: asString(provider.name) || null,
-    baseUrl: resolveConfigString(provider.base_url, secretResolver) || null,
+    baseUrl,
     envKey: asString(provider.env_key) || null,
     envKeyInstructions: asString(provider.env_key_instructions) || null,
     wireApi: asString(provider.wire_api) || null,

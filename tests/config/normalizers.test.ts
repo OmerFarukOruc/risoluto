@@ -35,6 +35,23 @@ describe("normalizeCodexProvider", () => {
     expect(normalizeCodexProvider("str")).toBe(null);
   });
 
+  it("returns null when all fields are empty strings (overlay template with no real config)", () => {
+    expect(
+      normalizeCodexProvider({
+        id: "",
+        name: "",
+        base_url: "",
+        env_key: "",
+        env_key_instructions: "",
+        wire_api: "",
+        requires_openai_auth: false,
+        http_headers: "",
+        env_http_headers: "",
+        query_params: "",
+      }),
+    ).toBe(null);
+  });
+
   it("normalizes a provider config", () => {
     const raw = {
       id: "my-provider",

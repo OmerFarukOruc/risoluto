@@ -1,0 +1,96 @@
+src/core/attempt-store-port.ts
+  40c849ad80a0d5a1 38-39
+src/core/attempt-store.ts
+  40c849ad80a0d5a1 178-181
+src/persistence/sqlite/attempt-store-sqlite.ts
+  40c849ad80a0d5a1 217-221
+tests/helpers/http-server-harness.ts
+  40c849ad80a0d5a1 30,163-164,254
+src/http/openapi.ts
+  40c849ad80a0d5a1 8,40
+src/http/routes.ts
+  40c849ad80a0d5a1 52,70,311-313,316-321
+tests/http/pr-status-api.integration.test.ts
+  40c849ad80a0d5a1 1-26,28-137
+tests/e2e/mocks/data/pr.ts
+  40c849ad80a0d5a1 1-7,9-11,13-23,25-27,29-48
+src/http/pr-handler.ts
+  40c849ad80a0d5a1 39
+src/http/server.ts
+  40c849ad80a0d5a1 44
+tests/http/checkpoints-api.integration.test.ts
+  40c849ad80a0d5a1 1-137
+src/git/pr-monitor.ts
+  40c849ad80a0d5a1 224-232,236
+src/http/openapi-paths.ts
+  40c849ad80a0d5a1 17,28,224-229,231-237,241-247,257-258,260-263
+tests/e2e/mocks/api-mock.ts
+  40c849ad80a0d5a1 9-10,23-26,187-196,207-210
+src/http/response-schemas.ts
+  40c849ad80a0d5a1 377-434
+tests/e2e/mocks/data/checkpoint.ts
+  40c849ad80a0d5a1 1-71
+tests/git/pr-monitor.test.ts
+  40c849ad80a0d5a1 82,353-355
+tests/http/openapi-contracts.integration.test.ts
+  40c849ad80a0d5a1 752-753
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "830c2e6169372684fda5c5d5dc166ebccf0264c0",
+  "prompts": {
+    "40c849ad80a0d5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0065a08e-0e13-41c0-9e05-c35791d17328",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 746,
+      "total_deletions": 28,
+      "accepted_lines": 725,
+      "overriden_lines": 3
+    },
+    "52b50571d24a5809": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5019-2593-7072-b68f-ef8955d6a000",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 1
+    },
+    "56d61f6b1ec38e43": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e0028769-6980-4666-9737-e1b82b46bc39",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "67376f6f54fc4355": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5061-af9d-74d1-851c-37f2f3ed053d",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,46 @@
+docs/TRUST_AND_AUTH.md
+  40c849ad80a0d5a1 272-301
+docs/CONFORMANCE_AUDIT.md
+  40c849ad80a0d5a1 722-740
+docs/OPERATOR_GUIDE.md
+  40c849ad80a0d5a1 441-551,1162-1163
+README.md
+  40c849ad80a0d5a1 184
+docs/ROADMAP_AND_STATUS.md
+  40c849ad80a0d5a1 201,204,207
+EXECPLAN.md
+  40c849ad80a0d5a1 105-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "5a9cffeba58961a4b94ae669cd371343e95ad6ab",
+  "prompts": {
+    "40c849ad80a0d5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0065a08e-0e13-41c0-9e05-c35791d17328",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 179,
+      "overriden_lines": 0
+    },
+    "52b50571d24a5809": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5019-2593-7072-b68f-ef8955d6a000",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

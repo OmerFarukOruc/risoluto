@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "d3b04439e5e2b0bda7c06cef302064aa359e06d9",
+  "prompts": {
+    "1c1caae858bb041c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2ac21607bffe0RsV725bNNgJPb",
+        "model": "kilogateway/qwen/qwen3.6-plus:free"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -10,7 +10,6 @@ export { webhookConfigSchema } from "./webhook.js";
 export { workspaceConfigSchema } from "./workspace.js";
 export { agentConfigSchema } from "./agent.js";
 export { mergePolicyConfigSchema } from "./pr-policy.js";
-export type { MergePolicyConfig } from "./pr-policy.js";
 export {
   codexAuthModeValues,
   codexConfigSchema,

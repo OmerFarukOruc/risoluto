@@ -29,7 +29,7 @@ function printValidationError(error: ValidationError): void {
   console.error(`error code=${error.code} msg=${JSON.stringify(error.message)}`);
 }
 
-async function cleanupTransientWorkspaceDirs(workspaceRoot: string): Promise<void> {
+export async function cleanupTransientWorkspaceDirs(workspaceRoot: string): Promise<void> {
   await mkdir(workspaceRoot, { recursive: true });
   const entries = await readdir(workspaceRoot, { withFileTypes: true });
   for (const entry of entries) {
@@ -187,7 +187,12 @@ function parsePortValue(rawPort: string | undefined): number | undefined {
   return Number(rawPort);
 }
 
-function parseCliArgs(argv: string[]) {
+export function parseCliArgs(argv: string[]): {
+  dataDir: string;
+  archiveDir: string;
+  selectedPort: number | undefined;
+  logger: ReturnType<typeof createLogger>;
+} {
   const parsed = parseArgs({
     args: argv,
     allowPositionals: false,
@@ -205,7 +210,7 @@ function parseCliArgs(argv: string[]) {
   return { dataDir, archiveDir, selectedPort, logger };
 }
 
-async function readMasterKeyFile(archiveDir: string): Promise<string | null> {
+export async function readMasterKeyFile(archiveDir: string): Promise<string | null> {
   try {
     const content = await readFile(path.join(archiveDir, "master.key"), "utf8");
     return content.trim() || null;
@@ -215,7 +220,7 @@ async function readMasterKeyFile(archiveDir: string): Promise<string | null> {
   }
 }
 
-async function safeStartConfigStore(configStore: ConfigStore): Promise<number | null> {
+export async function safeStartConfigStore(configStore: ConfigStore): Promise<number | null> {
   try {
     await configStore.start();
     return null;
@@ -233,7 +238,7 @@ async function safeStartConfigStore(configStore: ConfigStore): Promise<number | 
   }
 }
 
-function evaluateSetupMode(
+export function evaluateSetupMode(
   configStore: ConfigStore,
   logger: ReturnType<typeof createLogger>,
   needsSetup: boolean,

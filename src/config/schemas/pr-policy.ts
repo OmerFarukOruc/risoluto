@@ -40,6 +40,3 @@ export const mergePolicyConfigSchema = z.object({
    */
   excludeLabels: z.array(z.string()).default([]),
 });
-
-/** Inferred type for the merge policy configuration block. */
-export type MergePolicyConfig = z.infer<typeof mergePolicyConfigSchema>;

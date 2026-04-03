@@ -128,7 +128,7 @@ function registerStateAndMetricsRoutes(app: Express, deps: HttpRouteDeps): void 
       res.status(202).json({ queued: refresh.queued, coalesced: refresh.coalesced, requested_at: refresh.requestedAt });
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 
   if (deps.eventBus) {
@@ -199,7 +199,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
       });
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 
   app
@@ -208,7 +208,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
       await handleModelUpdate(deps.orchestrator, req, res);
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 
   app
@@ -224,7 +224,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
       handleTemplateClear(deps.orchestrator, req, res);
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST", "DELETE"]);
     });
 
   app
@@ -276,7 +276,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
       );
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 
   app
@@ -290,7 +290,7 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
       res.json({ ok: result.ok, message: result.ok ? "steer sent" : "steer failed" });
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 
   app
@@ -368,7 +368,7 @@ function registerWorkspaceRoutes(app: Express, deps: HttpRouteDeps): void {
       );
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["DELETE"]);
     });
 }
 
@@ -390,7 +390,7 @@ function registerWebhookRoutes(app: Express, deps: HttpRouteDeps): void {
       handleWebhookLinear(webhookDeps, req as WebhookRequest, res);
     })
     .all((_req, res) => {
-      methodNotAllowed(res);
+      methodNotAllowed(res, ["POST"]);
     });
 }
 

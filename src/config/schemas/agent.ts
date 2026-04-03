@@ -40,3 +40,6 @@ export const agentConfigSchema = z.object({
     excludeLabels: [],
   }),
 });
+
+/** Inferred type — always in sync with the schema, no manual maintenance needed. */
+export type AgentConfig = z.infer<typeof agentConfigSchema>;

@@ -1,6 +1,5 @@
 // Exempt: shared domain and runtime type definitions kept together for discoverability.
-import type { z } from "zod";
-import type { agentConfigSchema } from "../config/schemas/agent.js";
+import type { AgentConfig } from "../config/schemas/agent.js";
 import type { NotificationVerbosity } from "./notification-types.js";
 
 export interface WorkflowDefinition {
@@ -279,14 +278,8 @@ export interface WorkspaceConfig {
   branchPrefix: string;
 }
 
-/**
- * Agent configuration — derived from `agentConfigSchema`.
- *
- * Using `z.infer<>` here ensures the type stays in sync with the Zod
- * schema automatically and closes any drift that can occur between a
- * hand-maintained interface and the schema defaults.
- */
-export type AgentConfig = z.infer<typeof agentConfigSchema>;
+// AgentConfig is defined co-located with its Zod schema; re-exported here for consumers.
+export type { AgentConfig };
 
 // ---------------------------------------------------------------------------
 // PR lifecycle and checkpoint types (PR/CI Automation Pipeline Bundle)

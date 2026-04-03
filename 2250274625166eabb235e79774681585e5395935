@@ -1,0 +1,53 @@
+frontend/src/views/settings-patches.ts
+  b29f1978c5a09834 21-37,42,56-58
+frontend/src/views/settings-section-defs.ts
+  b29f1978c5a09834 49,92,443,453,473,483,504,553,563,573,583
+frontend/src/views/settings-forms.ts
+  b29f1978c5a09834 180-261,263-269,293-294,304,308,316
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "2250274625166eabb235e79774681585e5395935",
+  "prompts": {
+    "52b50571d24a5809": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5019-2593-7072-b68f-ef8955d6a000",
+        "model": "gpt-5.4"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "6064e05a3a51a6e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5422e40-8225-4504-9c7d-274a6449d242",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 258,
+      "overriden_lines": 0
+    },
+    "b29f1978c5a09834": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9243309f-08a7-4014-b114-2ab80121cbb3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Omer Faruk Oruc",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 109,
+      "accepted_lines": 177,
+      "overriden_lines": 0
+    }
+  }
+}

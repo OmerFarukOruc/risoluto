@@ -1,6 +1,7 @@
 import type { Issue } from "../../core/types.js";
 import type { RunningEntry } from "../runtime-types.js";
 import type { OutcomeContext } from "../context.js";
+import { computeAttemptCostUsd } from "../../core/model-pricing.js";
 import { toErrorString } from "../../utils/type-guards.js";
 
 export type CompletionWritebackContext = Pick<OutcomeContext, "getConfig"> & {
@@ -13,64 +14,149 @@ export interface CompletionWritebackInput {
   attempt: number | null;
   stopSignal: "done" | "blocked";
   pullRequestUrl: string | null;
+  /** Turn count sourced from RunOutcome.turnCount (persisted via prepareWorkerOutcome). */
+  turnCount: number | null;
 }
 
-export async function writeCompletionWriteback(
-  ctx: CompletionWritebackContext,
-  input: CompletionWritebackInput,
-): Promise<string | null> {
-  const config = ctx.getConfig();
-  const successState = config.agent.successState;
-  let transitionedState: string | null = null;
+export interface FailureWritebackInput {
+  issue: Issue;
+  entry: RunningEntry;
+  attemptCount: number | null;
+  errorReason: string;
+}
 
-  const lines: string[] = ["**Risoluto agent completed** ✓"];
+function buildSuccessCommentBody(input: CompletionWritebackInput, durationSeconds: number): string {
+  const lines: string[] = ["**Risoluto** completed this issue."];
+  if (input.turnCount !== null) {
+    lines.push(`- Turns: ${input.turnCount}`);
+  }
+  lines.push(`- Duration: ${durationSeconds}s`);
   if (input.entry.tokenUsage) {
-    lines.push(
-      `- **Tokens:** ${input.entry.tokenUsage.totalTokens.toLocaleString()} (in: ${input.entry.tokenUsage.inputTokens.toLocaleString()}, out: ${input.entry.tokenUsage.outputTokens.toLocaleString()})`,
-    );
-  }
-  const durationSecs = Math.round((Date.now() - input.entry.startedAtMs) / 1000);
-  lines.push(`- **Duration:** ${durationSecs}s`);
-  if (input.attempt !== null) {
-    lines.push(`- **Attempt:** ${input.attempt}`);
-  }
-  if (input.pullRequestUrl) {
-    lines.push(`- **PR:** ${input.pullRequestUrl}`);
-  }
-  const commentBody = lines.join("\n");
-
-  if (input.stopSignal === "done" && successState) {
-    try {
-      const stateId = await ctx.deps.tracker.resolveStateId(successState);
-      if (stateId) {
-        await ctx.deps.tracker.updateIssueState(input.issue.id, stateId);
-        transitionedState = successState;
-        ctx.deps.logger.info(
-          { issue_identifier: input.issue.identifier, successState },
-          "linear issue transitioned to success state",
-        );
-      } else {
-        ctx.deps.logger.warn(
-          { issue_identifier: input.issue.identifier, successState },
-          "success state not found in linear — skipping transition",
-        );
-      }
-    } catch (error) {
-      ctx.deps.logger.warn(
-        { issue_identifier: input.issue.identifier, error: toErrorString(error) },
-        "linear state transition failed (non-fatal)",
-      );
+    const { totalTokens, inputTokens, outputTokens } = input.entry.tokenUsage;
+    lines.push(`- Tokens: ${totalTokens} (in: ${inputTokens}, out: ${outputTokens})`);
+    const costUsd = computeAttemptCostUsd({
+      model: input.entry.modelSelection.model,
+      tokenUsage: { inputTokens, outputTokens },
+    });
+    if (costUsd !== null) {
+      lines.push(`- Cost: $${costUsd.toFixed(4)}`);
     }
   }
+  return lines.join("\n");
+}
+
+async function transitionToSuccessState(
+  ctx: CompletionWritebackContext,
+  input: CompletionWritebackInput,
+  successState: string,
+): Promise<string | null> {
+  try {
+    const stateId = await ctx.deps.tracker.resolveStateId(successState);
+    if (stateId) {
+      await ctx.deps.tracker.updateIssueState(input.issue.id, stateId);
+      ctx.deps.logger.info(
+        { issue_identifier: input.issue.identifier, successState },
+        "linear issue transitioned to success state",
+      );
+      return successState;
+    }
+    ctx.deps.logger.warn(
+      { issue_identifier: input.issue.identifier, successState },
+      "success state not found in linear — skipping transition",
+    );
+    return null;
+  } catch (error) {
+    ctx.deps.logger.warn(
+      { issue_identifier: input.issue.identifier, error: toErrorString(error) },
+      "linear state transition failed (non-fatal)",
+    );
+    return null;
+  }
+}
+
+async function postSuccessWriteback(
+  ctx: CompletionWritebackContext,
+  input: CompletionWritebackInput,
+  durationSeconds: number,
+): Promise<string | null> {
+  const commentBody = buildSuccessCommentBody(input, durationSeconds);
+  const successState = ctx.getConfig().agent.successState;
+
+  // State transition and comment are independent — failure of one must not block the other.
+  const transitionedState = successState ? await transitionToSuccessState(ctx, input, successState) : null;
 
   try {
     await ctx.deps.tracker.createComment(input.issue.id, commentBody);
   } catch (error) {
     ctx.deps.logger.warn(
       { issue_identifier: input.issue.identifier, error: toErrorString(error) },
-      "linear completion comment failed (non-fatal)",
+      "linear success comment failed (non-fatal)",
     );
   }
 
   return transitionedState;
+}
+
+async function postBlockedWriteback(
+  ctx: CompletionWritebackContext,
+  input: CompletionWritebackInput,
+  durationSeconds: number,
+): Promise<void> {
+  const commentBody = [
+    `**Risoluto** could not complete this issue after ${input.attempt ?? 1} attempt(s).`,
+    `- Error: agent reported blocked`,
+    `- Duration: ${durationSeconds}s`,
+  ].join("\n");
+
+  try {
+    await ctx.deps.tracker.createComment(input.issue.id, commentBody);
+  } catch (error) {
+    ctx.deps.logger.warn(
+      { issue_identifier: input.issue.identifier, error: toErrorString(error) },
+      "linear blocked comment failed (non-fatal)",
+    );
+  }
+}
+
+export async function writeCompletionWriteback(
+  ctx: CompletionWritebackContext,
+  input: CompletionWritebackInput,
+): Promise<string | null> {
+  const durationSeconds = Math.round((Date.now() - input.entry.startedAtMs) / 1000);
+
+  if (input.stopSignal === "done") {
+    return postSuccessWriteback(ctx, input, durationSeconds);
+  }
+
+  // Blocked stop signal — post failure comment only; no state transition.
+  await postBlockedWriteback(ctx, input, durationSeconds);
+  return null;
+}
+
+/**
+ * Posts a failure comment to the tracker for retry-exhausted terminal paths
+ * (cancelled or hard failure, max continuations exceeded).
+ *
+ * Independent of orchestrator state — failures are logged at warn and swallowed.
+ */
+export async function writeFailureWriteback(
+  ctx: CompletionWritebackContext,
+  input: FailureWritebackInput,
+): Promise<void> {
+  const durationSeconds = Math.round((Date.now() - input.entry.startedAtMs) / 1000);
+  const lines: string[] = [
+    `**Risoluto** could not complete this issue after ${input.attemptCount ?? 1} attempt(s).`,
+    `- Error: ${input.errorReason}`,
+    `- Duration: ${durationSeconds}s`,
+  ];
+  const commentBody = lines.join("\n");
+
+  try {
+    await ctx.deps.tracker.createComment(input.issue.id, commentBody);
+  } catch (error) {
+    ctx.deps.logger.warn(
+      { issue_identifier: input.issue.identifier, error: toErrorString(error) },
+      "linear failure comment failed (non-fatal)",
+    );
+  }
 }

@@ -271,6 +271,7 @@ export async function createServices(
     configOverlayStore: overlayStore,
     secretsStore,
     eventBus,
+    attemptStore: persistence.attemptStore,
     archiveDir,
     templateStore,
     auditLogger,

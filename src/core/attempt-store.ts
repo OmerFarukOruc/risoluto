@@ -175,6 +175,10 @@ export class AttemptStore {
     throw new TypeError("getOpenPrs not supported in JSONL mode");
   }
 
+  async getAllPrs(): Promise<OpenPrRecord[]> {
+    throw new TypeError("getAllPrs not supported in JSONL mode");
+  }
+
   async updatePrStatus(
     _url: string,
     _status: "merged" | "closed",

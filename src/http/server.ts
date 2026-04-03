@@ -41,7 +41,7 @@ export class HttpServer {
       configOverlayStore?: ConfigOverlayPort;
       secretsStore?: SecretsStore;
       eventBus?: TypedEventBus<RisolutoEventMap>;
-      attemptStore?: Pick<AttemptStorePort, "listCheckpoints">;
+      attemptStore?: Pick<AttemptStorePort, "listCheckpoints" | "getAllPrs">;
       frontendDir?: string;
       archiveDir?: string;
       templateStore?: PromptTemplateStore;

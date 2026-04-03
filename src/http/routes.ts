@@ -23,9 +23,11 @@ import type { TrackerPort } from "../tracker/port.js";
 
 import type { AttemptStorePort } from "../core/attempt-store-port.js";
 import { handleAttemptDetail } from "./attempt-handler.js";
+import { handleAttemptCheckpoints } from "./checkpoint-handler.js";
 import { handleGitContext } from "./git-context.js";
 import { handleModelUpdate } from "./model-handler.js";
 import { getOpenApiSpec } from "./openapi.js";
+import { handleListPrs } from "./pr-handler.js";
 import { modelUpdateSchema, steerSchema, templateOverrideSchema, transitionSchema } from "./request-schemas.js";
 import { issueNotFound, methodNotAllowed, refreshReason, sanitizeConfigValue } from "./route-helpers.js";
 import { createSSEHandler } from "./sse.js";
@@ -47,7 +49,7 @@ interface HttpRouteDeps {
   configOverlayStore?: ConfigOverlayPort;
   secretsStore?: SecretsStore;
   eventBus?: TypedEventBus<RisolutoEventMap>;
-  attemptStore?: Pick<AttemptStorePort, "listCheckpoints">;
+  attemptStore?: Pick<AttemptStorePort, "listCheckpoints" | "getAllPrs">;
   templateStore?: PromptTemplateStore;
   auditLogger?: AuditLogger;
   frontendDir?: string;
@@ -65,6 +67,7 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   registerStateAndMetricsRoutes(app, deps);
   registerDocsRoutes(app);
   registerExtensionApis(app, deps);
+  registerPrRoutes(app, deps);
   registerGitRoutes(app, deps);
   registerWorkspaceRoutes(app, deps);
   registerIssueRoutes(app, deps);
@@ -250,18 +253,14 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
   app
     .route("/api/v1/attempts/:attempt_id/checkpoints")
     .get(async (req, res) => {
-      if (!deps.attemptStore) {
-        res.status(503).json({ error: { code: "not_configured", message: "attempt store not available" } });
-        return;
-      }
-      const attemptId = String(req.params.attempt_id);
-      const attempt = deps.orchestrator.getAttemptDetail(attemptId);
-      if (!attempt) {
-        res.status(404).json({ error: { code: "not_found", message: "Unknown attempt identifier" } });
-        return;
-      }
-      const checkpoints = await deps.attemptStore.listCheckpoints(attemptId);
-      res.json({ checkpoints });
+      await handleAttemptCheckpoints(
+        {
+          orchestrator: deps.orchestrator,
+          attemptStore: deps.attemptStore,
+        },
+        req,
+        res,
+      );
     })
     .all((_req, res) => {
       methodNotAllowed(res);
@@ -303,6 +302,17 @@ function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
         return;
       }
       res.json(detail);
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res);
+    });
+}
+
+function registerPrRoutes(app: Express, deps: HttpRouteDeps): void {
+  app
+    .route("/api/v1/prs")
+    .get(async (req, res) => {
+      await handleListPrs({ attemptStore: deps.attemptStore }, req, res);
     })
     .all((_req, res) => {
       methodNotAllowed(res);

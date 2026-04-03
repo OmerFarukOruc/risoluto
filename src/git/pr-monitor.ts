@@ -6,8 +6,8 @@
  * to `merged` or `closed` it:
  *   - updates the store via `updatePrStatus()`
  *   - emits the appropriate SSE event on the event bus
- *   - writes an `"attempt_finished"` (pr_merged) checkpoint
- *   - clears the orchestrator's in-memory running entry for the issue
+ *   - writes a `"pr_merged"` checkpoint
+ *   - requests a refresh so the orchestrator can reconcile persisted state
  *
  * Environmental failures (missing auth, network errors) are caught and
  * logged at warn level — they never crash the monitor loop.
@@ -109,14 +109,12 @@ export class PrMonitorService {
 
   /** Check one PR; any error is caught and logged so the loop continues. */
   private async checkSinglePr(pr: OpenPrRecord): Promise<void> {
-    // Parse owner/repo from the stored `repo` field (expected "owner/repo").
-    const slashIdx = pr.repo.indexOf("/");
-    if (slashIdx === -1) {
+    const parsedRepo = parseRepoCoordinates(pr);
+    if (!parsedRepo) {
       this.logger.warn({ url: pr.url, repo: pr.repo }, "pr monitor: cannot parse owner/repo — skipping");
       return;
     }
-    const owner = pr.repo.slice(0, slashIdx);
-    const repo = pr.repo.slice(slashIdx + 1);
+    const { owner, repo } = parsedRepo;
 
     let prData: PrStatusResponse;
     try {
@@ -181,12 +179,13 @@ export class PrMonitorService {
     // Write checkpoint on merge.
     if (newStatus === "merged") {
       try {
-        // Look up the latest attempt for this issue to obtain a valid attemptId.
-        const allAttempts = this.store.getAllAttempts();
-        const latestAttempt = allAttempts
-          .filter((a) => a.issueId === pr.issueId)
-          .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
-          .at(0);
+        const latestAttempt =
+          (pr.attemptId ? this.store.getAttempt(pr.attemptId) : null) ??
+          this.store
+            .getAllAttempts()
+            .filter((a) => a.issueId === pr.issueId)
+            .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
+            .at(0);
 
         if (latestAttempt) {
           await this.store.appendCheckpoint({
@@ -219,6 +218,22 @@ export class PrMonitorService {
       }
     }
   }
+}
+
+function parseRepoCoordinates(pr: Pick<OpenPrRecord, "owner" | "repo">): { owner: string; repo: string } | null {
+  const slashIdx = pr.repo.indexOf("/");
+  if (slashIdx !== -1) {
+    // repo field is in "owner/repo" format — use it directly.
+    return {
+      owner: pr.repo.slice(0, slashIdx),
+      repo: pr.repo.slice(slashIdx + 1),
+    };
+  }
+  // repo field is short-form — fall back to the stored owner field.
+  if (pr.owner) {
+    return { owner: pr.owner, repo: pr.repo };
+  }
+  return null;
 }
 
 /** Derive the canonical status string from a raw GitHub PR response. */

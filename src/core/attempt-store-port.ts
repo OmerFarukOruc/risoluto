@@ -35,6 +35,8 @@ export interface AttemptStorePort {
   upsertPr(pr: UpsertPrInput): Promise<void>;
   /** Return all PRs with status = "open". */
   getOpenPrs(): Promise<OpenPrRecord[]>;
+  /** Return all tracked PRs regardless of status. */
+  getAllPrs(): Promise<OpenPrRecord[]>;
   /** Transition a PR to merged or closed. */
   updatePrStatus(url: string, status: "merged" | "closed", mergedAt?: string, mergeCommitSha?: string): Promise<void>;
 }

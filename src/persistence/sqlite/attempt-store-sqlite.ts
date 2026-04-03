@@ -174,13 +174,17 @@ export class SqliteAttemptStore {
 
   async upsertPr(pr: UpsertPrInput): Promise<void> {
     const now = new Date().toISOString();
+    const prId = `${pr.owner}/${pr.repo}#${pr.pullNumber}`;
     this.getDb()
       .insert(pullRequests)
       .values({
+        prId,
+        attemptId: pr.attemptId,
         issueId: pr.issueId,
-        url: pr.url,
-        number: pr.pullNumber,
+        owner: pr.owner,
         repo: pr.repo,
+        pullNumber: pr.pullNumber,
+        url: pr.url,
         branchName: pr.branchName,
         status: pr.status,
         mergedAt: null,
@@ -191,9 +195,12 @@ export class SqliteAttemptStore {
       .onConflictDoUpdate({
         target: pullRequests.url,
         set: {
+          prId,
+          attemptId: pr.attemptId,
           issueId: pr.issueId,
-          number: pr.pullNumber,
+          owner: pr.owner,
           repo: pr.repo,
+          pullNumber: pr.pullNumber,
           branchName: pr.branchName,
           status: pr.status,
           updatedAt: now,
@@ -204,6 +211,11 @@ export class SqliteAttemptStore {
 
   async getOpenPrs(): Promise<OpenPrRecord[]> {
     const rows = this.getDb().select().from(pullRequests).where(eq(pullRequests.status, "open")).all();
+    return rows.map((row) => rowToPrRecord(row));
+  }
+
+  async getAllPrs(): Promise<OpenPrRecord[]> {
+    const rows = this.getDb().select().from(pullRequests).all();
     return rows.map((row) => rowToPrRecord(row));
   }
 
@@ -233,11 +245,13 @@ export class SqliteAttemptStore {
 
 /** Map a pull_requests row to the domain OpenPrRecord type. */
 function rowToPrRecord(row: {
-  id: number;
+  prId: string;
+  attemptId: string | null;
   issueId: string;
-  url: string;
-  number: number;
+  owner: string;
   repo: string;
+  pullNumber: number;
+  url: string;
   branchName: string;
   status: string;
   mergedAt: string | null;
@@ -246,12 +260,12 @@ function rowToPrRecord(row: {
   updatedAt: string;
 }): OpenPrRecord {
   const prRecord: PrRecord = {
-    prId: String(row.id),
-    attemptId: "",
+    prId: row.prId,
+    attemptId: row.attemptId ?? "",
     issueId: row.issueId,
-    owner: "",
+    owner: row.owner,
     repo: row.repo,
-    pullNumber: row.number,
+    pullNumber: row.pullNumber,
     url: row.url,
     status: row.status as PrRecord["status"],
     mergedAt: row.mergedAt,

@@ -79,6 +79,7 @@ function makeStore(overrides: Partial<AttemptStorePort> = {}): AttemptStorePort 
     listCheckpoints: vi.fn().mockResolvedValue([] as AttemptCheckpointRecord[]),
     upsertPr: vi.fn().mockResolvedValue(undefined),
     getOpenPrs: vi.fn().mockResolvedValue([]),
+    getAllPrs: vi.fn().mockResolvedValue([]),
     updatePrStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -349,7 +350,9 @@ describe("PrMonitorService", () => {
     });
 
     it("logs a warning when repo field cannot be parsed and skips the PR", async () => {
-      const pr = makeOpenPr({ repo: "not-a-valid-repo-string" });
+      // owner is cleared so the fallback to owner+repo path is not taken;
+      // the function returns null when repo has no slash and owner is empty.
+      const pr = makeOpenPr({ repo: "not-a-valid-repo-string", owner: "" });
       const store = makeStore({ getOpenPrs: vi.fn().mockResolvedValue([pr]) });
       const ghClient = makeGhClient({ state: "closed", merged: true, merge_commit_sha: null });
       const logger = makeLogger();

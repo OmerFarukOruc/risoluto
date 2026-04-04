@@ -721,26 +721,37 @@ function staticSections(): SettingsSectionDefinition[] {
     {
       id: "notifications",
       groupId: SECTION_GROUPS.NOTIFICATIONS.id,
-      title: "Notifications",
+      title: "Slack notifications",
       description:
-        "Manage Slack here, then use overlay or API config for advanced channels, triggers, automations, and alerts.",
+        "Post run events to Slack via an Incoming Webhook. Create one in Slack, paste the URL below, save, then click Send test.",
       badge: "Integration",
       prefixes: ["notifications"],
-      saveLabel: "Save notifications",
+      saveLabel: "Save Slack settings",
       fields: [
-        {
-          path: "notifications.slack.verbosity",
-          label: "Slack verbosity",
-          kind: "select",
-          options: ["off", "critical", "verbose"].map((value) => ({ value, label: value })),
-          defaultValue: "off",
-        },
         {
           path: "notifications.slack.webhook_url",
           label: "Slack webhook URL",
           kind: "text",
           redact: true,
-          hint: "Existing webhook values stay redacted. Enter a new one to replace it.",
+          group: "Slack Incoming Webhook",
+          groupDescription:
+            "Setup steps:\n1. Open https://api.slack.com/apps and click Create New App → From scratch.\n2. Name the app (e.g. Risoluto) and pick the workspace you want to post to.\n3. In the app sidebar, choose Incoming Webhooks and toggle it On.\n4. Click Add New Webhook to Workspace, select the channel, click Allow.\n5. Copy the Webhook URL and paste it below. Save, then click Send test to verify delivery.",
+          hint: "Starts with https://hooks.slack.com/services/… Paste a new URL to replace the existing redacted value.",
+          placeholder: "https://hooks.slack.com/services/T000/B000/XXXX",
+          actionLabel: "Send test",
+          actionKind: "send-test-slack",
+        },
+        {
+          path: "notifications.slack.verbosity",
+          label: "Verbosity",
+          kind: "select",
+          options: [
+            { value: "off", label: "Off — no Slack messages" },
+            { value: "critical", label: "Critical — only errors, stalls, retries" },
+            { value: "verbose", label: "Verbose — every lifecycle event" },
+          ],
+          defaultValue: "critical",
+          hint: "off silences Slack entirely. critical posts worker_failed, worker_retry, and alert_fired. verbose also posts issue_claimed, worker_launched, worker_completed, and automation_* events.",
         },
       ],
     },

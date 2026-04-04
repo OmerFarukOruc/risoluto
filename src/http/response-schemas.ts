@@ -335,6 +335,11 @@ export const notificationsReadAllResponseSchema = z.object({
   unreadCount: z.number(),
 });
 
+export const notificationTestResponseSchema = z.object({
+  ok: z.literal(true),
+  sentAt: z.string(),
+});
+
 export const automationsListResponseSchema = z.object({
   automations: z.array(automationScheduleSchema),
 });

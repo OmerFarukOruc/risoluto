@@ -112,6 +112,7 @@ export const api = {
     return send<NotificationReadResponse>("POST", `/api/v1/notifications/${encodeURIComponent(id)}/read`);
   },
   postNotificationsReadAll: () => send<NotificationsReadAllResponse>("POST", "/api/v1/notifications/read-all"),
+  postNotificationTest: () => post<{ ok: true; sentAt: string }>("/api/v1/notifications/test", {}),
   getIssue: (id: string) => {
     if (!id) return Promise.reject(new Error("issue id is required"));
     return get<IssueDetail>(`/api/v1/${encodeURIComponent(id)}`);

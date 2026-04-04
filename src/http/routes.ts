@@ -31,6 +31,7 @@ import {
   handleListNotifications,
   handleMarkAllNotificationsRead,
   handleMarkNotificationRead,
+  handleTestSlackNotification,
 } from "./notifications-handler.js";
 import { handleAttemptDetail } from "./attempt-handler.js";
 import { handleAttemptCheckpoints } from "./checkpoint-handler.js";
@@ -449,6 +450,15 @@ function registerNotificationRoutes(app: Express, deps: HttpRouteDeps): void {
     .route("/api/v1/notifications/read-all")
     .post(async (req, res) => {
       await handleMarkAllNotificationsRead({ notificationStore: deps.notificationStore }, req, res);
+    })
+    .all((_req, res) => {
+      methodNotAllowed(res, ["POST"]);
+    });
+
+  app
+    .route("/api/v1/notifications/test")
+    .post(async (req, res) => {
+      await handleTestSlackNotification({ configStore: deps.configStore, logger: deps.logger }, req, res);
     })
     .all((_req, res) => {
       methodNotAllowed(res, ["POST"]);

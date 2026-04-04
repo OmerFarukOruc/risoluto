@@ -62,18 +62,36 @@ jobs:
       - run: pnpm run format:check
 
   test:
-    name: Test
+    name: Test (Node ${{ matrix.node-version }})
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/restore-build
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+      # Node 24: restore cached build. Node 22: fresh install for native compat.
+      - uses: actions/cache/restore@v5
+        if: matrix.node-version == 24
+        with:
+          path: |
+            node_modules
+            dist
+          key: build-${{ github.sha }}
+      - run: pnpm install --frozen-lockfile
+        if: matrix.node-version == 22
       - run: pnpm exec vitest run --reporter=verbose --coverage
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && matrix.node-version == 24
         with:
           name: coverage-report
           path: coverage/

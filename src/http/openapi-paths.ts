@@ -30,6 +30,7 @@ import {
   issueDetailResponseSchema,
   modelUpdateResponseSchema,
   notificationReadResponseSchema,
+  notificationTestResponseSchema,
   notificationsListResponseSchema,
   notificationsReadAllResponseSchema,
   prsListResponseSchema,
@@ -333,6 +334,23 @@ export function buildNotificationPaths(): Record<string, PathItem> {
         responses: {
           "200": jsonResponse("Notifications updated", toSchema(notificationsReadAllResponseSchema)),
           "503": errorResponse("Notification store not configured"),
+        },
+      },
+    },
+    "/api/v1/notifications/test": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Send a test Slack notification using the saved webhook",
+        operationId: "sendTestSlackNotification",
+        responses: {
+          "200": jsonResponse("Test notification dispatched", toSchema(notificationTestResponseSchema)),
+          "400": errorResponse("Slack webhook not configured"),
+          "403": errorResponse("Slack refused the webhook"),
+          "404": errorResponse("Slack rejected the webhook URL"),
+          "429": errorResponse("Slack rate limited the request"),
+          "502": errorResponse("Slack upstream error"),
+          "503": errorResponse("Config store not available"),
+          "504": errorResponse("Slack webhook timeout"),
         },
       },
     },

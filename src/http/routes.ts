@@ -502,7 +502,7 @@ function registerAlertRoutes(app: Express, deps: HttpRouteDeps): void {
 function registerTriggerRoutes(app: Express, deps: HttpRouteDeps): void {
   const triggerLimiter = rateLimit({
     windowMs: 60_000,
-    limit: deps.configStore?.getConfig?.().triggers?.rateLimitPerMinute ?? 30,
+    limit: () => deps.configStore?.getConfig?.().triggers?.rateLimitPerMinute ?? 30,
     standardHeaders: true,
     legacyHeaders: false,
   });

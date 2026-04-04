@@ -193,7 +193,7 @@ export function normalizeNotifications(
   const root = asRecord(value);
   const slack = normalizeLegacySlackConfig(asRecord(root.slack), secretResolver);
   const channels = normalizeNotificationChannels(root.channels, secretResolver);
-  if (slack) {
+  if (slack && !channels.some((ch) => ch.name === "slack")) {
     channels.unshift({
       type: "slack",
       name: "slack",

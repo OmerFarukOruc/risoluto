@@ -76,6 +76,13 @@ export class NotificationManager {
     const deliveredChannels: string[] = [];
     const failedChannels: Array<{ channel: string; error: string }> = [];
     const allowedChannelNames = options.channelNames ? new Set(options.channelNames) : null;
+    if (allowedChannelNames !== null) {
+      for (const channelName of allowedChannelNames) {
+        if (!this.channels.has(channelName)) {
+          failedChannels.push({ channel: channelName, error: "channel not registered" });
+        }
+      }
+    }
     const channels = [...this.channels.values()].filter(
       (channel) => allowedChannelNames === null || allowedChannelNames.has(channel.name),
     );

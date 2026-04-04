@@ -169,6 +169,21 @@ describe("NotificationManager", () => {
     });
   });
 
+  it("reports requested channels that are not registered", async () => {
+    const notifySpy = vi.fn(async () => undefined);
+    const manager = new NotificationManager({
+      channels: [createChannel("healthy", notifySpy)],
+    });
+
+    const result = await manager.notify(createEvent(), { channelNames: ["healthy", "missing"] });
+
+    expect(result).toEqual({
+      deliveredChannels: ["healthy"],
+      failedChannels: [{ channel: "missing", error: "channel not registered" }],
+      skippedDuplicate: false,
+    });
+  });
+
   it("persists notifications and emits notification timeline events", async () => {
     const createdRecord = {
       id: "notif-1",

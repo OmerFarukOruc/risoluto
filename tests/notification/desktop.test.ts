@@ -22,24 +22,46 @@ function createEvent(overrides?: Partial<NotificationEvent>): NotificationEvent 
 }
 
 describe("DesktopNotificationChannel", () => {
-  it("runs the platform command when enabled", async () => {
+  it("runs notify-send on linux", async () => {
     const runCommand = vi.fn().mockResolvedValue(undefined);
     const channel = new DesktopNotificationChannel({
       name: "desktop",
+      platform: "linux",
       runCommand,
     });
 
     await channel.notify(createEvent());
 
-    if (process.platform === "linux") {
-      expect(runCommand).toHaveBeenCalledWith("notify-send", expect.arrayContaining(["Risoluto CRITICAL"]));
-      return;
-    }
-    if (process.platform === "darwin") {
-      expect(runCommand).toHaveBeenCalledWith("osascript", expect.any(Array));
-      return;
-    }
-    expect(runCommand).not.toHaveBeenCalled();
+    expect(runCommand).toHaveBeenCalledWith("notify-send", expect.arrayContaining(["Risoluto CRITICAL"]));
+  });
+
+  it("runs osascript on darwin", async () => {
+    const runCommand = vi.fn().mockResolvedValue(undefined);
+    const channel = new DesktopNotificationChannel({
+      name: "desktop",
+      platform: "darwin",
+      runCommand,
+    });
+
+    await channel.notify(createEvent());
+
+    expect(runCommand).toHaveBeenCalledWith("osascript", expect.any(Array));
+  });
+
+  it("runs powershell on win32", async () => {
+    const runCommand = vi.fn().mockResolvedValue(undefined);
+    const channel = new DesktopNotificationChannel({
+      name: "desktop",
+      platform: "win32",
+      runCommand,
+    });
+
+    await channel.notify(createEvent());
+
+    expect(runCommand).toHaveBeenCalledWith(
+      "powershell.exe",
+      expect.arrayContaining(["-NoProfile", "-Command", expect.stringContaining("BalloonTipTitle")]),
+    );
   });
 
   it("does not run when minSeverity is higher than the event", async () => {
@@ -55,7 +77,26 @@ describe("DesktopNotificationChannel", () => {
     expect(runCommand).not.toHaveBeenCalled();
   });
 
-  it("swallows command failures as best-effort delivery", async () => {
+  it("throws when the platform is unsupported", async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    } as never;
+    const channel = new DesktopNotificationChannel({
+      name: "desktop",
+      platform: "freebsd",
+      logger,
+      runCommand: vi.fn(),
+    });
+
+    await expect(channel.notify(createEvent())).rejects.toThrow("not supported");
+    expect(logger.warn).toHaveBeenCalledOnce();
+  });
+
+  it("throws command failures so the manager can report delivery truthfully", async () => {
     const runCommand = vi.fn().mockRejectedValue(new Error("missing command"));
     const channel = new DesktopNotificationChannel({
       name: "desktop",
@@ -69,6 +110,6 @@ describe("DesktopNotificationChannel", () => {
       } as never,
     });
 
-    await expect(channel.notify(createEvent())).resolves.toBeUndefined();
+    await expect(channel.notify(createEvent())).rejects.toThrow("missing command");
   });
 });

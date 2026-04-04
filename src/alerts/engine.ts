@@ -154,7 +154,7 @@ function buildAlertMessage(rule: AlertRuleConfig, eventType: string, payload: Ev
 }
 
 function summarizeStatus(summary: NotificationDeliverySummary): "delivered" | "partial_failure" | "failed" {
-  if (summary.failedChannels.length === 0) {
+  if (summary.deliveredChannels.length > 0 && summary.failedChannels.length === 0) {
     return "delivered";
   }
   if (summary.deliveredChannels.length === 0) {

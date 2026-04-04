@@ -65,7 +65,7 @@ The following roadmap issues were completed and should no longer be counted as o
 | [#282](https://github.com/OmerFarukOruc/risoluto/issues/282) | Rule-based alerting engine with multi-channel dispatch | Notifications, Chat & Triggers | Shipped 2026-04-04 |
 | [#286](https://github.com/OmerFarukOruc/risoluto/issues/286) | Cron-scheduled automation workflows with report modes | Notifications, Chat & Triggers | Shipped 2026-04-04 |
 | [#292](https://github.com/OmerFarukOruc/risoluto/issues/292) | Persistent typed notification system with dashboard API | Notifications, Chat & Triggers | Shipped 2026-04-04 |
-| [#308](https://github.com/OmerFarukOruc/risoluto/issues/308) | Cross-platform desktop notifications for agent completion | Notifications, Chat & Triggers | Shipped 2026-04-04 |
+| [#308](https://github.com/OmerFarukOruc/risoluto/issues/308) | Cross-platform desktop notifications for agent completion (Linux, macOS, Windows) | Notifications, Chat & Triggers | Shipped 2026-04-04 |
 | [#315](https://github.com/OmerFarukOruc/risoluto/issues/315) | Webhook receiver for push-based issue ingestion from Linear and GitHub | Notifications, Chat & Triggers | Shipped 2026-04-04 |
 | [#276](https://github.com/OmerFarukOruc/risoluto/issues/276) | Issue dependency blocker detection in dispatch selection | Multi-Agent / Orchestration | Shipped 2026-04-03 |
 | [#278](https://github.com/OmerFarukOruc/risoluto/issues/278) | Execution replay system with phase-aware event recording | Persistence / State | Shipped 2026-04-03 |

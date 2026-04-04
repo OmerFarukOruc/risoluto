@@ -170,11 +170,11 @@ On the first boot of a fresh data directory, Risoluto checks for a `WORKFLOW.md`
 
 Risoluto now ships one coherent operator-event pipeline:
 
-- `notifications.channels[]` drives Slack, outbound webhook, and desktop delivery through one registry
-- `/notifications` shows the persisted notification timeline with read-state behavior
+- `notifications.channels[]` drives Slack, outbound webhook, and desktop delivery through one registry, including Linux, macOS, and Windows desktops
+- `/notifications` shows the persisted notification timeline with read-state behavior and real delivered/failed delivery summaries
 - `/webhooks/linear`, `/webhooks/github`, and `/api/v1/webhooks/trigger` feed external events into the runtime
 - `automations[]` schedules recurring `report`, `findings`, or `implement` runs
-- `alerts.rules[]` subscribes to runtime events and fanouts cooldown-aware alerts
+- `alerts.rules[]` subscribes to runtime events and fanouts cooldown-aware alerts with persisted delivered/failed/suppressed history
 
 ### Example config shape
 
@@ -233,6 +233,7 @@ alerts:
 - `report` and `findings` automations require `repo_url` so tracker-free runs stay bound to a concrete repository context.
 - `implement` automations create a real tracker issue first, then request a targeted orchestrator refresh so the existing issue-centric worker flow can pick it up.
 - Alert routing is rule-scoped first, then channel-scoped: a rule selects channel names, and each channel still applies its own minimum-severity threshold.
+- Desktop channels report actual delivery outcomes: unsupported platforms, missing local notifier binaries, and misconfigured channel names are persisted as failed delivery details instead of being treated as success.
 - The Settings UI remains truthful but not exhaustive for these new sections; use the config overlay / secrets APIs (or the setup flow) to manage them today.
 
 ---

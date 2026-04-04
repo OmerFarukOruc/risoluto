@@ -106,4 +106,37 @@ describe("AlertEngine", () => {
     const history = await historyStore.list();
     expect(history.map((record) => record.status)).toEqual(["suppressed", "delivered"]);
   });
+
+  it("records failed history when no selected channels actually deliver", async () => {
+    const eventBus = new TypedEventBus<RisolutoEventMap>();
+    const notificationManager = {
+      notify: vi.fn().mockResolvedValue({
+        deliveredChannels: [],
+        failedChannels: [],
+        skippedDuplicate: false,
+      }),
+    };
+    const historyStore = AlertHistoryStore.create(null);
+    const engine = new AlertEngine({
+      configStore: createConfigStore() as never,
+      eventBus,
+      notificationManager: notificationManager as never,
+      historyStore,
+      logger: createMockLogger(),
+    });
+
+    engine.start();
+    eventBus.emit("worker.failed", {
+      issueId: "issue-2",
+      identifier: "ENG-2",
+      error: "worker crashed",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const history = await historyStore.list();
+    expect(history[0]).toMatchObject({
+      ruleName: "worker-failures",
+      status: "failed",
+    });
+  });
 });

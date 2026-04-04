@@ -182,7 +182,7 @@ For OpenAI-compatible proxies such as CLIProxyAPI or LiteLLM, use the setup wiza
 
 - **🐙 Git automation** — Clone, commit, push, and PR creation on completion
 - **🐙 GitHub Issues adapter** — Use GitHub Issues instead of (or alongside) Linear
-- **📬 Multi-channel notifications** — Slack, outbound webhook, and desktop delivery through one channel registry
+- **📬 Multi-channel notifications** — Slack, outbound webhook, and desktop delivery on Linux, macOS, and Windows through one channel registry, with persisted delivery summaries that record real outcomes
 - **🪝 Webhook ingress** — Signed Linear and GitHub webhooks plus authenticated generic trigger dispatch
 - **🗓️ Cron automations + rule-based alerts** — Scheduled report/findings/implement runs with persisted history and cooldown-aware alert routing
 - **🤖 Codex integration** — `codex app-server` via JSON-RPC with dynamic tool handling

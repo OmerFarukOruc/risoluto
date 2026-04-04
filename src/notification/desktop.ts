@@ -16,10 +16,15 @@ interface DesktopNotificationChannelOptions {
   minSeverity?: NotificationSeverity;
   logger?: RisolutoLogger;
   runCommand?: RunCommand;
+  platform?: NodeJS.Platform;
 }
 
 function escapeAppleScript(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function escapePowerShell(value: string): string {
+  return value.replaceAll("'", "''");
 }
 
 function buildDesktopTitle(event: NotificationEvent): string {
@@ -39,11 +44,14 @@ export class DesktopNotificationChannel implements NotificationChannel {
 
   private readonly enabled: boolean;
 
+  private readonly platform: NodeJS.Platform;
+
   private readonly runCommand: RunCommand;
 
   constructor(private readonly options: DesktopNotificationChannelOptions) {
     this.name = options.name;
     this.enabled = options.enabled ?? true;
+    this.platform = options.platform ?? process.platform;
     this.runCommand = options.runCommand ?? defaultRunCommand;
   }
 
@@ -59,21 +67,29 @@ export class DesktopNotificationChannel implements NotificationChannel {
     const message = buildDesktopMessage(event);
 
     try {
-      if (process.platform === "linux") {
+      if (this.platform === "linux") {
         await this.runCommand("notify-send", [title, message]);
         return;
       }
-      if (process.platform === "darwin") {
+      if (this.platform === "darwin") {
         await this.runCommand("osascript", [
           "-e",
           `display notification "${escapeAppleScript(message)}" with title "${escapeAppleScript(title)}"`,
         ]);
         return;
       }
-      this.options.logger?.warn(
-        { channel: this.name, platform: process.platform },
-        "desktop notifications are not supported on this platform",
-      );
+      if (this.platform === "win32") {
+        await this.runCommand("powershell.exe", [
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          buildWindowsNotificationScript(title, message),
+        ]);
+        return;
+      }
+      throw new Error(`desktop notifications are not supported on platform ${this.platform}`);
     } catch (error) {
       const errorText = toErrorString(error);
       this.options.logger?.warn(
@@ -81,10 +97,29 @@ export class DesktopNotificationChannel implements NotificationChannel {
           channel: this.name,
           eventType: event.type,
           issueIdentifier: event.issue.identifier,
+          platform: this.platform,
           error: errorText,
         },
         "desktop notification delivery failed",
       );
+      throw error;
     }
   }
+}
+
+function buildWindowsNotificationScript(title: string, message: string): string {
+  const escapedTitle = escapePowerShell(title);
+  const escapedMessage = escapePowerShell(message);
+  return [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "Add-Type -AssemblyName System.Drawing",
+    "$notification = New-Object System.Windows.Forms.NotifyIcon",
+    "$notification.Icon = [System.Drawing.SystemIcons]::Information",
+    `$notification.BalloonTipTitle = '${escapedTitle}'`,
+    `$notification.BalloonTipText = '${escapedMessage}'`,
+    "$notification.Visible = $true",
+    "$notification.ShowBalloonTip(5000)",
+    "Start-Sleep -Milliseconds 5500",
+    "$notification.Dispose()",
+  ].join("; ");
 }

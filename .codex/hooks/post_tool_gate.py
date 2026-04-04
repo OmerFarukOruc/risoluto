@@ -3,7 +3,7 @@ import json
 import re
 import sys
 
-from anvil_state import load_active_status, repo_root, write_status
+from anvil_state import load_active_status, repo_root, run_is_active, write_status
 
 
 COMMAND_TO_GATE = [
@@ -42,7 +42,7 @@ def main() -> int:
     slug, status, status_path = load_active_status(root)
     if slug is None or status is None or status_path is None:
         return 0
-    if not status.get("active", True):
+    if not run_is_active(status):
         return 0
 
     command = payload.get("tool_input", {}).get("command", "")

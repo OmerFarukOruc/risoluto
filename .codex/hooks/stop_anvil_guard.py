@@ -2,7 +2,7 @@
 import json
 import sys
 
-from anvil_state import load_active_status, repo_root, run_is_complete
+from anvil_state import load_active_status, repo_root, run_is_active, run_is_complete
 
 
 def main() -> int:
@@ -15,7 +15,7 @@ def main() -> int:
     if slug is None or status is None:
         return 0
 
-    if not status.get("active", True):
+    if not run_is_active(status):
         return 0
 
     if run_is_complete(status):

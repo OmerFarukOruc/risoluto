@@ -230,3 +230,11 @@ def run_is_complete(status: dict[str, Any]) -> bool:
             status.get("push_status") == "complete",
         ]
     )
+
+
+def run_is_active(status: dict[str, Any] | None) -> bool:
+    if status is None:
+        return False
+    if run_is_complete(status):
+        return False
+    return bool(status.get("active", True))

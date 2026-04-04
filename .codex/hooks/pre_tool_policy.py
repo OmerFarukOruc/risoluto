@@ -3,7 +3,7 @@ import json
 import re
 import sys
 
-from anvil_state import load_active_status, repo_root, run_is_complete
+from anvil_state import load_active_status, repo_root, run_is_active, run_is_complete
 
 
 DENY_PATTERNS = {
@@ -58,13 +58,16 @@ def main() -> int:
     command = payload.get("tool_input", {}).get("command", "")
     root = repo_root(payload["cwd"])
     slug, status, _ = load_active_status(root)
+    active_run = run_is_active(status)
 
-    if slug and re.search(r"\bgit\s+push\b", command) and not push_allowed(status):
+    if active_run and re.search(r"\bgit\s+push\b", command) and not push_allowed(status):
         return deny("git push is blocked until the active anvil run reaches the final push phase and all claims and gates are closed.")
 
     if not slug:
         return 0
     if status and run_is_complete(status):
+        return 0
+    if not active_run:
         return 0
 
     for pattern, reason in DENY_PATTERNS.items():

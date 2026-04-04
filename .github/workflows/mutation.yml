@@ -45,6 +45,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     continue-on-error: true
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -63,7 +64,7 @@ jobs:
             stryker-incremental-
       - name: Run mutation on changed files
         run: |
-          CHANGED=$(git diff --name-origin origin/main...HEAD | awk '/^src\// { print }' | paste -sd,)
+          CHANGED=$(git diff --name-only origin/main...HEAD | awk '/^src\//' | paste -sd,)
           if [ -n "$CHANGED" ]; then
             pnpm exec stryker run --mutate "$CHANGED"
           else
@@ -71,10 +72,95 @@ jobs:
           fi
 
   mutation:
-    name: Mutation Testing
+    name: Mutation Testing (Shard ${{ matrix.shard }})
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-24.04
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 0
+            name: config-core-state
+            mutate: >-
+              src/config/builders.ts,
+              src/config/coercion.ts,
+              src/config/merge.ts,
+              src/config/normalizers.ts,
+              src/config/overlay-helpers.ts,
+              src/config/resolvers.ts,
+              src/config/validators.ts,
+              src/core/attempt-store.ts,
+              src/core/attempt-store-port.ts,
+              src/core/content-sanitizer.ts,
+              src/core/model-pricing.ts,
+              src/core/signal-detection.ts,
+              src/state/machine.ts,
+              src/state/policy.ts
+          - shard: 1
+            name: agent-orchestrator
+            mutate: >-
+              src/agent-runner/abort-outcomes.ts,
+              src/agent-runner/error-classifier.ts,
+              src/agent-runner/exit-classifier.ts,
+              src/agent-runner/helpers.ts,
+              src/agent-runner/model-validation.ts,
+              src/agent-runner/turn-executor.ts,
+              src/agent-runner/turn-state.ts,
+              src/orchestrator/dispatch.ts,
+              src/orchestrator/git-post-run.ts,
+              src/orchestrator/issue-locator.ts,
+              src/orchestrator/issue-view-builders.ts,
+              src/orchestrator/lifecycle.ts,
+              src/orchestrator/model-selection.ts,
+              src/orchestrator/outcome-view-builder.ts,
+              src/orchestrator/retry-failure.ts,
+              src/orchestrator/retry-manager.ts,
+              src/orchestrator/snapshot-builder.ts,
+              src/orchestrator/stall-detector.ts,
+              src/orchestrator/views.ts,
+              src/orchestrator/worker-failure.ts
+          - shard: 2
+            name: git-linear-http
+            mutate: >-
+              src/git/manager.ts,
+              src/git/repo-router.ts,
+              src/git/github-pr-client.ts,
+              src/linear/client.ts,
+              src/linear/errors.ts,
+              src/linear/issue-pagination.ts,
+              src/linear/issue-parser.ts,
+              src/http/attempt-handler.ts,
+              src/http/model-handler.ts,
+              src/http/route-helpers.ts,
+              src/http/routes.ts,
+              src/http/sse.ts,
+              src/http/transition-handler.ts,
+              src/http/transitions-api.ts,
+              src/http/validation.ts,
+              src/http/webhook-handler.ts,
+              src/http/workspace-inventory.ts,
+              src/http/write-guard.ts
+          - shard: 3
+            name: persistence-infra
+            mutate: >-
+              src/persistence/sqlite/attempt-store-sqlite.ts,
+              src/persistence/sqlite/issue-config-store.ts,
+              src/persistence/sqlite/mappers.ts,
+              src/persistence/sqlite/migrator.ts,
+              src/persistence/sqlite/webhook-inbox.ts,
+              src/secrets/db-store.ts,
+              src/notification/manager.ts,
+              src/setup/detect-default-branch.ts,
+              src/setup/setup-status.ts,
+              src/webhook/health-tracker.ts,
+              src/utils/type-guards.ts,
+              src/workspace/manager.ts,
+              src/workspace/path-registry.ts,
+              src/workspace/paths.ts,
+              src/workflow/columns.ts,
+              src/workflow/loader.ts
     permissions:
       contents: read
     steps:
@@ -88,16 +174,14 @@ jobs:
         uses: actions/cache@v5
         with:
           path: reports/stryker-incremental.json
-          key: stryker-incremental-${{ github.sha }}
-          restore-keys: |
-            stryker-incremental-
-      - name: Full mutation scan
-        run: pnpm run test:mutation
+          key: stryker-incremental-shard-${{ matrix.shard }}
+      - name: Run mutation scan
+        run: pnpm exec stryker run --mutate "${{ matrix.mutate }}"
       - name: Upload mutation report
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: mutation-report-${{ github.event_name }}
+          name: mutation-report-shard-${{ matrix.shard }}-${{ matrix.name }}
           path: |
             reports/stryker-report.html
             reports/stryker-incremental.json

@@ -368,6 +368,8 @@ describe("handleGetStatus — real stores", () => {
 
     // secretsStore is initialized (masterKey done)
     await secretsStore.set("LINEAR_API_KEY", "lin_real_key");
+    // linearProjectDone requires tracker.project_slug in the overlay
+    await configOverlayStore.set("tracker.project_slug", "risoluto");
 
     const deps = makeDeps();
     const handler = handleGetStatus(deps);

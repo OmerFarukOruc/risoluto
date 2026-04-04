@@ -116,7 +116,7 @@ describe("fresh database bootstrap", () => {
     }
   });
 
-  it("seeds schema_version to 7", async () => {
+  it("seeds schema_version to 8", async () => {
     const dir = await createTempDir();
     const dbPath = path.join(dir, "version.db");
     const db = openDatabase(dbPath);
@@ -126,7 +126,7 @@ describe("fresh database bootstrap", () => {
       const versionRow = raw.prepare("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").get() as {
         version: number;
       };
-      expect(versionRow.version).toBe(7);
+      expect(versionRow.version).toBe(8);
     } finally {
       closeDatabase(db);
     }

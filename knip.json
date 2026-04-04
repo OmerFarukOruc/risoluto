@@ -12,6 +12,5 @@
     "src/workspace/index.ts"
   ],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": ["agentation-mcp", "type-coverage"],
-  "ignoreBinaries": ["type-coverage"]
+  "ignoreDependencies": ["agentation-mcp"]
 }

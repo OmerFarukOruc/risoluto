@@ -53,43 +53,6 @@ export const notificationConfigSchema = z.object({
     .default([]),
 });
 
-export const triggerConfigSchema = z
-  .object({
-    apiKey: z.string().nullable().default(null),
-    allowedActions: z.array(z.enum(["create_issue", "re_poll", "refresh_issue"])).default([]),
-    githubSecret: z.string().nullable().default(null),
-    rateLimitPerMinute: z.number().default(30),
-  })
-  .nullable()
-  .default(null);
-
-export const automationConfigSchema = z.object({
-  name: z.string(),
-  schedule: z.string(),
-  mode: z.enum(["implement", "report", "findings"]).default("report"),
-  prompt: z.string(),
-  enabled: z.boolean().default(true),
-  repoUrl: z.string().nullable().default(null),
-});
-
-export const alertConfigSchema = z
-  .object({
-    rules: z
-      .array(
-        z.object({
-          name: z.string(),
-          type: z.string(),
-          severity: notificationSeveritySchema.default("critical"),
-          channels: z.array(z.string()).default([]),
-          cooldownMs: z.number().default(300000),
-          enabled: z.boolean().default(true),
-        }),
-      )
-      .default([]),
-  })
-  .nullable()
-  .default(null);
-
 export const gitHubConfigSchema = z
   .object({
     token: z.string(),

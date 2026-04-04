@@ -27,6 +27,10 @@ import { asBoolean, asRecord, asString, asStringArray, asStringMap, asRecordArra
 import { resolveConfigString } from "./resolvers.js";
 import { normalizeGitHubApiBaseUrl, normalizeNotificationWebhookUrl, normalizeSlackWebhookUrl } from "./url-policy.js";
 
+function finiteNonNegative(value: number, fallback: number): number {
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 function pickValue(record: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
     if (key in record) {
@@ -63,10 +67,25 @@ function normalizeLegacySlackConfig(
   };
 }
 
+function deduplicateChannelName(name: string, seenNames: Set<string>): string {
+  if (!seenNames.has(name)) {
+    seenNames.add(name);
+    return name;
+  }
+  let suffix = 2;
+  while (seenNames.has(`${name}-${suffix}`)) {
+    suffix += 1;
+  }
+  const unique = `${name}-${suffix}`;
+  seenNames.add(unique);
+  return unique;
+}
+
 function normalizeNotificationChannels(
   value: unknown,
   secretResolver?: (name: string) => string | undefined,
 ): NotificationChannelConfig[] {
+  const seenNames = new Set<string>();
   return asRecordArray(value)
     .map((channel): NotificationChannelConfig | null => {
       const type = asString(channel.type).trim().toLowerCase();
@@ -81,7 +100,7 @@ function normalizeNotificationChannels(
         const verbosity = asString(pickValue(channel, "verbosity"), "critical");
         return {
           type: "slack",
-          name: asString(channel.name, "slack"),
+          name: deduplicateChannelName(asString(channel.name, "slack"), seenNames),
           enabled,
           minSeverity,
           webhookUrl: normalizeSlackWebhookUrl(webhookUrl),
@@ -97,7 +116,7 @@ function normalizeNotificationChannels(
         }
         return {
           type: "webhook",
-          name: asString(channel.name, "webhook"),
+          name: deduplicateChannelName(asString(channel.name, "webhook"), seenNames),
           enabled,
           minSeverity,
           url: normalizeNotificationWebhookUrl(url),
@@ -108,7 +127,7 @@ function normalizeNotificationChannels(
       if (type === "desktop") {
         return {
           type: "desktop",
-          name: asString(channel.name, "desktop"),
+          name: deduplicateChannelName(asString(channel.name, "desktop"), seenNames),
           enabled,
           minSeverity,
         };
@@ -210,7 +229,10 @@ export function normalizeTriggers(
     apiKey: resolveConfigString(pickValue(root, "api_key", "apiKey"), secretResolver) || null,
     allowedActions,
     githubSecret: resolveConfigString(pickValue(root, "github_secret", "githubSecret"), secretResolver) || null,
-    rateLimitPerMinute: Number(pickValue(root, "rate_limit_per_minute", "rateLimitPerMinute") ?? 30) || 30,
+    rateLimitPerMinute: finiteNonNegative(
+      Number(pickValue(root, "rate_limit_per_minute", "rateLimitPerMinute") ?? 30),
+      30,
+    ),
   };
 }
 
@@ -256,7 +278,7 @@ export function normalizeAlerts(value: unknown): AlertConfig | null {
         type,
         severity: asNotificationSeverity(rule.severity, "critical"),
         channels: asStringArray(rule.channels, []),
-        cooldownMs: Number(pickValue(rule, "cooldown_ms", "cooldownMs") ?? 300_000) || 300_000,
+        cooldownMs: finiteNonNegative(Number(pickValue(rule, "cooldown_ms", "cooldownMs") ?? 300_000), 300_000),
         enabled: asBoolean(rule.enabled, true),
       };
     })

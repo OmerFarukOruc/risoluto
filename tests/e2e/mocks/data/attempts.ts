@@ -10,6 +10,10 @@ export interface AttemptSummary {
   costUsd: number | null;
   errorCode: string | null;
   errorMessage: string | null;
+  appServerBadge?: {
+    effectiveProvider: string | null;
+    threadStatus: string | null;
+  };
 }
 
 export interface AttemptRecord extends AttemptSummary {
@@ -23,6 +27,18 @@ export interface AttemptRecord extends AttemptSummary {
   turnId?: string | null;
   summary?: string | null;
   events?: unknown[];
+  appServer?: {
+    effectiveProvider: string | null;
+    effectiveModel: string | null;
+    reasoningEffort: string | null;
+    approvalPolicy: string | null;
+    threadName: string | null;
+    threadStatus: string | null;
+    threadStatusPayload: Record<string, unknown> | null;
+    allowedApprovalPolicies: string[] | null;
+    allowedSandboxModes: string[] | null;
+    networkRequirements: Record<string, unknown> | null;
+  };
 }
 
 export function buildAttemptSummary(overrides?: Partial<AttemptSummary>): AttemptSummary {
@@ -38,6 +54,10 @@ export function buildAttemptSummary(overrides?: Partial<AttemptSummary>): Attemp
     costUsd: null,
     errorCode: null,
     errorMessage: null,
+    appServerBadge: {
+      effectiveProvider: "openai",
+      threadStatus: "completed",
+    },
     ...overrides,
   };
 }
@@ -53,6 +73,18 @@ export function buildAttemptRecord(overrides?: Partial<AttemptRecord>): AttemptR
     turnCount: 5,
     threadId: "thread-001",
     turnId: "turn-005",
+    appServer: {
+      effectiveProvider: "openai",
+      effectiveModel: "o3-mini",
+      reasoningEffort: "medium",
+      approvalPolicy: "never",
+      threadName: "Issue thread",
+      threadStatus: "completed",
+      threadStatusPayload: { type: "completed" },
+      allowedApprovalPolicies: ["never"],
+      allowedSandboxModes: ["workspaceWrite"],
+      networkRequirements: { enabled: true, allowedDomains: ["api.openai.com"] },
+    },
     summary: null,
     events: [
       {

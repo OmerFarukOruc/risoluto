@@ -646,11 +646,11 @@ describe("normalizers — edge cases", () => {
     expect(result!.requiresOpenaiAuth).toBe(true);
   });
 
-  it("normalizeNotifications returns { slack: null } when no webhook_url", async () => {
+  it("normalizeNotifications returns { slack: null, channels: [] } when no webhook_url", async () => {
     const { normalizeNotifications } = await import("../../src/config/normalizers.js");
-    expect(normalizeNotifications({})).toEqual({ slack: null });
-    expect(normalizeNotifications({ slack: {} })).toEqual({ slack: null });
-    expect(normalizeNotifications(null)).toEqual({ slack: null });
+    expect(normalizeNotifications({})).toEqual({ slack: null, channels: [] });
+    expect(normalizeNotifications({ slack: {} })).toEqual({ slack: null, channels: [] });
+    expect(normalizeNotifications(null)).toEqual({ slack: null, channels: [] });
   });
 
   it("normalizeNotifications builds slack config when webhook_url is set", async () => {

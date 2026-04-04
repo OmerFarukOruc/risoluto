@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   abortResponseSchema,
+  alertHistoryListResponseSchema,
+  automationRunResponseSchema,
+  automationRunsListResponseSchema,
+  automationsListResponseSchema,
   attemptDetailResponseSchema,
   attemptsListResponseSchema,
   errorResponseSchema,
@@ -11,9 +15,11 @@ import {
   refreshResponseSchema,
   runtimeResponseSchema,
   stateResponseSchema,
+  triggerResponseSchema,
   transitionResponseSchema,
   transitionsListResponseSchema,
   validationErrorSchema,
+  webhookAcceptedResponseSchema,
   workspaceInventoryResponseSchema,
 } from "../../src/http/response-schemas.js";
 
@@ -304,13 +310,40 @@ describe("attemptsListResponseSchema", () => {
   it("parses a valid attempts list with entries", () => {
     const result = attemptsListResponseSchema.parse({
       attempts: [
-        { id: "a1", status: "done" },
-        { id: "a2", status: "running" },
+        {
+          attemptId: "a1",
+          attemptNumber: 1,
+          startedAt: "2026-04-01T00:00:00Z",
+          endedAt: "2026-04-01T00:10:00Z",
+          status: "done",
+          model: "gpt-5.4",
+          reasoningEffort: "medium",
+          tokenUsage: null,
+          costUsd: null,
+          errorCode: null,
+          errorMessage: null,
+          appServerBadge: { effectiveProvider: "openai", threadStatus: "completed" },
+        },
+        {
+          attemptId: "a2",
+          attemptNumber: 2,
+          startedAt: "2026-04-01T01:00:00Z",
+          endedAt: null,
+          status: "running",
+          model: "gpt-5.4",
+          reasoningEffort: "medium",
+          tokenUsage: null,
+          costUsd: null,
+          errorCode: null,
+          errorMessage: null,
+          appServerBadge: { effectiveProvider: "cliproxyapi", threadStatus: "active" },
+        },
       ],
       current_attempt_id: "a2",
     });
     expect(result.attempts).toHaveLength(2);
     expect(result.current_attempt_id).toBe("a2");
+    expect(result.attempts[1]?.appServerBadge?.effectiveProvider).toBe("cliproxyapi");
   });
 
   it("parses with null current_attempt_id", () => {
@@ -338,6 +371,118 @@ describe("attemptsListResponseSchema", () => {
       current_attempt_id: null,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("webhookAcceptedResponseSchema", () => {
+  it("parses a minimal accepted webhook response", () => {
+    const result = webhookAcceptedResponseSchema.parse({ ok: true });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects any non-true ok value", () => {
+    expect(webhookAcceptedResponseSchema.safeParse({ ok: false }).success).toBe(false);
+  });
+});
+
+describe("triggerResponseSchema", () => {
+  it("parses a trigger refresh response", () => {
+    const result = triggerResponseSchema.parse({
+      ok: true,
+      action: "re_poll",
+      queued: true,
+      coalesced: false,
+    });
+    expect(result.action).toBe("re_poll");
+    expect(result.queued).toBe(true);
+  });
+
+  it("parses a create_issue response with identifiers", () => {
+    const result = triggerResponseSchema.parse({
+      ok: true,
+      action: "create_issue",
+      issueId: "issue-1",
+      issueIdentifier: "ENG-1",
+      issueUrl: "https://tracker.example/issues/ENG-1",
+    });
+    expect(result.issueIdentifier).toBe("ENG-1");
+  });
+});
+
+describe("automationsListResponseSchema", () => {
+  it("parses automation scheduler state", () => {
+    const result = automationsListResponseSchema.parse({
+      automations: [
+        {
+          name: "nightly-report",
+          schedule: "0 2 * * *",
+          mode: "report",
+          enabled: true,
+          repoUrl: "https://github.com/acme/app",
+          valid: true,
+          nextRun: "2026-04-05T00:00:00.000Z",
+          lastError: null,
+        },
+      ],
+    });
+    expect(result.automations).toHaveLength(1);
+  });
+});
+
+describe("automationRunsListResponseSchema", () => {
+  const run = {
+    id: "run-1",
+    automationName: "nightly-report",
+    mode: "report",
+    trigger: "manual",
+    repoUrl: "https://github.com/acme/app",
+    status: "completed",
+    output: "ok",
+    details: null,
+    issueId: null,
+    issueIdentifier: null,
+    issueUrl: null,
+    error: null,
+    startedAt: "2026-04-04T11:00:00.000Z",
+    finishedAt: "2026-04-04T11:01:00.000Z",
+  };
+
+  it("parses run history lists", () => {
+    const result = automationRunsListResponseSchema.parse({
+      runs: [run],
+      totalCount: 1,
+    });
+    expect(result.totalCount).toBe(1);
+  });
+
+  it("parses manual run responses", () => {
+    const result = automationRunResponseSchema.parse({
+      ok: true,
+      run,
+    });
+    expect(result.run.id).toBe("run-1");
+  });
+});
+
+describe("alertHistoryListResponseSchema", () => {
+  it("parses alert history lists", () => {
+    const result = alertHistoryListResponseSchema.parse({
+      history: [
+        {
+          id: "alert-1",
+          ruleName: "worker-failures",
+          eventType: "worker.failed",
+          severity: "critical",
+          status: "delivered",
+          channels: ["ops-webhook"],
+          deliveredChannels: ["ops-webhook"],
+          failedChannels: [],
+          message: "ENG-1 matched worker-failures",
+          createdAt: "2026-04-04T11:30:00.000Z",
+        },
+      ],
+    });
+    expect(result.history).toHaveLength(1);
   });
 });
 
@@ -535,9 +680,26 @@ describe("attemptDetailResponseSchema", () => {
       turnCount: 3,
       threadId: "thread-1",
       turnId: "turn-1",
+      appServerBadge: {
+        effectiveProvider: "cliproxyapi",
+        threadStatus: "active",
+      },
+      appServer: {
+        effectiveProvider: "cliproxyapi",
+        effectiveModel: "gpt-5.4",
+        reasoningEffort: "medium",
+        approvalPolicy: "never",
+        threadName: "Issue thread",
+        threadStatus: "active",
+        threadStatusPayload: { type: "active", activeFlags: ["waitingOnApproval"] },
+        allowedApprovalPolicies: ["never"],
+        allowedSandboxModes: ["workspaceWrite"],
+        networkRequirements: { enabled: true },
+      },
     });
     expect(result.issueIdentifier).toBe("ENG-1");
     expect(result.turnCount).toBe(3);
+    expect(result.appServer?.effectiveProvider).toBe("cliproxyapi");
   });
 
   it("rejects missing events", () => {

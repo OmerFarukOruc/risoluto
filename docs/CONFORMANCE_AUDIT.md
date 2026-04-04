@@ -11,7 +11,7 @@
 
 ## 📌 Current Release Baseline
 
-The repository is at **`v0.6.0`** and implements a full local orchestration loop for Linear-driven Codex work with git automation, secrets management, notifications, and a Docker deployment target. This document tracks every atomic requirement from the Risoluto Service Specification against the current codebase.
+The repository is at **`v0.6.0`** and implements a full local orchestration loop for Linear-driven Codex work with git automation, secrets management, multi-channel notifications, signed webhook ingress, cron-backed automations, cooldown-aware alerting, and a Docker deployment target. This document tracks every atomic requirement from the Risoluto Service Specification against the current codebase.
 
 **Legend:** ✅ Implemented · 🟡 Partial / Minor Deviation · ❌ Not Implemented · 🔵 Extension (beyond spec)
 
@@ -709,7 +709,7 @@ Capabilities shipped that go beyond the spec requirements:
 | Dispatch extraction       |   1   | `sortIssuesForDispatch()` and `isBlockedByNonTerminal()` extracted as pure tested functions                               |
 | CDN-free dashboard        |   1   | All CDN dependencies removed; vanilla CSS + system fonts                                                                  |
 | `GET /metrics`            |   1   | Prometheus text endpoint wired to `globalMetrics`                                                                         |
-| Lifecycle notifications   |   2   | Pluggable `NotificationChannel` interface, Slack Block Kit backend, fire-and-forget                                       |
+| Lifecycle notifications   |   2   | Pluggable `NotificationChannel` interface, Slack/webhook/desktop backends, persisted delivery-summary reporting, Windows desktop support |
 | Built-in git operations   |   3   | `GitManager` (clone/branch/commit/push/PR), `RepoRouter` (identifier prefix + label matching)                             |
 | GitHub API tool           |   3   | Agent-available `github_api` tool (read-only: `add_pr_comment`, `get_pr_status`)                                          |
 | Secrets management        |   4   | AES-256-GCM encrypted store, CRUD API, `$SECRET:key` config resolution, audit log                                         |

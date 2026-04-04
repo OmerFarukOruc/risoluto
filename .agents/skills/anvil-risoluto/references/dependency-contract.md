@@ -23,35 +23,40 @@ These become required when the run touches the corresponding surface. If require
   Use when interactive UI flows, regression-prone operator paths, or browser-driven proof is needed.
 - lifecycle E2E environment for `./scripts/run-e2e.sh`
   Use when the run touches real orchestration, persistence/recovery, issue pickup, PR creation, restart resilience, or external Linear/GitHub/Codex wiring.
+- Impeccable skill family derived from `pbakaus/impeccable`
+  Use when the run materially touches operator-visible UI, UX, copy, onboarding, responsiveness, motion, design-system consistency, or frontend presentation quality. This is not a generic "maybe polish later" bucket; the factory must choose the relevant skills dynamically.
+
+### Impeccable routing rules
+
+For UI / UX / frontend-quality runs, the factory must route through the installed Impeccable skill family using this flow:
+
+1. Pick the diagnostic entry point:
+   - `/critique` for UX, visual hierarchy, information architecture, typography, layout, emotional resonance, onboarding feel, or overall design quality
+   - `/audit` for accessibility, performance, theming, responsive behavior, resilience, or technical UI quality
+2. Pick one or more follow-up skills from the findings, not from habit:
+   - `/polish` for finishing-detail cleanup
+   - `/optimize` for performance
+   - `/harden` for resilience, overflow, i18n, and edge cases
+   - `/normalize` for consistency and design-system drift
+   - `/bolder` or `/quieter` for intensity tuning
+   - `/clarify` for confusing copy and labels
+   - `/adapt` for responsiveness and device adaptation
+   - `/distill` for simplification
+   - `/animate` for motion and micro-interactions
+   - `/arrange` for layout and spacing composition
+   - `/typeset` for typography quality
+   - `/delight` for joy and personality
+   - `/colorize` for palette and vibrancy
+   - `/onboard` for first-run / activation flows
+   - `/overdrive` for intentionally ambitious showcase UI
+   - `/extract` for reusable components, tokens, and patterns
+3. Use `/teach-impeccable` once when persistent design context is missing and the run is design-led or repeatedly touches the operator UI.
 
 ## Nice-to-have / optional
 
-These may improve confidence or polish, but they must not be treated as factory blockers on their own.
+These may improve confidence or polish, but they must not be treated as factory blockers on their own when the run does not materially touch UI, UX, or frontend presentation quality.
 
-These are the Impeccable commands and adjacent enhancement passes. Use them when the run benefits from extra design polish, UX critique, resilience, or presentation quality, but do not block the factory on them unless the user explicitly made them part of required scope.
-
-- `/critique`
-- `/audit`
-- `/polish`
-- `/optimize`
-- `/harden`
-- `/normalize`
-- `/bolder`
-- `/quieter`
-- `/clarify`
-- `/adapt`
-- `/distill`
-- `/animate`
-- `/arrange`
-- `/typeset`
-- `/delight`
-- `/colorize`
-- `/onboard`
-- `/overdrive`
-- `/extract`
-- `/teach-impeccable`
-
-These remain optional from the factory's perspective unless the run is explicitly design-led or the user asked for an Impeccable pass as part of done.
+The Impeccable family is optional only for non-UI and non-design-led runs. Once the run materially touches those surfaces, dynamic Impeccable routing becomes part of required scope.
 
 ## Preflight interpretation
 

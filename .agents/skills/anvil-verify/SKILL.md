@@ -17,7 +17,9 @@ Read `references/claim-types.md`, `references/verify-charter-template.md`, `refe
 - Use existing repo skills instead of rebuilding them:
   - `visual-verify`
   - `ui-test`
-  - Impeccable skills when findings warrant them
+  - the Impeccable skill family, chosen dynamically for UI / UX / frontend-quality runs:
+    - start with `/critique` for design / UX diagnosis or `/audit` for technical UI diagnosis
+    - then route into the matching follow-up skills such as `/polish`, `/optimize`, `/harden`, `/normalize`, `/clarify`, `/adapt`, `/distill`, `/animate`, `/arrange`, `/typeset`, `/delight`, `/colorize`, `/onboard`, `/bolder`, `/quieter`, `/overdrive`, or `/extract`
 - When delegation is explicitly authorized, use the local agent pool for claim, docs, tests, and UI mapping work where it reduces context load:
   - `claim_checker`
   - `docs_impact_mapper`
@@ -50,5 +52,6 @@ Write:
 - If the lifecycle E2E creates transient external artifacts such as a PR or issue and later cleans them up, say that explicitly in the verification summary. Do not stop at "PR created" if cleanup later closed it or deleted its branch.
 - When lifecycle E2E runs, include the run id or report directory, the final cleanup state, and any still-inspectable URL or local artifact path.
 - Keep verification artifacts inside `.anvil/<slug>/verification/` by default. Do not scatter screenshots, videos, or reports into repo-global archive folders during an anvil run unless the user explicitly wants a durable cross-run archive copy.
+- For UI / UX / frontend-quality runs, do not stop at `visual-verify` alone. Verification must explicitly choose the relevant Impeccable diagnostic entry point and any follow-up skills that match the surfaced issues or intended polish scope.
 - Refresh `handoff.md` with claim counts, verification evidence, docs/tests status, and the exact next action.
 - Refresh `closeout.md` when verification creates a meaningful checkpoint so an operator can tell whether the run reopened execution, stopped for follow-up, or is ready for final push.

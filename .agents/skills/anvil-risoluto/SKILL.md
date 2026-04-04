@@ -29,6 +29,7 @@ Read `references/state-contract.md`, `references/output-contract.md`, `reference
 - Preflight is mandatory. Do not skip it for fresh runs.
 - Respect the current Codex delegation policy. If the user has not explicitly asked for subagents, delegation, or parallel agent work, do not call `spawn_agent`; run the factory in the main session and say so when it matters.
 - When explicit delegation is authorized, prefer the local `.codex/agents/*.toml` pool for phase-specialized work instead of inventing ad hoc agent roles.
+- When a run touches operator-visible UI, UX, onboarding, copy, responsiveness, motion, design-system consistency, or frontend presentation quality, dynamically route through the installed Impeccable skill family derived from `pbakaus/impeccable` instead of treating polish as a vague afterthought. Start with the right diagnostic entry point, then choose the follow-up skills based on the actual findings.
 
 ## Input routing
 
@@ -70,10 +71,14 @@ Conditionally required for certain runs:
 - `visual-verify`
 - `ui-test`
 - lifecycle E2E environment for `./scripts/run-e2e.sh`
+- the Impeccable skill family for UI / UX / frontend-quality runs:
+  - start with `/critique` for design, UX, hierarchy, typography, layout, onboarding, intensity, or overall product-feel diagnosis
+  - start with `/audit` for accessibility, performance, theming, responsive behavior, resilience, or anti-pattern diagnosis
+  - then choose one or more follow-up skills dynamically from `/polish`, `/optimize`, `/harden`, `/normalize`, `/bolder`, `/quieter`, `/clarify`, `/adapt`, `/distill`, `/animate`, `/arrange`, `/typeset`, `/delight`, `/colorize`, `/onboard`, `/overdrive`, and `/extract`
+  - use `/teach-impeccable` once when persistent design context is missing and the run is design-led or repeatedly touches the operator UI
 
 Nice-to-have / optional:
-
-- Impeccable commands such as `/critique`, `/audit`, `/polish`, `/optimize`, `/harden`, `/normalize`, `/bolder`, `/quieter`, `/clarify`, `/adapt`, `/distill`, `/animate`, `/arrange`, `/typeset`, `/delight`, `/colorize`, `/onboard`, `/overdrive`, `/extract`, and `/teach-impeccable`
+- Impeccable skills remain optional only for runs that do not materially touch UI, UX, or frontend presentation quality
 
 No ambiguity here: required means block the run if unavailable, conditional means required when the run touches that surface, and optional means do not block on it.
 

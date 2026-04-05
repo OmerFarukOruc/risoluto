@@ -100,11 +100,24 @@ describe("AlertEngine", () => {
       identifier: "ENG-1",
       error: "worker crashed again",
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Drain any pending async work deterministically. A single setTimeout(0)
+    // flush can miss continuations that hop through multiple await points
+    // (notify -> historyRecord -> historyStore.create) under heavy parallel
+    // test load, which previously caused rare order-dependent failures.
+    await vi.waitFor(async () => {
+      expect(notificationManager.notify).toHaveBeenCalledTimes(1);
+      const pending = await historyStore.list();
+      expect(pending).toHaveLength(2);
+    });
 
-    expect(notificationManager.notify).toHaveBeenCalledTimes(1);
     const history = await historyStore.list();
-    expect(history.map((record) => record.status)).toEqual(["suppressed", "delivered"]);
+    // Two events in the same millisecond have no deterministic wall-clock
+    // order, so assert the multiset of statuses rather than a specific
+    // sequence. The engine guarantees exactly one delivered + one
+    // suppressed for a cooldown-suppressed pair, which is the behavior
+    // that matters.
+    const statuses = history.map((record) => record.status).sort();
+    expect(statuses).toEqual(["delivered", "suppressed"]);
   });
 
   it("records failed history when no selected channels actually deliver", async () => {

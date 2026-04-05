@@ -97,8 +97,19 @@ class SqliteAlertHistoryStore implements AlertHistoryStorePort {
   }
 }
 
+interface MemoryRecord {
+  record: AlertHistoryRecord;
+  sequence: number;
+}
+
 class MemoryAlertHistoryStore implements AlertHistoryStorePort {
-  private readonly records = new Map<string, AlertHistoryRecord>();
+  private readonly records = new Map<string, MemoryRecord>();
+  // Monotonic insertion counter. createdAt alone is not enough to order
+  // records deterministically — two events produced in the same
+  // millisecond land with identical ISO strings, and localeCompare on
+  // ties is engine-dependent. We break ties by insertion order, with
+  // the newest insertion ranked first (matches "most recent" semantics).
+  private nextSequence = 0;
 
   async create(input: CreateAlertHistoryInput): Promise<AlertHistoryRecord> {
     const record: AlertHistoryRecord = {
@@ -113,17 +124,21 @@ class MemoryAlertHistoryStore implements AlertHistoryStorePort {
       message: input.message,
       createdAt: input.createdAt,
     };
-    this.records.set(record.id, cloneRecord(record));
+    this.records.set(record.id, { record: cloneRecord(record), sequence: this.nextSequence++ });
     return cloneRecord(record);
   }
 
   async list(options: ListAlertHistoryOptions = {}): Promise<AlertHistoryRecord[]> {
     const limit = normalizeLimit(options.limit);
     return [...this.records.values()]
-      .filter((record) => !options.ruleName || record.ruleName === options.ruleName)
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .filter(({ record }) => !options.ruleName || record.ruleName === options.ruleName)
+      .sort((left, right) => {
+        const byTime = right.record.createdAt.localeCompare(left.record.createdAt);
+        if (byTime !== 0) return byTime;
+        return right.sequence - left.sequence;
+      })
       .slice(0, limit)
-      .map((record) => cloneRecord(record));
+      .map(({ record }) => cloneRecord(record));
   }
 }
 

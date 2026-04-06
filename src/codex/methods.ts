@@ -21,5 +21,3 @@ export const CODEX_METHOD = {
   CommandExec: "command/exec",
   ModelList: "model/list",
 } as const;
-
-export type CodexMethodName = (typeof CODEX_METHOD)[keyof typeof CODEX_METHOD];

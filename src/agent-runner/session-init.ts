@@ -259,7 +259,7 @@ async function startThread(
     sandbox: config.codex.threadSandbox,
     personality: config.codex.personality,
     serviceName: "risoluto",
-    dynamicTools: buildDynamicTools(deps.trackerToolProvider),
+    dynamicTools: buildDynamicTools(deps.trackerToolProvider, deps.logger),
   });
 
   const resolvedThreadId = extractThreadId(threadResult);

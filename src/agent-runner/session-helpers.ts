@@ -1,4 +1,5 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import type { RisolutoLogger } from "../core/types.js";
 import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 
 /** Maximum bytes of stderr to buffer during startup for diagnostics. */
@@ -123,8 +124,12 @@ const TOOL_SCHEMAS: Record<string, object> = {
  * Includes all tools declared by the tracker provider plus the `github_api`
  * tool (always present as a non-tracker tool).
  */
-export function buildDynamicTools(trackerToolProvider: TrackerToolProvider): object[] {
+export function buildDynamicTools(trackerToolProvider: TrackerToolProvider, logger: RisolutoLogger): object[] {
   const allNames = [...trackerToolProvider.toolNames, "github_api"];
+  const unknownNames = allNames.filter((name) => TOOL_SCHEMAS[name] === undefined);
+  if (unknownNames.length > 0) {
+    logger.warn({ toolNames: unknownNames }, "tracker tool provider declared tools without schemas");
+  }
   return allNames.flatMap((name) => {
     const schema = TOOL_SCHEMAS[name];
     return schema ? [schema] : [];

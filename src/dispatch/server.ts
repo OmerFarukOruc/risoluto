@@ -5,9 +5,7 @@ import { bearerAuth } from "./auth.js";
 import type { AgentRunnerEventHandler } from "../agent-runner/contracts.js";
 import { AgentRunner } from "../agent-runner/index.js";
 import type { DispatchRequest, DispatchStreamMessage, PrecomputedRuntimeConfig, DataPlaneHealth } from "./types.js";
-import { LinearClient } from "../linear/client.js";
-import { LinearTrackerToolProvider } from "../linear/tool-provider.js";
-import { LinearTrackerAdapter } from "../tracker/linear-adapter.js";
+import { createTracker } from "../tracker/factory.js";
 import { WorkspaceManager } from "../workspace/manager.js";
 import { createGitHubToolProvider } from "../cli/runtime-providers.js";
 import { PathRegistry } from "../workspace/path-registry.js";
@@ -73,9 +71,7 @@ export function createDataPlaneServer(secret: string): express.Application {
         sendSSE({ type: "event", payload: event });
       };
 
-      const linearClient = new LinearClient(() => config, logger.child({ component: "linear" }));
-      const tracker = new LinearTrackerAdapter(linearClient);
-      const trackerToolProvider = new LinearTrackerToolProvider(linearClient);
+      const { tracker, trackerToolProvider } = createTracker(() => config, logger);
       const workspaceManager = new WorkspaceManager(() => config, logger.child({ component: "workspace" }));
       const gitManager = createGitHubToolProvider(() => config, { env: process.env });
       const pathRegistry = PathRegistry.fromEnv();

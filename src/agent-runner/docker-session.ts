@@ -17,7 +17,7 @@ import { getContainerStats } from "../docker/stats.js";
 import { handleCodexRequest } from "../agent/codex-request-handler.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
 import type { TrackerToolProvider } from "../tracker/tool-provider.js";
-import { globalMetrics, type MetricsCollector } from "../observability/metrics.js";
+import { createMetricsCollector, type MetricsCollector } from "../observability/metrics.js";
 import { createLifecycleEvent } from "../core/lifecycle-events.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
@@ -269,7 +269,7 @@ function startStatsPolling(
   deps: DockerSessionDeps,
 ): void {
   const statsIntervalMs = 30_000;
-  const metrics = deps.metrics ?? globalMetrics;
+  const metrics = deps.metrics ?? createMetricsCollector();
   session.statsInterval = setInterval(async () => {
     try {
       const stats = await getContainerStats(session.containerName);

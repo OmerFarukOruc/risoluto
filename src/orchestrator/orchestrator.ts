@@ -27,7 +27,7 @@ import type { ModelSelection, ReasoningEffort, RuntimeSnapshot } from "../core/t
 import type { RecoveryReport } from "./recovery-types.js";
 import { serializeSnapshot } from "../http/route-helpers.js";
 import { toErrorString } from "../utils/type-guards.js";
-import { globalMetrics } from "../observability/metrics.js";
+import { createMetricsCollector } from "../observability/metrics.js";
 
 function clearTrackedCollection(size: number, clear: () => void, onDirty: () => void): void {
   if (size === 0) {
@@ -101,6 +101,7 @@ export class Orchestrator implements OrchestratorPort {
   } | null = null;
 
   constructor(private readonly deps: OrchestratorDeps) {
+    this.deps.metrics ??= createMetricsCollector();
     const markDirty = () => this.markStateDirty();
     this._state = {
       running: false,
@@ -393,7 +394,8 @@ export class Orchestrator implements OrchestratorPort {
   private async tick(): Promise<void> {
     if (!this._state.running || this.tickInFlight) return;
     this.tickInFlight = true;
-    const metrics = this.deps.metrics ?? globalMetrics;
+    const metrics = this.deps.metrics ?? createMetricsCollector();
+    this.deps.metrics = metrics;
     try {
       if (this._ctx.detectAndKillStalled().killed > 0) {
         this.markStateDirty();
@@ -404,7 +406,7 @@ export class Orchestrator implements OrchestratorPort {
       const candidateIssues = sortIssuesForDispatch(await this.deps.tracker.fetchCandidateIssues());
       await refreshQueueViewsState(this._ctx, candidateIssues);
       await launchAvailableWorkersState(this._ctx, candidateIssues);
-      (this.deps.metrics ?? globalMetrics).orchestratorPollsTotal.increment({ status: "ok" });
+      metrics.orchestratorPollsTotal.increment({ status: "ok" });
       this.deps.eventBus?.emit("poll.complete", {
         timestamp: nowIso(),
         issueCount: this._state.queuedViews.length + this._state.runningEntries.size,

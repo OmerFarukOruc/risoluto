@@ -38,12 +38,12 @@ interface SessionInitInput {
   previousPrFeedback?: string | null;
 }
 
-interface SessionInitSuccess {
+export interface SessionInitSuccess {
   threadId: string;
   prompt: string;
 }
 
-type EarlyOutcome = RunOutcome & { threadId: string | null; turnId: string | null; turnCount: number };
+export type EarlyOutcome = RunOutcome & { threadId: string | null; turnId: string | null; turnCount: number };
 
 function summarizeCodexConfig(result: unknown): Record<string, unknown> {
   const config = asRecord(asRecord(result).config);

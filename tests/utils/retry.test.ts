@@ -122,11 +122,11 @@ describe("withRetryReturn", () => {
     // Attach a catch handler immediately to prevent unhandled rejection warnings
     const caught = promise.catch((error: unknown) => error);
     await vi.runAllTimersAsync();
-    const error_ = await caught;
+    const caughtError = await caught;
     vi.useRealTimers();
 
-    expect(error_).toBeInstanceOf(Error);
-    expect((error_ as Error).message).toBe("permanent failure");
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe("permanent failure");
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
@@ -140,11 +140,11 @@ describe("withRetryReturn", () => {
     const promise = withRetryReturn(logger, "op", fn, { maxAttempts: 2 });
     const caught = promise.catch((error: unknown) => error);
     await vi.runAllTimersAsync();
-    const error_ = await caught;
+    const caughtError = await caught;
     vi.useRealTimers();
 
-    expect(error_).toBeInstanceOf(Error);
-    expect((error_ as Error).message).toBe("fail");
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe("fail");
     expect(fn).toHaveBeenCalledTimes(2);
   });
 });

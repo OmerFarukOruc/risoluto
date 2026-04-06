@@ -113,6 +113,10 @@ vi.mock("../../src/core/lifecycle-events.js", () => ({
 }));
 
 vi.mock("../../src/observability/metrics.js", () => ({
+  createMetricsCollector: () => ({
+    containerCpuPercent: { set: vi.fn() },
+    containerMemoryPercent: { set: vi.fn() },
+  }),
   globalMetrics: {
     containerCpuPercent: { set: vi.fn() },
     containerMemoryPercent: { set: vi.fn() },

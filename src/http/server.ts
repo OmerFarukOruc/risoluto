@@ -3,30 +3,15 @@ import http, { type IncomingMessage } from "node:http";
 import express, { type Express } from "express";
 
 import type { WebhookRequest } from "./webhook-types.js";
+import type { HttpRouteDeps } from "./route-types.js";
 
-import type { AuditLogger } from "../audit/logger.js";
-import type { AutomationScheduler } from "../automation/scheduler.js";
-import type { AlertHistoryStorePort } from "../alerts/history-store.js";
-import type { ConfigOverlayPort } from "../config/overlay.js";
-import type { ConfigStore } from "../config/store.js";
-import type { AttemptStorePort } from "../core/attempt-store-port.js";
-import type { TypedEventBus } from "../core/event-bus.js";
-import type { RisolutoEventMap } from "../core/risoluto-events.js";
-import type { RisolutoLogger } from "../core/types.js";
-import type { PromptTemplateStore } from "../prompt/store.js";
-import { globalMetrics, type MetricsCollector } from "../observability/metrics.js";
-import type { OrchestratorPort } from "../orchestrator/port.js";
-import type { AutomationStorePort } from "../persistence/sqlite/automation-store.js";
-import type { NotificationStorePort } from "../persistence/sqlite/notification-store.js";
-import type { SecretsStore } from "../secrets/store.js";
+import { createMetricsCollector } from "../observability/metrics.js";
 import { tracingMiddleware } from "../observability/tracing.js";
-import type { TrackerPort } from "../tracker/port.js";
 
 import { registerHttpRoutes } from "./routes.js";
 import { createReadGuard, hasConfiguredReadAccessToken } from "./read-guard.js";
 import { createWriteGuard } from "./write-guard.js";
 import { serviceErrorHandler } from "./service-errors.js";
-import type { WebhookHandlerDeps } from "./webhook-handler.js";
 
 function isLoopbackBindHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
@@ -36,33 +21,12 @@ export class HttpServer {
   private readonly app: Express;
   private server: http.Server | null = null;
 
-  constructor(
-    private readonly deps: {
-      orchestrator: OrchestratorPort;
-      logger: RisolutoLogger;
-      tracker?: TrackerPort;
-      configStore?: ConfigStore;
-      configOverlayStore?: ConfigOverlayPort;
-      secretsStore?: SecretsStore;
-      eventBus?: TypedEventBus<RisolutoEventMap>;
-      attemptStore?: Pick<AttemptStorePort, "listCheckpoints" | "getAllPrs">;
-      notificationStore?: NotificationStorePort;
-      automationStore?: AutomationStorePort;
-      automationScheduler?: Pick<AutomationScheduler, "listAutomations" | "runNow">;
-      alertHistoryStore?: AlertHistoryStorePort;
-      frontendDir?: string;
-      archiveDir?: string;
-      templateStore?: PromptTemplateStore;
-      auditLogger?: AuditLogger;
-      webhookHandlerDeps?: WebhookHandlerDeps;
-      metrics?: MetricsCollector;
-    },
-  ) {
+  constructor(private readonly deps: HttpRouteDeps) {
     this.app = express();
     this.app.disable("x-powered-by");
     this.app.set("trust proxy", process.env.RISOLUTO_TRUST_PROXY === "true" ? 1 : false);
     this.app.use(tracingMiddleware);
-    const metrics = this.deps.metrics ?? globalMetrics;
+    const metrics = this.deps.metrics ?? createMetricsCollector();
     this.app.use((request, response, next) => {
       const startedAt = process.hrtime.bigint();
       response.once("finish", () => {

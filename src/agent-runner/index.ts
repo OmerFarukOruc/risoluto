@@ -1,11 +1,6 @@
-import { Liquid } from "liquidjs";
-
 import { classifyRunError, failureOutcome, outcomeForAbort } from "./abort-outcomes.js";
-import { createTurnState } from "./turn-state.js";
-import { executeTurns } from "./turn-executor.js";
-import { createDockerSession, type DockerSessionDeps, type PrecomputedRuntimeConfig } from "./docker-session.js";
-import { initializeSession } from "./session-init.js";
-import { runSelfReview } from "./self-review.js";
+import { type DockerSessionDeps, type PrecomputedRuntimeConfig } from "./docker-session.js";
+import { AgentSession } from "./agent-session.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
 import type { RunAttemptDispatcher } from "../dispatch/types.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
@@ -16,15 +11,13 @@ import { toErrorString } from "../utils/type-guards.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, RisolutoLogger, Workspace } from "../core/types.js";
 import { WorkspaceManager } from "../workspace/manager.js";
-import type { MetricsCollector } from "../observability/metrics.js";
+import { createMetricsCollector, type MetricsCollector } from "../observability/metrics.js";
 
 export { extractItemContent } from "./helpers.js";
 
 export type { AgentRunnerEventHandler } from "./contracts.js";
 
 export class AgentRunner implements RunAttemptDispatcher {
-  private readonly liquid = new Liquid({ strictFilters: true, strictVariables: true });
-
   constructor(
     private readonly deps: {
       getConfig: () => ServiceConfig;
@@ -38,7 +31,9 @@ export class AgentRunner implements RunAttemptDispatcher {
       spawnProcess?: DockerSessionDeps["spawnProcess"];
       metrics?: MetricsCollector;
     },
-  ) {}
+  ) {
+    this.deps.metrics ??= createMetricsCollector();
+  }
 
   async runAttempt(input: {
     issue: Issue;
@@ -62,7 +57,6 @@ export class AgentRunner implements RunAttemptDispatcher {
     previousPrFeedback?: string | null;
   }): Promise<RunOutcome> {
     const config = this.deps.getConfig();
-    const turnState = createTurnState();
     const logger = this.deps.logger.child({
       issueIdentifier: input.issue.identifier,
       workspacePath: input.workspace.path,
@@ -91,29 +85,26 @@ export class AgentRunner implements RunAttemptDispatcher {
     };
     const inputWithContentCapture = { ...input, onEvent: contentCapturingOnEvent };
 
-    let session: Awaited<ReturnType<typeof createDockerSession>>;
+    const session = new AgentSession(config, {
+      archiveDir: this.deps.archiveDir,
+      pathRegistry: this.deps.pathRegistry,
+      githubToolClient: this.deps.githubToolClient,
+      trackerToolProvider: this.deps.trackerToolProvider,
+      tracker: this.deps.tracker,
+      logger: this.deps.logger,
+      spawnProcess: this.deps.spawnProcess,
+      metrics: this.deps.metrics,
+    });
+
     try {
-      session = await createDockerSession(
-        config,
-        {
-          issue: inputWithContentCapture.issue,
-          modelSelection: inputWithContentCapture.modelSelection,
-          workspace: inputWithContentCapture.workspace,
-          signal: inputWithContentCapture.signal,
-          onEvent: inputWithContentCapture.onEvent,
-        },
-        {
-          archiveDir: this.deps.archiveDir,
-          pathRegistry: this.deps.pathRegistry,
-          githubToolClient: this.deps.githubToolClient,
-          trackerToolProvider: this.deps.trackerToolProvider,
-          logger: this.deps.logger,
-          spawnProcess: this.deps.spawnProcess,
-          metrics: this.deps.metrics,
-        },
-        turnState,
-        input.precomputedRuntimeConfig,
-      );
+      await session.start({
+        issue: inputWithContentCapture.issue,
+        modelSelection: inputWithContentCapture.modelSelection,
+        workspace: inputWithContentCapture.workspace,
+        signal: inputWithContentCapture.signal,
+        onEvent: inputWithContentCapture.onEvent,
+        precomputedRuntimeConfig: input.precomputedRuntimeConfig,
+      });
     } catch (error) {
       inputWithContentCapture.onEvent(
         createLifecycleEvent({
@@ -129,13 +120,14 @@ export class AgentRunner implements RunAttemptDispatcher {
       throw error;
     }
 
-    input.onSteerReady?.(session.steerTurn);
+    const steerTurn = session.steerTurn;
+    if (steerTurn) {
+      input.onSteerReady?.(steerTurn);
+    }
 
     try {
       return await this.executeSession(
         session,
-        config,
-        turnState,
         inputWithContentCapture,
         () => lastAgentMessageContent,
         () => lastStopSignal,
@@ -143,8 +135,7 @@ export class AgentRunner implements RunAttemptDispatcher {
     } catch (error) {
       return handleRunError(error, session, input.signal);
     } finally {
-      session.turnId = null;
-      await session.cleanup(config, input.signal);
+      await session.cleanup(input.signal);
       await this.deps.workspaceManager.runAfterRun(input.workspace, input.issue.identifier).catch((error) => {
         logger.warn({ error: toErrorString(error) }, "after_run hook failed");
       });
@@ -152,9 +143,7 @@ export class AgentRunner implements RunAttemptDispatcher {
   }
 
   private async executeSession(
-    session: Awaited<ReturnType<typeof createDockerSession>>,
-    config: ServiceConfig,
-    turnState: ReturnType<typeof createTurnState>,
+    session: AgentSession,
     input: {
       issue: Issue;
       attempt: number | null;
@@ -169,18 +158,10 @@ export class AgentRunner implements RunAttemptDispatcher {
     getLastAgentMessageContent: () => string | null,
     getLastStopSignal?: () => import("../core/signal-detection.js").StopSignal | null,
   ): Promise<RunOutcome> {
-    const initResult = await initializeSession(
-      session,
-      config,
-      {
-        ...input,
-        startupTimeoutMs: config.codex.startupTimeoutMs,
-        rollbackLastTurn: Boolean(input.previousThreadId),
-        previousPrFeedback: input.previousPrFeedback ?? null,
-      },
-      { logger: this.deps.logger, trackerToolProvider: this.deps.trackerToolProvider },
-      this.liquid,
-    );
+    const initResult = await session.initialize({
+      ...input,
+      previousPrFeedback: input.previousPrFeedback ?? null,
+    });
 
     if ("kind" in initResult) {
       const failure = classifyLifecycleFailure(initResult);
@@ -199,38 +180,18 @@ export class AgentRunner implements RunAttemptDispatcher {
       return initResult;
     }
 
-    const { threadId, prompt } = initResult;
-    const outcome = await executeTurns(
-      {
-        connection: session.connection,
-        config,
-        prompt,
-        runInput: input,
-        turnState,
-        tracker: this.deps.tracker,
-        setActiveTurnId: (turnId) => {
-          session.turnId = turnId;
-        },
-        getLastAgentMessageContent,
-        getLastStopSignal,
-        logger: this.deps.logger,
-      },
-      {
-        threadId,
-        turnId: null,
-        turnCount: 0,
-        containerName: session.containerName,
-        exitPromise: session.exitPromise,
-        getFatalFailure: session.getFatalFailure,
-      },
-    );
+    const { prompt } = initResult;
+    const outcome = await session.executeTurns({
+      ...input,
+      prompt,
+      getLastAgentMessageContent,
+      getLastStopSignal,
+    });
 
+    const config = this.deps.getConfig();
     if (config.codex.selfReview && outcome.kind === "normal" && outcome.threadId) {
-      const review = await runSelfReview(
-        session.connection,
-        turnState,
+      const review = await session.selfReview(
         outcome.threadId,
-        this.deps.logger,
         input.signal,
         Math.min(config.codex.turnTimeoutMs, 300_000),
       );

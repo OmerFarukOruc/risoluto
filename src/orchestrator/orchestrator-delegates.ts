@@ -33,7 +33,7 @@ import {
 import { handleWorkerFailure } from "./worker-failure.js";
 import { handleWorkerOutcome } from "./worker-outcome/index.js";
 import { detectAndKillStalledWorkers, type StallEvent } from "./stall-detector.js";
-import { globalMetrics } from "../observability/metrics.js";
+import { createMetricsCollector } from "../observability/metrics.js";
 
 /**
  * Pure delegation helpers that forward from Orchestrator methods to extracted state modules.
@@ -281,14 +281,16 @@ async function handleWorkerPromise(
   entry: RunningEntry,
   workerAttempt: number | null,
 ): Promise<void> {
+  const metrics = ctx.deps.metrics ?? createMetricsCollector();
+  ctx.deps.metrics = metrics;
   await promise
     .then(async (outcome) => {
       await handleWorkerOutcome(ctx, outcome, entry, workerIssue, workspace, workerAttempt);
-      globalMetrics.agentRunsTotal.increment({ outcome: outcome.kind });
+      metrics.agentRunsTotal.increment({ outcome: outcome.kind });
     })
     .catch(async (error) => {
       await handleWorkerFailure(ctx, workerIssue, entry, error);
-      globalMetrics.agentRunsTotal.increment({ outcome: "failed" });
+      metrics.agentRunsTotal.increment({ outcome: "failed" });
     });
 }
 

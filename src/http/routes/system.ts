@@ -1,7 +1,7 @@
 import type { Express } from "express";
 
 import { fetchCodexModels } from "../../codex/model-list.js";
-import { globalMetrics } from "../../observability/metrics.js";
+import { createMetricsCollector } from "../../observability/metrics.js";
 import type { RecoveryReport } from "../../orchestrator/recovery-types.js";
 import type { HttpRouteDeps } from "../route-types.js";
 import { methodNotAllowed, refreshReason } from "../route-helpers.js";
@@ -11,6 +11,7 @@ import { getSwaggerHtml } from "../swagger-html.js";
 import { handleGetTransitions } from "../transitions-api.js";
 
 export function registerSystemRoutes(app: Express, deps: HttpRouteDeps): void {
+  const metrics = deps.metrics ?? createMetricsCollector();
   if (!deps.eventBus) {
     deps.logger?.warn({ msg: "eventBus not provided — /api/v1/events SSE endpoint will not be registered" });
   }
@@ -66,7 +67,7 @@ export function registerSystemRoutes(app: Express, deps: HttpRouteDeps): void {
     .route("/metrics")
     .get((_req, res) => {
       res.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8");
-      res.send(globalMetrics.serialize());
+      res.send(metrics.serialize());
     })
     .all((_req, res) => {
       methodNotAllowed(res);

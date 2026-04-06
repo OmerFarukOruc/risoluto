@@ -10,9 +10,11 @@ import { validatePromptTemplate } from "../prompt/template-policy.js";
 import { toErrorString } from "../utils/type-guards.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, RisolutoLogger, Workspace } from "../core/types.js";
 import { CODEX_METHOD } from "../codex/methods.js";
+import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 
 interface SessionInitDeps {
   logger: RisolutoLogger;
+  trackerToolProvider: TrackerToolProvider;
 }
 
 interface SessionInitInput {
@@ -257,7 +259,7 @@ async function startThread(
     sandbox: config.codex.threadSandbox,
     personality: config.codex.personality,
     serviceName: "risoluto",
-    dynamicTools: buildDynamicTools(),
+    dynamicTools: buildDynamicTools(deps.trackerToolProvider),
   });
 
   const resolvedThreadId = extractThreadId(threadResult);

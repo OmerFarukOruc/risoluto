@@ -18,6 +18,7 @@ import {
   buildSnapshot,
 } from "./snapshot-builder.js";
 import { buildCtx, cleanupTerminalWorkspaces, type OrchestratorState } from "./orchestrator-delegates.js";
+import type { OrchestratorContext } from "./context.js";
 import { runStartupRecovery } from "./recovery.js";
 import type { OrchestratorPort } from "./port.js";
 import type { OrchestratorDeps } from "./runtime-types.js";
@@ -86,6 +87,7 @@ class DirtyTrackingSet<T> extends Set<T> {
 
 export class Orchestrator implements OrchestratorPort {
   private readonly _state: OrchestratorState;
+  private readonly _ctx: OrchestratorContext;
   private tickInFlight = false;
   private nextTickTimer: NodeJS.Timeout | null = null;
   private refreshQueued = false;
@@ -118,6 +120,9 @@ export class Orchestrator implements OrchestratorPort {
       stallEvents: [],
       markDirty,
     };
+    // Build once — closures inside the context reference state directly,
+    // so mutations are visible without rebuilding the context object.
+    this._ctx = buildCtx(this._state, this.deps);
     this.watchdog = new Watchdog({
       getRunningCount: () => this._state.runningEntries.size,
       getQueuedCount: () => this._state.queuedViews.length,
@@ -128,10 +133,6 @@ export class Orchestrator implements OrchestratorPort {
     this.deps.configStore.subscribe(() => {
       this.markStateDirty();
     });
-  }
-
-  private ctx() {
-    return buildCtx(this._state, this.deps);
   }
 
   private markStateDirty(): void {
@@ -149,7 +150,7 @@ export class Orchestrator implements OrchestratorPort {
       tracker: this.deps.tracker,
       workspaceManager: this.deps.workspaceManager,
       getConfig: () => this.deps.configStore.getConfig(),
-      launchWorker: (issue, attempt, options) => this.ctx().launchWorker(issue, attempt, options),
+      launchWorker: (issue, attempt, options) => this._ctx.launchWorker(issue, attempt, options),
       logger: this.deps.logger,
     });
     await cleanupTerminalWorkspaces(this._state, this.deps);
@@ -222,7 +223,7 @@ export class Orchestrator implements OrchestratorPort {
     this.deps.logger.info({ issueIdentifier, reason }, "stopping worker via webhook signal");
     entry.status = "stopping";
     this.markStateDirty();
-    this.ctx().pushEvent({
+    this._ctx.pushEvent({
       at: nowIso(),
       issueId: entry.issue.id,
       issueIdentifier: entry.issue.identifier,
@@ -298,7 +299,7 @@ export class Orchestrator implements OrchestratorPort {
     if (!alreadyStopping) {
       entry.status = "stopping";
       this.markStateDirty();
-      this.ctx().pushEvent({
+      this._ctx.pushEvent({
         at: requestedAt,
         issueId: entry.issue.id,
         issueIdentifier: entry.issue.identifier,
@@ -325,7 +326,7 @@ export class Orchestrator implements OrchestratorPort {
         issueModelOverrides: this._state.issueModelOverrides,
         runningEntries: this._state.runningEntries,
         retryEntries: this._state.retryEntries,
-        pushEvent: (event) => this.ctx().pushEvent(event),
+        pushEvent: (event) => this._ctx.pushEvent(event),
         requestRefresh: (r) => this.requestRefresh(r),
         issueConfigStore: this.deps.issueConfigStore,
       },
@@ -393,15 +394,15 @@ export class Orchestrator implements OrchestratorPort {
     if (!this._state.running || this.tickInFlight) return;
     this.tickInFlight = true;
     try {
-      if (this.ctx().detectAndKillStalled().killed > 0) {
+      if (this._ctx.detectAndKillStalled().killed > 0) {
         this.markStateDirty();
       }
-      if (await reconcileRunningAndRetryingState(this.ctx())) {
+      if (await reconcileRunningAndRetryingState(this._ctx)) {
         this.markStateDirty();
       }
       const candidateIssues = sortIssuesForDispatch(await this.deps.tracker.fetchCandidateIssues());
-      await refreshQueueViewsState(this.ctx(), candidateIssues);
-      await launchAvailableWorkersState(this.ctx(), candidateIssues);
+      await refreshQueueViewsState(this._ctx, candidateIssues);
+      await launchAvailableWorkersState(this._ctx, candidateIssues);
       globalMetrics.orchestratorPollsTotal.increment({ status: "ok" });
       this.deps.eventBus?.emit("poll.complete", {
         timestamp: nowIso(),

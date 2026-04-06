@@ -6,6 +6,7 @@ import type { AgentRunnerEventHandler } from "../agent-runner/contracts.js";
 import { AgentRunner } from "../agent-runner/index.js";
 import type { DispatchRequest, DispatchStreamMessage, PrecomputedRuntimeConfig, DataPlaneHealth } from "./types.js";
 import { LinearClient } from "../linear/client.js";
+import { LinearTrackerToolProvider } from "../linear/tool-provider.js";
 import { LinearTrackerAdapter } from "../tracker/linear-adapter.js";
 import { WorkspaceManager } from "../workspace/manager.js";
 import { createGitHubToolProvider } from "../cli/runtime-providers.js";
@@ -74,6 +75,7 @@ export function createDataPlaneServer(secret: string): express.Application {
 
       const linearClient = new LinearClient(() => config, logger.child({ component: "linear" }));
       const tracker = new LinearTrackerAdapter(linearClient);
+      const trackerToolProvider = new LinearTrackerToolProvider(linearClient);
       const workspaceManager = new WorkspaceManager(() => config, logger.child({ component: "workspace" }));
       const gitManager = createGitHubToolProvider(() => config, { env: process.env });
       const pathRegistry = PathRegistry.fromEnv();
@@ -82,7 +84,7 @@ export function createDataPlaneServer(secret: string): express.Application {
       const agentRunner = new AgentRunner({
         getConfig: () => config,
         tracker,
-        linearClient,
+        trackerToolProvider,
         workspaceManager,
         archiveDir,
         pathRegistry,

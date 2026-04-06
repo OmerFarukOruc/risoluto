@@ -233,7 +233,7 @@ function makeInput(overrides?: Partial<{ signal: AbortSignal; onEvent: AgentRunn
 function makeDeps(overrides?: Partial<DockerSessionDeps>): DockerSessionDeps {
   return {
     logger: createMockLogger(),
-    linearClient: null,
+    trackerToolProvider: { toolNames: [], handleToolCall: vi.fn() },
     archiveDir: "/tmp/archive",
     ...overrides,
   };

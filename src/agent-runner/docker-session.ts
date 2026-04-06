@@ -16,7 +16,7 @@ import { inspectContainerRunning, removeContainer, removeVolume, stopContainer }
 import { getContainerStats } from "../docker/stats.js";
 import { handleCodexRequest } from "../agent/codex-request-handler.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
-import type { LinearClient } from "../linear/client.js";
+import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 import { globalMetrics } from "../observability/metrics.js";
 import { createLifecycleEvent } from "../core/lifecycle-events.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
@@ -37,7 +37,7 @@ export interface DockerSessionDeps {
   archiveDir?: string;
   pathRegistry?: PathRegistry;
   githubToolClient?: GithubApiToolClient;
-  linearClient: LinearClient | null;
+  trackerToolProvider: TrackerToolProvider;
   logger: RisolutoLogger;
   spawnProcess?: typeof spawn;
 }
@@ -231,7 +231,7 @@ function setupConnection(
     logger,
     config.codex.readTimeoutMs,
     async (request: JsonRpcRequest) => {
-      const result = await handleCodexRequest(request, deps.linearClient, deps.githubToolClient);
+      const result = await handleCodexRequest(request, deps.trackerToolProvider, deps.githubToolClient);
       if (result.fatalFailure) {
         fatalFailure = result.fatalFailure;
         session.connection.close();

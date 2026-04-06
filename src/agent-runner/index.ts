@@ -9,7 +9,7 @@ import { runSelfReview } from "./self-review.js";
 import type { AgentRunnerEventHandler } from "./contracts.js";
 import type { RunAttemptDispatcher } from "../dispatch/types.js";
 import type { GithubApiToolClient } from "../git/github-api-tool.js";
-import type { LinearClient } from "../linear/client.js";
+import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 import type { TrackerPort } from "../tracker/port.js";
 import { createLifecycleEvent } from "../core/lifecycle-events.js";
 import { toErrorString } from "../utils/type-guards.js";
@@ -28,7 +28,7 @@ export class AgentRunner implements RunAttemptDispatcher {
     private readonly deps: {
       getConfig: () => ServiceConfig;
       tracker: TrackerPort;
-      linearClient: LinearClient | null;
+      trackerToolProvider: TrackerToolProvider;
       workspaceManager: WorkspaceManager;
       archiveDir?: string;
       pathRegistry?: PathRegistry;
@@ -104,7 +104,7 @@ export class AgentRunner implements RunAttemptDispatcher {
           archiveDir: this.deps.archiveDir,
           pathRegistry: this.deps.pathRegistry,
           githubToolClient: this.deps.githubToolClient,
-          linearClient: this.deps.linearClient,
+          trackerToolProvider: this.deps.trackerToolProvider,
           logger: this.deps.logger,
           spawnProcess: this.deps.spawnProcess,
         },
@@ -175,7 +175,7 @@ export class AgentRunner implements RunAttemptDispatcher {
         rollbackLastTurn: Boolean(input.previousThreadId),
         previousPrFeedback: input.previousPrFeedback ?? null,
       },
-      { logger: this.deps.logger },
+      { logger: this.deps.logger, trackerToolProvider: this.deps.trackerToolProvider },
       this.liquid,
     );
 

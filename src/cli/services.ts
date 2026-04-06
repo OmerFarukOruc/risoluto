@@ -39,6 +39,7 @@ export type { WebhookConfig };
 interface InfrastructurePhase {
   persistence: PersistenceRuntime;
   tracker: ReturnType<typeof createTracker>["tracker"];
+  trackerToolProvider: ReturnType<typeof createTracker>["trackerToolProvider"];
   linearClient: ReturnType<typeof createTracker>["linearClient"];
   repoRouter: ReturnType<typeof createRepoRouterProvider>;
   gitManager: ReturnType<typeof createGitHubToolProvider>;
@@ -77,14 +78,14 @@ async function createInfrastructure(
   options?: { persistence?: PersistenceRuntime },
 ): Promise<InfrastructurePhase> {
   const persistence = options?.persistence ?? (await initPersistenceRuntime({ dataDir: archiveDir, logger }));
-  const { tracker, linearClient } = createTracker(() => configStore.getConfig(), logger);
+  const { tracker, trackerToolProvider, linearClient } = createTracker(() => configStore.getConfig(), logger);
   const repoRouter = createRepoRouterProvider(() => configStore.getConfig());
   const gitManager = createGitHubToolProvider(() => configStore.getConfig(), {
     env: process.env,
     resolveSecret: (name) => secretsStore.get(name) ?? undefined,
   });
 
-  return { persistence, tracker, linearClient, repoRouter, gitManager };
+  return { persistence, tracker, trackerToolProvider, linearClient, repoRouter, gitManager };
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +98,7 @@ function createWorkspaceAndDispatch(
   archiveDir: string,
   logger: ReturnType<typeof createLogger>,
 ): WorkspaceDispatchPhase {
-  const { tracker, linearClient, gitManager, repoRouter } = infra;
+  const { tracker, gitManager, repoRouter } = infra;
 
   const workspaceManager = new WorkspaceManager(
     () => configStore.getConfig(),
@@ -121,7 +122,7 @@ function createWorkspaceAndDispatch(
   const pathRegistry = PathRegistry.fromEnv();
   const agentRunner = createDispatcher(() => configStore.getConfig(), {
     tracker,
-    linearClient,
+    trackerToolProvider,
     workspaceManager,
     archiveDir,
     pathRegistry,

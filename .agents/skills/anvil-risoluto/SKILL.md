@@ -18,6 +18,7 @@ Read `references/state-contract.md`, `references/output-contract.md`, `reference
 - Refresh `.anvil/<slug>/handoff.md` after every meaningful phase transition.
 - Refresh `.anvil/<slug>/closeout.md` whenever the run is intentionally paused, externally handed off, ready for review / push, complete, or another phase contract needs a truthful checkpoint artifact while the loop stays active.
 - Keep `pending_phases`, `pending_gates`, and `claim_counts` truthful. Do not overload one field with another concept.
+- Use canonical phase names in machine state: `preflight`, `intake`, `brainstorm`, `plan`, `review`, `audit`, `finalize`, `execute`, `verify`, `docs-tests-closeout`, `final-push`. Skill names such as `anvil-brainstorm` describe ownership, not `status.json.phase` values.
 - `active = true` means keep the factory moving. `active = false` means the run is intentionally paused or complete.
 - Checkpoint artifacts are not pause commands. Writing `handoff.md` or `closeout.md` for a review-ready, audit-ready, or execution-ready checkpoint must not flip the loop to paused by itself.
 - Never push in the middle of the workflow. Only the final phase may push.
@@ -43,10 +44,10 @@ Accept any of:
 
 Route like this:
 
-- Vague intake: pass preflight, harden the intake, then run `anvil-brainstorm`
-- Bundle or issue intake: pass preflight, create state, then run `anvil-brainstorm`
-- Requirements doc: validate gaps, then run `anvil-plan`
-- Existing plan: challenge it in `anvil-brainstorm`, then strengthen it in `anvil-plan`
+- Vague intake: pass preflight, initialize run state, harden the intake, then run `anvil-brainstorm`
+- Bundle or issue intake: pass preflight, initialize run state, then run `anvil-brainstorm`
+- Requirements doc: pass preflight, initialize run state, seed `requirements.md` plus `bundle.json`, validate gaps, then run `anvil-plan`
+- Existing plan: pass preflight, initialize run state, treat the plan as a draft to challenge in `anvil-brainstorm`, then strengthen it in `anvil-plan`
 - Existing `.anvil/<slug>/` state: resume from the recorded phase
 
 ## Dry run mode
@@ -120,7 +121,7 @@ Standard subfolder layout:
 
 Keep anvil-session artifacts inside this tree by default.
 
-Initialize them with `scripts/init_anvil_run.ts`, `scripts/resolve_bundle.ts`, and `scripts/update_status.ts` when helpful.
+For any non-resume intake, initialize the run scaffold before phase work begins. Use `scripts/init_anvil_run.ts`, `scripts/resolve_bundle.ts`, and `scripts/update_status.ts` when helpful.
 
 ## Phases
 

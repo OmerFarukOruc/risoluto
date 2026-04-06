@@ -28,4 +28,12 @@ Bundle metadata should include:
 - touches docs
 - touches tests
 
+Bundle metadata may also include explicit runtime requirements when they are already known:
+
+- requires GitHub auth
+- requires Linear API
+- requires Docker
+- requires ui-test
+- verification surfaces
+
 Prefer grouping issues by shared code paths and shared verification needs, not just by label.

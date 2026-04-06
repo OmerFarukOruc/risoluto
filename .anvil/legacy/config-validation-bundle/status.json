@@ -10,13 +10,7 @@
   "max_review_rounds": 3,
   "max_audit_rounds": 2,
   "max_verify_cycles": 3,
-  "pending_phases": [
-    "finalize",
-    "execute",
-    "verify",
-    "docs-tests-closeout",
-    "final-push"
-  ],
+  "pending_phases": ["finalize", "execute", "verify", "docs-tests-closeout", "final-push"],
   "pending_gates": [],
   "gate_results": {},
   "claim_counts": {

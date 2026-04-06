@@ -12,6 +12,11 @@ type Bundle = {
   touches_backend: boolean;
   touches_docs: boolean;
   touches_tests: boolean;
+  requires_github_auth?: boolean;
+  requires_linear_api?: boolean;
+  requires_docker?: boolean;
+  requires_ui_test?: boolean;
+  verification_surfaces?: string[];
   grouping_rationale?: string;
   architectural_drift?: string[];
   notes?: string[];
@@ -67,6 +72,9 @@ async function main(): Promise<void> {
     if ("source_items" in bundlePatch && !Array.isArray(bundlePatch.source_items)) {
       throw new TypeError("source_items must be an array");
     }
+    if ("verification_surfaces" in bundlePatch && !Array.isArray(bundlePatch.verification_surfaces)) {
+      throw new TypeError("verification_surfaces must be an array");
+    }
   }
 
   const bundle: Bundle = {
@@ -80,6 +88,11 @@ async function main(): Promise<void> {
     touches_backend: true,
     touches_docs: true,
     touches_tests: true,
+    requires_github_auth: false,
+    requires_linear_api: false,
+    requires_docker: false,
+    requires_ui_test: false,
+    verification_surfaces: [],
     notes: ["Bundle metadata initialized by resolve_bundle.ts"],
     ...(bundlePatch ?? {}),
   };
@@ -117,6 +130,17 @@ async function main(): Promise<void> {
       bundle.grouping_rationale
         ? `- ${bundle.grouping_rationale}`
         : "- Capture the shared problem before brainstorming.",
+      "",
+      "## Runtime Requirements",
+      `- Requires GitHub auth: ${bundle.requires_github_auth ? "yes" : "no"}`,
+      `- Requires Linear API: ${bundle.requires_linear_api ? "yes" : "no"}`,
+      `- Requires Docker: ${bundle.requires_docker ? "yes" : "no"}`,
+      `- Requires ui-test: ${bundle.requires_ui_test ? "yes" : "no"}`,
+      `- Verification surfaces: ${
+        bundle.verification_surfaces && bundle.verification_surfaces.length > 0
+          ? bundle.verification_surfaces.join(", ")
+          : "unspecified"
+      }`,
       "",
       "## Architectural Drift",
       bundle.architectural_drift && bundle.architectural_drift.length > 0

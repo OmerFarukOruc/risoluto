@@ -1,7 +1,6 @@
-import type { Issue, RunOutcome, Workspace } from "../../core/types.js";
+import type { Issue, ModelSelection, RunOutcome, Workspace } from "../../core/types.js";
 import type { RunningEntry } from "../runtime-types.js";
 import type { OutcomeContext } from "../context.js";
-import type { PreparedWorkerOutcome } from "./types.js";
 import { isActiveState, isTerminalState } from "../../state/policy.js";
 import { isHardFailure } from "../views.js";
 import { detectStopSignal } from "../../core/signal-detection.js";
@@ -34,44 +33,45 @@ export async function handleWorkerOutcome(
   const prepared = await prepareWorkerOutcome(ctx, { outcome, entry, issue, workspace, attempt });
 
   if (!ctx.isRunning()) {
-    handleServiceStopped(ctx, outcome, prepared);
+    handleServiceStopped(ctx, outcome, entry, prepared.latestIssue, workspace, prepared.modelSelection, attempt);
     return;
   }
 
-  const { latestIssue } = prepared;
+  const { latestIssue, modelSelection } = prepared;
 
   if (entry.cleanupOnExit || isTerminalState(latestIssue.state, ctx.getConfig())) {
-    await handleTerminalCleanup(ctx, outcome, prepared);
+    await handleTerminalCleanup(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
   if (!isActiveState(latestIssue.state, ctx.getConfig())) {
-    handleInactiveIssue(ctx, prepared);
+    handleInactiveIssue(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
   if (outcome.errorCode === "model_override_updated") {
-    handleModelOverrideRetry(ctx, prepared);
+    handleModelOverrideRetry(ctx, latestIssue, attempt);
     return;
   }
   if (outcome.errorCode === "operator_abort") {
-    handleOperatorAbort(ctx, outcome, prepared);
+    handleOperatorAbort(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
   if (outcome.kind === "cancelled" || isHardFailure(outcome.errorCode)) {
-    await handleCancelledOrHardFailure(ctx, outcome, prepared);
+    await handleCancelledOrHardFailure(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
 
-  await dispatchPostReconciliation(ctx, outcome, prepared);
+  await dispatchPostReconciliation(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
 }
 
 async function dispatchPostReconciliation(
   ctx: OutcomeContext,
   outcome: RunOutcome,
-  prepared: PreparedWorkerOutcome,
+  entry: RunningEntry,
+  latestIssue: Issue,
+  workspace: Workspace,
+  modelSelection: ModelSelection,
+  attempt: number | null,
 ): Promise<void> {
-  const { entry, attempt } = prepared;
-  const latestIssue = prepared.latestIssue;
-
   // Always check for stop signal, even on timeout/error — the agent may have
   // written RISOLUTO_STATUS: DONE before the turn timer expired.
   // Prefer the pre-truncation signal extracted from raw content by the
@@ -89,7 +89,16 @@ async function dispatchPostReconciliation(
     "post-reconciliation stop-signal check",
   );
   if (stopSignal) {
-    await handleStopSignal(ctx, stopSignal, prepared, outcome.turnCount ?? null);
+    await handleStopSignal(
+      ctx,
+      stopSignal,
+      entry,
+      latestIssue,
+      workspace,
+      modelSelection,
+      attempt,
+      outcome.turnCount ?? null,
+    );
     return;
   }
 
@@ -97,24 +106,24 @@ async function dispatchPostReconciliation(
     const maxContinuations = ctx.getConfig().agent.maxContinuationAttempts;
     const nextAttempt = (attempt ?? 0) + 1;
     if (nextAttempt > maxContinuations) {
-      await handleContinuationExhausted(ctx, prepared);
+      await handleContinuationExhausted(ctx, entry, latestIssue, workspace, modelSelection, attempt);
       return;
     }
-    handleContinuationRetry(ctx, prepared);
+    handleContinuationRetry(ctx, entry, latestIssue, workspace, modelSelection, attempt);
     return;
   }
 
   const strategy = classifyRetryStrategy(outcome.codexErrorInfo ?? null, outcome.errorCode);
   switch (strategy.action) {
     case "hard_fail":
-      await handleCancelledOrHardFailure(ctx, outcome, prepared);
+      await handleCancelledOrHardFailure(ctx, outcome, entry, latestIssue, workspace, modelSelection, attempt);
       return;
     case "retry":
-      queueRetryWithDelay(ctx, prepared, strategy.delayMs, strategy.reason);
+      queueRetryWithDelay(ctx, latestIssue, attempt, strategy.delayMs, strategy.reason);
       return;
     case "compact_and_retry":
     case "default":
-      handleErrorRetry(ctx, outcome, prepared, entry);
+      handleErrorRetry(ctx, outcome, latestIssue, attempt, entry);
       return;
   }
 }

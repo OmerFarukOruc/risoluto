@@ -37,8 +37,15 @@ export async function loadWorkflowDefinition(workflowPath: string): Promise<Work
   }
 
   const firstNewline = source.indexOf("\n");
-  const endMarker = firstNewline < 0 ? -1 : source.indexOf("\n---", firstNewline);
-  if (firstNewline < 0 || endMarker < 0) {
+  if (firstNewline === -1) {
+    throw new WorkflowLoaderError({
+      code: "workflow_parse_error",
+      message: "workflow front matter is not closed with a terminating --- line",
+    });
+  }
+
+  const endMarker = source.indexOf("\n---", firstNewline);
+  if (endMarker === -1) {
     throw new WorkflowLoaderError({
       code: "workflow_parse_error",
       message: "workflow front matter is not closed with a terminating --- line",
@@ -46,8 +53,8 @@ export async function loadWorkflowDefinition(workflowPath: string): Promise<Work
   }
 
   const frontMatterContent = source.slice(firstNewline + 1, endMarker);
-  const trailingContent = source.slice(endMarker + 4);
-  const body = trailingContent.startsWith("\n") ? trailingContent.slice(1) : "";
+  const afterEnd = source.indexOf("\n", endMarker + 4);
+  const body = afterEnd === -1 ? "" : source.slice(afterEnd + 1);
 
   try {
     const parsed = YAML.parse(frontMatterContent);

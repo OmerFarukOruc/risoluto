@@ -31,12 +31,61 @@ import { normalizeTrackerEndpoint } from "./url-policy.js";
  * Options for service config derivation.
  */
 interface DeriveServiceConfigOptions {
+  /**
+   * Pre-merged config map (workflow.config already merged with overlay).
+   * When provided, the overlay field is ignored and no additional merge is performed.
+   * Prefer this over `overlay` to avoid a second deep-merge pass.
+   */
+  mergedConfigMap?: Record<string, unknown>;
+  /** Raw overlay map. Ignored when `mergedConfigMap` is present. */
   overlay?: Record<string, unknown>;
   secretResolver?: (name: string) => string | undefined;
 }
 
-function pickConfigValue(record: Record<string, unknown>, snakeCaseKey: string, camelCaseKey: string): unknown {
-  return record[snakeCaseKey] ?? record[camelCaseKey];
+/**
+ * Alias registry mapping snake_case config keys to their camelCase equivalents.
+ *
+ * Each entry is [snakeCaseKey, camelCaseKey]. The registry is the single source
+ * of truth for all dual-format keys. `normalizeRecord` uses it to fold both
+ * variants onto the snake_case key so sub-builders can access one form only.
+ */
+const ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
+  // webhook
+  ["webhook_url", "webhookUrl"],
+  ["webhook_secret", "webhookSecret"],
+  ["polling_stretch_ms", "pollingStretchMs"],
+  ["polling_base_ms", "pollingBaseMs"],
+  ["health_check_interval_ms", "healthCheckIntervalMs"],
+  // agent
+  ["preflight_commands", "preflightCommands"],
+  ["auto_retry_on_review_feedback", "autoRetryOnReviewFeedback"],
+  ["pr_monitor_interval_ms", "prMonitorIntervalMs"],
+  ["auto_merge", "autoMerge"],
+  // merge policy
+  ["allowed_paths", "allowedPaths"],
+  ["require_labels", "requireLabels"],
+  ["exclude_labels", "excludeLabels"],
+  ["max_changed_files", "maxChangedFiles"],
+  ["max_diff_lines", "maxDiffLines"],
+];
+
+/**
+ * Normalize a raw config record by resolving alias pairs.
+ *
+ * For each `[snakeKey, camelKey]` pair in the registry, if only the camelCase
+ * key is present in `record`, the snake_case key is populated with that value.
+ * snake_case always wins when both are present (operator YAML format is canonical).
+ *
+ * Returns a new object — the original is not mutated.
+ */
+function normalizeRecord(record: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...record };
+  for (const [snakeKey, camelKey] of ALIAS_REGISTRY) {
+    if (out[snakeKey] === undefined && out[camelKey] !== undefined) {
+      out[snakeKey] = out[camelKey];
+    }
+  }
+  return out;
 }
 
 function asNumberish(value: unknown, fallback: number): number {
@@ -114,18 +163,19 @@ function deriveWorkspaceConfig(
  * never need to guard against undefined fields.
  */
 function deriveMergePolicyConfig(raw: Record<string, unknown>): ServiceConfig["agent"]["autoMerge"] {
-  const allowedPaths = asLooseStringArray(raw.allowed_paths ?? raw.allowedPaths);
-  const requireLabels = asLooseStringArray(raw.require_labels ?? raw.requireLabels);
-  const excludeLabels = asLooseStringArray(raw.exclude_labels ?? raw.excludeLabels);
+  const norm = normalizeRecord(raw);
+  const allowedPaths = asLooseStringArray(norm.allowed_paths);
+  const requireLabels = asLooseStringArray(norm.require_labels);
+  const excludeLabels = asLooseStringArray(norm.exclude_labels);
 
-  const rawMaxFiles = raw.max_changed_files ?? raw.maxChangedFiles;
+  const rawMaxFiles = norm.max_changed_files;
   const maxChangedFiles = rawMaxFiles !== undefined && rawMaxFiles !== null ? asNumber(rawMaxFiles, 0) : undefined;
 
-  const rawMaxLines = raw.max_diff_lines ?? raw.maxDiffLines;
+  const rawMaxLines = norm.max_diff_lines;
   const maxDiffLines = rawMaxLines !== undefined && rawMaxLines !== null ? asNumber(rawMaxLines, 0) : undefined;
 
   return {
-    enabled: asBoolean(raw.enabled, false),
+    enabled: asBoolean(norm.enabled, false),
     allowedPaths,
     maxChangedFiles,
     maxDiffLines,
@@ -138,23 +188,24 @@ function deriveMergePolicyConfig(raw: Record<string, unknown>): ServiceConfig["a
  * Build the agent configuration subsection.
  */
 function deriveAgentConfig(agent: Record<string, unknown>): ServiceConfig["agent"] {
+  const norm = normalizeRecord(agent);
   return {
-    maxConcurrentAgents: asNumber(agent.max_concurrent_agents, 10),
+    maxConcurrentAgents: asNumber(norm.max_concurrent_agents, 10),
     maxConcurrentAgentsByState: Object.fromEntries(
-      Object.entries(asNumberMap(agent.max_concurrent_agents_by_state)).map(([state, limit]) => [
+      Object.entries(asNumberMap(norm.max_concurrent_agents_by_state)).map(([state, limit]) => [
         state.trim().toLowerCase(),
         limit,
       ]),
     ),
-    maxTurns: asNumber(agent.max_turns, 20),
-    maxRetryBackoffMs: asNumber(agent.max_retry_backoff_ms, 300000),
-    maxContinuationAttempts: asNumber(agent.max_continuation_attempts, 5),
-    successState: asString(agent.success_state) || null,
-    stallTimeoutMs: asNumber(agent.stall_timeout_ms, 1200000),
-    preflightCommands: asLooseStringArray(agent.preflight_commands ?? agent.preflightCommands),
-    autoRetryOnReviewFeedback: asBoolean(agent.auto_retry_on_review_feedback ?? agent.autoRetryOnReviewFeedback, false),
-    prMonitorIntervalMs: asNumber(agent.pr_monitor_interval_ms ?? agent.prMonitorIntervalMs, 60000),
-    autoMerge: deriveMergePolicyConfig(asRecord(agent.auto_merge ?? agent.autoMerge)),
+    maxTurns: asNumber(norm.max_turns, 20),
+    maxRetryBackoffMs: asNumber(norm.max_retry_backoff_ms, 300000),
+    maxContinuationAttempts: asNumber(norm.max_continuation_attempts, 5),
+    successState: asString(norm.success_state) || null,
+    stallTimeoutMs: asNumber(norm.stall_timeout_ms, 1200000),
+    preflightCommands: asLooseStringArray(norm.preflight_commands),
+    autoRetryOnReviewFeedback: asBoolean(norm.auto_retry_on_review_feedback, false),
+    prMonitorIntervalMs: asNumber(norm.pr_monitor_interval_ms, 60000),
+    autoMerge: deriveMergePolicyConfig(asRecord(norm.auto_merge)),
   };
 }
 
@@ -267,19 +318,16 @@ function deriveWebhookConfig(
   webhook: Record<string, unknown>,
   secretResolver?: (name: string) => string | undefined,
 ): ServiceConfig["webhook"] | null {
-  const webhookUrl = resolveConfigString(pickConfigValue(webhook, "webhook_url", "webhookUrl"), secretResolver) || null;
+  const norm = normalizeRecord(webhook);
+  const webhookUrl = resolveConfigString(norm.webhook_url, secretResolver) || null;
   if (!webhookUrl) return null;
 
   return {
     webhookUrl,
-    webhookSecret:
-      resolveConfigString(pickConfigValue(webhook, "webhook_secret", "webhookSecret"), secretResolver) || "",
-    pollingStretchMs: asNumberish(pickConfigValue(webhook, "polling_stretch_ms", "pollingStretchMs"), 120000),
-    pollingBaseMs: asNumberish(pickConfigValue(webhook, "polling_base_ms", "pollingBaseMs"), 15000),
-    healthCheckIntervalMs: asNumberish(
-      pickConfigValue(webhook, "health_check_interval_ms", "healthCheckIntervalMs"),
-      300000,
-    ),
+    webhookSecret: resolveConfigString(norm.webhook_secret, secretResolver) || "",
+    pollingStretchMs: asNumberish(norm.polling_stretch_ms, 120000),
+    pollingBaseMs: asNumberish(norm.polling_base_ms, 15000),
+    healthCheckIntervalMs: asNumberish(norm.health_check_interval_ms, 300000),
   };
 }
 
@@ -305,11 +353,15 @@ function deriveServerConfig(server: Record<string, unknown>): ServiceConfig["ser
  * Derive the complete ServiceConfig from a workflow definition.
  *
  * This is the main entry point that orchestrates all subsection builders.
+ *
+ * Pass `mergedConfigMap` (already merged by the caller) to skip the internal
+ * deep-merge and avoid double-applying the overlay. The `overlay` option is
+ * kept for backward compatibility with call sites that have not been updated yet.
  */
 export function deriveServiceConfig(workflow: WorkflowDefinition, options?: DeriveServiceConfigOptions): ServiceConfig {
-  const mergedConfig = options?.overlay
-    ? (deepMerge(workflow.config, options.overlay) as Record<string, unknown>)
-    : workflow.config;
+  const mergedConfig =
+    options?.mergedConfigMap ??
+    (options?.overlay ? (deepMerge(workflow.config, options.overlay) as Record<string, unknown>) : workflow.config);
   const secretResolver = options?.secretResolver;
   const root = asRecord(mergedConfig);
   const tracker = asRecord(root.tracker);

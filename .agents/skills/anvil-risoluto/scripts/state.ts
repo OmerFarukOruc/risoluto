@@ -58,6 +58,14 @@ export type AnvilStatus = {
 };
 
 const PHASE_SET = new Set<string>(PHASES);
+const PHASE_ALIASES: Record<string, PhaseName> = {
+  "anvil-brainstorm": "brainstorm",
+  "anvil-plan": "plan",
+  "anvil-review": "review",
+  "anvil-audit": "audit",
+  "anvil-execute": "execute",
+  "anvil-verify": "verify",
+};
 const OPEN_CLAIM_STATUSES = new Set(["open", "pending", "reopened"]);
 const FAILED_CLAIM_STATUSES = new Set(["failed"]);
 const PASSED_CLAIM_STATUSES = new Set(["passed"]);
@@ -106,8 +114,14 @@ function normalizePhase(value: unknown, fallback: PhaseName): PhaseName {
   if (value === "complete") {
     return "final-push";
   }
-  if (typeof value === "string" && PHASE_SET.has(value)) {
-    return value as PhaseName;
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (PHASE_SET.has(normalized)) {
+      return normalized as PhaseName;
+    }
+    if (normalized in PHASE_ALIASES) {
+      return PHASE_ALIASES[normalized];
+    }
   }
   return fallback;
 }

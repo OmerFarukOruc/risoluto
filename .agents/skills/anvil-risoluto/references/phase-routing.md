@@ -3,15 +3,19 @@
 Use this routing table:
 
 - `preflight` -> `intake`
-- `intake` -> `anvil-brainstorm`
-- `brainstorm` -> `anvil-plan`
-- `plan` -> `anvil-review`
-- `review` -> `anvil-audit`
+- `intake` -> `brainstorm` (`anvil-brainstorm`)
+- `brainstorm` -> `plan` (`anvil-plan`)
+- `plan` -> `review` (`anvil-review`)
+- `review` -> `audit` (`anvil-audit`)
 - `audit` -> `finalize`
-- `finalize` -> `anvil-execute`
-- `execute` -> `anvil-verify`
+- `finalize` -> `execute` (`anvil-execute`)
+- `execute` -> `verify` (`anvil-verify`)
 - `verify` -> `docs-tests-closeout` or back to `execute`
 - `docs-tests-closeout` -> `final-push` or back to `verify`
+
+Use the canonical phase names above inside `status.json.phase` and `pending_phases`.
+Skill names describe which skill owns the work for that phase; they are not phase
+values.
 
 Reopen conditions:
 

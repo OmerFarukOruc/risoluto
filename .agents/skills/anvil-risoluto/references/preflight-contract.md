@@ -60,6 +60,6 @@ At minimum include:
 
 ## State updates
 
-- A passing preflight should keep the preflight record, update the log, and advance the run to intake.
+- A passing preflight should keep the preflight record, update the log, and advance the run to the next pending phase. For a fresh run this is `intake`; for a resumed run it may be the currently pending execution or verification phase.
 - A blocked preflight should set `active = false`, `phase_status = "blocked"`, and a concrete `last_failure_reason`.
 - Do not proceed to intake when preflight is blocked.

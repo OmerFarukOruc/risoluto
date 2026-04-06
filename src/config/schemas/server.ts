@@ -14,6 +14,7 @@ export const serverConfigSchema = z.object({
 });
 
 const notificationVerbositySchema = z.enum(["off", "critical", "verbose"]).catch("critical");
+const notificationSeveritySchema = z.enum(["info", "warning", "critical"]).catch("info");
 
 const slackConfigSchema = z
   .object({
@@ -23,8 +24,33 @@ const slackConfigSchema = z
   .nullable()
   .default(null);
 
+const notificationChannelBaseSchema = z.object({
+  name: z.string(),
+  enabled: z.boolean().default(true),
+  minSeverity: notificationSeveritySchema.default("info"),
+});
+
+const slackChannelConfigSchema = notificationChannelBaseSchema.extend({
+  type: z.literal("slack"),
+  webhookUrl: z.string(),
+  verbosity: notificationVerbositySchema.default("critical"),
+});
+
+const webhookChannelConfigSchema = notificationChannelBaseSchema.extend({
+  type: z.literal("webhook"),
+  url: z.string(),
+  headers: z.record(z.string(), z.string()).default({}),
+});
+
+const desktopChannelConfigSchema = notificationChannelBaseSchema.extend({
+  type: z.literal("desktop"),
+});
+
 export const notificationConfigSchema = z.object({
   slack: slackConfigSchema,
+  channels: z
+    .array(z.union([slackChannelConfigSchema, webhookChannelConfigSchema, desktopChannelConfigSchema]))
+    .default([]),
 });
 
 export const gitHubConfigSchema = z

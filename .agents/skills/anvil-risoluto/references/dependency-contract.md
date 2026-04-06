@@ -52,6 +52,12 @@ For UI / UX / frontend-quality runs, the factory must route through the installe
    - `/extract` for reusable components, tokens, and patterns
 3. Use `/teach-impeccable` once when persistent design context is missing and the run is design-led or repeatedly touches the operator UI.
 
+For preflight, proving the Impeccable family means:
+
+- diagnostic entry points `critique` and `audit` are available
+- at least one follow-up skill from the routed family is available
+- any run-specific follow-up requirements already known at intake are recorded in bundle metadata or the verification plan
+
 ## Nice-to-have / optional
 
 These may improve confidence or polish, but they must not be treated as factory blockers on their own when the run does not materially touch UI, UX, or frontend presentation quality.
@@ -71,3 +77,13 @@ The preflight phase must classify each dependency as one of:
 - `optional-missing`
 
 Only the `required-missing` and `conditional-required-missing` states block the run.
+
+Bundle metadata may provide explicit runtime requirements such as:
+
+- `requires_github_auth`
+- `requires_linear_api`
+- `requires_docker`
+- `requires_ui_test`
+- `verification_surfaces`
+
+Use those fields to avoid over-blocking preflight for local-only planning and implementation work.

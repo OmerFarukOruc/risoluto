@@ -32,6 +32,7 @@ export interface AttemptSummary {
   costUsd: number | null;
   errorCode: string | null;
   errorMessage: string | null;
+  appServerBadge?: AttemptAppServerBadgeView;
   issueIdentifier?: string;
   title?: string;
   workspacePath?: string | null;
@@ -40,6 +41,22 @@ export interface AttemptSummary {
   turnCount?: number;
   threadId?: string | null;
   turnId?: string | null;
+}
+
+export interface AttemptAppServerBadgeView {
+  effectiveProvider: string | null;
+  threadStatus: string | null;
+}
+
+export interface AttemptAppServerView extends AttemptAppServerBadgeView {
+  effectiveModel: string | null;
+  reasoningEffort: string | null;
+  approvalPolicy: string | null;
+  threadName: string | null;
+  threadStatusPayload: Record<string, unknown> | null;
+  allowedApprovalPolicies: string[] | null;
+  allowedSandboxModes: string[] | null;
+  networkRequirements: Record<string, unknown> | null;
 }
 
 export interface SnapshotBuilderDeps {
@@ -137,12 +154,20 @@ function resolveRelatedEvents(
   retryEntry: RetryRuntimeEntry | null,
   deps: SnapshotBuilderDeps,
   callbacks: SnapshotBuilderCallbacks,
+  eventsCache: Map<string, RecentEvent[]>,
 ): RecentEvent[] {
   if (runningEntry) return deps.attemptStore.getEvents(runningEntry.runId);
   if (retryEntry || archivedAttempts.length === 0) {
     return callbacks.getRecentEvents().filter((event) => event.issueIdentifier === identifier);
   }
-  return archivedAttempts.flatMap((attempt) => deps.attemptStore.getEvents(attempt.attemptId));
+  return archivedAttempts.flatMap((attempt) => {
+    let events = eventsCache.get(attempt.attemptId);
+    if (!events) {
+      events = deps.attemptStore.getEvents(attempt.attemptId);
+      eventsCache.set(attempt.attemptId, events);
+    }
+    return events;
+  });
 }
 
 function enrichFromArchive(detail: RuntimeIssueView, archivedAttempts: AttemptRecord[]): RuntimeIssueView {
@@ -190,7 +215,16 @@ export function buildIssueDetail(
   const retryEntry = location.kind === "retry" ? location.entry : null;
 
   const archivedAttempts = deps.attemptStore.getAttemptsForIssue(identifier);
-  const relatedEvents = resolveRelatedEvents(identifier, archivedAttempts, runningEntry, retryEntry, deps, callbacks);
+  const eventsCache = new Map<string, RecentEvent[]>();
+  const relatedEvents = resolveRelatedEvents(
+    identifier,
+    archivedAttempts,
+    runningEntry,
+    retryEntry,
+    deps,
+    callbacks,
+    eventsCache,
+  );
   const enriched = enrichFromArchive(detail, archivedAttempts);
 
   const templateId = callbacks.getTemplateOverride ? callbacks.getTemplateOverride(identifier) : null;
@@ -201,7 +235,10 @@ export function buildIssueDetail(
     configuredTemplateId: templateId,
     configuredTemplateName: templateName,
     recentEvents: relatedEvents,
-    attempts: archivedAttempts.map((attempt) => buildAttemptSummary(attempt)),
+    attempts: archivedAttempts.map((attempt) => {
+      const events = eventsCache.get(attempt.attemptId) ?? deps.attemptStore.getEvents(attempt.attemptId);
+      return buildAttemptSummary(attempt, events);
+    }),
     currentAttemptId: runningEntry?.runId ?? null,
   };
 }
@@ -209,6 +246,7 @@ export function buildIssueDetail(
 /** Typed detail view for a single attempt, including its event stream. */
 export interface AttemptDetailView extends AttemptSummary {
   events: RecentEvent[];
+  appServer?: AttemptAppServerView;
 }
 
 // Builds attempt detail view with events.
@@ -217,9 +255,11 @@ export function buildAttemptDetail(attemptId: string, deps: SnapshotBuilderDeps)
   if (!attempt) {
     return null;
   }
+  const events = deps.attemptStore.getEvents(attemptId);
   return {
-    ...buildAttemptSummary(attempt),
-    events: deps.attemptStore.getEvents(attemptId),
+    ...buildAttemptSummary(attempt, events),
+    events,
+    appServer: buildAttemptAppServer(attempt, events),
   };
 }
 
@@ -265,9 +305,107 @@ function computeArchivedTokenField(
   return Math.max(archived[field], liveCodexTotals[field]);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const strings = value.filter((entry): entry is string => typeof entry === "string");
+  return strings;
+}
+
+function findLatestEvent(events: RecentEvent[], eventName: string): RecentEvent | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (events[index]?.event === eventName) {
+      return events[index] ?? null;
+    }
+  }
+  return null;
+}
+
+function extractThreadStatusPayload(event: RecentEvent | null): Record<string, unknown> | null {
+  const metadata = asRecord(event?.metadata);
+  return asRecord(metadata?.threadStatus) ?? asRecord(metadata?.status);
+}
+
+function hasAppServerData(value: AttemptAppServerView): boolean {
+  return Object.values(value).some((entry) => entry !== null);
+}
+
+function buildAttemptAppServerBadge(
+  appServer: AttemptAppServerView | undefined,
+): AttemptAppServerBadgeView | undefined {
+  if (!appServer) {
+    return undefined;
+  }
+  const badge: AttemptAppServerBadgeView = {
+    effectiveProvider: appServer.effectiveProvider,
+    threadStatus: appServer.threadStatus,
+  };
+  return Object.values(badge).some((entry) => entry !== null) ? badge : undefined;
+}
+
+function buildConfigSummary(
+  attempt: AttemptRecord,
+  events: RecentEvent[],
+): Pick<AttemptAppServerView, "effectiveProvider" | "effectiveModel" | "reasoningEffort" | "approvalPolicy"> {
+  const configMetadata = asRecord(findLatestEvent(events, "codex_config_loaded")?.metadata);
+  return {
+    effectiveProvider: asString(configMetadata?.modelProvider),
+    effectiveModel: asString(configMetadata?.model) ?? attempt.model,
+    reasoningEffort: asString(configMetadata?.reasoningEffort) ?? attempt.reasoningEffort,
+    approvalPolicy: asString(configMetadata?.approvalPolicy),
+  };
+}
+
+function buildRequirementsSummary(
+  events: RecentEvent[],
+): Pick<AttemptAppServerView, "allowedApprovalPolicies" | "allowedSandboxModes" | "networkRequirements"> {
+  const requirementsMetadata = asRecord(findLatestEvent(events, "codex_requirements_loaded")?.metadata);
+  return {
+    allowedApprovalPolicies: asStringArray(requirementsMetadata?.allowedApprovalPolicies),
+    allowedSandboxModes: asStringArray(requirementsMetadata?.allowedSandboxModes),
+    networkRequirements: asRecord(requirementsMetadata?.network),
+  };
+}
+
+function buildThreadSummary(
+  events: RecentEvent[],
+): Pick<AttemptAppServerView, "threadName" | "threadStatus" | "threadStatusPayload"> {
+  const threadLoadedMetadata = asRecord(findLatestEvent(events, "thread_loaded")?.metadata);
+  const threadLoadedStatus = asRecord(threadLoadedMetadata?.status);
+  const threadStatusPayload =
+    extractThreadStatusPayload(findLatestEvent(events, "thread_status")) ?? threadLoadedStatus ?? null;
+  return {
+    threadName: asString(threadLoadedMetadata?.name),
+    threadStatus: asString(threadStatusPayload?.type),
+    threadStatusPayload,
+  };
+}
+
+function buildAttemptAppServer(attempt: AttemptRecord, events: RecentEvent[]): AttemptAppServerView | undefined {
+  const summary: AttemptAppServerView = {
+    ...buildConfigSummary(attempt, events),
+    ...buildThreadSummary(events),
+    ...buildRequirementsSummary(events),
+  };
+  return hasAppServerData(summary) ? summary : undefined;
+}
+
 // Builds a minimal attempt summary from an AttemptRecord.
-function buildAttemptSummary(attempt: AttemptRecord): AttemptSummary {
+function buildAttemptSummary(attempt: AttemptRecord, events: RecentEvent[] = []): AttemptSummary {
   const costUsd = computeAttemptCostUsd(attempt);
+  const appServer = buildAttemptAppServer(attempt, events);
   return {
     attemptId: attempt.attemptId,
     attemptNumber: attempt.attemptNumber,
@@ -280,6 +418,7 @@ function buildAttemptSummary(attempt: AttemptRecord): AttemptSummary {
     costUsd,
     errorCode: attempt.errorCode,
     errorMessage: attempt.errorMessage,
+    appServerBadge: buildAttemptAppServerBadge(appServer),
     issueIdentifier: attempt.issueIdentifier,
     title: attempt.title,
     workspacePath: attempt.workspacePath,

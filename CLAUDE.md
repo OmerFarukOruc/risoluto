@@ -138,3 +138,296 @@ For each annotation: acknowledge it, make the fix, then resolve it with a summar
 Continue watching until I say stop or timeout is reached.
 
 When writing complex features or significant refactors, use an ExecPlan (as described in .agents/PLANS.md) from design to implementation.
+
+## Architecture Deep Dive
+
+### Module Map
+
+The `src/` directory contains 25 modules. Here is the dependency hierarchy:
+
+```
+Entry Point
+  src/cli/index.ts          → parses CLI args, inits config stores, calls createServices()
+  src/cli/services.ts       → DI wiring: instantiates all services and connects ports
+
+Core (shared by everything)
+  src/core/types.ts          → domain types: Issue, AttemptRecord, RunOutcome, ServiceConfig
+  src/core/event-bus.ts      → TypedEventBus<RisolutoEventMap> for publish/subscribe
+  src/core/attempt-store-port.ts → AttemptStorePort interface
+  src/core/lifecycle-events.ts   → event type definitions
+
+Orchestration (the brain)
+  src/orchestrator/orchestrator.ts → Orchestrator class: polling, dispatch, worker lifecycle
+  src/orchestrator/lifecycle.ts    → reconcileRunningAndRetrying, refreshQueueViews
+  src/orchestrator/worker-launcher.ts → launchAvailableWorkers — starts agent workers
+  src/orchestrator/port.ts         → OrchestratorPort interface (consumed by HTTP layer)
+  src/orchestrator/runtime-types.ts → RunningEntry, RetryRuntimeEntry, OrchestratorDeps
+
+Agent Execution
+  src/agent-runner/             → Codex session management, turn execution
+  src/dispatch/                 → dispatch factory, priority logic
+  src/codex/                    → Codex app-server protocol, model list
+
+Tracker Adapters (issue trackers)
+  src/tracker/port.ts           → TrackerPort interface
+  src/tracker/factory.ts        → createTracker() — returns {tracker, linearClient}
+  src/linear/client.ts          → LinearClient (concrete TrackerPort for Linear)
+  src/github/issues-client.ts   → GitHubIssuesClient (concrete TrackerPort for GitHub)
+
+HTTP & Dashboard
+  src/http/server.ts            → HttpServer class (Express)
+  src/http/routes.ts            → registerRoutes() — all /api/v1/* endpoints
+  src/http/sse.ts               → Server-Sent Events for live dashboard updates
+
+Infrastructure
+  src/config/store.ts           → ConfigStore — YAML config file watching
+  src/config/overlay.ts         → ConfigOverlayPort interface + ConfigOverlayStore
+  src/persistence/sqlite/       → SQLite schema, attempt store, webhook inbox
+  src/workspace/manager.ts      → WorkspaceManager — directory/worktree lifecycle
+  src/git/                      → GitManager, PR monitor, repo router
+  src/webhook/                  → webhook health tracker, registrar
+  src/secrets/store.ts          → SecretsStore for sensitive config values
+  src/prompt/store.ts           → PromptTemplateStore (SQLite-backed)
+  src/audit/logger.ts           → AuditLogger (SQLite-backed event log)
+  src/notification/manager.ts   → NotificationManager for run lifecycle alerts
+```
+
+### Port Pattern
+
+The codebase uses **port/adapter** architecture. Consumers depend on port interfaces, never on concrete implementations. This enables test doubles and swappable backends.
+
+| Port Interface | Location | Implementations | Wired In |
+|---|---|---|---|
+| `OrchestratorPort` | `src/orchestrator/port.ts` | `Orchestrator` | `services.ts` → `HttpServer` |
+| `TrackerPort` | `src/tracker/port.ts` | `LinearTrackerAdapter`, `GitHubTrackerAdapter` | `tracker/factory.ts` |
+| `AttemptStorePort` | `src/core/attempt-store-port.ts` | `AttemptStore` (JSONL), `SqliteAttemptStore` | `persistence/sqlite/runtime.ts` |
+| `ConfigOverlayPort` | `src/config/overlay.ts` | `ConfigOverlayStore` (file), `DbConfigStore` (SQLite) | `cli/index.ts` |
+| `GitIntegrationPort` | `src/git/port.ts` | `GitManager` | `services.ts` |
+| `RunAttemptDispatcher` | `src/dispatch/types.ts` | Created by `dispatch/factory.ts` | `services.ts` |
+
+### Dependency Injection Flow
+
+All service wiring happens in `src/cli/services.ts → createServices()`. This is the only place that instantiates concrete implementations and connects ports. The flow:
+
+```
+cli/index.ts
+  ├─ initializeConfigStores()  → ConfigStore, ConfigOverlayStore, SecretsStore
+  ├─ createServices(configStore, overlayStore, secretsStore, archiveDir, logger)
+  │    ├─ initPersistenceRuntime()  → {db, attemptStore}
+  │    ├─ createTracker()           → {tracker: TrackerPort, linearClient}
+  │    ├─ new WorkspaceManager()
+  │    ├─ createDispatcher()        → agentRunner: RunAttemptDispatcher
+  │    ├─ new TypedEventBus()
+  │    ├─ new Orchestrator({...deps})
+  │    └─ new HttpServer({...deps})
+  └─ services.orchestrator.start()  → begins polling loop
+```
+
+**Key rule:** If you need a new dependency, add it to `OrchestratorDeps` (in `runtime-types.ts`) and wire it in `createServices()`. Never import concrete implementations inside the orchestrator.
+
+### Orchestrator Tick Flow
+
+The orchestrator runs a polling loop (`tick()`) that drives all dispatch:
+
+```
+tick()
+  1. tracker.fetchCandidateIssues()       — get active + terminal issues
+  2. reconcileRunningAndRetrying()         — sync running workers with latest issue state
+     └─ stops workers for terminal/inactive issues
+  3. refreshQueueViews()                   — update queue/completed/failed views
+     └─ sortIssuesForDispatch()            — priority then createdAt
+  4. launchAvailableWorkers()              — start workers up to maxConcurrentAgents
+     └─ workspaceManager.ensureWorkspace() — create/reuse workspace
+     └─ agentRunner.runAttempt()           — spawn Codex session
+  5. schedule next tick (config.polling.intervalMs)
+```
+
+Key files: `orchestrator.ts` (loop + state), `lifecycle.ts` (reconcile + queue), `worker-launcher.ts` (launch), `worker-outcome/` (handle completion).
+
+### Event System
+
+`TypedEventBus<RisolutoEventMap>` is the pub/sub backbone. Events are defined in `src/core/risoluto-events.ts`. Key consumers:
+
+- **HttpServer** (SSE) → streams events to the dashboard
+- **NotificationManager** → sends lifecycle alerts
+- **AuditLogger** → persists events to SQLite
+- **WebhookHealthTracker** → tracks webhook delivery health
+- **PrMonitorService** → watches PR state changes
+
+## Testing Cheat Sheet
+
+### Unit Test Pattern (Port Mocking)
+
+```typescript
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { Orchestrator } from "../../src/orchestrator/orchestrator.js";
+import {
+  createIssue,
+  createConfig,
+  createConfigStore,
+  createAttemptStore,
+  createIssueConfigStore,
+  createLogger,
+  createResolveTemplate,
+} from "./orchestrator-fixtures.js";
+import type { TrackerPort } from "../../src/tracker/port.js";
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+it("does the thing", async () => {
+  vi.useFakeTimers();
+
+  // 1. Create test data with factory functions
+  const issue = { ...createIssue("In Progress"), id: "issue-1", identifier: "MT-01" };
+
+  // 2. Mock ports with vi.fn()
+  const tracker = {
+    fetchCandidateIssues: vi.fn(async () => [issue]),
+    fetchIssueStatesByIds: vi.fn(async () => [issue]),
+    fetchIssuesByStates: vi.fn(async () => []),
+  } as unknown as TrackerPort;
+
+  const agentRunner = {
+    runAttempt: vi.fn(async () => ({
+      kind: "success",
+      threadId: null,
+      turnId: null,
+      turnCount: 1,
+    })),
+  };
+
+  // 3. Instantiate with createXxx() helpers from fixtures
+  const orchestrator = new Orchestrator({
+    attemptStore: createAttemptStore(),
+    configStore: createConfigStore(createConfig()),
+    tracker,
+    workspaceManager: { ensureWorkspace: vi.fn(async (id) => ({ path: `/tmp/${id}`, workspaceKey: id, createdNow: true })), removeWorkspace: vi.fn() },
+    agentRunner,
+    issueConfigStore: createIssueConfigStore(),
+    logger: createLogger(),
+    resolveTemplate: createResolveTemplate(),
+  });
+
+  await orchestrator.start();
+  await vi.advanceTimersByTimeAsync(0);
+
+  // 4. Assert
+  expect(tracker.fetchCandidateIssues).toHaveBeenCalled();
+  await orchestrator.stop();
+});
+```
+
+### Fixture Factories
+
+Test fixtures live in `tests/<module>/<module>-fixtures.ts`. Pattern:
+
+```typescript
+// Minimal valid domain object — override fields per test
+export function createIssue(state = "In Progress"): Issue {
+  return {
+    id: "issue-1",
+    identifier: "MT-42",
+    title: "Test issue",
+    description: null,
+    priority: 1,
+    state,
+    branchName: null,
+    url: null,
+    labels: [],
+    blockedBy: [],
+    createdAt: "2026-03-15T00:00:00Z",
+    updatedAt: "2026-03-16T00:00:00Z",
+  };
+}
+
+// Config factory with full required shape
+export function createConfig(): ServiceConfig { /* ... */ }
+
+// Store factories return minimal port implementations
+export function createAttemptStore(): AttemptStorePort { /* ... */ }
+export function createConfigStore(config: ServiceConfig): ConfigStore { /* ... */ }
+```
+
+### E2E Test Pattern (Playwright)
+
+```typescript
+import { test, expect } from "../fixtures/test.js";
+
+test("dashboard shows running issues", async ({ page, apiMock }) => {
+  // 1. Build scenario with fluent API
+  await apiMock.setScenario(
+    ScenarioBuilder.withRunningAttempts(2).withCompletedAttempts(1),
+  );
+
+  // 2. Navigate using Page Object Model
+  const dashboard = new DashboardPage(page);
+  await dashboard.navigateTo();
+
+  // 3. Assert UI state
+  await expect(dashboard.runningCount).toHaveText("2");
+});
+```
+
+## Common Modification Patterns
+
+### Adding a New API Endpoint
+
+1. **Define request/response schema** in `src/http/request-schemas.ts` (Zod)
+2. **Create handler** in `src/http/<feature>-handler.ts`
+3. **Register route** in `src/http/routes.ts` → `registerRoutes()`
+4. **Update OpenAPI spec** in `src/http/openapi.ts`
+5. **Wire deps** — handler receives `OrchestratorPort` and other ports via `HttpRouteDeps`
+6. **Test** — add unit test in `tests/http/` + smoke E2E in `tests/e2e/specs/smoke/`
+
+### Adding a New Tracker Adapter
+
+1. **Implement `TrackerPort`** in `src/tracker/<name>-adapter.ts`
+2. **Create client** in `src/<name>/client.ts` for the raw API
+3. **Add factory branch** in `src/tracker/factory.ts` → `createTracker()`
+4. **Extend `ServiceConfig`** in `src/core/types.ts` with new tracker kind
+5. **Update config validation** in `src/config/builders.ts`
+6. **Test** — mock the TrackerPort methods in `tests/orchestrator/orchestrator-fixtures.ts`
+
+### Extending the Orchestrator
+
+1. **Add to `OrchestratorDeps`** in `src/orchestrator/runtime-types.ts` if new dependency
+2. **Wire in `createServices()`** in `src/cli/services.ts`
+3. **If new tick behavior** → modify `lifecycle.ts` (reconcile/queue) or `worker-launcher.ts` (launch)
+4. **If new state** → add to `OrchestratorState` in `orchestrator-delegates.ts`
+5. **If new snapshot data** → update `snapshot-builder.ts` and `src/http/route-helpers.ts`
+6. **Test** — use `tests/orchestrator/orchestrator-fixtures.ts` factories
+
+### Adding a New Event
+
+1. **Define event** in `src/core/risoluto-events.ts` → add to `RisolutoEventMap`
+2. **Emit** via `eventBus.emit("eventName", payload)` at the source
+3. **Consume** — subscribe in the relevant service (`httpServer`, `notificationManager`, etc.)
+4. **Test** — use `TypedEventBus` directly in tests, no mocking needed
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| **Tick** | One orchestrator polling cycle (fetch → reconcile → dispatch → launch) |
+| **Port** | Interface contract (e.g., `TrackerPort`, `OrchestratorPort`). Never import concrete implementations through ports. |
+| **Claim** | An issue claimed by a running worker. Tracked in `runningMap` keyed by issue identifier. |
+| **Attempt** | A single agent session for an issue. Recorded in `AttemptStorePort`. Has `attemptId`, `startedAt`, `endedAt`, `outcome`. |
+| **RunOutcome** | The result of an agent attempt: `success`, `error`, `cancelled`, `timeout`, `stall` |
+| **Snapshot** | `RuntimeSnapshot` — serialized orchestrator state served via `/api/v1/state` |
+| **Stall** | A worker that hasn't produced events within `stallTimeoutMs`. Detected by `StallDetector`. |
+| **Workspace** | A directory or git worktree created for an issue. Managed by `WorkspaceManager`. |
+| **Overlay** | Runtime config overrides (via UI) that layer on top of the YAML config file. Stored in `ConfigOverlayPort`. |
+| **Dispatch** | Priority-sorted queue of issues eligible for worker launch. Sorted by priority, then `createdAt`. |
+| **Recovery** | On startup, the orchestrator scans for orphaned attempts and either resumes or marks them failed. See `recovery.ts`. |
+
+## Design System Reference
+
+Frontend design tokens, color system, component vocabulary, and brand guidelines are documented in `.impeccable.md`. Consult it before any UI work. Key points:
+
+- Component classes use `mc-*` prefix (e.g., `mc-card`, `mc-badge`)
+- Color system: copper brand (`#B87333`), semantic status colors, light/dark themes
+- Typography: system font stack, 4-level heading hierarchy
+- All tokens defined as CSS custom properties

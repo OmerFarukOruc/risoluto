@@ -71,6 +71,7 @@ Schema note:
 - `schema_version = 2` is the current shape with explicit `pending_phases`, `pending_gates`, and canonical `claim_counts`.
 - If older state is encountered, normalize it forward before acting, then write the normalized form back to disk.
 - Legacy compatibility: older runs may persist `phase = "complete"` or `phase_status = "complete"`. Normalize those to the current terminal meaning before resuming.
+- Machine state should use canonical phase names only. Legacy skill-name aliases such as `anvil-brainstorm` may be normalized on read, but they should not be written back as phase values.
 
 Semantics:
 

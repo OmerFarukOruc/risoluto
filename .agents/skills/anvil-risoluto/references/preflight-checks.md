@@ -6,9 +6,10 @@ Run these before intake. Fail fast on environmental issues instead of discoverin
 
 ### Git state
 
-- Working tree is clean: `git status --porcelain` is empty
-- Current branch is `main` or the expected base branch
-- No stale worktrees from a previous run: inspect `git worktree list`
+- Before execution begins, the working tree should be clean: `git status --porcelain` is empty
+- Before execution begins, the current branch should be `main` or the expected base branch
+- During or after execution, the recorded integration branch and run-owned worktrees are allowed; note them instead of treating them as an automatic blocker
+- Inspect `git worktree list` for stale worktrees. Extra worktrees are a blocker only when they are unexpected for the current run state
 
 ### Build health
 
@@ -25,12 +26,12 @@ Run these before intake. Fail fast on environmental issues instead of discoverin
 
 Use request metadata or an existing `bundle.json` when available to decide whether API credentials are required.
 
-- `gh auth status` succeeds
+- `gh auth status` succeeds only when the run needs GitHub issue intake, GitHub-backed verification, or another GitHub-authenticated surface
 - if the run needs Linear-backed verification or external issue flow, `LINEAR_API_KEY` must be set and non-empty
 
 ### Docker
 
-If the run touches orchestrator, worker, sandbox, or lifecycle E2E behavior:
+If bundle metadata or the verification plan says the run needs orchestrator, worker, sandbox, or lifecycle E2E behavior:
 
 - `docker info` succeeds
 - Docker daemon is responsive enough for lifecycle E2E

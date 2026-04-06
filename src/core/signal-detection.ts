@@ -23,8 +23,7 @@ function normalizeForDetection(content: string): string {
 function detectStructuredStatus(content: string): StopSignal | null {
   try {
     const parsed: unknown = JSON.parse(content);
-    const statusValue =
-      typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).status : undefined;
+    const statusValue = (Object(parsed ?? {}) as Record<string, unknown>).status;
     const status = typeof statusValue === "string" ? statusValue.toUpperCase() : null;
 
     if (status === "DONE") return "done";

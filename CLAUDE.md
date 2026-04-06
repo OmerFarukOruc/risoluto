@@ -184,7 +184,7 @@ Agent Execution
 
 Tracker Adapters (issue trackers)
   src/tracker/port.ts           → TrackerPort interface (includes tracker-tool-provider abstraction)
-  src/tracker/factory.ts        → createTracker() — returns {tracker} (linearClient no longer propagated)
+  src/tracker/factory.ts        → createTracker() — returns {tracker, trackerToolProvider, linearClient}
   src/linear/client.ts          → LinearClient (concrete TrackerPort for Linear)
   src/github/issues-client.ts   → GitHubIssuesClient (concrete TrackerPort for GitHub)
 
@@ -243,13 +243,13 @@ cli/index.ts
   ├─ initializeConfigStores()  → ConfigStore, ConfigOverlayStore, SecretsStore (via SecretsPort)
   ├─ createServices(configStore, overlayStore, secretsPort, archiveDir, logger)
   │    ├─ initPersistenceRuntime()  → {db, attemptStore, prStore, checkpointStore}
-  │    ├─ createTracker()           → {tracker: TrackerPort}  (no linearClient propagation)
+  │    ├─ createTracker()           → {tracker: TrackerPort, trackerToolProvider, linearClient}
   │    ├─ new WorkspaceManager()
   │    ├─ createDispatcher()        → agentRunner: RunAttemptDispatcher
   │    ├─ new TypedEventBus()
   │    ├─ composeWebhookServices()  → src/webhook/composition.ts
   │    ├─ resolveTemplate()         → src/prompt/resolver.ts
-  │    ├─ new MetricsCollector()    → injectable via DI; globalMetrics retained for compat
+  │    ├─ new MetricsCollector()    → injectable via DI and shared across HTTP/orchestrator/agent-runner
   │    ├─ new Orchestrator({...deps})
   │    └─ new HttpServer({...deps})
   └─ services.orchestrator.start()  → begins polling loop

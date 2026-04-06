@@ -81,7 +81,7 @@ const ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
 function normalizeRecord(record: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...record };
   for (const [snakeKey, camelKey] of ALIAS_REGISTRY) {
-    if (out[snakeKey] === undefined && out[camelKey] !== undefined) {
+    if (out[snakeKey] == null && out[camelKey] != null) {
       out[snakeKey] = out[camelKey];
     }
   }

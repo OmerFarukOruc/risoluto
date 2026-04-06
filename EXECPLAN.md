@@ -43,10 +43,10 @@ All three are declared alongside `AttemptStorePort` in `src/core/attempt-store-p
 
 **`AgentSession` abstraction**
 `src/agent-runner/agent-session.ts` wraps the lifecycle of a single Codex app-server run.
-Tracker tool-provider abstraction added to `TrackerPort` — `linearClient` is no longer propagated through the DI tree.
+Tracker tool-provider abstraction added to `TrackerPort`, while `linearClient` remains limited to webhook infrastructure wiring.
 
 **Metrics**
-`MetricsCollector` is now injectable via DI. `globalMetrics` singleton retained for backward compatibility.
+`MetricsCollector` is now injectable via DI and shared through service wiring.
 
 **Frontend**
 Settings UI feature-sliced to `frontend/src/features/settings/`.

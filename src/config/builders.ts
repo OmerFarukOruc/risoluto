@@ -61,6 +61,13 @@ const WEBHOOK_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
 
 const AGENT_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
   // agent
+  ["success_state", "successState"],
+  ["max_concurrent_agents", "maxConcurrentAgents"],
+  ["max_concurrent_agents_by_state", "maxConcurrentAgentsByState"],
+  ["max_turns", "maxTurns"],
+  ["max_retry_backoff_ms", "maxRetryBackoffMs"],
+  ["max_continuation_attempts", "maxContinuationAttempts"],
+  ["stall_timeout_ms", "stallTimeoutMs"],
   ["preflight_commands", "preflightCommands"],
   ["auto_retry_on_review_feedback", "autoRetryOnReviewFeedback"],
   ["pr_monitor_interval_ms", "prMonitorIntervalMs"],

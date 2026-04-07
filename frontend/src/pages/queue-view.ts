@@ -50,10 +50,14 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   });
   inspector.element.hidden = !params?.id;
   if (params?.id) layout.classList.add("has-panel");
+  const pageHeading = document.createElement("h1");
+  pageHeading.className = "sr-only";
+  pageHeading.textContent = "Board";
+
   boardWrap.append(stateGuide.element, board);
   mainPane.append(toolbar, boardWrap);
   layout.append(mainPane, inspector.element);
-  page.append(layout);
+  page.append(pageHeading, layout);
 
   const filters = createFilters();
   let ui = createUiState(store.getState().snapshot?.workflow_columns ?? []);

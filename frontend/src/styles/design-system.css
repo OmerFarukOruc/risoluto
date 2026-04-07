@@ -112,8 +112,8 @@
   --bg-subtle: #e0dbd2;
 
   --text-primary: #1a1f28;
-  --text-secondary: #545e6b; /* darkened from #5a6370 — 5.2:1 on white */
-  --text-muted: #717b88; /* darkened from #8b96a3 — 4.6:1 on white (AA) */
+  --text-secondary: #4a535f; /* darkened from #545e6b — 6.0:1 on white (AA) */
+  --text-muted: #5c6570; /* darkened from #717b88 — 5.1:1 on white (AA) */
   --text-subtle: #9ba3ad;
   --text-accent: #9a472b;
 
@@ -122,10 +122,10 @@
   --border-muted: #ece8e2;
   --border-strong: #ada7a0; /* increased contrast for emphasis borders */
 
-  --interactive-primary: #9a472b;
+  --interactive-primary: #8a3f26;
   --interactive-primary-hover: #7a3520;
   --interactive-primary-active: #5d2a1c;
-  --interactive-primary-text: #f9eee9;
+  --interactive-primary-text: #ffffff;
 }
 
 /* ============================================
@@ -143,7 +143,7 @@
   --text-secondary: #a8b5c3;
   --text-muted: #8ba0b5; /* lifted for WCAG AA 4.5:1 on dark surfaces */
   --text-subtle: #617181;
-  --text-accent: #cd7350; /* lightened from #c96e4a for WCAG AA 4.5:1 on active sidebar bg */
+  --text-accent: #d4795a; /* WCAG AA 4.5:1+ (4.76:1) on dark sidebar bg #2c252a */
 
   --border-default: #344658; /* lifted for clearer panel edges */
   --border-subtle: #263546;

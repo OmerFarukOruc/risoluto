@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import express, { type Express } from "express";
-import rateLimit from "express-rate-limit";
 
 import { createMetricsCollector } from "../observability/metrics.js";
 import { validateHttpDeps } from "./dep-validator.js";
@@ -29,10 +28,6 @@ export function registerHttpRoutes(app: Express, deps: HttpRouteDeps): void {
   validateHttpDeps(routeDeps);
 
   app.use(express.static(staticRoot));
-
-  const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false });
-  app.use("/api/", apiLimiter);
-  app.use("/metrics", apiLimiter);
 
   registerSystemRoutes(app, routeDeps);
   registerExtensionRoutes(app, routeDeps);

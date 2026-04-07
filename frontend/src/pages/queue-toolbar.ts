@@ -121,13 +121,15 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
     stageBar.replaceChildren(
       ...mergedColumns.map((column) => {
         const label = column.count > 0 ? `${column.label} ${column.count}` : column.label;
+        const active = filters.stages.has(column.key);
         const button = chip(label, () => {
           if (filters.stages.has(column.key)) filters.stages.delete(column.key);
           else filters.stages.add(column.key);
           renderStages();
           onChange();
         });
-        button.classList.toggle("is-active", filters.stages.has(column.key));
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
         return button;
       }),
     );
@@ -142,12 +144,14 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
         ["medium", "Medium"],
         ["low", "Low"],
       ].map(([value, _label]) => {
+        const active = filters.priority === value;
         const button = chip(value, () => {
           filters.priority = value;
           renderPriorities();
           onChange();
         });
-        button.classList.toggle("is-active", filters.priority === value);
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
         return button;
       }),
     );
@@ -161,6 +165,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): {
 
   const sort = document.createElement("select");
   sort.className = "mc-select";
+  sort.setAttribute("aria-label", "Sort by");
   [
     ["updated", "Recently updated"],
     ["priority", "Priority"],

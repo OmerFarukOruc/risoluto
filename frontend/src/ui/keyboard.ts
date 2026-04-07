@@ -79,14 +79,14 @@ export function initKeyboard(router: Router, options: KeyboardOptions = {}): voi
       openShortcutHelp();
       return;
     }
+    if (prefixActive) {
+      handlePrefixKey(event, router, options);
+      return;
+    }
     if (event.key === "g") {
       prefixActive = true;
       window.clearTimeout(prefixTimer);
       prefixTimer = window.setTimeout(() => resetPrefix(), 1_500);
-      return;
-    }
-    if (prefixActive) {
-      handlePrefixKey(event, router, options);
       return;
     }
     handlePlainKey(event);

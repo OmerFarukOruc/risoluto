@@ -5,6 +5,7 @@ interface Route {
   path: string;
   pattern: RegExp;
   render: (params: Record<string, string>) => HTMLElement;
+  title?: string;
 }
 
 interface InternalRoute extends Route {
@@ -41,9 +42,9 @@ class Router {
   private guard: ((path: string) => string | null) | null = null;
   private notFoundRender: ((params: Record<string, string>) => HTMLElement) | null = null;
 
-  register(path: string, render: (params: Record<string, string>) => HTMLElement): void {
+  register(path: string, render: (params: Record<string, string>) => HTMLElement, title?: string): void {
     const compiled = compileRoute(path);
-    this.routes.push({ path, render, ...compiled });
+    this.routes.push({ path, render, title, ...compiled });
   }
 
   setGuard(fn: (path: string) => string | null): void {
@@ -107,7 +108,7 @@ class Router {
     }
     const rendered = decoratePageRoot(matched.route.render(matched.params));
     outlet.replaceChildren(rendered);
-    const title = getRouteTitle(rendered);
+    const title = matched.route.title ?? getRouteTitle(rendered);
     globalThis.dispatchEvent(
       new CustomEvent("router:navigate", {
         detail: { path: globalThis.location.pathname, params: matched.params, title } satisfies RouterNavigateDetail,

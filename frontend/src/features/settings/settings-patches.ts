@@ -73,6 +73,10 @@ export function buildSectionPatchPlan(
       return;
     }
 
+    if (!(field.path in drafts)) {
+      return;
+    }
+
     const draft = drafts[field.path] ?? "";
     const current = getValueAtPath(effective, field.path);
     if (draft === "[redacted]" && current !== undefined) {

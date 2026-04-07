@@ -64,6 +64,9 @@ export async function pollOnce(): Promise<void> {
   const wasStale = store.getState().staleCount >= STALE_THRESHOLD;
   try {
     const data = await api.getState();
+    // Yield to the main thread between JSON parse and heavy DOM update
+    // to break long animation frames (LoAF) caused by synchronous merge + render.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     store.mergeSnapshot(data, { resetStale: true });
     // Restore base polling interval after recovery from backoff
     if (wasStale && intervalId !== null) {

@@ -18,6 +18,18 @@ const DISCONNECTED_POLL_MS = 5_000;
 
 const LIFECYCLE_EVENTS = new Set(["issue.started", "issue.completed", "issue.stalled", "issue.queued"]);
 
+/** Debounce lifecycle-triggered polls so rapid-fire SSE events don't hammer the server. */
+let lifecyclePollTimer: ReturnType<typeof setTimeout> | null = null;
+const LIFECYCLE_POLL_DEBOUNCE_MS = 2_000;
+
+function debouncedLifecyclePoll(): void {
+  if (lifecyclePollTimer !== null) return;
+  lifecyclePollTimer = setTimeout(() => {
+    lifecyclePollTimer = null;
+    pollOnce().catch(() => {});
+  }, LIFECYCLE_POLL_DEBOUNCE_MS);
+}
+
 /** Maps backend event types to their corresponding CustomEvent names for simple dispatch. */
 const EVENT_DISPATCH_MAP = new Map<string, string>([
   ["agent.event", "risoluto:agent-event"],
@@ -63,7 +75,7 @@ function openConnection(): void {
       return;
     }
     if (LIFECYCLE_EVENTS.has(data.type)) {
-      pollOnce().catch(() => {});
+      debouncedLifecyclePoll();
       const payload = data.payload as { identifier?: string } | undefined;
       if (typeof payload?.identifier === "string") {
         window.dispatchEvent(

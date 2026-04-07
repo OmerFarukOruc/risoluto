@@ -9,9 +9,8 @@ export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl
   skipLink.className = "skip-link";
   skipLink.textContent = "Skip to main content";
 
-  const sidebarEl = document.createElement("aside");
+  const sidebarEl = document.createElement("nav");
   sidebarEl.className = "shell-sidebar";
-  sidebarEl.setAttribute("role", "navigation");
   sidebarEl.setAttribute("aria-label", "Primary navigation");
 
   const contentEl = document.createElement("div");
@@ -54,7 +53,6 @@ export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl
   outletEl = document.createElement("main");
   outletEl.className = "shell-outlet";
   outletEl.id = "main-content";
-  outletEl.setAttribute("role", "main");
   outletEl.setAttribute("aria-label", "Main content");
   outletEl.setAttribute("tabindex", "-1");
 

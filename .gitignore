@@ -58,6 +58,7 @@ archives/
 
 # Generated output
 dogfood-output/
+outputs/
 
 # UI Polish pipeline
 .ui-polish/
@@ -87,3 +88,4 @@ research-results-*
 .anvil/runs/
 .anvil/ACTIVE_RUN
 .anvil/ACTIVE_RUNS/
+.env.seed

@@ -59,7 +59,17 @@ const FILTER_MAP: Array<{
   transform?: (value: string) => unknown[];
 }> = [
   { key: "tableName", condition: "table_name = ?" },
-  { key: "key", condition: "key = ?" },
+  {
+    key: "key",
+    condition: String.raw`key LIKE ? ESCAPE '\'`,
+    transform: (value) => {
+      const escaped = value
+        .replaceAll("\\", String.raw`\\`)
+        .replaceAll("%", String.raw`\%`)
+        .replaceAll("_", String.raw`\_`);
+      return [`%${escaped}%`];
+    },
+  },
   {
     key: "pathPrefix",
     condition: String.raw`(path LIKE ? ESCAPE '\' OR key LIKE ? ESCAPE '\')`,

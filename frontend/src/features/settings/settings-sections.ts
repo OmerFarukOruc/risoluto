@@ -233,6 +233,7 @@ function createNavItem(
   if (hasOverrides) {
     const modifiedBadge = document.createElement("span");
     modifiedBadge.className = "settings-nav-badge-modified";
+    modifiedBadge.setAttribute("role", "img");
     modifiedBadge.setAttribute("aria-label", "Has saved overrides");
     topRow.append(modifiedBadge);
   }
@@ -248,6 +249,7 @@ function createNavItem(
     if (hasUnsaved) {
       const unsavedBadge = document.createElement("span");
       unsavedBadge.className = "settings-nav-badge-unsaved";
+      unsavedBadge.setAttribute("role", "img");
       unsavedBadge.setAttribute("aria-label", "Has unsaved changes");
       topRow.append(unsavedBadge);
     }
@@ -531,9 +533,9 @@ function createGroupGrid(
   const grid = document.createElement("div");
   grid.className = "form-grid settings-grid";
 
-  group.fields.forEach((field, fieldIndex) => {
+  group.fields.forEach((field) => {
     const actionKind = field.actionKind;
-    const hintId = `settings-hint-${section.id}-${fieldIndex}`;
+    const hintId = `settings-hint-${field.path.replaceAll(".", "-")}`;
     grid.append(
       createSettingsField(field, {
         value: drafts[field.path] ?? "",

@@ -602,9 +602,8 @@ describe("registerHttpRoutes wiring", () => {
     );
   });
 
-  it("reuses provided metrics and configures the shared API limiter", async () => {
-    const { registerHttpRoutes, limiterMiddleware, rateLimitSpy, createMetricsCollectorSpy } =
-      await loadRoutesModuleWithMocks();
+  it("reuses provided metrics when supplied", async () => {
+    const { registerHttpRoutes, createMetricsCollectorSpy } = await loadRoutesModuleWithMocks();
     const app = { use: vi.fn(), all: vi.fn() };
     const providedMetrics = { observe: vi.fn() };
 
@@ -623,14 +622,6 @@ describe("registerHttpRoutes wiring", () => {
     );
 
     expect(createMetricsCollectorSpy).not.toHaveBeenCalled();
-    expect(rateLimitSpy).toHaveBeenCalledWith({
-      windowMs: 60_000,
-      limit: 300,
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-    expect(app.use).toHaveBeenCalledWith("/api/", limiterMiddleware);
-    expect(app.use).toHaveBeenCalledWith("/metrics", limiterMiddleware);
   });
 
   it("returns the exact webhook 404 payload from the dedicated fallback route", async () => {

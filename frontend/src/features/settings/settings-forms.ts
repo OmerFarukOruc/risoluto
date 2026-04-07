@@ -80,6 +80,7 @@ function applyFieldEnhancements(
     if (labelEl) {
       const dot = document.createElement("span");
       dot.className = "settings-field-set-dot";
+      dot.setAttribute("role", "img");
       dot.setAttribute("aria-label", "Explicitly configured");
       labelEl.append(dot);
     }
@@ -88,7 +89,7 @@ function applyFieldEnhancements(
   if (isOverridden) {
     const reset = createButton("Reset", "ghost");
     reset.className += " settings-field-reset";
-    reset.addEventListener("click", () => options.onInput(""));
+    reset.addEventListener("click", () => options.onInput(field.defaultValue ?? ""));
     if (hintEl) wrapper.insertBefore(reset, hintEl);
     else wrapper.append(reset);
   }

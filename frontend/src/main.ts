@@ -36,7 +36,8 @@ import { deduplicatedToast } from "./utils/toast-events.js";
 let lastIssueContextId: string | null = null;
 
 function setDocumentTitle(pageTitle: string): void {
-  document.title = pageTitle === "Risoluto" ? pageTitle : `${pageTitle} · Risoluto`;
+  const base = pageTitle.replaceAll(" · Risoluto", "").trim();
+  document.title = base === "Risoluto" || base === "" ? "Risoluto" : `${base} · Risoluto`;
 }
 
 function announceRouteChange(pageTitle: string): void {
@@ -124,30 +125,30 @@ function aliasSettingsRoute(
   };
 }
 
-router.register("/", overview);
-router.register("/queue", queue);
-router.register("/queue/:id", queue);
+router.register("/", overview, "Overview");
+router.register("/queue", queue, "Board");
+router.register("/queue/:id", queue, "Board");
 router.register("/issues/:id", issue);
 router.register("/issues/:id/runs", runs);
 router.register("/issues/:id/logs", logs);
 router.register("/logs/:id", logs);
 router.register("/attempts/:id", attempt);
 
-router.register("/config", aliasSettingsRoute("/settings#devtools", settings));
-router.register("/secrets", aliasSettingsRoute("/settings#credentials", settings));
-router.register("/observability", observability);
-router.register("/settings", settings);
-router.register("/notifications", notifications);
-router.register("/git", git);
-router.register("/workspaces", workspaces);
-router.register("/containers", containers);
-router.register("/templates", templates);
-router.register("/audit", audit);
+router.register("/config", aliasSettingsRoute("/settings#devtools", settings), "Settings");
+router.register("/secrets", aliasSettingsRoute("/settings#credentials", settings), "Settings");
+router.register("/observability", observability, "Observability");
+router.register("/settings", settings, "Settings");
+router.register("/notifications", notifications, "Notifications");
+router.register("/git", git, "Git");
+router.register("/workspaces", workspaces, "Workspaces");
+router.register("/containers", containers, "Containers");
+router.register("/templates", templates, "Templates");
+router.register("/audit", audit, "Audit Log");
 router.register("/welcome", () => {
   router.navigate("/settings");
   return document.createElement("div");
 });
-router.register("/setup", setup);
+router.register("/setup", setup, "Setup");
 
 router.setNotFound(() => {
   const page = document.createElement("div");

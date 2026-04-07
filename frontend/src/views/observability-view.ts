@@ -31,7 +31,7 @@ export function createObservabilityPage(): HTMLElement {
   );
   const content = document.createElement("div");
   content.className = "observability-shell";
-  const body = document.createElement("main");
+  const body = document.createElement("section");
   body.className = "observability-body";
   const drawer = createRawMetricsDrawer(() => {
     state.rawDrawerOpen = false;

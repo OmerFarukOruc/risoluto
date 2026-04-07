@@ -518,6 +518,9 @@ export function createOverviewPage(): HTMLElement {
 
   const recentList = document.createElement("div");
   recentList.className = "overview-events";
+  recentList.tabIndex = 0;
+  recentList.setAttribute("role", "log");
+  recentList.setAttribute("aria-label", "Latest activity events");
   recentCollapsible.body.append(recentList);
 
   // Terminal issues section — collapsible

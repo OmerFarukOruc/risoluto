@@ -35,11 +35,17 @@ export function createUiState(_columns: WorkflowColumn[]): QueueUiState {
   };
 }
 
+function normalizeStageKey(key: string): string {
+  const lower = key.toLowerCase();
+  if (lower === "cancelled" || lower === "canceled") return "cancelled";
+  return lower.replaceAll(" ", "_");
+}
+
 export function filterColumn(column: WorkflowColumn, filters: QueueFilters): RuntimeIssueView[] {
   if (!filters.showCompleted && column.terminal) {
     return [];
   }
-  if (filters.stages.size > 0 && !filters.stages.has(column.key)) {
+  if (filters.stages.size > 0 && !filters.stages.has(normalizeStageKey(column.key))) {
     return [];
   }
   return sortIssues(column.issues ?? [], filters.sort).filter((issue) => {

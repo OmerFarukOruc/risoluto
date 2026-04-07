@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surface Harvest QA — {{TARGET_URL}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --font-heading: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --copper-50: #f9eee9; --copper-100: #f3ddd4; --copper-200: #e8bba9;
+  --copper-300: #da9478; --copper-400: #c96e4a; --copper-500: #b45837;
+  --copper-600: #9a472b; --copper-700: #7a3520; --copper-800: #5d2a1c;
+
+  --status-pass: #2f9e44; --status-fail: #d94841; --status-blocked: #d98a1c;
+  --status-skipped: #6b737e; --status-flaky: #7c62d6;
+  --status-pass-bg: #2f9e4418; --status-fail-bg: #d9484118;
+  --status-blocked-bg: #d98a1c18; --status-skipped-bg: #6b737e18;
+  --status-flaky-bg: #7c62d618;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+}
+
+[data-theme="dark"] {
+  --canvas: #0c1016; --surface: #121824; --elevated: #182131;
+  --muted: #1e293b; --subtle: #243040;
+  --text-1: #e8edf3; --text-2: #a3b0be; --text-3: #7a8796; --text-4: #617181;
+  --accent: var(--copper-400);
+  --border: #314052; --border-subtle: #233143; --border-muted: #1b2535;
+}
+
+html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-body);
+  background: var(--canvas);
+  color: var(--text-1);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Layout ── */
+.report { max-width: 1400px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+.report-header { margin-bottom: var(--space-10); }
+.report-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-1);
+  margin-bottom: var(--space-2);
+}
+.report-title span { color: var(--accent); }
+.report-meta {
+  display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6);
+  color: var(--text-3); font-size: 0.85rem;
+}
+.report-meta dt { display: inline; color: var(--text-4); }
+.report-meta dd { display: inline; color: var(--text-2); margin-right: var(--space-2); }
+
+/* ── Gauge + Metrics ── */
+.dashboard { display: grid; grid-template-columns: 180px 1fr; gap: var(--space-8); margin-bottom: var(--space-8); align-items: start; }
+.gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.gauge {
+  position: relative; width: 160px; height: 160px;
+}
+.gauge svg { transform: rotate(-90deg); }
+.gauge-track { fill: none; stroke: var(--muted); stroke-width: 10; }
+.gauge-fill { fill: none; stroke-width: 10; stroke-linecap: butt; transition: stroke-dashoffset 1s ease-out; }
+.gauge-fill.high { stroke: var(--status-pass); }
+.gauge-fill.mid { stroke: var(--status-blocked); }
+.gauge-fill.low { stroke: var(--status-fail); }
+.gauge-label {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.gauge-pct {
+  font-family: var(--font-heading); font-size: 2.4rem; font-weight: 700;
+  letter-spacing: -0.04em; line-height: 1;
+}
+.gauge-sub { font-size: 0.75rem; color: var(--text-3); margin-top: 2px; }
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); }
+.metric {
+  background: var(--surface); border: 1px solid var(--border-muted);
+  padding: var(--space-4) var(--space-5); border-radius: 0;
+}
+.metric-value {
+  font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700;
+  letter-spacing: -0.03em; line-height: 1;
+}
+.metric-label { font-size: 0.78rem; color: var(--text-3); margin-top: var(--space-1); text-transform: uppercase; letter-spacing: 0.06em; }
+.metric.is-pass .metric-value { color: var(--status-pass); }
+.metric.is-fail .metric-value { color: var(--status-fail); }
+.metric.is-blocked .metric-value { color: var(--status-blocked); }
+.metric.is-skipped .metric-value { color: var(--status-skipped); }
+.metric.is-flaky .metric-value { color: var(--status-flaky); }
+
+/* ── Viewport Toggle ── */
+.viewport-bar {
+  display: flex; gap: 1px; background: var(--border-muted);
+  margin-bottom: var(--space-8); width: fit-content;
+}
+.viewport-btn {
+  font-family: var(--font-body); font-size: 0.82rem; font-weight: 600;
+  padding: var(--space-2) var(--space-5);
+  background: var(--surface); color: var(--text-3);
+  border: none; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.viewport-btn:hover { color: var(--text-2); background: var(--elevated); }
+.viewport-btn.is-active { background: var(--accent); color: #fff; }
+
+/* ── Filter Bar ── */
+.filter-bar { display: flex; gap: var(--space-2); margin-bottom: var(--space-6); flex-wrap: wrap; }
+.filter-badge {
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 600;
+  padding: var(--space-1) var(--space-3); border: 1px solid var(--border);
+  background: transparent; color: var(--text-3); cursor: pointer;
+  transition: all 0.12s; border-radius: 0; text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.filter-badge:hover { border-color: var(--text-3); color: var(--text-2); }
+.filter-badge.is-active { border-color: currentColor; }
+.filter-badge[data-status="pass"].is-active { color: var(--status-pass); background: var(--status-pass-bg); }
+.filter-badge[data-status="fail"].is-active { color: var(--status-fail); background: var(--status-fail-bg); }
+.filter-badge[data-status="blocked"].is-active { color: var(--status-blocked); background: var(--status-blocked-bg); }
+.filter-badge[data-status="skipped"].is-active { color: var(--status-skipped); background: var(--status-skipped-bg); }
+.filter-badge[data-status="flaky"].is-active { color: var(--status-flaky); background: var(--status-flaky-bg); }
+
+/* ── Section heading ── */
+.section-heading {
+  font-family: var(--font-heading); font-size: 1.1rem; font-weight: 600;
+  color: var(--text-2); margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-muted);
+  letter-spacing: -0.01em;
+}
+
+/* ── Route Section ── */
+.route-section { margin-bottom: var(--space-3); }
+.route-header {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  gap: var(--space-4); padding: var(--space-4) var(--space-5);
+  background: var(--surface); border: 1px solid var(--border-muted);
+  cursor: pointer; user-select: none; transition: background 0.12s;
+}
+.route-header:hover { background: var(--elevated); }
+.route-name {
+  font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600;
+  display: flex; align-items: center; gap: var(--space-3);
+}
+.route-name code {
+  font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent);
+  background: var(--muted); padding: 1px 6px;
+}
+.route-counts { font-size: 0.78rem; color: var(--text-3); white-space: nowrap; }
+.route-counts .c-pass { color: var(--status-pass); }
+.route-counts .c-fail { color: var(--status-fail); font-weight: 600; }
+.route-counts .c-blocked { color: var(--status-blocked); }
+
+.progress-bar {
+  height: 3px; display: flex; margin-top: var(--space-2); overflow: hidden;
+  background: var(--muted);
+}
+.progress-bar .seg { height: 100%; transition: width 0.3s; }
+.progress-bar .seg-pass { background: var(--status-pass); }
+.progress-bar .seg-fail { background: var(--status-fail); }
+.progress-bar .seg-blocked { background: var(--status-blocked); }
+.progress-bar .seg-skipped { background: var(--status-skipped); }
+.progress-bar .seg-flaky { background: var(--status-flaky); }
+
+.route-chevron {
+  color: var(--text-4); transition: transform 0.2s; font-size: 0.9rem;
+}
+.route-section.is-open .route-chevron { transform: rotate(90deg); }
+
+.route-body {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+  border: 1px solid var(--border-muted); border-top: none;
+}
+.route-section.is-open .route-body { grid-template-rows: 1fr; }
+.route-body-inner { overflow: hidden; }
+
+/* ── Surface Table ── */
+.surface-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.surface-table th {
+  text-align: left; padding: var(--space-2) var(--space-3);
+  font-weight: 600; color: var(--text-3); border-bottom: 1px solid var(--border-muted);
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.surface-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  vertical-align: top;
+}
+.surface-table tr:hover td { background: var(--elevated); }
+.surface-table .col-id { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-3); white-space: nowrap; }
+.surface-table .col-desc { color: var(--text-2); }
+.surface-table .col-errors { font-family: var(--font-mono); font-size: 0.78rem; text-align: center; }
+
+/* ── Status Badges ── */
+.badge {
+  display: inline-block; font-size: 0.7rem; font-weight: 700;
+  padding: 1px 7px; text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 0;
+}
+.badge-pass { background: var(--status-pass-bg); color: var(--status-pass); border: 1px solid color-mix(in srgb, var(--status-pass) 30%, transparent); }
+.badge-fail { background: var(--status-fail-bg); color: var(--status-fail); border: 1px solid color-mix(in srgb, var(--status-fail) 30%, transparent); }
+.badge-blocked { background: var(--status-blocked-bg); color: var(--status-blocked); border: 1px solid color-mix(in srgb, var(--status-blocked) 30%, transparent); }
+.badge-skipped { background: var(--status-skipped-bg); color: var(--status-skipped); border: 1px solid color-mix(in srgb, var(--status-skipped) 30%, transparent); }
+.badge-flaky { background: var(--status-flaky-bg); color: var(--status-flaky); border: 1px solid color-mix(in srgb, var(--status-flaky) 30%, transparent); }
+.badge-viewport { background: var(--muted); color: var(--text-3); border: 1px solid var(--border); font-size: 0.68rem; }
+.badge-severity-high { background: var(--status-fail-bg); color: var(--status-fail); border: 1px solid color-mix(in srgb, var(--status-fail) 30%, transparent); }
+.badge-severity-med { background: var(--status-blocked-bg); color: var(--status-blocked); border: 1px solid color-mix(in srgb, var(--status-blocked) 30%, transparent); }
+
+/* ── Issue Cards ── */
+.issues-section { margin-top: var(--space-10); }
+.issue-card {
+  background: var(--surface); border: 1px solid var(--border-muted);
+  margin-bottom: var(--space-4); border-left: 3px solid var(--status-fail);
+}
+.issue-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-muted);
+  flex-wrap: wrap;
+}
+.issue-title {
+  font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600;
+  flex: 1; min-width: 200px;
+}
+.issue-body { padding: var(--space-5); }
+.issue-body h4 {
+  font-family: var(--font-heading); font-size: 0.82rem; font-weight: 600;
+  color: var(--text-3); margin-bottom: var(--space-2); margin-top: var(--space-4);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.issue-body h4:first-child { margin-top: 0; }
+.issue-body p { color: var(--text-2); font-size: 0.85rem; margin-bottom: var(--space-2); }
+.issue-body ol, .issue-body ul { color: var(--text-2); font-size: 0.85rem; padding-left: var(--space-5); margin-bottom: var(--space-2); }
+.issue-body li { margin-bottom: var(--space-1); }
+.issue-code {
+  font-family: var(--font-mono); font-size: 0.78rem;
+  background: var(--canvas); border: 1px solid var(--border-muted);
+  padding: var(--space-3) var(--space-4); overflow-x: auto;
+  color: var(--status-fail); line-height: 1.6; white-space: pre;
+  margin-bottom: var(--space-3);
+}
+.issue-screenshot {
+  max-width: 100%; border: 1px solid var(--border);
+  margin-top: var(--space-3);
+}
+
+/* ── Console Timeline ── */
+.timeline-section { margin-top: var(--space-10); }
+.timeline-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.timeline-table th {
+  text-align: left; padding: var(--space-2) var(--space-3);
+  font-weight: 600; color: var(--text-3); border-bottom: 1px solid var(--border);
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.timeline-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  vertical-align: top;
+}
+.timeline-table .col-ts { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-3); white-space: nowrap; }
+.timeline-table .col-surface { font-family: var(--font-mono); font-size: 0.78rem; }
+.timeline-table .col-error { color: var(--status-fail); font-family: var(--font-mono); font-size: 0.78rem; }
+
+/* ── Footer ── */
+.report-footer {
+  margin-top: var(--space-10); padding-top: var(--space-4);
+  border-top: 1px solid var(--border-muted);
+  font-size: 0.75rem; color: var(--text-4);
+  display: flex; justify-content: space-between;
+}
+
+/* ── Print ── */
+@media print {
+  body { background: #fff; color: #1a1f28; }
+  .report { max-width: none; padding: 0; }
+  .viewport-bar, .filter-bar { display: none; }
+  .route-section .route-body { grid-template-rows: 1fr !important; }
+  .route-header { background: #f5f5f5; }
+  .metric { border: 1px solid #ddd; background: #fff; }
+  .metric-value { color: #1a1f28 !important; }
+  .issue-card { break-inside: avoid; }
+  .badge { border: 1px solid #ccc; }
+  .badge-pass { color: #1a7a30; } .badge-fail { color: #b33; }
+  .badge-blocked { color: #8a6a00; } .badge-skipped { color: #555; }
+  .gauge-fill { stroke: #333 !important; }
+  .issue-code { background: #f8f8f8; color: #b33; border-color: #ddd; }
+  a { color: #1a1f28; text-decoration: underline; }
+}
+
+@media (max-width: 700px) {
+  .dashboard { grid-template-columns: 1fr; }
+  .gauge-wrap { order: -1; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="report">
+
+  <!-- ── Header ── -->
+  <header class="report-header">
+    <h1 class="report-title">Surface Harvest <span>QA</span></h1>
+    <dl class="report-meta">
+      <div><dt>Target</dt> <dd>{{TARGET_URL}}</dd></div>
+      <div><dt>Viewports</dt> <dd>2560x1440, 1920x1080</dd></div>
+      <div><dt>Started</dt> <dd>{{START_TIMESTAMP}}</dd></div>
+      <div><dt>Duration</dt> <dd>{{DURATION}}</dd></div>
+      <div><dt>Seed</dt> <dd>v{{SEED_VERSION}}</dd></div>
+      <div><dt>Commands</dt> <dd>{{COMMAND_COUNT}}</dd></div>
+    </dl>
+  </header>
+
+  <!-- ── Dashboard ── -->
+  <section class="dashboard">
+    <div class="gauge-wrap">
+      <div class="gauge">
+        <svg viewBox="0 0 160 160" width="160" height="160">
+          <circle class="gauge-track" cx="80" cy="80" r="65"/>
+          <circle class="gauge-fill high" cx="80" cy="80" r="65"
+            stroke-dasharray="408.4" stroke-dashoffset="36.8"/>
+        </svg>
+        <div class="gauge-label">
+          <div class="gauge-pct">91%</div>
+          <div class="gauge-sub">pass rate</div>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-4)">253 surfaces tested</div>
+    </div>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">253</div>
+        <div class="metric-label">Total</div>
+      </div>
+      <div class="metric is-pass">
+        <div class="metric-value">218</div>
+        <div class="metric-label">Pass</div>
+      </div>
+      <div class="metric is-fail">
+        <div class="metric-value">12</div>
+        <div class="metric-label">Fail</div>
+      </div>
+      <div class="metric is-blocked">
+        <div class="metric-value">15</div>
+        <div class="metric-label">Blocked</div>
+      </div>
+      <div class="metric is-skipped">
+        <div class="metric-value">5</div>
+        <div class="metric-label">Skipped</div>
+      </div>
+      <div class="metric is-flaky">
+        <div class="metric-value">3</div>
+        <div class="metric-label">Flaky</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Viewport Toggle ── -->
+  <div class="viewport-bar">
+    <button class="viewport-btn is-active" data-vp="combined">Combined</button>
+    <button class="viewport-btn" data-vp="2560">2560x1440</button>
+    <button class="viewport-btn" data-vp="1920">1920x1080</button>
+  </div>
+
+  <!-- ── Status Filter ── -->
+  <div class="filter-bar">
+    <button class="filter-badge is-active" data-status="pass" onclick="toggleFilter(this)">Pass</button>
+    <button class="filter-badge is-active" data-status="fail" onclick="toggleFilter(this)">Fail</button>
+    <button class="filter-badge is-active" data-status="blocked" onclick="toggleFilter(this)">Blocked</button>
+    <button class="filter-badge is-active" data-status="skipped" onclick="toggleFilter(this)">Skipped</button>
+    <button class="filter-badge is-active" data-status="flaky" onclick="toggleFilter(this)">Flaky</button>
+  </div>
+
+  <!-- ── Routes ── -->
+  <h2 class="section-heading">Surface Coverage by Route</h2>
+
+  <div class="route-section is-open">
+    <div class="route-header" onclick="this.parentElement.classList.toggle('is-open')">
+      <div class="route-name">
+        <code>/</code> Overview
+        <span class="route-counts"><span class="c-pass">13</span> / 15 pass &middot; <span class="c-fail">1 fail</span> &middot; <span class="c-blocked">1 blocked</span></span>
+      </div>
+      <span class="route-chevron">&#9654;</span>
+    </div>
+    <div class="progress-bar">
+      <div class="seg seg-pass" style="width:86.7%"></div>
+      <div class="seg seg-fail" style="width:6.7%"></div>
+      <div class="seg seg-blocked" style="width:6.6%"></div>
+    </div>
+    <div class="route-body"><div class="route-body-inner">
+      <table class="surface-table">
+        <thead><tr>
+          <th>ID</th><th>Description</th><th>Status</th><th>Errors</th><th>Evidence</th>
+        </tr></thead>
+        <tbody>
+          <tr data-status="pass"><td class="col-id">SURFACE-020</td><td class="col-desc">Overview default populated state</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>screenshot</td></tr>
+          <tr data-status="pass"><td class="col-id">SURFACE-021</td><td class="col-desc">Hero metrics band</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>screenshot</td></tr>
+          <tr data-status="fail"><td class="col-id">SURFACE-034</td><td class="col-desc">Collapsible section toggle</td><td><span class="badge badge-fail">Fail</span></td><td class="col-errors" style="color:var(--status-fail)">1</td><td>screenshot + console</td></tr>
+          <tr data-status="blocked"><td class="col-id">SURFACE-029</td><td class="col-desc">Recovered stalls table</td><td><span class="badge badge-blocked">Blocked</span></td><td class="col-errors">0</td><td>—</td></tr>
+          <tr data-status="pass"><td class="col-id">SURFACE-023</td><td class="col-desc">Getting started card dismiss</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>screenshot + diff</td></tr>
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="route-section">
+    <div class="route-header" onclick="this.parentElement.classList.toggle('is-open')">
+      <div class="route-name">
+        <code>/queue</code> Board
+        <span class="route-counts"><span class="c-pass">22</span> / 25 pass &middot; <span class="c-fail">2 fail</span> &middot; <span class="c-blocked">1 blocked</span></span>
+      </div>
+      <span class="route-chevron">&#9654;</span>
+    </div>
+    <div class="progress-bar">
+      <div class="seg seg-pass" style="width:88%"></div>
+      <div class="seg seg-fail" style="width:8%"></div>
+      <div class="seg seg-blocked" style="width:4%"></div>
+    </div>
+    <div class="route-body"><div class="route-body-inner">
+      <table class="surface-table">
+        <thead><tr><th>ID</th><th>Description</th><th>Status</th><th>Errors</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr data-status="pass"><td class="col-id">SURFACE-038</td><td class="col-desc">Board default populated state</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>screenshot</td></tr>
+          <tr data-status="fail"><td class="col-id">SURFACE-042</td><td class="col-desc">Sort select dropdown</td><td><span class="badge badge-fail">Fail</span></td><td class="col-errors" style="color:var(--status-fail)">1</td><td>screenshot + console</td></tr>
+          <tr data-status="fail"><td class="col-id">SURFACE-049</td><td class="col-desc">Kanban card drag-drop</td><td><span class="badge badge-fail">Fail</span></td><td class="col-errors" style="color:var(--status-fail)">2</td><td>video + console</td></tr>
+          <tr data-status="pass"><td class="col-id">SURFACE-054</td><td class="col-desc">j/k keyboard card navigation</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>diff</td></tr>
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="route-section">
+    <div class="route-header" onclick="this.parentElement.classList.toggle('is-open')">
+      <div class="route-name">
+        <code>/settings</code> Settings
+        <span class="route-counts"><span class="c-pass">27</span> / 30 pass &middot; <span class="c-fail">2 fail</span> &middot; <span class="c-blocked">1 blocked</span></span>
+      </div>
+      <span class="route-chevron">&#9654;</span>
+    </div>
+    <div class="progress-bar">
+      <div class="seg seg-pass" style="width:90%"></div>
+      <div class="seg seg-fail" style="width:6.7%"></div>
+      <div class="seg seg-blocked" style="width:3.3%"></div>
+    </div>
+    <div class="route-body"><div class="route-body-inner">
+      <table class="surface-table">
+        <thead><tr><th>ID</th><th>Description</th><th>Status</th><th>Errors</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr data-status="pass"><td class="col-id">SURFACE-115</td><td class="col-desc">Settings default view</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>screenshot</td></tr>
+          <tr data-status="pass"><td class="col-id">SURFACE-116</td><td class="col-desc">Section search input</td><td><span class="badge badge-pass">Pass</span></td><td class="col-errors">0</td><td>diff</td></tr>
+          <tr data-status="fail"><td class="col-id">SURFACE-145</td><td class="col-desc">Delete override confirm modal</td><td><span class="badge badge-fail">Fail</span></td><td class="col-errors" style="color:var(--status-fail)">1</td><td>screenshot</td></tr>
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- ── Issues ── -->
+  <section class="issues-section">
+    <h2 class="section-heading">Findings</h2>
+
+    <div class="issue-card">
+      <div class="issue-header">
+        <span class="badge badge-severity-high">High</span>
+        <span class="issue-title">SURFACE-042: Sort dropdown TypeError on Board</span>
+        <span class="badge badge-viewport">BOTH</span>
+      </div>
+      <div class="issue-body">
+        <h4>Reproduction</h4>
+        <ol>
+          <li>Navigate to <code>/queue</code></li>
+          <li>Click sort dropdown (ref @e7)</li>
+          <li>Select "Priority" option</li>
+        </ol>
+        <h4>Expected</h4>
+        <p>Board re-sorts cards by priority order.</p>
+        <h4>Actual</h4>
+        <p>TypeError thrown in console. Board does not re-sort. Dropdown closes normally — failure is silent to the user.</p>
+        <h4>Console Error</h4>
+        <div class="issue-code">TypeError: Cannot read properties of null (reading 'state')
+    at sortIssuesForDispatch (queue-board.ts:142:23)
+    at QueueBoard.handleSortChange (queue-board.ts:87:12)
+    at HTMLSelectElement.&lt;anonymous&gt; (queue-board.ts:55:8)</div>
+        <h4>Likely Fix</h4>
+        <p><code>frontend/src/pages/queue-board.ts:142</code> — add null guard before accessing <code>.state</code> on issue objects during sort. Race condition with SSE refresh.</p>
+        <h4>Screenshot</h4>
+        <img class="issue-screenshot" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400' fill='%23182131'%3E%3Crect width='800' height='400'/%3E%3Ctext x='400' y='200' text-anchor='middle' fill='%23617181' font-family='monospace' font-size='14'%3ESURFACE-042-sort-dropdown-fail.png%3C/text%3E%3C/svg%3E" alt="SURFACE-042 screenshot">
+      </div>
+    </div>
+
+    <div class="issue-card">
+      <div class="issue-header">
+        <span class="badge badge-severity-med">Medium</span>
+        <span class="issue-title">SURFACE-049: Kanban drag-drop fails at 1920x1080</span>
+        <span class="badge badge-viewport">1920x1080</span>
+      </div>
+      <div class="issue-body">
+        <h4>Reproduction</h4>
+        <ol>
+          <li>Navigate to <code>/queue</code> at 1920x1080 viewport</li>
+          <li>Drag a card from "Queued" to "Running" column</li>
+          <li>Release card on target column</li>
+        </ol>
+        <h4>Expected</h4>
+        <p>Card moves to the target column, issue state updates.</p>
+        <h4>Actual</h4>
+        <p>Card snaps back to original column. Two console errors logged. Works correctly at 2560x1440 — viewport-specific regression.</p>
+        <h4>Console Error</h4>
+        <div class="issue-code">TypeError: dropTarget.getBoundingClientRect is not a function
+    at handleDrop (drag-state.ts:84:31)
+    at HTMLElement.&lt;anonymous&gt; (queue-board.ts:198:5)</div>
+        <h4>Screenshot</h4>
+        <img class="issue-screenshot" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400' fill='%23182131'%3E%3Crect width='800' height='400'/%3E%3Ctext x='400' y='200' text-anchor='middle' fill='%23617181' font-family='monospace' font-size='14'%3ESURFACE-049-drag-drop-fail-1920.png%3C/text%3E%3C/svg%3E" alt="SURFACE-049 screenshot">
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Console Error Timeline ── -->
+  <section class="timeline-section">
+    <h2 class="section-heading">Console Error Timeline</h2>
+    <table class="timeline-table">
+      <thead><tr>
+        <th>Time</th><th>Viewport</th><th>Surface</th><th>Interaction</th><th>Error</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="col-ts">00:14:32</td>
+          <td><span class="badge badge-viewport">2560</span></td>
+          <td class="col-surface">SURFACE-042</td>
+          <td>click @e7 → select "Priority"</td>
+          <td class="col-error">TypeError: Cannot read 'state' of null</td>
+        </tr>
+        <tr>
+          <td class="col-ts">00:23:18</td>
+          <td><span class="badge badge-viewport">2560</span></td>
+          <td class="col-surface">SURFACE-034</td>
+          <td>click collapse toggle</td>
+          <td class="col-error">localStorage.setItem: QuotaExceededError</td>
+        </tr>
+        <tr>
+          <td class="col-ts">01:02:44</td>
+          <td><span class="badge badge-viewport">1920</span></td>
+          <td class="col-surface">SURFACE-049</td>
+          <td>drag @e12 → drop @e18</td>
+          <td class="col-error">dropTarget.getBoundingClientRect is not a function</td>
+        </tr>
+        <tr>
+          <td class="col-ts">01:02:44</td>
+          <td><span class="badge badge-viewport">1920</span></td>
+          <td class="col-surface">SURFACE-049</td>
+          <td>drag @e12 → drop @e18</td>
+          <td class="col-error">Uncaught (in promise) Error: State update failed</td>
+        </tr>
+        <tr>
+          <td class="col-ts">01:18:55</td>
+          <td><span class="badge badge-viewport">1920</span></td>
+          <td class="col-surface">SURFACE-145</td>
+          <td>click "Remove" → dialog accept</td>
+          <td class="col-error">DELETE /api/v1/config/overlay/model 404</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="report-footer">
+    <span>Surface Harvest QA &middot; Risoluto</span>
+    <span>Generated {{GENERATED_AT}}</span>
+  </footer>
+</div>
+
+<script>
+function toggleFilter(el) {
+  el.classList.toggle('is-active');
+  const active = new Set();
+  document.querySelectorAll('.filter-badge.is-active').forEach(b => active.add(b.dataset.status));
+  document.querySelectorAll('.surface-table tr[data-status]').forEach(row => {
+    row.style.display = active.has(row.dataset.status) ? '' : 'none';
+  });
+}
+document.querySelectorAll('.viewport-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.viewport-btn').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+  });
+});
+</script>
+</body>
+</html>

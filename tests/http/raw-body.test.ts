@@ -4,8 +4,6 @@ import http, { type IncomingMessage } from "node:http";
 
 import type { WebhookRequest } from "../../src/http/webhook-types.js";
 
-/* eslint-disable sonarjs/x-powered-by -- test-only express app, not production */
-
 /** Mirrors the `express.json({ verify })` setup from `server.ts`. */
 function startApp(): Promise<{ port: number; server: http.Server }> {
   const app = express();

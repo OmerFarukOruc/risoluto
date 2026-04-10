@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
 vi.mock("node:util", () => ({
-  // eslint-disable-next-line sonarjs/no-extra-arguments
   promisify: () => (cmd: string, args: string[], options?: { cwd?: string }) => mockedExecFileAsync(cmd, args, options),
 }));
 vi.mock("../../src/git/pr-summary-generator.js", () => ({

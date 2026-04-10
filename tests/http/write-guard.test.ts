@@ -4,7 +4,6 @@ import http from "node:http";
 
 import { createWriteGuard, isLoopbackAddress } from "../../src/http/write-guard.js";
 
-/* eslint-disable sonarjs/x-powered-by -- test-only express app, not production */
 function startApp(writeToken?: string): Promise<{ port: number; server: http.Server }> {
   if (writeToken) {
     vi.stubEnv("RISOLUTO_WRITE_TOKEN", writeToken);
@@ -353,17 +352,13 @@ describe("isLoopbackAddress", () => {
     expect(isLoopbackAddress("127.0.0.1")).toBe(true);
     expect(isLoopbackAddress("127.0.1.1")).toBe(true);
     expect(isLoopbackAddress("::1")).toBe(true);
-    // eslint-disable-next-line sonarjs/no-hardcoded-ip -- explicit loopback regression coverage
     expect(isLoopbackAddress("::ffff:127.0.0.1")).toBe(true);
-    // eslint-disable-next-line sonarjs/no-hardcoded-ip -- explicit loopback regression coverage
     expect(isLoopbackAddress("::ffff:127.0.2.3")).toBe(true);
   });
 
   it("rejects non-loopback addresses", () => {
     expect(isLoopbackAddress(undefined)).toBe(false);
-    // eslint-disable-next-line sonarjs/no-hardcoded-ip -- explicit non-loopback regression coverage
     expect(isLoopbackAddress("192.168.1.10")).toBe(false);
-    // eslint-disable-next-line sonarjs/no-hardcoded-ip -- explicit non-loopback regression coverage
     expect(isLoopbackAddress("::ffff:10.0.0.5")).toBe(false);
   });
 });

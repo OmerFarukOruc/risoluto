@@ -24,20 +24,20 @@ describe("describeCurrentMoment", () => {
   it("returns intervention state when there are attention issues", () => {
     const snapshot = makeSnapshot({ counts: { running: 2, retrying: 0, claimed: 0 } });
     const result = describeCurrentMoment(snapshot, 3);
-    expect(result.state).toBe("3 issues need intervention");
-    expect(result.detail).toContain("Blocked");
+    expect(result.state).toBe("3 issues need review");
+    expect(result.detail).toContain("review lane");
   });
 
   it("uses singular form for 1 attention issue", () => {
     const snapshot = makeSnapshot({ counts: { running: 1, retrying: 0, claimed: 0 } });
     const result = describeCurrentMoment(snapshot, 1);
-    expect(result.state).toBe("1 issue needs intervention");
+    expect(result.state).toBe("1 issue needs review");
   });
 
   it("returns in-flight state when running and no attention issues", () => {
     const snapshot = makeSnapshot({ counts: { running: 2, retrying: 0, claimed: 0 } });
     const result = describeCurrentMoment(snapshot, 0);
-    expect(result.state).toBe("2 issues are in flight");
+    expect(result.state).toBe("2 issues are running");
   });
 
   it("mentions queued count in detail when running + queued", () => {
@@ -46,7 +46,7 @@ describe("describeCurrentMoment", () => {
       counts: { running: 1, retrying: 0, claimed: 0 },
     });
     const result = describeCurrentMoment(snapshot, 0);
-    expect(result.state).toBe("1 issue is in flight");
+    expect(result.state).toBe("1 issue is running");
     expect(result.detail).toContain("2 more");
   });
 
@@ -79,17 +79,18 @@ describe("describeCurrentMoment", () => {
 describe("describeAttentionZone", () => {
   it("returns all-clear message when count is 0", () => {
     const result = describeAttentionZone(0);
-    expect(result).toContain("Nothing needs your attention");
+    expect(result).toContain("Nothing needs review");
   });
 
   it("returns singular message for 1 item", () => {
     const result = describeAttentionZone(1);
     expect(result).toContain("One issue");
+    expect(result).toContain("decision");
   });
 
   it("returns plural message with count for multiple items", () => {
     const result = describeAttentionZone(5);
     expect(result).toContain("5 issues");
-    expect(result).toContain("competing");
+    expect(result).toContain("retries");
   });
 });

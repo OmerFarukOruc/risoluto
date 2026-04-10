@@ -97,7 +97,7 @@ function collapseNonWordSequences(value: string): { output: string[]; lastWasDas
 function toWorkflowKey(state: string): string {
   const collapsed = collapseNonWordSequences(state.trim().toLowerCase());
   let normalized = collapsed.output.join("");
-  // eslint-disable-next-line sonarjs/slow-regex -- short state strings, no DoS risk
+  // short state strings, no DoS risk
   normalized = normalized.replace(/^-+|-+$/g, "");
   return normalized || "unknown";
 }
@@ -561,6 +561,7 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
     clearIssueTemplateOverride: () => false,
     getIssues: () => [...state.issues],
     getEvents: () => [...state.events],
+    getRecoveryReport: () => null,
   };
 
   /* ---- webhook handler deps ---- */

@@ -2,8 +2,6 @@ import { describe, expect, it, afterEach } from "vitest";
 import express from "express";
 import http from "node:http";
 
-/* eslint-disable sonarjs/x-powered-by -- test-only express app, not production */
-
 /**
  * Minimal app that mirrors the SPA catch-all and webhook 404 handler
  * ordering from `routes.ts`.

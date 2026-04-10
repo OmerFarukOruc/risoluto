@@ -4,7 +4,6 @@ import http from "node:http";
 
 import { serviceErrorHandler } from "../../src/http/service-errors.js";
 
-/* eslint-disable sonarjs/x-powered-by -- test-only express app, not production */
 function startApp(): Promise<{ port: number; server: http.Server }> {
   const app = express();
   app.use(express.json());

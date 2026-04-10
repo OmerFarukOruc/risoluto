@@ -265,6 +265,9 @@ function buildPreparedCoreData(
   | "codexCollaborationModes"
   | "codexMcp"
   | "codexUserInputRequests"
+  | "codexAccount"
+  | "codexRateLimits"
+  | "codexThreadDetail"
 > {
   return {
     setupStatus: overrides.setupStatus ?? buildSetupStatus(),

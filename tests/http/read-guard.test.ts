@@ -38,7 +38,6 @@ describe("createReadGuard", () => {
     const request = {
       method: "GET",
       path: "/api/v1/state",
-      // eslint-disable-next-line sonarjs/no-hardcoded-ip -- non-loopback regression coverage
       socket: { remoteAddress: "192.168.1.10" },
       get: vi.fn().mockReturnValue(undefined),
       query: {},
@@ -57,7 +56,6 @@ describe("createReadGuard", () => {
     const request = {
       method: "GET",
       path: "/api/v1/state",
-      // eslint-disable-next-line sonarjs/no-hardcoded-ip -- non-loopback regression coverage
       socket: { remoteAddress: "192.168.1.10" },
       get: vi
         .fn()
@@ -78,7 +76,6 @@ describe("createReadGuard", () => {
     const request = {
       method: "GET",
       path: "/api/v1/events",
-      // eslint-disable-next-line sonarjs/no-hardcoded-ip -- non-loopback regression coverage
       socket: { remoteAddress: "10.0.0.5" },
       get: vi.fn().mockReturnValue("Bearer read-secret"),
       query: {},
@@ -97,7 +94,6 @@ describe("createReadGuard", () => {
     const request = {
       method: "GET",
       path: "/api/v1/events",
-      // eslint-disable-next-line sonarjs/no-hardcoded-ip -- non-loopback regression coverage
       socket: { remoteAddress: "10.0.0.5" },
       get: vi.fn().mockReturnValue(undefined),
       query: { read_token: "write-secret" },
@@ -116,7 +112,6 @@ describe("createReadGuard", () => {
     const request = {
       method: "GET",
       path: "/api/v1/events",
-      // eslint-disable-next-line sonarjs/no-hardcoded-ip -- non-loopback regression coverage
       socket: { remoteAddress: "10.0.0.5" },
       get: vi.fn().mockReturnValue(undefined),
       query: { read_token: "wrong-token" },

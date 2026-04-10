@@ -322,7 +322,6 @@ describe("handleWebhookLinear", () => {
 /*  Rate limiting (integration — requires real Express middleware)      */
 /* ------------------------------------------------------------------ */
 
-/* eslint-disable sonarjs/x-powered-by -- test-only express app, not production */
 function startRateLimitedApp(webhookDeps: WebhookHandlerDeps): Promise<{ port: number; server: http.Server }> {
   const app = express();
   app.use(
@@ -355,7 +354,6 @@ function startRateLimitedApp(webhookDeps: WebhookHandlerDeps): Promise<{ port: n
     });
   });
 }
-/* eslint-enable sonarjs/x-powered-by */
 
 function postWebhook(port: number, body: string, secret: string = TEST_SECRET): Promise<{ status: number }> {
   return new Promise((resolve, reject) => {

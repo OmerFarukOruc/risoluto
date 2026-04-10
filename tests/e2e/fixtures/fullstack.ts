@@ -15,6 +15,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { test as base, expect } from "@playwright/test";
 
 export interface WebhookHeaders {
+  [key: string]: string;
   "Content-Type": string;
   "Linear-Signature": string;
   "Linear-Delivery": string;

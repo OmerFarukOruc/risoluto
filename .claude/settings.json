@@ -1,0 +1,80 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/compact-recovery.sh",
+            "statusMessage": "Re-injecting architecture context..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/bash-guardrails.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; [ -n \"$f\" ] && [ -f \"$f\" ] && case \"$f\" in *.ts) pnpm exec eslint --fix \"$f\" 2>/dev/null || true ;; esac; }",
+            "statusMessage": "Linting..."
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; [ -n \"$f\" ] && [ -f \"$f\" ] && case \"$f\" in *.ts|*.json) npx prettier --write \"$f\" 2>/dev/null || true ;; esac; }"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\"; output=$(pnpm run build 2>&1 && pnpm test --reporter=dot 2>&1); rc=$?; if [ $rc -ne 0 ]; then echo \"$output\" | tail -20 | python3 -c \"import sys,json; content=sys.stdin.read(); print(json.dumps({'hookSpecificOutput':{'hookEventName':'Stop','additionalContext':'Build/test gate failed. Fix before continuing:\\n'+content}}))\"; exit 2; fi",
+            "timeout": 90,
+            "statusMessage": "Verifying build + tests...",
+            "asyncRewake": true
+          },
+          {
+            "type": "prompt",
+            "prompt": "Review the conversation. Check: (1) Were all tasks the user requested actually addressed? (2) If code was modified, were tests run? (3) Are there uncommitted changes that should be committed? If everything looks complete, respond {\"ok\": true}. If something was missed, respond {\"ok\": false, \"reason\": \"<what remains>\"}."
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-context.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-log.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

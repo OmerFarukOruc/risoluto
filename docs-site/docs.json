@@ -33,27 +33,11 @@
     }
   },
   "banner": {
-    "content": "Risoluto is in active development — [Star us on GitHub](https://github.com/OmerFarukOruc/risoluto) to follow along!",
+    "content": "Risoluto is in pre-launch beta — public availability targeted for May 2026. [Read the introduction](/introduction) or [star us on GitHub](https://github.com/OmerFarukOruc/risoluto) to follow along.",
     "dismissible": true
   },
   "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "assistant",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "grok",
-      "aistudio",
-      "devin",
-      "windsurf",
-      "mcp",
-      "add-mcp",
-      "cursor",
-      "vscode",
-      "devin-mcp"
-    ]
+    "options": ["copy", "view", "assistant", "chatgpt", "claude", "perplexity", "grok", "aistudio", "devin", "windsurf"]
   },
   "search": {
     "prompt": "Search Risoluto docs..."
@@ -141,8 +125,35 @@
     "socials": {
       "github": "https://github.com/OmerFarukOruc/risoluto",
       "website": "https://risolu.to"
-    }
+    },
+    "links": [
+      {
+        "header": "Docs",
+        "items": [
+          { "label": "Quickstart", "href": "/quickstart" },
+          { "label": "Configuration", "href": "/guides/configuration" },
+          { "label": "API Reference", "href": "/api-reference/overview" },
+          { "label": "Changelog", "href": "/changelog" }
+        ]
+      },
+      {
+        "header": "Resources",
+        "items": [
+          { "label": "GitHub", "href": "https://github.com/OmerFarukOruc/risoluto" },
+          { "label": "Issues", "href": "https://github.com/OmerFarukOruc/risoluto/issues" },
+          { "label": "Releases", "href": "https://github.com/OmerFarukOruc/risoluto/releases" }
+        ]
+      }
+    ]
   },
+  "redirects": [
+    { "source": "/symphony", "destination": "/" },
+    { "source": "/symphony/:path*", "destination": "/" },
+    { "source": "/docs", "destination": "/" },
+    { "source": "/docs/:path*", "destination": "/:path*" },
+    { "source": "/api", "destination": "/api-reference/overview" },
+    { "source": "/api/:path*", "destination": "/api-reference/endpoints" }
+  ],
   "seo": {
     "indexing": "all",
     "metatags": {

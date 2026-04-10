@@ -47,6 +47,22 @@ Risoluto serves a live operator dashboard at `http://127.0.0.1:4000`. It is the 
   </Card>
 </CardGroup>
 
+## v1 operator surfaces
+
+The v1 architecture rewrite split several cross-cutting views out of the old "God View" settings page. These routes are top-level pages in the navigation.
+
+<CardGroup cols={3}>
+  <Card title="Containers" icon="docker" href="/guides/docker">
+    Inspect sandbox container state, resource usage, and lifecycle events. Reached at `/containers` in the dashboard.
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/operating/observability">
+    Live metrics dashboard backed by the orchestrator, webhook, and container resource meters. Reached at `/observability`.
+  </Card>
+  <Card title="Notifications" icon="bell" href="/guides/notifications">
+    Persistent notification timeline with severity filters. Mark items read or send a Slack test from the same page. Reached at `/notifications`.
+  </Card>
+</CardGroup>
+
 ## Real-time events
 
 The dashboard subscribes to `GET /api/v1/events` over SSE, so most screens update without a manual refresh.

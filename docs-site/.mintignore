@@ -4,3 +4,5 @@ dist/
 coverage/
 *.log
 images/README.md
+styles/
+.vale.ini

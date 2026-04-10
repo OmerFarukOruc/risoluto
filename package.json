@@ -94,7 +94,6 @@
     "autocannon": "^8.0.0",
     "codemirror": "^6.0.2",
     "eslint": "^10.2.0",
-    "eslint-plugin-sonarjs": "^4.0.2",
     "fast-check": "^4.6.0",
     "husky": "^9.1.7",
     "knip": "^6.3.0",

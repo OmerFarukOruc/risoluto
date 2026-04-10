@@ -127,9 +127,6 @@ importers:
       eslint:
         specifier: ^10.2.0
         version: 10.2.0(jiti@2.6.1)
-      eslint-plugin-sonarjs:
-        specifier: ^4.0.2
-        version: 4.0.2(eslint@10.2.0(jiti@2.6.1))
       fast-check:
         specifier: ^4.6.0
         version: 4.6.0
@@ -2543,11 +2540,6 @@ packages:
     resolution:
       { integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ== }
 
-  builtin-modules@3.3.0:
-    resolution:
-      { integrity: sha512-zhaCDicdLuWN5UbN5IMnFqNMhNfo919sH85y2/ea+5Yg9TsTkeZxpL+JLbp6cgYFS4sRLp3YV4S6yDuqVWHYOw== }
-    engines: { node: ">=6" }
-
   bytes@3.1.2:
     resolution:
       { integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg== }
@@ -3089,12 +3081,6 @@ packages:
       { integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw== }
     engines: { node: ">=12" }
 
-  eslint-plugin-sonarjs@4.0.2:
-    resolution:
-      { integrity: sha512-BTcT1zr1iTbmJtVlcesISwnXzh+9uhf9LEOr+RRNf4kR8xA0HQTPft4oiyOCzCOGKkpSJxjR8ZYF6H7VPyplyw== }
-    peerDependencies:
-      eslint: ^8.0.0 || ^9.0.0 || ^10.0.0
-
   eslint-scope@9.1.2:
     resolution:
       { integrity: sha512-xS90H51cKw0jltxmvmHy2Iai1LIqrfbw57b79w/J7MfvDfkIkFZ+kj6zC3BjtUwh150HsSSdxXZcsuv72miDFQ== }
@@ -3388,10 +3374,6 @@ packages:
       { integrity: sha512-939eZS4gJ3htTHAldmyyuzlrD58P03fHG49v2JfFXbV6OhvZKRC9j2yAtdHw/zrp2zXHuv05zMIy40F0ge7spA== }
     engines: { node: ">=18" }
 
-  functional-red-black-tree@1.0.1:
-    resolution:
-      { integrity: sha512-dsKNQNdj6xA3T+QlADDA7mOSlX0qiMINjn0cgr+eGHGsbSHzTabcIogz2+p/iqP1Xs6EP/sS2SbqH+brGTbq0g== }
-
   gensync@1.0.0-beta.2:
     resolution:
       { integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg== }
@@ -3468,11 +3450,6 @@ packages:
   global-directory@4.0.1:
     resolution:
       { integrity: sha512-wHTUcDUoZ1H5/0iVqEudYW4/kAlN5cZ3j/bXn0Dpbizl9iaUVeWSHqiOjsgk6OW2bkLclbBjzewBz6weQ1zA2Q== }
-    engines: { node: ">=18" }
-
-  globals@17.4.0:
-    resolution:
-      { integrity: sha512-hjrNztw/VajQwOLsMNT1cbJiH2muO3OROCHnbehc8eY5JyD2gqz4AcMHPqgaOR59DjgUjYAYLeH699g/eWi2jw== }
     engines: { node: ">=18" }
 
   gopd@1.2.0:
@@ -3859,11 +3836,6 @@ packages:
     resolution:
       { integrity: sha512-FGuPw30AdOIUTRMC2OMRtQV+jkVj2cfPqSeWXv1NEAJ1qZ5zb1X6z1mFhbfOB/iy3ssJCD+3KuZ8r8C3uVFlAg== }
 
-  jsx-ast-utils-x@0.1.0:
-    resolution:
-      { integrity: sha512-eQQBjBnsVtGacsG9uJNB8qOr3yA8rga4wAaGG1qRcBzSIvfhERLrWxMAM1hp5fcS6Abo8M4+bUBTekYR0qTPQw== }
-    engines: { node: ^18.18.0 || ^20.9.0 || >=21.1.0 }
-
   keyv@4.5.4:
     resolution:
       { integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw== }
@@ -4048,10 +4020,6 @@ packages:
   lodash.kebabcase@4.1.1:
     resolution:
       { integrity: sha512-N8XRTIMMqqDgSy4VLKPnJ/+hpGZN+PHQiJnSenYqPaVV/NCqEogTnAdZLQiGKhxX+JCs8waWq2t1XHWKOmlY8g== }
-
-  lodash.merge@4.6.2:
-    resolution:
-      { integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ== }
 
   lodash.mergewith@4.6.2:
     resolution:
@@ -4839,16 +4807,6 @@ packages:
       { integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg== }
     engines: { node: ">= 12.13.0" }
 
-  refa@0.12.1:
-    resolution:
-      { integrity: sha512-J8rn6v4DBb2nnFqkqwy6/NnTYMcgLA+sLr0iIO41qpv0n+ngb7ksag2tMRl0inb1bbO/esUwzW1vbJi7K0sI0g== }
-    engines: { node: ^12.0.0 || ^14.0.0 || >=16.0.0 }
-
-  regexp-ast-analysis@0.7.1:
-    resolution:
-      { integrity: sha512-sZuz1dYW/ZsfG17WSAG7eS85r5a0dDsvg+7BiiYR5o6lKCAtUrEwdmRmaGF6rwVj3LcmAeYkOWKEPlbPzN3Y3A== }
-    engines: { node: ^12.0.0 || ^14.0.0 || >=16.0.0 }
-
   registry-auth-token@5.1.1:
     resolution:
       { integrity: sha512-P7B4+jq8DeD2nMsAcdfaqHbssgHtZ7Z5+++a5ask90fvmJ8p5je4mOa+wzu+DB4vQ5tdJV/xywY+UnVFeQLV5Q== }
@@ -4939,11 +4897,6 @@ packages:
   scheduler@0.27.0:
     resolution:
       { integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q== }
-
-  scslre@0.3.0:
-    resolution:
-      { integrity: sha512-3A6sD0WYP7+QrjbfNA2FN3FsOaGGFoekCVgTyypy53gPxhbkCIjtO6YWgdrfM+n/8sI8JeXZOIxsHjMTNxQ4nQ== }
-    engines: { node: ^14.0.0 || >=16.0.0 }
 
   semantic-release@25.0.3:
     resolution:
@@ -8204,8 +8157,6 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
-  builtin-modules@3.3.0: {}
-
   bytes@3.1.2: {}
 
   call-bind-apply-helpers@1.0.2:
@@ -8552,22 +8503,6 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  eslint-plugin-sonarjs@4.0.2(eslint@10.2.0(jiti@2.6.1)):
-    dependencies:
-      "@eslint-community/regexpp": 4.12.2
-      builtin-modules: 3.3.0
-      bytes: 3.1.2
-      eslint: 10.2.0(jiti@2.6.1)
-      functional-red-black-tree: 1.0.1
-      globals: 17.4.0
-      jsx-ast-utils-x: 0.1.0
-      lodash.merge: 4.6.2
-      minimatch: 10.2.4
-      scslre: 0.3.0
-      semver: 7.7.4
-      ts-api-utils: 2.5.0(typescript@6.0.2)
-      typescript: 6.0.2
-
   eslint-scope@9.1.2:
     dependencies:
       "@types/esrecurse": 4.3.1
@@ -8874,8 +8809,6 @@ snapshots:
 
   function-timeout@1.0.2: {}
 
-  functional-red-black-tree@1.0.1: {}
-
   gensync@1.0.0-beta.2: {}
 
   get-caller-file@2.0.5: {}
@@ -8945,8 +8878,6 @@ snapshots:
   global-directory@4.0.1:
     dependencies:
       ini: 4.1.1
-
-  globals@17.4.0: {}
 
   gopd@1.2.0: {}
 
@@ -9187,8 +9118,6 @@ snapshots:
     optionalDependencies:
       graceful-fs: 4.2.11
 
-  jsx-ast-utils-x@0.1.0: {}
-
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
@@ -9330,8 +9259,6 @@ snapshots:
   lodash.isstring@4.0.1: {}
 
   lodash.kebabcase@4.1.1: {}
-
-  lodash.merge@4.6.2: {}
 
   lodash.mergewith@4.6.2: {}
 
@@ -9892,15 +9819,6 @@ snapshots:
 
   real-require@0.2.0: {}
 
-  refa@0.12.1:
-    dependencies:
-      "@eslint-community/regexpp": 4.12.2
-
-  regexp-ast-analysis@0.7.1:
-    dependencies:
-      "@eslint-community/regexpp": 4.12.2
-      refa: 0.12.1
-
   registry-auth-token@5.1.1:
     dependencies:
       "@pnpm/npm-conf": 3.0.2
@@ -9976,12 +9894,6 @@ snapshots:
   safer-buffer@2.1.2: {}
 
   scheduler@0.27.0: {}
-
-  scslre@0.3.0:
-    dependencies:
-      "@eslint-community/regexpp": 4.12.2
-      refa: 0.12.1
-      regexp-ast-analysis: 0.7.1
 
   semantic-release@25.0.3(typescript@6.0.2):
     dependencies:

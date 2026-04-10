@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  AlertHistoryStore,
-  type AlertHistoryStorePort,
-  type CreateAlertHistoryInput,
-} from "../../src/alerts/history-store.js";
+import { AlertHistoryStore } from "../../src/persistence/sqlite/alert-history-store.js";
+import type { AlertHistoryStorePort, CreateAlertHistoryInput } from "../../src/alerts/history-store.js";
 import { openDatabase } from "../../src/persistence/sqlite/database.js";
 
 // ---------------------------------------------------------------------------

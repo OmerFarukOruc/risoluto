@@ -1,7 +1,7 @@
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { NotificationDeliverySummary, NotificationRecord, RisolutoLogger } from "../core/types.js";
-import type { NotificationStorePort } from "../persistence/sqlite/notification-store.js";
+import type { NotificationStorePort } from "./port.js";
 import type { NotificationChannel, NotificationEvent } from "./channel.js";
 import { toErrorString } from "../utils/type-guards.js";
 

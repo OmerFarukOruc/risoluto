@@ -21,7 +21,7 @@ import type {
 } from "../core/types.js";
 import type { StopSignal } from "../core/signal-detection.js";
 import { WorkspaceManager } from "../workspace/manager.js";
-import type { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
+import type { IssueConfigStorePort } from "../core/issue-config-port.js";
 import type { MetricsCollector } from "../observability/metrics.js";
 
 export interface RunningEntry {
@@ -63,7 +63,7 @@ export interface OrchestratorDeps {
   tracker: TrackerPort;
   workspaceManager: WorkspaceManager;
   agentRunner: RunAttemptDispatcher;
-  issueConfigStore: IssueConfigStore;
+  issueConfigStore: IssueConfigStorePort;
   eventBus?: TypedEventBus<RisolutoEventMap>;
   notificationManager?: NotificationManager;
   repoRouter?: Pick<RepoRouter, "matchIssue">;

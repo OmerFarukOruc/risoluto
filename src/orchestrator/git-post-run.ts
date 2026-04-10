@@ -1,13 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-import type { GitPostRunPort } from "../git/port.js";
+import type { GitDiffPort, GitPostRunPort } from "../git/port.js";
 import type { RepoMatch } from "../git/repo-router.js";
 import type { Issue, MergePolicy, RisolutoLogger, Workspace } from "../core/types.js";
 import { generatePrSummary } from "../git/pr-summary-generator.js";
 import { evaluateMergePolicy } from "../git/merge-policy.js";
-
-const execFileAsync = promisify(execFile);
 
 /**
  * Minimal interface for the auto-merge client dependency.
@@ -34,47 +29,6 @@ export interface AutoMergeContext {
 }
 
 /**
- * Fetches changed file paths relative to the default branch using `git diff --name-only`.
- * Returns an empty array on any error so the policy evaluation degrades gracefully.
- */
-async function fetchChangedFiles(workspaceDir: string, defaultBranch: string): Promise<string[]> {
-  try {
-    const { stdout } = await execFileAsync("git", ["diff", "--name-only", `${defaultBranch}...HEAD`], {
-      cwd: workspaceDir,
-    });
-    return stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Parses additions and deletions from `git diff --shortstat` output.
- * Returns `{ additions: 0, deletions: 0 }` on any error.
- */
-async function fetchDiffStats(
-  workspaceDir: string,
-  defaultBranch: string,
-): Promise<{ additions: number; deletions: number }> {
-  try {
-    const { stdout } = await execFileAsync("git", ["diff", "--shortstat", `${defaultBranch}...HEAD`], {
-      cwd: workspaceDir,
-    });
-    const addMatch = /(\d+) insertion/.exec(stdout);
-    const delMatch = /(\d+) deletion/.exec(stdout);
-    return {
-      additions: addMatch ? parseInt(addMatch[1], 10) : 0,
-      deletions: delMatch ? parseInt(delMatch[1], 10) : 0,
-    };
-  } catch {
-    return { additions: 0, deletions: 0 };
-  }
-}
-
-/**
  * Extracts the numeric PR number from a GitHub PR HTML URL.
  * Returns `null` when the URL does not contain a `/pull/<number>` segment.
  * Uses plain string operations to avoid sonar slow-regex warnings.
@@ -93,6 +47,7 @@ function parsePullNumber(htmlUrl: string): number | null {
  * All failures are logged at warn level and never propagate — auto-merge is best-effort.
  */
 async function tryRequestAutoMerge(
+  gitManager: GitDiffPort,
   autoMerge: AutoMergeContext,
   pullRequestUrl: string,
   issueIdentifier: string,
@@ -103,8 +58,8 @@ async function tryRequestAutoMerge(
   const { policy, client, logger } = autoMerge;
 
   const [changedFiles, diffStats] = await Promise.all([
-    fetchChangedFiles(workspacePath, repoMatch.defaultBranch),
-    fetchDiffStats(workspacePath, repoMatch.defaultBranch),
+    gitManager.diffNameOnly(workspacePath, repoMatch.defaultBranch),
+    gitManager.diffShortStat(workspacePath, repoMatch.defaultBranch),
   ]);
 
   const result = evaluateMergePolicy(policy, changedFiles, diffStats, issueLabels);
@@ -143,7 +98,7 @@ async function tryRequestAutoMerge(
 }
 
 export async function executeGitPostRun(
-  gitManager: GitPostRunPort,
+  gitManager: GitPostRunPort & GitDiffPort,
   workspace: Workspace,
   issue: Issue,
   repoMatch: RepoMatch,
@@ -175,7 +130,15 @@ export async function executeGitPostRun(
   // Only runs when an AutoMergeContext is provided. All failures are non-fatal.
   if (autoMerge && pullRequestUrl) {
     try {
-      await tryRequestAutoMerge(autoMerge, pullRequestUrl, issue.identifier, issue.labels, workspace.path, repoMatch);
+      await tryRequestAutoMerge(
+        gitManager,
+        autoMerge,
+        pullRequestUrl,
+        issue.identifier,
+        issue.labels,
+        workspace.path,
+        repoMatch,
+      );
     } catch (policyError) {
       autoMerge.logger.warn(
         {

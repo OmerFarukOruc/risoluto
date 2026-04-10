@@ -1,4 +1,5 @@
 import type { MergePolicy } from "../core/types.js";
+import type { DiffStats } from "./port.js";
 
 /**
  * Result of evaluating the auto-merge policy against a pull request.
@@ -33,7 +34,7 @@ export interface MergePolicyResult {
 export function evaluateMergePolicy(
   policy: MergePolicy,
   changedFiles: string[],
-  diffStats: { additions: number; deletions: number },
+  diffStats: DiffStats,
   prLabels: string[],
 ): MergePolicyResult {
   if (!policy.enabled) {

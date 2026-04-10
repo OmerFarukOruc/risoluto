@@ -194,6 +194,38 @@ export class GitManager implements GitIntegrationPort {
       env: this.env,
     });
   }
+
+  async diffNameOnly(repoDir: string, fromRef: string): Promise<string[]> {
+    try {
+      const result = await this.runGit(["diff", "--name-only", `${fromRef}...HEAD`], {
+        cwd: repoDir,
+        env: this.env,
+      });
+      return result.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  async diffShortStat(repoDir: string, fromRef: string): Promise<{ additions: number; deletions: number }> {
+    try {
+      const result = await this.runGit(["diff", "--shortstat", `${fromRef}...HEAD`], {
+        cwd: repoDir,
+        env: this.env,
+      });
+      const addMatch = /(\d+) insertion/.exec(result.stdout);
+      const delMatch = /(\d+) deletion/.exec(result.stdout);
+      return {
+        additions: addMatch ? parseInt(addMatch[1], 10) : 0,
+        deletions: delMatch ? parseInt(delMatch[1], 10) : 0,
+      };
+    } catch {
+      return { additions: 0, deletions: 0 };
+    }
+  }
   async addPrComment(input: {
     owner: string;
     repo: string;

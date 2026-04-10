@@ -30,3 +30,5 @@ All component classes use the `mc-*` prefix (e.g., `mc-card`, `mc-badge`, `mc-bu
 - Functional components only — no class components
 - Prefer composition over prop drilling
 - Custom hooks for shared stateful logic — prefix with `use`
+- Define component props with a named `interface` — do not use `React.FC`
+- Type callback props explicitly: `onSelect: (id: string) => void`

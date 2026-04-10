@@ -2,42 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import { desc, eq, sql } from "drizzle-orm";
 
-import type { AutomationMode } from "../../core/types.js";
 import { normalizeLimit } from "./query-helpers.js";
-import type { AutomationRunRecord, AutomationRunStatus, AutomationRunTrigger } from "../../automation/types.js";
+import type { AutomationRunRecord } from "../../automation/types.js";
 import type { RisolutoDatabase } from "./database.js";
 import { automationRuns } from "./schema.js";
-
-export interface CreateAutomationRunInput {
-  automationName: string;
-  mode: AutomationMode;
-  trigger: AutomationRunTrigger;
-  repoUrl: string | null;
-  startedAt: string;
-}
-
-export interface FinishAutomationRunInput {
-  status: Exclude<AutomationRunStatus, "running">;
-  output: string | null;
-  details: Record<string, unknown> | null;
-  issueId: string | null;
-  issueIdentifier: string | null;
-  issueUrl: string | null;
-  error: string | null;
-  finishedAt: string;
-}
-
-export interface ListAutomationRunsOptions {
-  limit?: number;
-  automationName?: string;
-}
-
-export interface AutomationStorePort {
-  createRun(input: CreateAutomationRunInput): Promise<AutomationRunRecord>;
-  finishRun(id: string, input: FinishAutomationRunInput): Promise<AutomationRunRecord | null>;
-  listRuns(options?: ListAutomationRunsOptions): Promise<AutomationRunRecord[]>;
-  countRuns(): Promise<number>;
-}
+import type {
+  AutomationStorePort,
+  CreateAutomationRunInput,
+  FinishAutomationRunInput,
+  ListAutomationRunsOptions,
+} from "../../automation/port.js";
 
 export class AutomationStore {
   static create(db: RisolutoDatabase): AutomationStorePort {

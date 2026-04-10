@@ -64,6 +64,8 @@ export function createGitHubToolProvider(
     getPrStatus: (input) => getManager().getPrStatus(input),
     forcePushIfBranchExists: (branchName, workspaceDir) =>
       getManager().forcePushIfBranchExists(branchName, workspaceDir),
+    diffNameOnly: (repoDir, fromRef) => getManager().diffNameOnly(repoDir, fromRef),
+    diffShortStat: (repoDir, fromRef) => getManager().diffShortStat(repoDir, fromRef),
     setupWorktree: (route, baseCloneDir, worktreePath, issue, branchPrefix) =>
       getManager().setupWorktree(route, baseCloneDir, worktreePath, issue, branchPrefix),
     syncWorktree: (baseCloneDir) => getManager().syncWorktree(baseCloneDir),

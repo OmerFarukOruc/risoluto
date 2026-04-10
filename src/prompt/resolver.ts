@@ -5,21 +5,21 @@
  * Encapsulates the priority chain for resolving a prompt template for a
  * given issue identifier:
  *
- *   1. Per-issue override (IssueConfigStore.getTemplateId)
+ *   1. Per-issue override (IssueConfigStorePort.getTemplateId)
  *   2. System-selected template (config.system.selectedTemplateId)
  *   3. The "default" template
  *   4. Empty string with a warning log
  */
 
 import type { RisolutoLogger } from "../core/types.js";
-import type { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
+import type { IssueConfigStorePort } from "../core/issue-config-port.js";
 import type { PromptTemplateStore } from "./store.js";
 import { isRecord } from "../utils/type-guards.js";
 import type { ConfigStore } from "../config/store.js";
 
 export interface TemplateResolverDeps {
   templateStore: PromptTemplateStore | undefined;
-  issueConfigStore: IssueConfigStore;
+  issueConfigStore: IssueConfigStorePort;
   configStore: ConfigStore;
   logger: RisolutoLogger;
 }

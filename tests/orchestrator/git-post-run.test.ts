@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
-vi.mock("node:util", () => ({
-  promisify: () => (cmd: string, args: string[], options?: { cwd?: string }) => mockedExecFileAsync(cmd, args, options),
-}));
 vi.mock("../../src/git/pr-summary-generator.js", () => ({
   generatePrSummary: vi.fn(),
 }));
@@ -16,46 +12,6 @@ import type { Issue, MergePolicy, Workspace } from "../../src/core/types.js";
 import { evaluateMergePolicy } from "../../src/git/merge-policy.js";
 import { generatePrSummary } from "../../src/git/pr-summary-generator.js";
 import type { RepoMatch } from "../../src/git/repo-router.js";
-
-type ExecExpectation = {
-  cmd: string;
-  args: string[];
-  cwd: string;
-  stdout?: string;
-  error?: Error;
-};
-
-type ExecFileAsyncFn = (
-  cmd: string,
-  args: string[],
-  options?: {
-    cwd?: string;
-  },
-) => Promise<{ stdout: string; stderr: string }>;
-
-let execExpectations: ExecExpectation[] = [];
-let mockedExecFileAsync: ExecFileAsyncFn = async () => ({ stdout: "", stderr: "" });
-
-function setExecExpectations(expectations: ExecExpectation[]): void {
-  execExpectations = [...expectations];
-  mockedExecFileAsync = async (cmd, args, options = {}) => {
-    const expectation = execExpectations.shift();
-    expect(expectation).toBeDefined();
-    expect(cmd).toBe(expectation!.cmd);
-    expect(args).toEqual(expectation!.args);
-    expect(options).toMatchObject({ cwd: expectation!.cwd });
-
-    if (expectation!.error) {
-      throw expectation!.error;
-    }
-
-    return { stdout: expectation!.stdout ?? "", stderr: "" };
-  };
-}
-
-function expectNoPendingExecExpectations(): void {
-  expect(execExpectations).toHaveLength(0);
-}
 
 function makeIssue(overrides: Partial<Issue> = {}): Issue {
   return {
@@ -104,6 +60,38 @@ function makePolicy(overrides: Partial<MergePolicy> = {}): MergePolicy {
   };
 }
 
+function makeGitManager(
+  overrides: {
+    pushed?: boolean;
+    prUrl?: string | null;
+    changedFiles?: string[];
+    diffStats?: { additions: number; deletions: number };
+    diffNameOnlyError?: Error;
+    diffShortStatError?: Error;
+  } = {},
+) {
+  const {
+    pushed = false,
+    prUrl = null,
+    changedFiles = [],
+    diffStats = { additions: 0, deletions: 0 },
+    diffNameOnlyError,
+    diffShortStatError,
+  } = overrides;
+
+  return {
+    commitAndPush: vi.fn().mockResolvedValue({ pushed, branchName: "mt-42-fix-the-bug" }),
+    createPullRequest: vi.fn().mockResolvedValue(prUrl ? { html_url: prUrl } : undefined),
+    diffNameOnly: diffNameOnlyError
+      ? vi.fn().mockRejectedValue(diffNameOnlyError)
+      : vi.fn().mockResolvedValue(changedFiles),
+    diffShortStat: diffShortStatError
+      ? vi.fn().mockRejectedValue(diffShortStatError)
+      : vi.fn().mockResolvedValue(diffStats),
+    forcePushIfBranchExists: vi.fn(),
+  };
+}
+
 function makeAutoMerge(overrides: Partial<{ policy: MergePolicy }> = {}) {
   return {
     policy: makePolicy(overrides.policy),
@@ -120,26 +108,18 @@ function makeAutoMerge(overrides: Partial<{ policy: MergePolicy }> = {}) {
 describe("executeGitPostRun", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setExecExpectations([]);
     vi.mocked(generatePrSummary).mockResolvedValue(null);
     vi.mocked(evaluateMergePolicy).mockReturnValue({ allowed: true });
   });
 
   it("returns null pullRequestUrl when nothing was pushed and skips summary generation", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: false, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn(),
-    };
+    const gitManager = makeGitManager({ pushed: false });
 
-    const result = await executeGitPostRun(gitManager, workspace, issue, repoMatch);
+    const result = await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch());
 
     expect(result).toEqual({ pullRequestUrl: null, summary: null });
     expect(gitManager.createPullRequest).not.toHaveBeenCalled();
     expect(generatePrSummary).not.toHaveBeenCalled();
-    expectNoPendingExecExpectations();
   });
 
   it("passes the generated summary into createPullRequest and returns it", async () => {
@@ -147,10 +127,7 @@ describe("executeGitPostRun", () => {
     const issue = makeIssue();
     const repoMatch = makeRepoMatch();
     const summary = "- updated the post-run pipeline";
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
+    const gitManager = makeGitManager({ pushed: true, prUrl: "https://github.com/org/repo/pull/99" });
     vi.mocked(generatePrSummary).mockResolvedValue(summary);
 
     const result = await executeGitPostRun(gitManager, workspace, issue, repoMatch);
@@ -158,52 +135,34 @@ describe("executeGitPostRun", () => {
     expect(generatePrSummary).toHaveBeenCalledWith(workspace.path, repoMatch.defaultBranch);
     expect(gitManager.createPullRequest).toHaveBeenCalledWith(repoMatch, issue, "mt-42-fix-the-bug", summary);
     expect(result).toEqual({ pullRequestUrl: "https://github.com/org/repo/pull/99", summary });
-    expectNoPendingExecExpectations();
   });
 
   it("continues without a summary when summary generation fails", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
+    const gitManager = makeGitManager({ pushed: true, prUrl: "https://github.com/org/repo/pull/99" });
     vi.mocked(generatePrSummary).mockRejectedValue(new Error("codex unavailable"));
 
-    const result = await executeGitPostRun(gitManager, workspace, issue, repoMatch);
+    const result = await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch());
 
-    expect(gitManager.createPullRequest).toHaveBeenCalledWith(repoMatch, issue, "mt-42-fix-the-bug", null);
+    expect(gitManager.createPullRequest).toHaveBeenCalledWith(makeRepoMatch(), makeIssue(), "mt-42-fix-the-bug", null);
     expect(result).toEqual({ pullRequestUrl: "https://github.com/org/repo/pull/99", summary: null });
-    expectNoPendingExecExpectations();
   });
 
-  it("parses git outputs and requests auto-merge when policy allows it", async () => {
+  it("calls diffNameOnly and diffShortStat via gitManager and requests auto-merge when policy allows", async () => {
     const workspace = makeWorkspace();
     const issue = makeIssue({ labels: ["ready"] });
     const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "  src/a.ts \n\n docs/notes.md \n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 2 files changed, 12 insertions(+), 12 deletions(-)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: ["src/a.ts", "docs/notes.md"],
+      diffStats: { additions: 12, deletions: 12 },
+    });
 
     await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
 
+    expect(gitManager.diffNameOnly).toHaveBeenCalledWith(workspace.path, repoMatch.defaultBranch);
+    expect(gitManager.diffShortStat).toHaveBeenCalledWith(workspace.path, repoMatch.defaultBranch);
     expect(evaluateMergePolicy).toHaveBeenCalledWith(
       autoMerge.policy,
       ["src/a.ts", "docs/notes.md"],
@@ -215,7 +174,6 @@ describe("executeGitPostRun", () => {
       { issue_identifier: issue.identifier, pull_request_url: "https://github.com/org/repo/pull/99" },
       "auto-merge requested",
     );
-    expectNoPendingExecExpectations();
   });
 
   it("logs the blocking reason when policy rejects auto-merge", async () => {
@@ -223,24 +181,12 @@ describe("executeGitPostRun", () => {
     const issue = makeIssue();
     const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "docs/readme.md\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: ["docs/readme.md"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
     vi.mocked(evaluateMergePolicy).mockReturnValue({
       allowed: false,
       reason: "outside allowed paths",
@@ -259,125 +205,63 @@ describe("executeGitPostRun", () => {
       },
       "auto-merge blocked by policy",
     );
-    expectNoPendingExecExpectations();
   });
 
   it("skips auto-merge when the PR URL does not contain a pull segment", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "abcde123" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "src/a.ts\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "abcde123",
+      changedFiles: ["src/a.ts"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch(), autoMerge);
 
     expect(autoMerge.client.requestAutoMerge).not.toHaveBeenCalled();
-    expectNoPendingExecExpectations();
   });
 
   it("skips auto-merge when the parsed pull number is zero", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/0" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "src/a.ts\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/0",
+      changedFiles: ["src/a.ts"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch(), autoMerge);
 
     expect(autoMerge.client.requestAutoMerge).not.toHaveBeenCalled();
-    expectNoPendingExecExpectations();
   });
 
   it("skips auto-merge when repository metadata is missing", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch({ githubOwner: null });
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "src/a.ts\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: ["src/a.ts"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch({ githubOwner: null }), autoMerge);
 
     expect(autoMerge.client.requestAutoMerge).not.toHaveBeenCalled();
-    expectNoPendingExecExpectations();
   });
 
   it("logs a warning when the auto-merge request fails", async () => {
     const workspace = makeWorkspace();
     const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
     autoMerge.client.requestAutoMerge.mockRejectedValue(new Error("not supported"));
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "src/a.ts\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: ["src/a.ts"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, workspace, issue, makeRepoMatch(), autoMerge);
 
     expect(autoMerge.logger.warn).toHaveBeenCalledWith(
       {
@@ -387,37 +271,23 @@ describe("executeGitPostRun", () => {
       },
       "requestAutoMerge failed (non-fatal — repo may not support auto-merge)",
     );
-    expectNoPendingExecExpectations();
   });
 
   it("logs a warning when policy evaluation itself throws", async () => {
     const workspace = makeWorkspace();
     const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: "src/a.ts\n",
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        stdout: " 1 file changed, 1 insertion(+)",
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: ["src/a.ts"],
+      diffStats: { additions: 1, deletions: 0 },
+    });
     vi.mocked(evaluateMergePolicy).mockImplementation(() => {
       throw new Error("policy blew up");
     });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, workspace, issue, makeRepoMatch(), autoMerge);
 
     expect(autoMerge.logger.warn).toHaveBeenCalledWith(
       {
@@ -426,64 +296,40 @@ describe("executeGitPostRun", () => {
       },
       "auto-merge policy evaluation failed (non-fatal)",
     );
-    expectNoPendingExecExpectations();
   });
 
-  it("falls back to empty changed files and zero diff stats when git commands fail", async () => {
-    const workspace = makeWorkspace();
-    const issue = makeIssue();
-    const repoMatch = makeRepoMatch();
+  it("passes empty changed files and zero stats to policy when diff helpers return fallback values", async () => {
     const autoMerge = makeAutoMerge();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue({ html_url: "https://github.com/org/repo/pull/99" }),
-    };
-    setExecExpectations([
-      {
-        cmd: "git",
-        args: ["diff", "--name-only", "main...HEAD"],
-        cwd: workspace.path,
-        error: new Error("diff failed"),
-      },
-      {
-        cmd: "git",
-        args: ["diff", "--shortstat", "main...HEAD"],
-        cwd: workspace.path,
-        error: new Error("shortstat failed"),
-      },
-    ]);
+    const gitManager = makeGitManager({
+      pushed: true,
+      prUrl: "https://github.com/org/repo/pull/99",
+      changedFiles: [],
+      diffStats: { additions: 0, deletions: 0 },
+    });
 
-    await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+    await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch(), autoMerge);
 
     expect(evaluateMergePolicy).toHaveBeenCalledWith(
       autoMerge.policy,
       [],
       { additions: 0, deletions: 0 },
-      issue.labels,
+      makeIssue().labels,
     );
-    expectNoPendingExecExpectations();
   });
 
   it("returns null pullRequestUrl when PR response is undefined", async () => {
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn().mockResolvedValue(undefined),
-    };
+    const gitManager = makeGitManager({ pushed: true, prUrl: null });
 
     const result = await executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch());
 
     expect(result).toEqual({ pullRequestUrl: null, summary: null });
-    expectNoPendingExecExpectations();
   });
 
   it("passes the exact commit message and token to commitAndPush", async () => {
     const workspace = makeWorkspace();
     const issue = makeIssue();
     const repoMatch = makeRepoMatch();
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: false, branchName: "mt-42-fix-the-bug" }),
-      createPullRequest: vi.fn(),
-    };
+    const gitManager = makeGitManager({ pushed: false });
 
     await executeGitPostRun(gitManager, workspace, issue, repoMatch);
 
@@ -493,14 +339,11 @@ describe("executeGitPostRun", () => {
       undefined,
       "GITHUB_TOKEN",
     );
-    expectNoPendingExecExpectations();
   });
 
   it("propagates errors from commitAndPush", async () => {
-    const gitManager = {
-      commitAndPush: vi.fn().mockRejectedValue(new Error("git push failed")),
-      createPullRequest: vi.fn(),
-    };
+    const gitManager = makeGitManager();
+    gitManager.commitAndPush.mockRejectedValue(new Error("git push failed"));
 
     await expect(executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch())).rejects.toThrow(
       "git push failed",
@@ -508,10 +351,8 @@ describe("executeGitPostRun", () => {
   });
 
   it("propagates errors from createPullRequest", async () => {
-    const gitManager = {
-      commitAndPush: vi.fn().mockResolvedValue({ pushed: true, branchName: "mt-42" }),
-      createPullRequest: vi.fn().mockRejectedValue(new Error("GitHub API error")),
-    };
+    const gitManager = makeGitManager({ pushed: true, prUrl: "https://github.com/org/repo/pull/99" });
+    gitManager.createPullRequest.mockRejectedValue(new Error("GitHub API error"));
 
     await expect(executeGitPostRun(gitManager, makeWorkspace(), makeIssue(), makeRepoMatch())).rejects.toThrow(
       "GitHub API error",

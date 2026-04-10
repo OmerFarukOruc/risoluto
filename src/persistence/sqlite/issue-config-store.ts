@@ -8,17 +8,11 @@
 
 import { eq } from "drizzle-orm";
 
+import type { IssueConfigRow, IssueConfigStorePort } from "../../core/issue-config-port.js";
 import type { RisolutoDatabase } from "./database.js";
 import { issueConfig } from "./schema.js";
 
-export interface IssueConfigRow {
-  identifier: string;
-  model: string | null;
-  reasoningEffort: string | null;
-  templateId: string | null;
-}
-
-export class IssueConfigStore {
+export class IssueConfigStore implements IssueConfigStorePort {
   /**
    * Creates a store backed by `db`.
    */

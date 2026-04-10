@@ -3,7 +3,7 @@ import type { OrchestratorDeps, RetryRuntimeEntry, RunningEntry } from "./runtim
 import type { LaunchWorkerOptions } from "./runtime-types.js";
 import type { StallEvent } from "./stall-detector.js";
 import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
-import type { GitPostRunPort } from "../git/port.js";
+import type { GitDiffPort, GitPostRunPort } from "../git/port.js";
 import type { NotificationEvent } from "../notification/channel.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
@@ -34,7 +34,7 @@ export interface OutcomeContext {
       removeWorkspace: (identifier: string, issue?: Issue) => Promise<void>;
       removeWorkspaceWithResult?: (identifier: string, issue?: Issue) => Promise<WorkspaceRemovalResult>;
     };
-    gitManager?: GitPostRunPort;
+    gitManager?: GitPostRunPort & GitDiffPort;
     eventBus?: TypedEventBus<RisolutoEventMap>;
     logger: {
       info: (meta: Record<string, unknown>, message: string) => void;

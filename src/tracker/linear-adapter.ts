@@ -1,14 +1,7 @@
 import type { Issue } from "../core/types.js";
 import type { LinearClient } from "../linear/client.js";
-import { buildIssueTransitionMutation } from "../linear/transition-query.js";
-import { asBooleanOrNull, asRecord } from "../utils/type-guards.js";
 import type { TrackerIssueCreateInput, TrackerIssueCreateResult, TrackerPort } from "./port.js";
 
-/**
- * Thin adapter that implements TrackerPort by delegating to LinearClient.
- * All Linear-specific logic remains in LinearClient; this adapter provides
- * the tracker-agnostic surface that orchestration code depends on.
- */
 export class LinearTrackerAdapter implements TrackerPort {
   constructor(private readonly client: LinearClient) {}
 
@@ -45,9 +38,11 @@ export class LinearTrackerAdapter implements TrackerPort {
   }
 
   async transitionIssue(issueId: string, stateId: string): Promise<{ success: boolean }> {
-    const payload = await this.client.runGraphQL(buildIssueTransitionMutation(), { issueId, stateId });
-    const issueUpdate = asRecord(asRecord(payload.data).issueUpdate);
-    const success = asBooleanOrNull(issueUpdate.success) ?? false;
-    return { success };
+    try {
+      await this.client.updateIssueStateStrict(issueId, stateId);
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
   }
 }

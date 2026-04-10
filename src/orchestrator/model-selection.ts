@@ -2,7 +2,7 @@ import type { ModelSelection, ReasoningEffort, RecentEvent, ServiceConfig } from
 import type { RunningEntry, RetryRuntimeEntry } from "./runtime-types.js";
 import { type IssueLocatorCallbacks, resolveIssue } from "./issue-locator.js";
 import type { IssueDetailView } from "./snapshot-builder.js";
-import type { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
+import type { IssueConfigStorePort } from "../core/issue-config-port.js";
 
 export function resolveModelSelection(
   overrides: Map<string, Omit<ModelSelection, "source">>,
@@ -34,7 +34,7 @@ export async function updateIssueModelSelection(
     retryEntries: Map<string, RetryRuntimeEntry>;
     pushEvent: (event: RecentEvent) => void;
     requestRefresh: (reason: string) => { queued: boolean; coalesced: boolean; requestedAt: string };
-    issueConfigStore: IssueConfigStore;
+    issueConfigStore: IssueConfigStorePort;
     markDirty?: () => void;
   },
   input: {

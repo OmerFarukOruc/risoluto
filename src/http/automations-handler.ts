@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 import type { AutomationRunRecord } from "../automation/types.js";
 import type { AutomationScheduler } from "../automation/scheduler.js";
-import type { AutomationStorePort } from "../persistence/sqlite/automation-store.js";
+import type { AutomationStorePort } from "../automation/port.js";
 import { parseLimit, getSingleParam } from "./query-params.js";
 
 interface AutomationHandlerDeps {

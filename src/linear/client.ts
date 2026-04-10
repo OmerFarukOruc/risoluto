@@ -1,4 +1,4 @@
-import { asArray, asRecord, asStringOrNull, toErrorString } from "../utils/type-guards.js";
+import { asArray, asBooleanOrNull, asRecord, asStringOrNull, toErrorString } from "../utils/type-guards.js";
 import { withRetry, withRetryReturn } from "../utils/retry.js";
 import { normalizeIssue } from "./issue-parser.js";
 import type { Issue, ServiceConfig, RisolutoLogger } from "../core/types.js";
@@ -77,6 +77,13 @@ async function readJsonResponse(response: Response): Promise<GraphQLResponse> {
     throw new LinearClientError("linear_unknown_payload", "linear graphql response body is not valid json", {
       cause: error,
     });
+  }
+}
+
+function assertIssueTransitionSucceeded(payload: { data?: Record<string, unknown> }): void {
+  const issueUpdate = asRecord(asRecord(payload.data).issueUpdate);
+  if (asBooleanOrNull(issueUpdate.success) !== true) {
+    throw new LinearClientError("linear_unknown_payload", "linear issue transition was not confirmed");
   }
 }
 
@@ -312,6 +319,19 @@ export class LinearClient {
     await withRetry(this.logger, "updateIssueState", async () => {
       await this.runGraphQL(buildIssueTransitionMutation(), { issueId, stateId });
     });
+  }
+
+  /**
+   * Strict variant of {@link updateIssueState}. Re-throws on final retry failure
+   * so callers that need to report success/failure to an operator (state
+   * transition endpoints, tracker adapter `transitionIssue`) can distinguish
+   * success from a silent swallow.
+   */
+  async updateIssueStateStrict(issueId: string, stateId: string): Promise<void> {
+    const payload = await withRetryReturn(this.logger, "updateIssueState", async () => {
+      return this.runGraphQL(buildIssueTransitionMutation(), { issueId, stateId });
+    });
+    assertIssueTransitionSucceeded(payload);
   }
 
   /**

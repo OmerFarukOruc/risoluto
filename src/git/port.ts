@@ -34,6 +34,24 @@ export interface GitWorktreePort {
   ): Promise<GitCloneResult>;
 }
 
+export interface DiffStats {
+  additions: number;
+  deletions: number;
+}
+
+export interface GitDiffPort {
+  /**
+   * Returns the list of file paths changed between `fromRef` and HEAD.
+   * Uses `git diff --name-only <fromRef>...HEAD`. Returns an empty array on error.
+   */
+  diffNameOnly(repoDir: string, fromRef: string): Promise<string[]>;
+  /**
+   * Returns line-level diff statistics between `fromRef` and HEAD.
+   * Uses `git diff --shortstat <fromRef>...HEAD`. Returns zeroed stats on error.
+   */
+  diffShortStat(repoDir: string, fromRef: string): Promise<DiffStats>;
+}
+
 export interface GitPostRunPort {
   commitAndPush(
     workspaceDir: string,
@@ -56,4 +74,4 @@ export interface GitPostRunPort {
   forcePushIfBranchExists(branchName: string, workspaceDir: string): Promise<void>;
 }
 
-export interface GitIntegrationPort extends GitWorktreePort, GitPostRunPort, GithubApiToolClient {}
+export interface GitIntegrationPort extends GitWorktreePort, GitPostRunPort, GitDiffPort, GithubApiToolClient {}

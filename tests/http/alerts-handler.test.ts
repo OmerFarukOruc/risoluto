@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Request } from "express";
 
 import { handleListAlertHistory } from "../../src/http/alerts-handler.js";
-import { AlertHistoryStore } from "../../src/alerts/history-store.js";
+import { AlertHistoryStore } from "../../src/persistence/sqlite/alert-history-store.js";
 import { openDatabase } from "../../src/persistence/sqlite/database.js";
 import { makeMockResponse } from "../helpers.js";
 

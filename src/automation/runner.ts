@@ -3,7 +3,7 @@ import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { AutomationConfig, RisolutoLogger } from "../core/types.js";
 import type { NotificationManager } from "../notification/manager.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
-import type { AutomationStorePort } from "../persistence/sqlite/automation-store.js";
+import type { AutomationStorePort } from "./port.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { AutomationRunRecord, AutomationRunTrigger } from "./types.js";
 

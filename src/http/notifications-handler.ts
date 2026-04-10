@@ -4,7 +4,7 @@ import type { ConfigStore } from "../config/store.js";
 import type { NotificationChannel, NotificationEvent } from "../notification/channel.js";
 import { SlackWebhookChannel } from "../notification/slack-webhook.js";
 import type { RisolutoLogger } from "../core/types.js";
-import type { NotificationStorePort } from "../persistence/sqlite/notification-store.js";
+import type { NotificationStorePort } from "../notification/port.js";
 import { toErrorString } from "../utils/type-guards.js";
 import { parseLimit, getSingleParam } from "./query-params.js";
 

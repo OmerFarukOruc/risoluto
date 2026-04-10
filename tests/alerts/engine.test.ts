@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AlertEngine } from "../../src/alerts/engine.js";
-import { AlertHistoryStore } from "../../src/alerts/history-store.js";
+import { AlertHistoryStore } from "../../src/persistence/sqlite/alert-history-store.js";
 import { TypedEventBus } from "../../src/core/event-bus.js";
 import type { RisolutoEventMap } from "../../src/core/risoluto-events.js";
 import { openDatabase } from "../../src/persistence/sqlite/database.js";

@@ -95,6 +95,24 @@ test("dashboard shows running issues", async ({ page, apiMock }) => {
 - **Clock freezing**: `freezeClock(page)` from `tests/e2e/support/clock.ts` before visual tests for deterministic timestamps.
 - **Unhandled API guard**: `installUnhandledApiGuard(page)` aborts unmocked API calls — installed automatically by the fixture.
 
+## Coverage Thresholds
+
+Enforced in CI — do not lower without team discussion.
+
+| Metric | Unit (Vitest) | Mutation (Stryker) |
+|---|---|---|
+| Statements | 88% | — |
+| Lines | 88% | — |
+| Functions | 85% | — |
+| Branches | 81% | — |
+| Mutation score | — | break at 70% |
+
+Quarantine system: `tests/helpers/quarantine.ts` setup file + `quarantine.json` at root. Quarantine flaky tests rather than deleting them.
+
+## Testing Principle: Replace, Don't Layer
+
+When deepening a module (merging tightly coupled shallow modules into one with a clean interface), write new tests at the boundary of the deepened module. Old shallow-module unit tests become redundant — delete them. Tests should assert on observable outcomes through the public interface, not internal state.
+
 ## ESM mocking gotchas
 
 - **Never `vi.doMock` Node built-ins** (`node:path`, `node:fs`, `node:os`, etc.) in ESM — non-deterministic under Vitest's ESM loader. Inject function parameters instead (e.g. `relativeFn`, `resolveFn`) and pass real impls from call sites. Surfaced in the paths.ts test flake fixed during the v1 rewrite (2026-04-09).

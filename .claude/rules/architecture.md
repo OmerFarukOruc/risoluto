@@ -124,3 +124,20 @@ Key files: `orchestrator.ts` (loop + state), `lifecycle.ts` (reconcile + queue),
 `TypedEventBus<RisolutoEventMap>` is the pub/sub backbone. Events defined in `src/core/risoluto-events.ts`.
 
 Key consumers: `HttpServer` (SSE → dashboard), `NotificationManager` (lifecycle alerts), `AuditLogger` (SQLite persistence), `WebhookHealthTracker`, `PrMonitorService`.
+
+## Deep Modules Principle
+
+Prefer deep modules: small interface hiding a large implementation. When modules are tightly coupled and their interfaces are nearly as complex as their implementations, consider merging them into a deeper module with a cleaner boundary.
+
+## Dependency Categories
+
+When assessing how to test or refactor a module boundary:
+
+| Category | Description | Test Strategy |
+|---|---|---|
+| **In-process** | Pure computation, in-memory state, no I/O | Test directly — merge and test at the boundary |
+| **Local-substitutable** | Has local test stand-ins (e.g., SQLite for Postgres) | Test with the local stand-in running in the test suite |
+| **Ports & adapters** | Own services across a boundary (`TrackerPort`, `GitIntegrationPort`) | Define a port, inject adapters; test with in-memory adapter |
+| **True external** | Third-party services (Linear, GitHub) | Mock at the boundary; inject via port |
+
+Risoluto uses ports & adapters extensively — see the Port Pattern table above.

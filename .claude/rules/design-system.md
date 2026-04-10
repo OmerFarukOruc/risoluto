@@ -5,20 +5,32 @@ paths:
 
 # Design System Reference
 
-Full token definitions, component vocabulary, and brand guidelines are in `.impeccable.md`. Read it before any UI work.
+Full token definitions, component vocabulary, and brand guidelines are in `.impeccable.md` at the repo root. Read it before any UI work.
 
 ## Key Conventions
 
 - **Component classes**: `mc-*` prefix (e.g., `mc-card`, `mc-badge`, `mc-button`)
-- **Color system**: copper brand (`#B87333`), semantic status colors, light/dark themes
-- **Typography**: system font stack, 4-level heading hierarchy
-- **Tokens**: all values defined as CSS custom properties — do not use hardcoded color/spacing values
+- **Brand color**: copper `#c96e4a` — used for primary actions and brand accents
+- **Typography**: Manrope (headings), IBM Plex Mono (code/data), Space Grotesk (stats)
+- **Themes**: light and dark are both first-class — never hardcode colors
+- **Tokens**: all values defined as CSS custom properties
 
 ## Status Colors
 
 Use semantic color tokens, not raw values:
 
-- `var(--status-running)` — in-progress state
-- `var(--status-success)` — completed successfully
-- `var(--status-error)` — failed state
-- `var(--status-warning)` — degraded/warning state
+| Token | Usage |
+|---|---|
+| `var(--status-running)` | In-progress state |
+| `var(--status-success)` | Completed successfully |
+| `var(--status-error)` | Failed state |
+| `var(--status-warning)` | Degraded/warning state |
+| `var(--status-queued)` | Waiting in queue |
+| `var(--status-stalled)` | Stall detected |
+| `var(--status-cancelled)` | Cancelled by user |
+
+## Design Principles
+
+1. **Transparent** — show what the system is doing, not a polished facade
+2. **Partnered** — the UI is a co-pilot's console, not a passive dashboard
+3. **Alive** — real-time updates, SSE streams, subtle motion for state changes

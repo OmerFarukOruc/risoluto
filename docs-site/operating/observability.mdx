@@ -58,6 +58,8 @@ Risoluto provides multiple observability surfaces: Prometheus metrics, real-time
         | Metric | Type | Labels | Description |
         |--------|------|--------|-------------|
         | `risoluto_agent_runs_total` | Counter | `outcome` | Agent completions (completed, failed, oom, stalled) |
+        | `risoluto_container_cpu_percent` | Gauge | `container` | Sandbox container CPU usage percentage |
+        | `risoluto_container_memory_percent` | Gauge | `container` | Sandbox container memory usage percentage |
 
         **Useful queries:**
 
@@ -68,6 +70,42 @@ Risoluto provides multiple observability surfaces: Prometheus metrics, real-time
 
         # Runs by outcome (stacked chart)
         sum by (outcome) (increase(risoluto_agent_runs_total[1h]))
+
+        # Containers at CPU saturation
+        max by (container) (risoluto_container_cpu_percent) > 90
+        ```
+      </Accordion>
+
+      <Accordion title="Webhook metrics">
+        Webhook delivery pipeline metrics — ingest volume, duplicate rejection, DLQ routing, backlog depth, and end-to-end processing latency.
+
+        | Metric | Type | Labels | Description |
+        |--------|------|--------|-------------|
+        | `risoluto_webhook_deliveries_total` | Counter | `provider`, `status` | Raw webhook deliveries received |
+        | `risoluto_webhook_duplicates_total` | Counter | `provider` | Deliveries rejected as duplicates by the idempotency store |
+        | `risoluto_webhook_events_processed_total` | Counter | `provider`, `outcome` | Events that passed validation and reached the processor |
+        | `risoluto_webhook_processor_retries_total` | Counter | `provider`, `reason` | Retry attempts inside the webhook processor |
+        | `risoluto_webhook_dlq_total` | Counter | `reason` | Events moved to the dead-letter queue |
+        | `risoluto_webhook_subscription_checks_total` | Counter | `provider`, `status` | Subscription health checks performed |
+        | `risoluto_webhook_backlog_count` | Gauge | `provider` | Current count of unprocessed webhook events |
+        | `risoluto_webhook_dlq_count` | Gauge | — | Current count of events in the dead-letter queue |
+        | `risoluto_webhook_last_delivery_age_seconds` | Gauge | `provider` | Seconds since the last successful delivery |
+        | `risoluto_webhook_processing_latency_seconds` | Histogram | `provider` | End-to-end webhook processing latency |
+
+        **Useful queries:**
+
+        ```promql
+        # Webhook backlog growing
+        max(risoluto_webhook_backlog_count) > 100
+
+        # DLQ accumulating
+        increase(risoluto_webhook_dlq_total[15m]) > 0
+
+        # Delivery staleness (webhook feed broken)
+        max(risoluto_webhook_last_delivery_age_seconds) > 900
+
+        # P95 webhook processing latency
+        histogram_quantile(0.95, rate(risoluto_webhook_processing_latency_seconds_bucket[5m]))
         ```
       </Accordion>
     </AccordionGroup>

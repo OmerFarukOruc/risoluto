@@ -673,3 +673,289 @@ function buildSecretsPaths(): Record<string, PathItem> {
     },
   };
 }
+
+/**
+ * Codex operator routes proxy to the Codex control plane via JSON-RPC.
+ * Responses are opaque JSON objects forwarded from Codex, so schemas use a
+ * loose object shape rather than strict Zod types.
+ */
+const codexOpaqueObject: JsonSchema = { type: "object", additionalProperties: true };
+
+function codexResponse(description: string): Record<string, unknown> {
+  return {
+    "200": jsonResponse(description, codexOpaqueObject),
+    "501": errorResponse("Unsupported Codex control-plane method"),
+    "502": errorResponse("Codex control-plane request failed"),
+    "503": errorResponse("Codex control plane is unavailable"),
+  };
+}
+
+export function buildCodexPaths(): Record<string, PathItem> {
+  return {
+    "/api/v1/codex/capabilities": {
+      get: {
+        tags: ["Codex"],
+        summary: "Get Codex control-plane capabilities",
+        operationId: "getCodexCapabilities",
+        responses: codexResponse("Codex capability metadata"),
+      },
+    },
+    "/api/v1/codex/features": {
+      get: {
+        tags: ["Codex"],
+        summary: "List Codex experimental features",
+        operationId: "listCodexFeatures",
+        parameters: [
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 500 } },
+          { name: "cursor", in: "query", required: false, schema: { type: "string" } },
+        ],
+        responses: codexResponse("Experimental feature list"),
+      },
+    },
+    "/api/v1/codex/collaboration-modes": {
+      get: {
+        tags: ["Codex"],
+        summary: "List Codex collaboration modes",
+        operationId: "listCodexCollaborationModes",
+        responses: codexResponse("Collaboration mode list"),
+      },
+    },
+    "/api/v1/codex/mcp": {
+      get: {
+        tags: ["Codex"],
+        summary: "List MCP servers registered with Codex",
+        operationId: "listCodexMcpServers",
+        parameters: [
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 500 } },
+          { name: "cursor", in: "query", required: false, schema: { type: "string" } },
+        ],
+        responses: codexResponse("MCP server status list"),
+      },
+    },
+    "/api/v1/codex/mcp/oauth/login": {
+      post: {
+        tags: ["Codex"],
+        summary: "Begin OAuth login for an MCP server",
+        operationId: "loginCodexMcpOauth",
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: "object",
+            properties: { name: { type: "string" } },
+            required: ["name"],
+          }),
+        },
+        responses: codexResponse("OAuth login initiated"),
+      },
+    },
+    "/api/v1/codex/mcp/reload": {
+      post: {
+        tags: ["Codex"],
+        summary: "Reload MCP server configuration",
+        operationId: "reloadCodexMcp",
+        responses: codexResponse("MCP configuration reloaded"),
+      },
+    },
+    "/api/v1/codex/threads": {
+      get: {
+        tags: ["Codex"],
+        summary: "List Codex threads",
+        operationId: "listCodexThreads",
+        parameters: [
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 500 } },
+          { name: "cursor", in: "query", required: false, schema: { type: "string" } },
+          {
+            name: "sortKey",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["created_at", "updated_at"] },
+          },
+          { name: "archived", in: "query", required: false, schema: { type: "boolean" } },
+          {
+            name: "modelProviders",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Comma-separated provider list",
+          },
+          {
+            name: "sourceKinds",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Comma-separated source-kind list",
+          },
+        ],
+        responses: codexResponse("Thread list"),
+      },
+    },
+    "/api/v1/codex/threads/loaded": {
+      get: {
+        tags: ["Codex"],
+        summary: "List currently loaded Codex threads",
+        operationId: "listLoadedCodexThreads",
+        responses: codexResponse("Loaded thread list"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}": {
+      get: {
+        tags: ["Codex"],
+        summary: "Read a single Codex thread",
+        operationId: "readCodexThread",
+        parameters: [
+          pathParam("thread_id", "Codex thread identifier"),
+          { name: "includeTurns", in: "query", required: false, schema: { type: "boolean" } },
+        ],
+        responses: codexResponse("Thread detail"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}/fork": {
+      post: {
+        tags: ["Codex"],
+        summary: "Fork a Codex thread",
+        operationId: "forkCodexThread",
+        parameters: [pathParam("thread_id", "Codex thread identifier")],
+        responses: codexResponse("Fork created"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}/name": {
+      post: {
+        tags: ["Codex"],
+        summary: "Rename a Codex thread",
+        operationId: "renameCodexThread",
+        parameters: [pathParam("thread_id", "Codex thread identifier")],
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: "object",
+            properties: { name: { type: "string" } },
+            required: ["name"],
+          }),
+        },
+        responses: codexResponse("Thread renamed"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}/archive": {
+      post: {
+        tags: ["Codex"],
+        summary: "Archive a Codex thread",
+        operationId: "archiveCodexThread",
+        parameters: [pathParam("thread_id", "Codex thread identifier")],
+        responses: codexResponse("Thread archived"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}/unarchive": {
+      post: {
+        tags: ["Codex"],
+        summary: "Unarchive a Codex thread",
+        operationId: "unarchiveCodexThread",
+        parameters: [pathParam("thread_id", "Codex thread identifier")],
+        responses: codexResponse("Thread unarchived"),
+      },
+    },
+    "/api/v1/codex/threads/{thread_id}/unsubscribe": {
+      post: {
+        tags: ["Codex"],
+        summary: "Unsubscribe from a Codex thread",
+        operationId: "unsubscribeCodexThread",
+        parameters: [pathParam("thread_id", "Codex thread identifier")],
+        responses: codexResponse("Unsubscribed"),
+      },
+    },
+    "/api/v1/codex/account": {
+      get: {
+        tags: ["Codex"],
+        summary: "Read the Codex account",
+        operationId: "readCodexAccount",
+        responses: codexResponse("Account details"),
+      },
+    },
+    "/api/v1/codex/account/rate-limits": {
+      get: {
+        tags: ["Codex"],
+        summary: "Read Codex account rate limits",
+        operationId: "readCodexAccountRateLimits",
+        responses: codexResponse("Rate-limit snapshot"),
+      },
+    },
+    "/api/v1/codex/account/login/start": {
+      post: {
+        tags: ["Codex"],
+        summary: "Start a Codex account login flow",
+        operationId: "startCodexAccountLogin",
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: "object",
+            properties: {
+              type: { type: "string" },
+              apiKey: { type: "string" },
+            },
+          }),
+        },
+        responses: codexResponse("Login flow started"),
+      },
+    },
+    "/api/v1/codex/account/login/cancel": {
+      post: {
+        tags: ["Codex"],
+        summary: "Cancel an in-progress Codex account login",
+        operationId: "cancelCodexAccountLogin",
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: "object",
+            properties: { loginId: { type: "string" } },
+            required: ["loginId"],
+          }),
+        },
+        responses: codexResponse("Login flow cancelled"),
+      },
+    },
+    "/api/v1/codex/account/logout": {
+      post: {
+        tags: ["Codex"],
+        summary: "Log the Codex account out",
+        operationId: "logoutCodexAccount",
+        responses: codexResponse("Logged out"),
+      },
+    },
+    "/api/v1/codex/requests/user-input": {
+      get: {
+        tags: ["Codex"],
+        summary: "List pending Codex user-input requests",
+        operationId: "listCodexUserInputRequests",
+        responses: {
+          "200": jsonResponse("Pending user-input requests", {
+            type: "object",
+            properties: { data: { type: "array", items: codexOpaqueObject } },
+          }),
+          "503": errorResponse("Codex control plane is unavailable"),
+        },
+      },
+    },
+    "/api/v1/codex/requests/user-input/{request_id}/respond": {
+      post: {
+        tags: ["Codex"],
+        summary: "Respond to a pending Codex user-input request",
+        operationId: "respondToCodexUserInputRequest",
+        parameters: [pathParam("request_id", "Pending request identifier")],
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: "object",
+            properties: { result: {} },
+          }),
+        },
+        responses: {
+          "200": jsonResponse("Response accepted", {
+            type: "object",
+            properties: { ok: { type: "boolean" } },
+          }),
+          "404": errorResponse("Pending request not found"),
+          "503": errorResponse("Codex control plane is unavailable"),
+        },
+      },
+    },
+  };
+}

@@ -40,14 +40,15 @@ export async function handleWorkerOutcome(
     handleInactiveIssue(ctx, prepared);
     return;
   }
+  if (outcome.errorCode === "model_override_updated") {
+    await ctx.retryCoordinator.dispatch(ctx, prepared);
+    return;
+  }
   if (outcome.errorCode === "operator_abort") {
     handleOperatorAbort(ctx, prepared);
     return;
   }
-  if (
-    outcome.errorCode !== "model_override_updated" &&
-    (outcome.kind === "cancelled" || isHardFailure(outcome.errorCode))
-  ) {
+  if (outcome.kind === "cancelled" || isHardFailure(outcome.errorCode)) {
     await handleCancelledOrHardFailure(ctx, prepared);
     return;
   }

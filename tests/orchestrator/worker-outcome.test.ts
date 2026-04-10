@@ -334,6 +334,29 @@ describe("handleWorkerOutcome - model_override_updated path", () => {
     expect(retryEntry.attempt).toBe(1);
     expect(retryEntry.error).toBe("model_override_updated");
   });
+
+  it("ignores stop signals and still retries when a late model override arrives", async () => {
+    const ctx = makeCtx();
+    const entry = makeEntry({
+      lastAgentMessageContent: "RISOLUTO_STATUS: DONE",
+    });
+    ctx.runningEntries.set("issue-1", entry);
+    const before = Date.now();
+
+    await handleWorkerOutcome(
+      ctx,
+      makeOutcome({ kind: "cancelled", errorCode: "model_override_updated" }),
+      entry,
+      makeIssue(),
+      makeWorkspace(),
+      2,
+    );
+
+    const retryEntry = expectRetryDelay(ctx, before, 0);
+    expect(retryEntry.attempt).toBe(2);
+    expect(retryEntry.error).toBe("model_override_updated");
+    expect(ctx.completedViews.size).toBe(0);
+  });
 });
 
 describe("handleWorkerOutcome - stop signal detection", () => {

@@ -28,13 +28,13 @@ function createMockClient(): LinearClient {
     fetchIssuesByStates: vi.fn<(states: string[]) => Promise<Issue[]>>().mockResolvedValue([]),
     resolveStateId: vi.fn<(name: string) => Promise<string | null>>().mockResolvedValue(null),
     updateIssueState: vi.fn<(id: string, stateId: string) => Promise<void>>().mockResolvedValue(undefined),
+    updateIssueStateStrict: vi.fn<(id: string, stateId: string) => Promise<void>>().mockResolvedValue(undefined),
     createComment: vi.fn<(id: string, body: string) => Promise<void>>().mockResolvedValue(undefined),
     createIssue: vi.fn().mockResolvedValue({
       issueId: "issue-created",
       identifier: "NIN-77",
       url: "https://linear.app/team/issue/NIN-77",
     }),
-    runGraphQL: vi.fn().mockResolvedValue({ data: { issueUpdate: { success: true } } }),
   } as unknown as LinearClient;
 }
 
@@ -143,42 +143,35 @@ describe("LinearTrackerAdapter", () => {
   });
 
   describe("transitionIssue", () => {
-    it("returns { success: true } when GraphQL mutation succeeds", async () => {
-      vi.mocked(client.runGraphQL).mockResolvedValue({
-        data: { issueUpdate: { success: true } },
-      });
-
+    it("returns { success: true } when updateIssueStateStrict resolves", async () => {
       const result = await adapter.transitionIssue("issue-abc", "state-done");
 
       expect(result).toEqual({ success: true });
-      expect(client.runGraphQL).toHaveBeenCalledOnce();
+      expect(client.updateIssueStateStrict).toHaveBeenCalledWith("issue-abc", "state-done");
     });
 
-    it("returns { success: false } when mutation reports failure", async () => {
-      vi.mocked(client.runGraphQL).mockResolvedValue({
-        data: { issueUpdate: { success: false } },
-      });
+    it("returns { success: false } when updateIssueStateStrict throws", async () => {
+      vi.mocked(client.updateIssueStateStrict).mockRejectedValue(new Error("Linear API error"));
 
       const result = await adapter.transitionIssue("issue-abc", "state-done");
 
       expect(result).toEqual({ success: false });
     });
 
-    it("returns { success: false } when response data is missing", async () => {
-      vi.mocked(client.runGraphQL).mockResolvedValue({ data: {} });
+    it("returns { success: false } when Linear does not confirm the transition", async () => {
+      vi.mocked(client.updateIssueStateStrict).mockRejectedValue(
+        new Error("linear issue transition was not confirmed"),
+      );
 
       const result = await adapter.transitionIssue("issue-abc", "state-done");
 
       expect(result).toEqual({ success: false });
     });
 
-    it("passes correct mutation variables to runGraphQL", async () => {
+    it("passes correct issueId and stateId to updateIssueStateStrict", async () => {
       await adapter.transitionIssue("issue-xyz", "state-123");
 
-      expect(client.runGraphQL).toHaveBeenCalledWith(expect.any(String), {
-        issueId: "issue-xyz",
-        stateId: "state-123",
-      });
+      expect(client.updateIssueStateStrict).toHaveBeenCalledWith("issue-xyz", "state-123");
     });
   });
 });

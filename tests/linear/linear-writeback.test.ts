@@ -129,6 +129,37 @@ describe("LinearClient.updateIssueState", () => {
   });
 });
 
+describe("LinearClient.updateIssueStateStrict", () => {
+  it("retries and succeeds on second attempt", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network error"))
+      .mockResolvedValueOnce(okResponse({ issueUpdate: { success: true } }));
+    const client = makeClient(fetchMock);
+    await expect(client.updateIssueStateStrict("issue-1", "state-done")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-throws after max retries so callers can report failure", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("always fails"));
+    const client = makeClient(fetchMock);
+    await expect(client.updateIssueStateStrict("issue-1", "state-done")).rejects.toThrow(
+      /linear graphql request failed during transport/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("re-throws when Linear returns an unconfirmed issueUpdate payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse({ issueUpdate: { success: false } }));
+    const client = makeClient(fetchMock);
+
+    await expect(client.updateIssueStateStrict("issue-1", "state-done")).rejects.toThrow(
+      /linear issue transition was not confirmed/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
 describe("LinearClient.createComment", () => {
   it("calls the commentCreate mutation with the correct variables", async () => {
     const fetchMock = vi

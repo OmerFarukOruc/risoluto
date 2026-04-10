@@ -5,9 +5,11 @@
  * Uses Zod 4's built-in `z.toJSONSchema()` — no external OpenAPI library needed.
  */
 
+import packageJson from "../../package.json" with { type: "json" };
 import {
   buildAlertPaths,
   buildAutomationPaths,
+  buildCodexPaths,
   buildIngressPaths,
   buildInfrastructurePaths,
   buildIssuePaths,
@@ -25,7 +27,7 @@ export function getOpenApiSpec(): Record<string, unknown> {
     openapi: "3.1.0",
     info: {
       title: "Risoluto API",
-      version: "0.4.0",
+      version: packageJson.version,
       description: "REST API for Risoluto — manages issues, workspaces, config, and agent lifecycle.",
     },
     servers: [{ url: "http://localhost:4000", description: "Local Risoluto instance" }],
@@ -52,6 +54,7 @@ export function getOpenApiSpec(): Record<string, unknown> {
       ...buildIngressPaths(),
       ...buildPrPaths(),
       ...buildInfrastructurePaths(),
+      ...buildCodexPaths(),
     },
   };
   return cachedSpec;

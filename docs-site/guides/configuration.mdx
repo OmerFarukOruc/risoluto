@@ -188,10 +188,57 @@ Risoluto's configuration is layered with this merge order (last wins):
   </Accordion>
 
   <Accordion title="Notifications">
+    Risoluto supports two notification config shapes. The single-Slack shape is the legacy path; the `channels` array is the current multi-channel path and is what you should use for anything beyond a single Slack webhook.
+
+    **Legacy single-Slack:**
+
     | Key | Type | Default | Description |
     |-----|------|---------|-------------|
     | `notifications.slack.webhookUrl` | string | — | Slack incoming webhook URL |
     | `notifications.slack.verbosity` | enum | `"critical"` | `off`, `critical`, `verbose` |
+
+    **Multi-channel array:**
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `notifications.channels[]` | array | `[]` | Delivery channels, evaluated in order |
+    | `notifications.channels[].name` | string | — | Unique channel label used in notification metadata |
+    | `notifications.channels[].enabled` | boolean | `true` | Disable without removing the entry |
+    | `notifications.channels[].minSeverity` | enum | `"info"` | `info`, `warning`, `critical` — only notifications at or above this severity are delivered |
+    | `notifications.channels[].type` | enum | — | `slack`, `webhook`, or `desktop` |
+
+    **Slack channel** (`type: slack`):
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `webhookUrl` | string | — | Slack incoming webhook URL (prefer `$SECRET:SLACK_WEBHOOK_URL`) |
+    | `verbosity` | enum | `"critical"` | `off`, `critical`, `verbose` |
+
+    **Webhook channel** (`type: webhook`):
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `url` | string | — | HTTPS endpoint to POST notification payloads to |
+    | `headers` | object | `{}` | Extra HTTP headers (e.g. `Authorization: Bearer ...`) |
+
+    **Desktop channel** (`type: desktop`): no extra fields — surfaces notifications in the dashboard notification tray only.
+
+    ```yaml
+    notifications:
+      channels:
+        - name: ops-slack
+          type: slack
+          minSeverity: warning
+          webhookUrl: $SECRET:SLACK_WEBHOOK_URL
+        - name: oncall-pager
+          type: webhook
+          minSeverity: critical
+          url: https://events.example.com/risoluto
+          headers:
+            Authorization: Bearer $SECRET:PAGER_TOKEN
+        - name: dashboard-only
+          type: desktop
+    ```
 
     See the [Notifications guide](/guides/notifications) for event types and severity levels.
   </Accordion>
@@ -211,6 +258,59 @@ Risoluto's configuration is layered with this merge order (last wins):
     |-----|------|---------|-------------|
     | `github.token` | string | — | GitHub Personal Access Token |
     | `github.apiBaseUrl` | string | `"https://api.github.com"` | GitHub API endpoint (for GHES) |
+  </Accordion>
+
+  <Accordion title="Multi-repo routing">
+    Route issues to different repositories based on tracker metadata. Each entry in `repos` is a destination that the orchestrator matches against the incoming issue before launching a worker. See the [Multi-repo recipe](/recipes/multi-repo) for a worked example.
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `repos[]` | array | `[]` | Repository routing entries |
+    | `repos[].repoUrl` | string | — | Git URL used to clone or fetch the workspace |
+    | `repos[].defaultBranch` | string | `"main"` | Branch agents branch from |
+    | `repos[].identifierPrefix` | string \| null | `null` | Match issues whose identifier starts with this prefix (e.g. `"ENG-"`) |
+    | `repos[].label` | string \| null | `null` | Match issues that carry this label |
+    | `repos[].githubOwner` | string \| null | `null` | GitHub owner used when the orchestrator opens the PR |
+    | `repos[].githubRepo` | string \| null | `null` | GitHub repo name used for the PR |
+    | `repos[].githubTokenEnv` | string \| null | `null` | Name of the env var holding the PR-creation token for this repo |
+  </Accordion>
+
+  <Accordion title="Merge policy">
+    Controls the opt-in auto-merge engine. Defaults to disabled, so no PR is auto-merged until you turn `enabled` on.
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `mergePolicy.enabled` | boolean | `false` | Master switch. When `false`, Risoluto never requests an auto-merge |
+    | `mergePolicy.allowedPaths` | string[] | `[]` | Path prefixes; when non-empty, every changed file in the PR must match at least one entry |
+    | `mergePolicy.maxChangedFiles` | number \| null | `null` | Maximum number of changed files. `null` disables the cap |
+    | `mergePolicy.maxDiffLines` | number \| null | `null` | Maximum combined additions + deletions. `null` disables the cap |
+    | `mergePolicy.requireLabels` | string[] | `[]` | Labels that must all be present on the PR before auto-merge is attempted |
+    | `mergePolicy.excludeLabels` | string[] | `[]` | Labels that block auto-merge when any are present |
+  </Accordion>
+
+  <Accordion title="State machine (custom stages)">
+    Override the default issue lifecycle stages and transitions. Only needed if your tracker uses non-standard states or you want to gate specific transitions.
+
+    | Key | Type | Default | Description |
+    |-----|------|---------|-------------|
+    | `stateMachine.stages[]` | array | `[]` | Ordered stage list |
+    | `stateMachine.stages[].name` | string | — | Stage label that must match a tracker state name |
+    | `stateMachine.stages[].kind` | enum | — | One of `backlog`, `todo`, `active`, `gate`, `terminal` |
+    | `stateMachine.transitions` | object | `{}` | Map of stage name to an array of allowed next stage names |
+
+    ```yaml
+    stateMachine:
+      stages:
+        - { name: Backlog, kind: backlog }
+        - { name: Ready, kind: todo }
+        - { name: In Progress, kind: active }
+        - { name: Review, kind: gate }
+        - { name: Done, kind: terminal }
+      transitions:
+        Ready: [In Progress]
+        In Progress: [Review, Ready]
+        Review: [Done, In Progress]
+    ```
   </Accordion>
 </AccordionGroup>
 
@@ -250,6 +350,7 @@ curl -s -X DELETE http://127.0.0.1:4000/api/v1/secrets/SLACK_WEBHOOK_URL
 | `DATA_DIR` | No | `~/.risoluto` | Root directory for archives and config |
 | `RISOLUTO_BIND` | No | `127.0.0.1` | HTTP bind address |
 | `RISOLUTO_WRITE_TOKEN` | No | — | Bearer token for remote API writes |
+| `RISOLUTO_READ_TOKEN` | No | — | Bearer token required for remote reads when `RISOLUTO_BIND` is non-loopback. Unset when binding to `127.0.0.1`/`::1` |
 | `LOG_LEVEL` | No | `info` | Log verbosity |
 | `DISPATCH_MODE` | No | `local` | `local` or `remote` dispatch mode |
 | `DISPATCH_URL` | No | — | Data plane URL (when `DISPATCH_MODE=remote`) |

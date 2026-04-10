@@ -59,13 +59,17 @@ icon: "wrench"
 
     **Fix:** Use the correct master key, or factory reset:
 
-    ```bash
-    # Docker Compose factory reset
-    docker compose down -v && docker compose up --build -d
+    <CodeGroup>
 
-    # Manual reset — removes all encrypted secrets
+    ```bash "Docker Compose reset"
+    docker compose down -v && docker compose up --build -d
+    ```
+
+    ```bash "Manual reset"
     rm .risoluto/secrets.enc .risoluto/master.key
     ```
+
+    </CodeGroup>
 
     <Warning>
       Factory reset deletes all stored credentials. You will need to re-run the setup wizard.

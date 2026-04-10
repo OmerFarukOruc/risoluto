@@ -5,6 +5,17 @@ icon: "clock-rotate-left"
 ---
 
 
+<Update label="2026-04-10" description="Unreleased" tags={["Breaking", "Architecture", "Infra"]}>
+  ## v1 architecture rewrite, agent-readiness refactor, CI hardening
+
+  Post-v0.6.0 work on the v1 release branch. Not yet tagged.
+
+  - **v1 architecture rewrite** ([2aa37fa](https://github.com/OmerFarukOruc/risoluto/commit/2aa37fa)) — removed the JSONL write path, split five "God Views" into dedicated operator surfaces, replaced the DirtyTracking heuristic, isolated the Codex control plane from the rest of the runtime, and fixed a bubblewrap sandbox regression
+  - **Agent-readiness hooks** ([4167da1](https://github.com/OmerFarukOruc/risoluto/commit/4167da1)) — compaction-recovery hooks, guardrail hooks, and delegation hooks for Claude Code and Codex workflows, plus 9 rule files and a consolidated `@AGENTS.md` import
+  - **Dependabot + dead code + API contract + E2E selector fixes** ([1dd2461](https://github.com/OmerFarukOruc/risoluto/commit/1dd2461)) — resolved open dependabot alerts, pruned dead code, tightened the HTTP API contract, and stabilized Playwright selectors for the new v1 views
+  - Docs-site sync: added missing Notifications, Automations, Alerts, and Codex operator endpoint reference, `mergePolicy`, `stateMachine`, and multi-repo routing configuration, and webhook + container resource metric references
+</Update>
+
 <Update label="2026-03-31" description="v0.6.0" tags={["Feature", "Docs", "Rebrand"]}>
   ## Webhook integration, Mintlify docs, Risoluto rebrand
 

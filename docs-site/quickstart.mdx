@@ -37,7 +37,7 @@ Get Risoluto running, finish the setup wizard, and confirm the pipeline with one
   </Step>
 
 <Step title="Open the local dashboard" icon="browser">
-  Visit `http://127.0.0.1:4000` in your browser. On first boot, Risoluto redirects you straight into the setup wizard.
+  Visit `http://localhost:4000` in your browser. On first boot, Risoluto redirects you straight into the setup wizard.
 </Step>
 
   <Step title="Finish the setup wizard" icon="wand-magic-sparkles">
@@ -79,7 +79,7 @@ Get Risoluto running, finish the setup wizard, and confirm the pipeline with one
     You can also confirm from the API:
 
     ```bash
-    curl -s http://127.0.0.1:4000/api/v1/state | jq
+    curl -s http://localhost:4000/api/v1/state | jq
     ```
 
   </Step>
@@ -119,6 +119,10 @@ If the run succeeds, inspect the generated proof file in your workspace root. Fo
     ```
 
     Then open `http://127.0.0.1:4000` and complete the same setup wizard.
+
+    <Tip>
+      Use `--data-dir /path/to/data` to override the default data directory (`~/.risoluto`). You can also set the `DATA_DIR` environment variable — the CLI flag wins when both are provided.
+    </Tip>
 
   </Accordion>
 </AccordionGroup>

@@ -13,6 +13,8 @@ Core orchestrator state, runtime metadata, real-time events, and observability.
 |--------|------|-------------|
 | `GET` | `/api/v1/state` | Full orchestrator snapshot — queued, running, completed issues and token totals |
 | `GET` | `/api/v1/runtime` | Runtime info — version, data directory, feature flags |
+| `GET` | `/api/v1/observability` | Aggregate observability snapshot — metrics summaries and health signals |
+| `GET` | `/api/v1/recovery` | Latest startup recovery report — orphaned attempts resolved on boot |
 | `POST` | `/api/v1/refresh` | Trigger an immediate poll/reconciliation cycle |
 | `GET` | `/api/v1/transitions` | Available state machine transitions per issue |
 | `GET` | `/metrics` | Prometheus-format service metrics |
@@ -111,6 +113,7 @@ Each issue can have multiple attempts. An attempt represents a single agent exec
 |--------|------|-------------|
 | `GET` | `/api/v1/:id/attempts` | List all attempts for an issue |
 | `GET` | `/api/v1/attempts/:aid` | Detail for a specific attempt including event timeline |
+| `GET` | `/api/v1/attempts/:aid/checkpoints` | Checkpoint history for an attempt — progress markers written by the agent runner |
 
 <CodeGroup>
 
@@ -120,6 +123,10 @@ curl http://127.0.0.1:4000/api/v1/ENG-123/attempts
 
 ```bash "Attempt detail"
 curl http://127.0.0.1:4000/api/v1/attempts/att_01234
+```
+
+```bash "Checkpoint history"
+curl http://127.0.0.1:4000/api/v1/attempts/att_01234/checkpoints
 ```
 
 </CodeGroup>
@@ -277,17 +284,138 @@ curl "http://127.0.0.1:4000/api/v1/audit?limit=50&offset=0"
 
 ---
 
+## Notifications
+
+Persistent notification timeline for run lifecycle alerts. Backed by the notification store and deduplicated per run.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/notifications` | List persisted notifications. Supports `limit` and `unread` query parameters |
+| `POST` | `/api/v1/notifications/:id/read` | Mark a single notification as read |
+| `POST` | `/api/v1/notifications/read-all` | Mark every notification as read |
+| `POST` | `/api/v1/notifications/test` | Send a test Slack notification using the saved webhook |
+
+<CodeGroup>
+
+```bash "List unread"
+curl "http://127.0.0.1:4000/api/v1/notifications?unread=true&limit=50"
+```
+
+```bash "Mark one read"
+curl -X POST http://127.0.0.1:4000/api/v1/notifications/ntf_01234/read
+```
+
+```bash "Send Slack test"
+curl -X POST http://127.0.0.1:4000/api/v1/notifications/test
+```
+
+</CodeGroup>
+
+<Tip>
+  The test endpoint reuses the Slack webhook configured under `notifications.channels` in your config overlay. See [Notifications setup](/guides/notifications) for channel configuration.
+</Tip>
+
+---
+
+## Automations
+
+Scheduled background automations — scheduler inspection and on-demand runs.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/automations` | List configured automations and current scheduler state |
+| `GET` | `/api/v1/automations/runs` | Historical automation runs. Supports `limit` and `automation_name` filters |
+| `POST` | `/api/v1/automations/:name/run` | Run a configured automation immediately |
+
+```bash "Run an automation now"
+curl -X POST http://127.0.0.1:4000/api/v1/automations/nightly-cleanup/run
+```
+
+---
+
+## Alerts
+
+Alert delivery history — each row records a rule evaluation, trigger, or cooldown event.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/alerts/history` | Paginated alert history. Supports `limit` and `rule_name` filters |
+
+```bash "Recent alerts"
+curl "http://127.0.0.1:4000/api/v1/alerts/history?limit=100"
+```
+
+---
+
 ## Webhooks
 
-Inbound webhook receivers for external integrations.
+Inbound webhook receivers for external integrations and an authenticated trigger dispatcher.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/webhooks/linear` | Linear webhook receiver — processes issue and comment events |
+| `POST` | `/webhooks/github` | GitHub webhook receiver — processes repository and pull request events |
+| `POST` | `/api/v1/webhooks/trigger` | Dispatch an authenticated trigger action from an external system |
 
 <Tip>
-  Webhook endpoints have a separate rate limit of **600 requests/minute**. Configure the webhook URL in your Linear workspace settings.
+  Inbound receivers (`/webhooks/linear`, `/webhooks/github`) have a separate rate limit of **600 requests/minute**. Configure the webhook URL in the corresponding provider's workspace settings. `POST /api/v1/webhooks/trigger` requires the configured trigger credentials.
 </Tip>
+
+---
+
+## Codex Operator
+
+Operator routes that proxy to the embedded Codex control plane. Each route forwards to a JSON-RPC method on the Codex app-server session. See [Runtime concepts](/concepts/runtime) for context on the control-plane session lifecycle.
+
+### Session state
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/codex/capabilities` | Control-plane feature flags and reported capabilities |
+| `GET` | `/api/v1/codex/features` | List Codex experimental features. Supports `limit` and `cursor` |
+| `GET` | `/api/v1/codex/collaboration-modes` | List available Codex collaboration modes |
+
+### MCP servers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/codex/mcp` | List MCP servers registered with Codex. Supports `limit` and `cursor` |
+| `POST` | `/api/v1/codex/mcp/oauth/login` | Begin an OAuth login flow for a named MCP server |
+| `POST` | `/api/v1/codex/mcp/reload` | Reload the MCP server configuration |
+
+### Threads
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/codex/threads` | List Codex threads. Supports `limit`, `cursor`, `sortKey`, `archived`, `modelProviders`, and `sourceKinds` |
+| `GET` | `/api/v1/codex/threads/loaded` | List threads currently loaded in memory |
+| `GET` | `/api/v1/codex/threads/:threadId` | Read a single thread. Pass `includeTurns=true` to return turn history |
+| `POST` | `/api/v1/codex/threads/:threadId/fork` | Fork a thread into a new session |
+| `POST` | `/api/v1/codex/threads/:threadId/name` | Rename a thread |
+| `POST` | `/api/v1/codex/threads/:threadId/archive` | Archive a thread |
+| `POST` | `/api/v1/codex/threads/:threadId/unarchive` | Unarchive a thread |
+| `POST` | `/api/v1/codex/threads/:threadId/unsubscribe` | Unsubscribe from a thread's event stream |
+
+### Account
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/codex/account` | Read the current Codex account |
+| `GET` | `/api/v1/codex/account/rate-limits` | Read Codex account rate-limit state |
+| `POST` | `/api/v1/codex/account/login/start` | Start a Codex login flow. Accepts `type` and `apiKey` |
+| `POST` | `/api/v1/codex/account/login/cancel` | Cancel an in-progress login by `loginId` |
+| `POST` | `/api/v1/codex/account/logout` | Log out of the Codex account |
+
+### Interactive input
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/codex/requests/user-input` | List pending user-input requests awaiting operator response |
+| `POST` | `/api/v1/codex/requests/user-input/:requestId/respond` | Respond to a pending request with a `result` payload |
+
+<Warning>
+  All Codex routes return **503** when the control plane is not configured or is unreachable, **502** when the underlying Codex request fails, and **501** when the requested method is not supported by the installed Codex version.
+</Warning>
 
 ---
 

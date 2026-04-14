@@ -110,6 +110,10 @@ jobs:
           key: build-${{ github.sha }}
       - run: pnpm install --frozen-lockfile
         if: matrix.node-version == 22
+      # Shared pnpm store can hold a Node 24 binary from the Build job; force
+      # a Node 22 rebuild so vitest loads an ABI-matching better-sqlite3.
+      - run: pnpm rebuild better-sqlite3
+        if: matrix.node-version == 22
       - run: pnpm exec vitest run --reporter=verbose --coverage
       - uses: actions/upload-artifact@v7
         if: always() && matrix.node-version == 24

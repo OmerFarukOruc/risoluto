@@ -57,13 +57,16 @@ interface SubscribeStateOptions {
   includeHeartbeat?: boolean;
 }
 
+type IntervalHandle = number;
+type TimeoutHandle = number;
+
 export class RuntimeClient {
-  private intervalId: number | null = null;
+  private intervalId: IntervalHandle | null = null;
   private inFlight = false;
   private bannerDismissed = false;
   private source: EventSourceLike | null = null;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private lifecyclePollTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: TimeoutHandle | null = null;
+  private lifecyclePollTimer: TimeoutHandle | null = null;
   private consecutiveFailures = 0;
 
   constructor(private readonly deps: RuntimeClientDeps) {}
@@ -347,10 +350,10 @@ export class RuntimeClient {
       this.cleanupEventSource();
       this.consecutiveFailures += 1;
       const delay = exponentialBackoff(this.consecutiveFailures, BASE_RECONNECT_MS, MAX_BACKOFF_MS);
-      this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = globalThis.setTimeout(() => {
         this.reconnectTimer = null;
         this.openEventSource();
-      }, delay);
+      }, delay) as unknown as TimeoutHandle;
     };
     this.source = eventSource;
   }
@@ -401,10 +404,10 @@ export class RuntimeClient {
     if (this.lifecyclePollTimer !== null) {
       return;
     }
-    this.lifecyclePollTimer = setTimeout(() => {
+    this.lifecyclePollTimer = globalThis.setTimeout(() => {
       this.lifecyclePollTimer = null;
       void this.pollOnce();
-    }, LIFECYCLE_POLL_DEBOUNCE_MS);
+    }, LIFECYCLE_POLL_DEBOUNCE_MS) as unknown as TimeoutHandle;
   }
 
   private dispatchWindowEvent(name: string, detail: unknown): void {
@@ -424,12 +427,28 @@ export class RuntimeClient {
     return typeof document === "undefined" ? undefined : document;
   }
 
-  private getSetInterval(): typeof globalThis.setInterval {
-    return this.getWindow()?.setInterval?.bind(this.getWindow()) ?? globalThis.setInterval.bind(globalThis);
+  private getSetInterval(): (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) => IntervalHandle {
+    const currentWindow = this.getWindow();
+    return currentWindow
+      ? (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) =>
+          currentWindow.setInterval(handler, timeout, ...arguments_)
+      : (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) =>
+          globalThis.setInterval(handler, timeout, ...arguments_) as unknown as IntervalHandle;
   }
 
-  private getClearInterval(): typeof globalThis.clearInterval {
-    return this.getWindow()?.clearInterval?.bind(this.getWindow()) ?? globalThis.clearInterval.bind(globalThis);
+  private getClearInterval(): (id: IntervalHandle | undefined) => void {
+    const currentWindow = this.getWindow();
+    return currentWindow
+      ? (id: IntervalHandle | undefined) => {
+          if (id !== undefined) {
+            currentWindow.clearInterval(id);
+          }
+        }
+      : (id: IntervalHandle | undefined) => {
+          if (id !== undefined) {
+            globalThis.clearInterval(id as unknown as ReturnType<typeof globalThis.setInterval>);
+          }
+        };
   }
 }
 

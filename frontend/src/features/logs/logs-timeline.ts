@@ -17,13 +17,15 @@ export interface LogsTimelineState {
   newEventCount: number;
 }
 
+type IntervalHandle = number;
+
 interface LogsTimelineDeps {
   runtimeClient: Pick<RuntimeClient, "subscribeAllEvents" | "subscribeIssueLifecycle">;
   loadLiveLogs: typeof loadLiveLogs;
   loadArchiveLogs: typeof loadArchiveLogs;
   shouldDisplayLogsEvent: typeof shouldDisplayLogsEvent;
-  setInterval: typeof window.setInterval;
-  clearInterval: typeof window.clearInterval;
+  setInterval: (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) => IntervalHandle;
+  clearInterval: (id: IntervalHandle | undefined) => void;
 }
 
 interface LogsTimelineOptions {
@@ -87,11 +89,21 @@ export function createLogsTimeline(options: LogsTimelineOptions): LogsTimeline {
     loadArchiveLogs,
     shouldDisplayLogsEvent,
     setInterval: currentWindow
-      ? currentWindow.setInterval.bind(currentWindow)
-      : globalThis.setInterval.bind(globalThis),
+      ? (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) =>
+          currentWindow.setInterval(handler, timeout, ...arguments_)
+      : (handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) =>
+          globalThis.setInterval(handler, timeout, ...arguments_) as unknown as IntervalHandle,
     clearInterval: currentWindow
-      ? currentWindow.clearInterval.bind(currentWindow)
-      : globalThis.clearInterval.bind(globalThis),
+      ? (id: IntervalHandle | undefined) => {
+          if (id !== undefined) {
+            currentWindow.clearInterval(id);
+          }
+        }
+      : (id: IntervalHandle | undefined) => {
+          if (id !== undefined) {
+            globalThis.clearInterval(id as unknown as ReturnType<typeof globalThis.setInterval>);
+          }
+        },
     ...options.deps,
   };
 
@@ -107,7 +119,7 @@ export function createLogsTimeline(options: LogsTimelineOptions): LogsTimeline {
     newEventCount: 0,
   };
 
-  let timer: ReturnType<typeof window.setInterval> | null = null;
+  let timer: IntervalHandle | null = null;
   let unsubscribeLifecycle: (() => void) | null = null;
   let unsubscribeStream: (() => void) | null = null;
 

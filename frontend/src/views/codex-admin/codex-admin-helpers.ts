@@ -3,6 +3,7 @@ import type {
   CodexAdminSnapshotResponse,
   CodexCapabilities,
   CodexCollaborationModeEntry,
+  CodexUserInputRequest,
   CodexUserInputQuestion,
 } from "../../types.js";
 

@@ -114,7 +114,7 @@ export function createObservabilityPage(): HTMLElement {
   });
   refreshButton.addEventListener("click", () => void refreshAll());
 
-  const onState = (event: Event): void => sync((event as CustomEvent<AppState>).detail);
+  const onState = (nextState: AppState): void => sync(nextState);
   const onKey = (event: KeyboardEvent): void => {
     handleObservabilityKeyboard(event, {
       onRefresh: () => void refreshAll(),

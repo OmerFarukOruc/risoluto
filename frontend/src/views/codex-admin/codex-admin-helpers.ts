@@ -5,7 +5,7 @@ import type {
   CodexCollaborationModeEntry,
   CodexUserInputRequest,
   CodexUserInputQuestion,
-} from "../../types.js";
+} from "../../types/codex.js";
 
 export type CodexAdminData = CodexAdminSnapshotResponse;
 

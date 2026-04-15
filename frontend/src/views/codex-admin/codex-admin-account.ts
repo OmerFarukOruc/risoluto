@@ -1,6 +1,6 @@
 import { createEmptyState } from "../../components/empty-state.js";
 import { toast } from "../../ui/toast.js";
-import type { CodexAccountResponse, CodexRateLimitBucket, CodexRateLimitsResponse } from "../../types.js";
+import type { CodexAccountResponse, CodexRateLimitBucket, CodexRateLimitsResponse } from "../../types/codex.js";
 import {
   cancelCodexBrowserLogin,
   logoutCodexAccount,

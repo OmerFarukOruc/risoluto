@@ -21,7 +21,7 @@ import { renderDiagnosticsPanel } from "./codex-admin-diagnostics.js";
 import { renderThreadsPanel } from "./codex-admin-threads.js";
 import { renderMcpPanel } from "./codex-admin-mcp.js";
 import { renderPendingRequestsPanel } from "./codex-admin-pending.js";
-import type { CodexThreadDetail } from "../../types.js";
+import type { CodexThreadDetail } from "../../types/codex.js";
 
 function createSummaryPanel(data: CodexAdminData): HTMLElement {
   const counts = capabilityCounts(data.capabilities);

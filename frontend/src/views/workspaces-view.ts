@@ -5,7 +5,7 @@ import { router } from "../router.js";
 import { getRuntimeClient } from "../state/runtime-client.js";
 import { statusChip } from "../ui/status-chip.js";
 import { skeletonLine } from "../ui/skeleton.js";
-import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types.js";
+import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types/workspace.js";
 import { flashDiff } from "../utils/diff.js";
 import { el } from "../utils/dom.js";
 import { registerPageCleanup } from "../utils/page.js";

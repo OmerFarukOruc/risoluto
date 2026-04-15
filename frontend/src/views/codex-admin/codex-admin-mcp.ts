@@ -1,6 +1,6 @@
 import { createTableCell, createTableEmptyRow, createTableHead } from "../../ui/table.js";
 import { toast } from "../../ui/toast.js";
-import type { CodexMcpServerStatusEntry } from "../../types.js";
+import type { CodexMcpServerStatusEntry } from "../../types/codex.js";
 import { reloadCodexMcp, startCodexMcpOauthLogin } from "./codex-admin-client.js";
 import { createPanel, formatErrorMessage, runCodexAdminAction } from "./codex-admin-helpers.js";
 

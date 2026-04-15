@@ -1,5 +1,5 @@
 import { eventMatchesSearch, stringifyPayload } from "../../utils/events.js";
-import type { RecentEvent } from "../../types.js";
+import type { RecentEvent } from "../../types/runtime.js";
 import { createLogBuffer, type SortDirection } from "../../state/log-buffer.js";
 import { getRuntimeClient, type AgentEventPayload, type RuntimeClient } from "../../state/runtime-client.js";
 import { loadArchiveLogs, loadLiveLogs, shouldDisplayLogsEvent } from "../../pages/logs-data.js";

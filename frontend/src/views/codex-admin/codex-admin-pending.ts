@@ -1,5 +1,5 @@
 import { createEmptyState } from "../../components/empty-state.js";
-import type { CodexUserInputRequest } from "../../types.js";
+import type { CodexUserInputRequest } from "../../types/codex.js";
 import { answerCodexUserInputRequest } from "./codex-admin-client.js";
 import { createPanel, promptForUserInput, runCodexAdminAction } from "./codex-admin-helpers.js";
 

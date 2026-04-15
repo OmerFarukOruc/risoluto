@@ -1,4 +1,4 @@
-import type { WorkflowColumn } from "../types";
+import type { WorkflowColumn } from "../types/runtime.js";
 import { getStageDescription } from "../components/state-guide.js";
 import { hasActiveFilters, type QueueFilters } from "./queue-state";
 import { createIcon } from "../ui/icons.js";

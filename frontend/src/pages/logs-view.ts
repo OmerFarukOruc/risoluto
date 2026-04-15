@@ -4,7 +4,7 @@ import { registerPageCleanup } from "../utils/page";
 import { buildLogFilterBar } from "./logs-filter-bar.js";
 import { buildDetailFiltersPanel } from "./logs-detail-panel.js";
 import { createLogsTimeline, type LogsAppendEvent, type LogsRenderOptions } from "../features/logs/logs-timeline.js";
-import type { RecentEvent } from "../types";
+import type { RecentEvent } from "../types/runtime.js";
 
 export function createLogsPage(id: string): HTMLElement {
   const page = document.createElement("div");

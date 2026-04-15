@@ -5,7 +5,7 @@ import {
   getCategoryTooltip,
   type EventCategory,
 } from "../utils/events.js";
-import type { RecentEvent } from "../types.js";
+import type { RecentEvent } from "../types/runtime.js";
 import { createIconButton } from "../ui/buttons.js";
 import type { SortDirection } from "../state/log-buffer.js";
 

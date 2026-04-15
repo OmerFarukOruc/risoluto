@@ -1,7 +1,7 @@
 import { router } from "../router";
 import { getRuntimeClient } from "../state/runtime-client";
 import type { AppState } from "../state/store";
-import type { WebhookHealth } from "../types";
+import type { WebhookHealth } from "../types/runtime.js";
 import { createEventRow } from "../components/event-row";
 import { createSystemHealthBadge } from "../components/system-health-badge";
 import { createWebhookHealthPanel } from "../components/webhook-health-panel";

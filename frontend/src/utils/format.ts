@@ -1,4 +1,4 @@
-import type { RateLimits } from "../types";
+import type { RateLimits } from "../types/runtime.js";
 
 function asDate(value: string | null | undefined): Date | null {
   if (!value) {

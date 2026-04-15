@@ -6,7 +6,7 @@ import { buttonClassName } from "../ui/buttons.js";
 import { skeletonCard } from "../ui/skeleton.js";
 import { statusChip } from "../ui/status-chip.js";
 import type { AppState } from "../state/store.js";
-import type { RuntimeIssueView, RuntimeSnapshot } from "../types.js";
+import type { RuntimeIssueView, RuntimeSnapshot } from "../types/runtime.js";
 import { formatRelativeTime, formatTokenUsage } from "../utils/format.js";
 import { registerPageCleanup } from "../utils/page.js";
 

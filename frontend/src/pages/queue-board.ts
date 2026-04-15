@@ -7,7 +7,7 @@ import {
   setDropAllowed,
   type KanbanColumnHandle,
 } from "../components/kanban-column";
-import type { RecentEvent, WorkflowColumn } from "../types";
+import type { RecentEvent, WorkflowColumn } from "../types/runtime.js";
 import { skeletonColumn } from "../ui/skeleton";
 import { filterColumn, type QueueFilters, type QueueUiState } from "./queue-state";
 import type { DragStateManager } from "./drag-state";

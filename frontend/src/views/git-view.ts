@@ -3,14 +3,8 @@ import { createEmptyState } from "../components/empty-state";
 import { createPageHeader } from "../components/page-header";
 import { router } from "../router";
 import { getRuntimeClient } from "../state/runtime-client.js";
-import type {
-  ActiveBranchView,
-  GitCommitView,
-  GitContextResponse,
-  GitPullView,
-  GitRepoView,
-  TrackedPrRecord,
-} from "../types";
+import type { ActiveBranchView, GitCommitView, GitContextResponse, GitPullView, GitRepoView } from "../types/setup.js";
+import type { TrackedPrRecord } from "../types/config.js";
 import { el } from "../utils/dom";
 import { registerPageCleanup } from "../utils/page";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";

@@ -1,5 +1,5 @@
 import { api } from "../../api.js";
-import type { CodexAccountLoginStartResponse, CodexThreadDetail } from "../../types.js";
+import type { CodexAccountLoginStartResponse, CodexThreadDetail } from "../../types/codex.js";
 import type { CodexAdminData } from "./codex-admin-helpers.js";
 
 export async function loadCodexAdminData(): Promise<CodexAdminData> {

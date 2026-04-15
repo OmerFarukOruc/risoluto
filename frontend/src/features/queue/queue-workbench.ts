@@ -2,7 +2,7 @@ import { api } from "../../api.js";
 import { router, type RouterNavigateDetail } from "../../router.js";
 import { getRuntimeClient, type RuntimeClient } from "../../state/runtime-client.js";
 import type { AppState } from "../../state/store.js";
-import type { RecentEvent, WorkflowColumn } from "../../types.js";
+import type { RecentEvent, WorkflowColumn } from "../../types/runtime.js";
 import { handleQueueKeyboard } from "../../pages/queue-keyboard.js";
 import { createFilters, createUiState, type QueueFilters, type QueueUiState } from "../../pages/queue-state.js";
 

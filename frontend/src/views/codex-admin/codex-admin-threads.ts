@@ -1,7 +1,7 @@
 import { createEmptyState } from "../../components/empty-state.js";
 import { skeletonBlock } from "../../ui/skeleton.js";
 import { createTableCell, createTableEmptyRow, createTableHead } from "../../ui/table.js";
-import type { CodexThreadDetail, CodexThreadSummary } from "../../types.js";
+import type { CodexThreadDetail, CodexThreadSummary } from "../../types/codex.js";
 import { forkCodexThread, renameCodexThread, setCodexThreadArchived } from "./codex-admin-client.js";
 import { createMetric, createPanel, createTag, formatUnixSeconds, runCodexAdminAction } from "./codex-admin-helpers.js";
 

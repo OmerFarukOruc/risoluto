@@ -11,7 +11,7 @@ import type {
   NotificationRecord,
   NotificationsListResponse,
   NotificationsReadAllResponse,
-} from "../types.js";
+} from "../types/notifications.js";
 import { flashDiff } from "../utils/diff.js";
 import { el } from "../utils/dom.js";
 import { formatCompactNumber, formatCompactTimestamp, formatRelativeTime } from "../utils/format.js";

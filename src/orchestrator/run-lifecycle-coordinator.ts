@@ -453,7 +453,7 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
         entry,
         configuredSelection: modelSelection,
         overrides: {
-          status: outcome.kind === "cancelled" ? "cancelled" : "failed",
+          status: outcomeToStatus(outcome.kind),
           attempt,
           error: outcome.errorCode,
           message: errorReason,
@@ -463,7 +463,7 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
     this.deps.eventBus?.emit("issue.completed", {
       issueId: issue.id,
       identifier: issue.identifier,
-      outcome: outcome.kind === "cancelled" ? "cancelled" : "failed",
+      outcome: outcomeToStatus(outcome.kind),
     });
     this.ctx.releaseIssueClaim(issue.id);
     await writeFailureWriteback(this.ctx, {
@@ -567,8 +567,7 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
   private snapshotCallbacks(): SnapshotBuilderCallbacks {
     return {
       getConfig: () => this.deps.configStore.getConfig(),
-      resolveModelSelection: (identifier: string) =>
-        resolveModelSelectionFromConfig(this.state.issueModelOverrides, this.deps.configStore.getConfig(), identifier),
+      resolveModelSelection: (identifier: string) => this.ctx.resolveModelSelection(identifier),
       getDetailViews: () => this.state.detailViews,
       getCompletedViews: () => this.state.completedViews,
       getRunningEntries: () => this.state.runningEntries,
@@ -846,7 +845,7 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
 }
 
 function pushRecentEvent(state: OrchestratorState, event: RuntimeEventRecord): void {
-  const newEvent: RecentEvent = {
+  state.recentEvents.push({
     at: event.at,
     issueId: event.issueId,
     issueIdentifier: event.issueIdentifier,
@@ -855,9 +854,10 @@ function pushRecentEvent(state: OrchestratorState, event: RuntimeEventRecord): v
     message: event.message,
     content: event.content ?? null,
     metadata: event.metadata ?? null,
-  };
-  const events = [...state.recentEvents, newEvent];
-  state.recentEvents = events.length > MAX_RECENT_EVENTS ? events.slice(events.length - MAX_RECENT_EVENTS) : events;
+  });
+  if (state.recentEvents.length > MAX_RECENT_EVENTS) {
+    state.recentEvents.splice(0, state.recentEvents.length - MAX_RECENT_EVENTS);
+  }
 }
 
 function emitLifecycleEvent(deps: OrchestratorDeps, event: RuntimeEventRecord): void {

@@ -4,19 +4,11 @@ import { isRecord, toErrorString } from "../../utils/type-guards.js";
 import {
   SetupServiceError,
   resolveSetupService,
+  trimOptionalNonEmptyString,
   type SetupProviderConfig,
   type SetupService,
 } from "../setup-service.js";
 import type { SetupApiDeps } from "./shared.js";
-
-function trimOptionalNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 function parseProviderConfig(body: unknown): SetupProviderConfig {
   const providerBody = isRecord(body) && isRecord(body.provider) ? body.provider : null;

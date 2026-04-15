@@ -3,6 +3,7 @@ import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { AlertRuleConfig, NotificationDeliverySummary, RisolutoLogger } from "../core/types.js";
 import type { ConfigStore } from "../config/store.js";
 import type { NotificationManager } from "../notification/manager.js";
+import { toErrorString } from "../utils/type-guards.js";
 
 type EventPayload = RisolutoEventMap[keyof RisolutoEventMap];
 
@@ -73,7 +74,7 @@ export class AlertPipeline {
       });
     } catch (error) {
       this.options.logger.warn(
-        { ruleName: rule.name, eventType, error: error instanceof Error ? error.message : String(error) },
+        { ruleName: rule.name, eventType, error: toErrorString(error) },
         "alert history persistence failed",
       );
     }

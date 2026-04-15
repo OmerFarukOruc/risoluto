@@ -104,7 +104,10 @@ function stripTrailingSlashes(value: string): string {
   return value.slice(0, end);
 }
 
-function trimOptionalNonEmptyString(value: string | null | undefined): string | null {
+const GITHUB_API_BASE = "https://api.github.com";
+const DEFAULT_BRANCH_FALLBACK = "main";
+
+export function trimOptionalNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -254,14 +257,6 @@ async function createLinearTestIssue(
   return { identifier: result.issue.identifier, url: result.issue.url };
 }
 
-function getGitHubApiBase(): string {
-  return "https://api.github.com";
-}
-
-function getDefaultBranchFallback(): string {
-  return "main";
-}
-
 function isSupportedGitHubHost(hostname: string): boolean {
   return hostname === "github.com" || hostname === "www.github.com";
 }
@@ -321,7 +316,7 @@ export async function fetchDefaultBranch(
 
   if (token) {
     try {
-      const response = await fetchImpl(`${getGitHubApiBase()}/repos/${owner}/${repo}`, {
+      const response = await fetchImpl(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
         method: "GET",
         headers: { ...headers, authorization: `Bearer ${token}` },
       });
@@ -336,7 +331,7 @@ export async function fetchDefaultBranch(
     }
   }
 
-  const response = await fetchImpl(`${getGitHubApiBase()}/repos/${owner}/${repo}`, {
+  const response = await fetchImpl(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
     method: "GET",
     headers,
   });
@@ -347,7 +342,7 @@ export async function fetchDefaultBranch(
   if (typeof data.default_branch === "string") {
     return data.default_branch;
   }
-  return getDefaultBranchFallback();
+  return DEFAULT_BRANCH_FALLBACK;
 }
 
 export interface SetupService {
@@ -601,11 +596,12 @@ class SetupServiceImpl implements SetupService {
       throw new SetupServiceError(400, "missing_prefix", "identifierPrefix is required");
     }
 
+    const label = normalizeLabel(input.label);
     const entry: RepoRouteEntry = {
       repo_url: repoUrl,
       default_branch: normalizeDefaultBranch(input.defaultBranch),
       identifier_prefix: identifierPrefix,
-      ...(normalizeLabel(input.label) ? { label: normalizeLabel(input.label) } : {}),
+      ...(label ? { label } : {}),
     };
 
     const existing = readRepos(this.deps.configOverlayStore.toMap());
@@ -642,7 +638,7 @@ class SetupServiceImpl implements SetupService {
       const defaultBranch = await fetchDefaultBranch(parsed.owner, parsed.repo, resolveToken(this.deps), fetch);
       return { defaultBranch };
     } catch {
-      return { defaultBranch: getDefaultBranchFallback() };
+      return { defaultBranch: DEFAULT_BRANCH_FALLBACK };
     }
   }
 

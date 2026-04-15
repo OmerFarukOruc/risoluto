@@ -69,6 +69,7 @@ export class GitHubTransport {
   private readonly fetchImpl: typeof fetch;
   private readonly env: NodeJS.ProcessEnv;
   private readonly apiBaseUrl: string;
+  private readonly graphqlEndpoint: string;
   private readonly defaultTokenEnv: string;
   private readonly authorizationHeaderName: string;
   private readonly defaultHeaders: Record<string, string>;
@@ -78,6 +79,7 @@ export class GitHubTransport {
     this.fetchImpl = deps.fetch ?? fetch;
     this.env = deps.env ?? process.env;
     this.apiBaseUrl = deps.apiBaseUrl ?? "https://api.github.com";
+    this.graphqlEndpoint = buildGraphqlEndpoint(this.apiBaseUrl);
     this.defaultTokenEnv = deps.defaultTokenEnv ?? "GITHUB_TOKEN";
     this.authorizationHeaderName = deps.authorizationHeaderName ?? "authorization";
     this.defaultHeaders = deps.defaultHeaders ?? {};
@@ -108,7 +110,7 @@ export class GitHubTransport {
     tokenEnvName?: string;
     headers?: Record<string, string>;
   }): Promise<{ response: Response; payload: unknown }> {
-    const response = await this.fetchImpl(buildGraphqlEndpoint(this.apiBaseUrl), {
+    const response = await this.fetchImpl(this.graphqlEndpoint, {
       method: "POST",
       headers: this.buildHeaders({
         token: input.token,

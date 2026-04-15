@@ -5,7 +5,7 @@ import type { AttemptRecord, Issue, ModelSelection, RisolutoLogger, RuntimeIssue
 import type { RunningEntry } from "./runtime-types.js";
 import type { WorkspaceManager } from "../workspace/manager.js";
 import type { TrackerPort } from "../tracker/port.js";
-import type { OutcomeContext, RetryRuntimeContext } from "./context.js";
+import type { OutcomeContext, RetryCoordinator, RetryRuntimeContext } from "./context.js";
 import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
 import { writeFailureWriteback } from "./worker-outcome/completion-writeback.js";
 import { issueRef } from "./worker-outcome/types.js";
@@ -15,10 +15,7 @@ import { isActiveState, isTerminalState } from "../state/policy.js";
 import { toErrorString } from "../utils/type-guards.js";
 import { classifyRetryStrategy } from "./retry-policy.js";
 
-export interface RetryCoordinator {
-  dispatch(ctx: OutcomeContext, prepared: PreparedWorkerOutcome): Promise<void>;
-  cancel(issueId: string): void;
-}
+export type { RetryCoordinator };
 
 export interface RetryCoordinatorDeps {
   tracker: Pick<TrackerPort, "fetchIssueStatesByIds">;

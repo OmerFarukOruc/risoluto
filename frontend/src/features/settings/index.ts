@@ -3,14 +3,6 @@
 
 export { createSettingsPage } from "./settings-view.js";
 export { createSettingsWorkbench, type SettingsWorkbench } from "./settings-workbench.js";
-export {
-  clearUnifiedSettingsCache,
-  createUnifiedSettingsPage,
-  getUnifiedSettingsCache,
-  readRequestedSettingsSection,
-  scrollToRequestedSettingsSection,
-  syncRequestedSettingsSection,
-} from "./unified-settings-page.js";
 export { createSettingsState, type SettingsState } from "./settings-state.js";
 export {
   buildSettingsSections,

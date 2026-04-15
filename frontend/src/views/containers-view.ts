@@ -1,10 +1,11 @@
-import { api } from "../api.js";
 import { createEmptyState } from "../components/empty-state.js";
 import { createPageHeader } from "../components/page-header.js";
 import { router } from "../router.js";
+import { getRuntimeClient } from "../state/runtime-client.js";
 import { buttonClassName } from "../ui/buttons.js";
 import { skeletonCard } from "../ui/skeleton.js";
 import { statusChip } from "../ui/status-chip.js";
+import type { AppState } from "../state/store.js";
 import type { RuntimeIssueView, RuntimeSnapshot } from "../types.js";
 import { formatRelativeTime, formatTokenUsage } from "../utils/format.js";
 import { registerPageCleanup } from "../utils/page.js";
@@ -282,6 +283,7 @@ function renderSnapshot(body: HTMLElement, snapshot: RuntimeSnapshot): void {
 }
 
 export function createContainersPage(): HTMLElement {
+  const runtimeClient = getRuntimeClient();
   const page = document.createElement("div");
   page.className = "page containers-page fade-in";
 
@@ -302,41 +304,27 @@ export function createContainersPage(): HTMLElement {
 
   page.append(header, body);
 
-  let currentSnapshot: RuntimeSnapshot | null = null;
-  let isLoading = false;
-
-  async function fetchAndRender(): Promise<void> {
-    if (isLoading) {
+  function renderFromState(state: AppState): void {
+    const snapshot = state.snapshot;
+    if (!snapshot) {
+      body.replaceChildren(buildLoadingSkeleton());
+      refreshButton.toggleAttribute("disabled", true);
       return;
     }
-    isLoading = true;
-    refreshButton.toggleAttribute("disabled", true);
-    try {
-      currentSnapshot = await api.getState();
-      renderSnapshot(body, currentSnapshot);
-    } catch {
-      currentSnapshot = null;
-      body.replaceChildren(buildFallbackEmptyState(() => void fetchAndRender()));
-    } finally {
-      refreshButton.toggleAttribute("disabled", false);
-      isLoading = false;
-    }
+    refreshButton.toggleAttribute("disabled", false);
+    renderSnapshot(body, snapshot);
   }
 
   refreshButton.addEventListener("click", () => {
-    void fetchAndRender();
+    void runtimeClient.pollOnce().catch(() => {
+      body.replaceChildren(buildFallbackEmptyState(() => void runtimeClient.pollOnce()));
+    });
   });
 
-  void fetchAndRender();
-
-  const onStateUpdate = (): void => {
-    if (currentSnapshot) {
-      void fetchAndRender();
-    }
-  };
-  window.addEventListener("state:update", onStateUpdate);
+  const unsubscribeState = runtimeClient.subscribeState(renderFromState, { includeHeartbeat: true });
+  renderFromState(runtimeClient.getAppState());
   registerPageCleanup(page, () => {
-    window.removeEventListener("state:update", onStateUpdate);
+    unsubscribeState();
   });
 
   return page;

@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { createEmptyState } from "../components/empty-state.js";
 import { createPageHeader } from "../components/page-header.js";
 import { router } from "../router.js";
+import { getRuntimeClient } from "../state/runtime-client.js";
 import { statusChip } from "../ui/status-chip.js";
 import { skeletonLine } from "../ui/skeleton.js";
 import type { WorkspaceInventoryEntry, WorkspaceInventoryResponse } from "../types.js";
@@ -181,6 +182,7 @@ function buildLoadingSkeleton(): HTMLElement {
 /* ------------------------------------------------------------------ */
 
 export function createWorkspacesPage(): HTMLElement {
+  const runtimeClient = getRuntimeClient();
   const page = el("div", "page ws-page fade-in");
 
   const cleanStaleBtn = el("button", "mc-button is-sm", "Clean stale");
@@ -240,17 +242,17 @@ export function createWorkspacesPage(): HTMLElement {
 
   void fetchAndRender();
 
-  const handler = (): void => {
+  const onState = (): void => {
     if (currentData) void fetchAndRender();
   };
   const onWorkspaceEvent = (): void => {
     void fetchAndRender().then(() => flashDiff(body));
   };
-  window.addEventListener("state:update", handler);
-  window.addEventListener("risoluto:workspace-event", onWorkspaceEvent);
+  const unsubscribeState = runtimeClient.subscribeState(onState);
+  const unsubscribeWorkspaceEvents = runtimeClient.subscribeWorkspaceEvents(onWorkspaceEvent);
   registerPageCleanup(page, () => {
-    window.removeEventListener("state:update", handler);
-    window.removeEventListener("risoluto:workspace-event", onWorkspaceEvent);
+    unsubscribeState();
+    unsubscribeWorkspaceEvents();
   });
 
   return page;

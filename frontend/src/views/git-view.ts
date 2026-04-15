@@ -2,6 +2,7 @@ import { api } from "../api";
 import { createEmptyState } from "../components/empty-state";
 import { createPageHeader } from "../components/page-header";
 import { router } from "../router";
+import { getRuntimeClient } from "../state/runtime-client.js";
 import type {
   ActiveBranchView,
   GitCommitView,
@@ -450,6 +451,7 @@ function renderGitContext(page: HTMLElement, data: GitPageData): void {
 }
 
 export function createGitPage(): HTMLElement {
+  const runtimeClient = getRuntimeClient();
   const page = el("div", "page git-page fade-in");
 
   const header = createPageHeader(
@@ -495,11 +497,11 @@ export function createGitPage(): HTMLElement {
   void fetchAndRender();
 
   // Re-fetch when state updates (branch/status may change)
-  const handler = (): void => {
+  const onState = (): void => {
     if (currentData) void fetchAndRender();
   };
-  window.addEventListener("state:update", handler);
-  registerPageCleanup(page, () => window.removeEventListener("state:update", handler));
+  const unsubscribeState = runtimeClient.subscribeState(onState);
+  registerPageCleanup(page, () => unsubscribeState());
 
   return page;
 }

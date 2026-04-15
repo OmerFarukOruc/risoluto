@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { createEmptyState } from "../components/empty-state.js";
 import { createPageHeader } from "../components/page-header.js";
-import { subscribeNotificationUpdates } from "../state/event-source.js";
+import { getRuntimeClient } from "../state/runtime-client.js";
 import { router } from "../router.js";
 import { buttonClassName } from "../ui/buttons.js";
 import { skeletonBlock, skeletonLine } from "../ui/skeleton.js";
@@ -20,6 +20,7 @@ import { registerPageCleanup } from "../utils/page.js";
 type NotificationFilter = "all" | "unread";
 
 export function createNotificationsPage(): HTMLElement {
+  const runtimeClient = getRuntimeClient();
   const page = el("div", "page notifications-page fade-in");
 
   const refreshButton = el("button", buttonClassName({ tone: "ghost", size: "sm" }), "Refresh");
@@ -137,16 +138,15 @@ export function createNotificationsPage(): HTMLElement {
 
   void loadNotifications();
 
-  const unsubscribeNotifications = subscribeNotificationUpdates(() => {
+  const unsubscribeNotifications = runtimeClient.subscribeNotificationUpdates(() => {
     void loadNotifications();
   });
-  const onStateUpdate = (): void => {
+  const unsubscribeState = runtimeClient.subscribeState(() => {
     void loadNotifications();
-  };
-  window.addEventListener("state:update", onStateUpdate);
+  });
   registerPageCleanup(page, () => {
     unsubscribeNotifications();
-    window.removeEventListener("state:update", onStateUpdate);
+    unsubscribeState();
   });
 
   return page;

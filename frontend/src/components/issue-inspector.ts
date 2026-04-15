@@ -19,7 +19,7 @@ import {
 } from "./issue-inspector-sections";
 import { createIssueAbortAction } from "./issue-inspector-abort";
 import { createLiveLog } from "./live-log.js";
-import { subscribeIssueEvents, subscribeIssueLifecycle } from "../state/event-source.js";
+import { getRuntimeClient } from "../state/runtime-client.js";
 
 interface IssueInspectorOptions {
   mode: "page" | "drawer";
@@ -40,6 +40,7 @@ export function createIssueInspector(options: IssueInspectorOptions): {
   load: (id: string) => Promise<void>;
   destroy: () => void;
 } {
+  const runtimeClient = getRuntimeClient();
   const root = document.createElement("div");
   root.className =
     options.mode === "drawer"
@@ -235,9 +236,9 @@ export function createIssueInspector(options: IssueInspectorOptions): {
     content.scrollTop = 0;
     liveLog.clear();
     unsubscribeEvents?.();
-    unsubscribeEvents = subscribeIssueEvents(id, (entry) => liveLog.append(entry));
+    unsubscribeEvents = runtimeClient.subscribeIssueEvents(id, (entry) => liveLog.append(entry));
     unsubscribeLifecycle?.();
-    unsubscribeLifecycle = subscribeIssueLifecycle(id, () => void refresh());
+    unsubscribeLifecycle = runtimeClient.subscribeIssueLifecycle(id, () => void refresh());
     await refresh();
   }
 

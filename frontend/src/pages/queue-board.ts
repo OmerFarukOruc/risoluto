@@ -21,6 +21,8 @@ interface QueueBoardRendererOptions {
   clearFilters: () => void;
   requestRender: () => void;
   onOpenIssue: (issueId: string, fullPage: boolean) => void;
+  onToggleColumnCollapse: (columnKey: string) => void;
+  onFocusCard: (columnIndex: number, cardIndex: number) => void;
   dragManager?: DragStateManager;
 }
 
@@ -93,9 +95,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
     const existing = columnHandles.get(key);
     if (existing) return existing;
     const handle = createKanbanColumn(() => {
-      const ui = options.getUi();
-      if (ui.collapsed.has(key)) ui.collapsed.delete(key);
-      else ui.collapsed.add(key);
+      options.onToggleColumnCollapse(key);
       options.requestRender();
     });
     columnHandles.set(key, handle);
@@ -189,8 +189,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
             ? makeMoveHandler(options, issue.identifier, column.key, () => currentColumns)
             : undefined,
           onFocus: () => {
-            ui.focusedColumn = columnIndex;
-            ui.focusedCard = cardIndex;
+            options.onFocusCard(columnIndex, cardIndex);
           },
         });
         if (!existing) {

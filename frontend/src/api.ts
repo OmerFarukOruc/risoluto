@@ -4,6 +4,7 @@ import type {
   AttemptRecord,
   AttemptSummary,
   AuditRecord,
+  CodexAdminSnapshotResponse,
   CodexCapabilities,
   CodexAccountLoginStartResponse,
   CodexAccountResponse,
@@ -111,6 +112,7 @@ export const api = {
       models: CodexModelCatalogEntry[];
       nextCursor?: string | null;
     }>("/api/v1/models"),
+  getCodexAdmin: () => get<CodexAdminSnapshotResponse>("/api/v1/codex/admin"),
   getCodexCapabilities: () => get<CodexCapabilities>("/api/v1/codex/capabilities"),
   getCodexThreads: (params?: {
     cursor?: string;

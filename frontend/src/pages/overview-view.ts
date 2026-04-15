@@ -1,5 +1,5 @@
 import { router } from "../router";
-import { store } from "../state/store";
+import { getRuntimeClient } from "../state/runtime-client";
 import type { AppState } from "../state/store";
 import type { WebhookHealth } from "../types";
 import { createEventRow } from "../components/event-row";
@@ -18,6 +18,7 @@ import { issueRow, fillList } from "./overview-rows.js";
 import { isGettingStartedDismissed, createTeachingEmptyState, createGettingStartedCard } from "./overview-empty.js";
 
 export function createOverviewPage(): HTMLElement {
+  const runtimeClient = getRuntimeClient();
   const page = document.createElement("div");
   page.className = "page overview-page fade-in";
 
@@ -336,28 +337,23 @@ export function createOverviewPage(): HTMLElement {
     renderEmptyStates();
   }
 
-  const handler = (event: Event): void => renderSnapshot((event as CustomEvent<AppState>).detail);
-  globalThis.addEventListener("state:update", handler);
+  const onState = (state: AppState): void => renderSnapshot(state);
+  const unsubscribeState = runtimeClient.subscribeState(onState);
 
-  // SSE webhook events — trigger immediate panel re-render
-  const webhookHealthHandler = (event: Event): void => {
-    const health = (event as CustomEvent).detail as Record<string, unknown> | undefined;
+  const unsubscribeWebhookHealth = runtimeClient.subscribeWebhookHealth((health) => {
     if (health && typeof health.status === "string") {
-      updateWebhookPanel(health as unknown as WebhookHealth);
+      updateWebhookPanel(health as WebhookHealth);
     }
-  };
-  const webhookReceivedHandler = (): void => {
-    // Re-render from current store state to pick up any timestamp changes
-    renderSnapshot(store.getState());
-  };
-  globalThis.addEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
-  globalThis.addEventListener("risoluto:webhook-received", webhookReceivedHandler);
+  });
+  const unsubscribeWebhookReceived = runtimeClient.subscribeWebhookReceived(() => {
+    renderSnapshot(runtimeClient.getAppState());
+  });
 
-  renderSnapshot(store.getState());
+  renderSnapshot(runtimeClient.getAppState());
   registerPageCleanup(page, () => {
-    globalThis.removeEventListener("state:update", handler);
-    globalThis.removeEventListener("risoluto:webhook-health-changed", webhookHealthHandler);
-    globalThis.removeEventListener("risoluto:webhook-received", webhookReceivedHandler);
+    unsubscribeState();
+    unsubscribeWebhookHealth();
+    unsubscribeWebhookReceived();
   });
 
   return page;

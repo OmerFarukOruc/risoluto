@@ -18,6 +18,7 @@ import {
   normalizeTurnSandboxPolicy,
 } from "./normalizers.js";
 import { resolveConfigString, resolvePathConfigString } from "./resolvers.js";
+import { normalizeTrackerEndpoint } from "./url-policy.js";
 
 const WEBHOOK_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
   ["webhook_url", "webhookUrl"],
@@ -81,7 +82,10 @@ export function deriveTrackerConfig(
 ): ServiceConfig["tracker"] {
   const kind = asString(tracker.kind, "linear");
   const defaultEndpoint = kind === "github" ? "https://api.github.com" : "https://api.linear.app/graphql";
-  const endpoint = resolveConfigString(tracker.endpoint, secretResolver) || defaultEndpoint;
+  const endpoint = normalizeTrackerEndpoint(
+    kind,
+    resolveConfigString(tracker.endpoint, secretResolver) || defaultEndpoint,
+  );
   return {
     kind,
     apiKey: resolveConfigString(tracker.api_key, secretResolver) || secretResolver?.("LINEAR_API_KEY") || "",

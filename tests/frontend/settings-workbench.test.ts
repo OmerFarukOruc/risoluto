@@ -140,4 +140,19 @@ describe("settings-workbench", () => {
     expect(workbench.state.mode).toBe("simple");
     expect(workbench.state.selectedSectionId).not.toBe("credentials");
   });
+
+  it("emits a change when selecting a Linear project programmatically", async () => {
+    const { toast, workbench } = createWorkbench([{ tracker: { project_slug: "NIN" } }]);
+    const listener = vi.fn();
+    workbench.subscribe(listener);
+
+    await workbench.load();
+    listener.mockClear();
+
+    workbench.setLinearProject("tracker.project_slug", "NIN-2");
+
+    expect(workbench.state.drafts.tracker?.["tracker.project_slug"]).toBe("NIN-2");
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith("Project slug set to NIN-2", "success");
+  });
 });

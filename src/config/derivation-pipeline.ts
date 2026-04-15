@@ -18,7 +18,6 @@ import {
   normalizeStateMachine,
   normalizeTriggers,
 } from "./normalizers.js";
-import { normalizeTrackerEndpoint } from "./url-policy.js";
 
 export interface DeriveServiceConfigOptions {
   mergedConfigMap?: Record<string, unknown>;
@@ -71,10 +70,7 @@ export function deriveServiceConfig(workflow: WorkflowDefinition, options?: Deri
   const tracker = deriveTrackerConfig(input.tracker, secretResolver);
 
   return {
-    tracker: {
-      ...tracker,
-      endpoint: normalizeTrackerEndpoint(tracker.kind, tracker.endpoint),
-    },
+    tracker,
     notifications: normalizeNotifications(input.notifications, secretResolver),
     triggers: normalizeTriggers(input.triggers, secretResolver),
     automations: normalizeAutomations(input.automations),

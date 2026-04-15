@@ -242,6 +242,7 @@ export function createSettingsWorkbench(options: CreateSettingsWorkbenchOptions 
     },
     setLinearProject(fieldPath: string, slugId: string): void {
       workbench.setDraftValue("tracker", fieldPath, slugId);
+      emitChange();
       deps.toast(`Project slug set to ${slugId}`, "success");
     },
     currentVisibleSectionId(): string {

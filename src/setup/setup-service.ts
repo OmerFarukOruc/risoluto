@@ -166,16 +166,12 @@ async function validateOpenaiKey(key: string, validationUrl: string): Promise<bo
 
 async function fetchLinearTeams(apiKey: string): Promise<LinearTeam[]> {
   const teamsData = await callLinearGraphQL(apiKey, buildTeamsQuery(), {});
-  return (
-    (((teamsData.data as Record<string, unknown>)?.teams as Record<string, unknown>)?.nodes as
-      | LinearTeam[]
-      | undefined) ?? []
-  );
+  return ((teamsData.data?.teams as Record<string, unknown> | undefined)?.nodes as LinearTeam[] | undefined) ?? [];
 }
 
 async function createLinearProject(apiKey: string, name: string, teamIds: string[]): Promise<ProjectCreateResult> {
   const data = await callLinearGraphQL(apiKey, buildCreateProjectMutation(), { name, teamIds });
-  return ((data.data as Record<string, unknown>)?.projectCreate as ProjectCreateResult | undefined) ?? {};
+  return (data.data?.projectCreate as ProjectCreateResult | undefined) ?? {};
 }
 
 async function createRisolutoLabel(
@@ -203,7 +199,7 @@ async function createRisolutoLabel(
     throw error;
   }
 
-  const result = (data.data as Record<string, unknown>)?.issueLabelCreate as
+  const result = data.data?.issueLabelCreate as
     | { success?: boolean; issueLabel?: { id?: string; name?: string } }
     | undefined;
 
@@ -216,7 +212,7 @@ async function createRisolutoLabel(
 
 async function lookupInProgressStateId(apiKey: string, teamId: string): Promise<string> {
   const data = await callLinearGraphQL(apiKey, buildTeamStatesQuery(), { teamId });
-  const states = ((data.data as Record<string, unknown>)?.team as Record<string, unknown>)?.states as
+  const states = (data.data?.team as Record<string, unknown> | undefined)?.states as
     | { nodes?: Array<{ id: string; name: string }> }
     | undefined;
   const inProgress = states?.nodes?.find((state) => state.name.toLowerCase() === "in progress");
@@ -247,7 +243,7 @@ async function createLinearTestIssue(
     stateId,
   });
 
-  const result = (data.data as Record<string, unknown>)?.issueCreate as
+  const result = data.data?.issueCreate as
     | { success?: boolean; issue?: { identifier?: string; url?: string } }
     | undefined;
 

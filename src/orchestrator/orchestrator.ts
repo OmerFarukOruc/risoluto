@@ -227,7 +227,7 @@ export class Orchestrator implements OrchestratorPort {
     const snapshot = this.runtimeCoordinator.buildSnapshot();
     this.cachedSnapshot = {
       revision: this.stateRevision,
-      serializedState: serializeSnapshot(snapshot as RuntimeSnapshot & Record<string, unknown>),
+      serializedState: serializeSnapshot(snapshot),
       snapshot,
     };
     return this.cachedSnapshot;

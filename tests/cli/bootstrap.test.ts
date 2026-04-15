@@ -92,21 +92,21 @@ describe("CLI parseCliArgs (via main module)", () => {
   });
 
   it("rejects invalid --port values before startup", async () => {
-    const { parseCliArgs } = await import("../../src/cli/index.js");
+    const { parseCliArgs } = await import("../../src/cli/parse-args.js");
     expect(() => parseCliArgs(["--port", "abc"])).toThrow(
       "invalid --port value: abc. Expected an integer between 1 and 65535 with no leading zeros.",
     );
   });
 
   it("rejects --port 0 (anvil hardening: port 0 means 'any' and must be explicit)", async () => {
-    const { parseCliArgs } = await import("../../src/cli/index.js");
+    const { parseCliArgs } = await import("../../src/cli/parse-args.js");
     expect(() => parseCliArgs(["--port", "0"])).toThrow(
       "invalid --port value: 0. Expected an integer between 1 and 65535 with no leading zeros.",
     );
   });
 
   it("rejects --port with leading zeros (anvil hardening: 00004000 is not 4000)", async () => {
-    const { parseCliArgs } = await import("../../src/cli/index.js");
+    const { parseCliArgs } = await import("../../src/cli/parse-args.js");
     expect(() => parseCliArgs(["--port", "04000"])).toThrow(
       "invalid --port value: 04000. Expected an integer between 1 and 65535 with no leading zeros.",
     );

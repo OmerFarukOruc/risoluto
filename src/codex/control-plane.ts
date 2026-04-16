@@ -209,7 +209,10 @@ export class CodexControlPlane {
       const { program, args } = splitCommand(codexConfig.command || "codex app-server");
 
       const codexHome = await mkdtemp(path.join(tmpdir(), "risoluto-cp-"));
-      await writeFile(path.join(codexHome, "config.toml"), buildConfigToml(codexConfig));
+      const projectPath = process.cwd();
+      const trustedProjectConfig =
+        `${buildConfigToml(codexConfig)}[projects.${JSON.stringify(projectPath)}]\n` + `trust_level = "trusted"\n`;
+      await writeFile(path.join(codexHome, "config.toml"), trustedProjectConfig);
       if (codexConfig.auth.mode === "openai_login" && codexConfig.auth.sourceHome) {
         const srcAuth = path.join(codexConfig.auth.sourceHome, "auth.json");
         await cp(srcAuth, path.join(codexHome, "auth.json")).catch(() => {});

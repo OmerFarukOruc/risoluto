@@ -6,7 +6,7 @@ import { createLifecycleEvent } from "../core/lifecycle-events.js";
 import type { StopSignal } from "../core/signal-detection.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, RisolutoLogger, Workspace } from "../core/types.js";
 import { toErrorString } from "../utils/type-guards.js";
-import type { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 
 export interface ActiveAttempt {
   outcome: Promise<RunOutcome>;
@@ -33,7 +33,7 @@ export interface AttemptExecutor {
 
 interface AttemptExecutorDeps {
   getConfig: () => ServiceConfig;
-  workspaceManager: WorkspaceManager;
+  workspaceManager: WorkspacePort;
   sessionPort: AgentSessionPort;
   logger: RisolutoLogger;
 }

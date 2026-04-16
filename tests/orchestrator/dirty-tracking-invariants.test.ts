@@ -21,6 +21,7 @@ import {
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
+  passThroughWithLock,
 } from "./orchestrator-fixtures.js";
 
 afterEach(() => {
@@ -67,6 +68,7 @@ function makeWorkspaceManager(): WorkspaceManager {
       createdNow: true,
     })),
     removeWorkspace: vi.fn(async () => undefined),
+    withLock: passThroughWithLock,
   } as unknown as WorkspaceManager;
 }
 

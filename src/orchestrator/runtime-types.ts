@@ -20,7 +20,7 @@ import type {
   Workspace,
 } from "../core/types.js";
 import type { StopSignal } from "../core/signal-detection.js";
-import { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 import type { IssueConfigStorePort } from "../core/issue-config-port.js";
 import type { MetricsCollector } from "../observability/metrics.js";
 
@@ -61,7 +61,7 @@ export interface OrchestratorDeps {
   attemptStore: AttemptStorePort;
   configStore: ConfigStore;
   tracker: TrackerPort;
-  workspaceManager: WorkspaceManager;
+  workspaceManager: WorkspacePort;
   agentRunner: RunAttemptDispatcher;
   issueConfigStore: IssueConfigStorePort;
   eventBus?: TypedEventBus<RisolutoEventMap>;

@@ -10,6 +10,7 @@ import {
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
+  passThroughWithLock,
 } from "./orchestrator-fixtures.js";
 
 afterEach(() => {
@@ -63,6 +64,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -113,6 +115,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -180,6 +183,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const config = createConfig();
@@ -237,6 +241,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const config = createConfig();
@@ -323,6 +328,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -384,6 +390,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -443,6 +450,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -512,6 +520,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -577,6 +586,7 @@ describe("Orchestrator", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({

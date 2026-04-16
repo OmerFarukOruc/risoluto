@@ -4,7 +4,7 @@ import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { ServiceConfig, RisolutoLogger } from "../core/types.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
-import type { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 import { DispatchClient } from "./client.js";
 import type { RunAttemptDispatcher } from "./types.js";
 import type { MetricsCollector } from "../observability/metrics.js";
@@ -16,7 +16,7 @@ import type { MetricsCollector } from "../observability/metrics.js";
 export interface DispatcherFactoryDeps {
   tracker: TrackerPort;
   trackerToolProvider: TrackerToolProvider;
-  workspaceManager: WorkspaceManager;
+  workspaceManager: WorkspacePort;
   archiveDir: string;
   pathRegistry: PathRegistry;
   githubToolClient: GithubApiToolClient;

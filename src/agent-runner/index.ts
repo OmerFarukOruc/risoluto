@@ -9,7 +9,7 @@ import type { TrackerToolProvider } from "../tracker/tool-provider.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { PathRegistry } from "../workspace/path-registry.js";
 import type { Issue, ModelSelection, RunOutcome, ServiceConfig, RisolutoLogger, Workspace } from "../core/types.js";
-import { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 import { createMetricsCollector, type MetricsCollector } from "../observability/metrics.js";
 
 export { extractItemContent } from "./helpers.js";
@@ -24,7 +24,7 @@ export class AgentRunner implements RunAttemptDispatcher {
       getConfig: () => ServiceConfig;
       tracker: TrackerPort;
       trackerToolProvider: TrackerToolProvider;
-      workspaceManager: WorkspaceManager;
+      workspaceManager: WorkspacePort;
       archiveDir?: string;
       pathRegistry?: PathRegistry;
       githubToolClient?: GithubApiToolClient;

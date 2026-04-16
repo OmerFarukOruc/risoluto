@@ -14,6 +14,7 @@ import {
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
+  passThroughWithLock,
 } from "./orchestrator-fixtures.js";
 import {
   createCompletedView,
@@ -66,6 +67,7 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): OrchestratorDeps {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as never,
     agentRunner: {
       runAttempt: vi.fn(
@@ -741,6 +743,7 @@ describe("RunLifecycleCoordinator", () => {
         preserved: false,
         autoCommitSha: "abc123",
       })),
+      withLock: passThroughWithLock,
     } as unknown as OrchestratorDeps["workspaceManager"];
     const releaseIssueClaim = vi.fn();
     const coordinator = createRunLifecycleCoordinator(

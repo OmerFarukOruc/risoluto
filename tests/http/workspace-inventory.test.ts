@@ -11,7 +11,18 @@ import {
   handleWorkspaceRemove,
   type WorkspaceInventoryDeps,
 } from "../../src/http/workspace-inventory.js";
-import { withWorkspaceLifecycleLock } from "../../src/workspace/lifecycle-lock.js";
+import { WorkspaceManager } from "../../src/workspace/manager.js";
+import { createMockLogger } from "../helpers.js";
+
+/**
+ * Pass-through workspaceManager stub for tests that don't exercise lock semantics.
+ * Tests that need real serialization construct a {@link WorkspaceManager} directly.
+ */
+function makePassThroughWorkspaceManager(): Pick<import("../../src/workspace/port.js").WorkspacePort, "withLock"> {
+  return {
+    withLock: async (_workspaceKey, task) => task(),
+  };
+}
 
 function createTestDir(suffix: string): string {
   return path.join(tmpdir(), `risoluto-test-${suffix}-${Date.now()}`);
@@ -53,19 +64,27 @@ function makeConfigStore(root: string) {
   };
 }
 
-function createApp(deps: WorkspaceInventoryDeps): express.Express {
+function createApp(
+  deps: Omit<WorkspaceInventoryDeps, "workspaceManager"> & Partial<WorkspaceInventoryDeps>,
+): express.Express {
+  const fullDeps: WorkspaceInventoryDeps = {
+    ...deps,
+    workspaceManager: deps.workspaceManager ?? makePassThroughWorkspaceManager(),
+  };
   const app = express();
   app.use(express.json());
   app.get("/api/v1/workspaces", async (req, res) => {
-    await handleWorkspaceInventory(deps, req, res);
+    await handleWorkspaceInventory(fullDeps, req, res);
   });
   app.delete("/api/v1/workspaces/:workspace_key", async (req, res) => {
-    await handleWorkspaceRemove(deps, req, res);
+    await handleWorkspaceRemove(fullDeps, req, res);
   });
   return app;
 }
 
-function startTestServer(deps: WorkspaceInventoryDeps): Promise<{ server: http.Server; port: number }> {
+function startTestServer(
+  deps: Omit<WorkspaceInventoryDeps, "workspaceManager"> & Partial<WorkspaceInventoryDeps>,
+): Promise<{ server: http.Server; port: number }> {
   const app = createApp(deps);
   return new Promise((resolve) => {
     const srv = app.listen(0, () => {
@@ -109,17 +128,11 @@ async function loadWorkspaceInventoryModuleWithFsMocks(options?: {
   const readdirMock = vi.fn(options?.readdirImpl);
   const statMock = vi.fn(options?.statImpl);
   const rmMock = vi.fn(options?.rmImpl);
-  const withWorkspaceLifecycleLockMock = vi.fn(async (_workspaceKey: string, task: () => Promise<void>) => {
-    await task();
-  });
 
   vi.doMock("node:fs/promises", () => ({
     readdir: readdirMock,
     stat: statMock,
     rm: rmMock,
-  }));
-  vi.doMock("../../src/workspace/lifecycle-lock.js", () => ({
-    withWorkspaceLifecycleLock: withWorkspaceLifecycleLockMock,
   }));
 
   const module = await import("../../src/http/workspace-inventory.js");
@@ -129,7 +142,6 @@ async function loadWorkspaceInventoryModuleWithFsMocks(options?: {
     readdirMock,
     statMock,
     rmMock,
-    withWorkspaceLifecycleLockMock,
   };
 }
 
@@ -465,14 +477,22 @@ describe("DELETE /api/v1/workspaces/:workspace_key", () => {
     await mkdir(path.join(workspaceRoot, "NIN-1"), { recursive: true });
     await writeFile(path.join(workspaceRoot, "NIN-1", "file.txt"), "hello");
 
+    // Use a real WorkspaceManager so the lock the test holds shares state
+    // with the lock the handler acquires.
+    const workspaceManager = new WorkspaceManager(
+      () => ({ workspace: { root: workspaceRoot, strategy: "directory" } }) as never,
+      createMockLogger(),
+    );
+
     ({ server } = await startTestServer({
       orchestrator: makeOrchestrator() as never,
       configStore: makeConfigStore(workspaceRoot) as never,
+      workspaceManager,
     }));
     const port = (server.address() as { port: number }).port;
 
     let releaseLock: (() => void) | null = null;
-    const holdLock = withWorkspaceLifecycleLock("NIN-1", async () => {
+    const holdLock = workspaceManager.withLock("NIN-1", async () => {
       await new Promise<void>((resolve) => {
         releaseLock = resolve;
       });
@@ -501,6 +521,7 @@ describe("workspace inventory direct handler guards", () => {
       {
         orchestrator: makeOrchestrator() as never,
         configStore: makeConfigStore("/tmp") as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "" } } as unknown as Request,
       response,
@@ -519,6 +540,7 @@ describe("workspace inventory direct handler guards", () => {
       {
         orchestrator: makeOrchestrator() as never,
         configStore: makeConfigStore("/tmp/risoluto-root") as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "../escape" } } as unknown as Request,
       response,
@@ -537,6 +559,7 @@ describe("workspace inventory direct handler guards", () => {
       {
         orchestrator: makeOrchestrator() as never,
         configStore: makeConfigStore("/tmp/risoluto-root") as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "." } } as unknown as Request,
       response,
@@ -554,6 +577,7 @@ describe("workspace inventory direct handler guards", () => {
     await handleWorkspaceRemove(
       {
         orchestrator: makeOrchestrator() as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "NIN-1" } } as unknown as Request,
       response,
@@ -578,6 +602,7 @@ describe("workspace inventory direct handler guards", () => {
             [{ identifier: "RETRY", title: "Retry", state: "In Progress", workspaceKey: "RETRY", status: "retrying" }],
           ) as never,
           configStore: makeConfigStore(root) as never,
+          workspaceManager: makePassThroughWorkspaceManager(),
         },
         { params: { workspace_key: "NIN-1" } } as unknown as Request,
         response,
@@ -601,6 +626,7 @@ describe("workspace inventory direct handler guards", () => {
         {
           orchestrator: makeOrchestrator() as never,
           configStore: makeConfigStore("/tmp/risoluto-root") as never,
+          workspaceManager: makePassThroughWorkspaceManager(),
         },
         {} as Request,
         makeJsonResponse(),
@@ -645,6 +671,7 @@ describe("workspace inventory direct handler guards", () => {
       {
         orchestrator: makeOrchestrator() as never,
         configStore: makeConfigStore(root) as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       {} as Request,
       response,
@@ -683,6 +710,7 @@ describe("workspace inventory direct handler guards", () => {
         {
           orchestrator: makeOrchestrator() as never,
           configStore: makeConfigStore("/tmp/risoluto-root") as never,
+          workspaceManager: makePassThroughWorkspaceManager(),
         },
         { params: { workspace_key: "NIN-1" } } as unknown as Request,
         makeJsonResponse(),
@@ -701,6 +729,7 @@ describe("workspace inventory direct handler guards", () => {
       {
         orchestrator: makeOrchestrator() as never,
         configStore: makeConfigStore("/tmp/risoluto-root") as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "NIN-1" } } as unknown as Request,
       response,
@@ -729,6 +758,7 @@ describe("workspace inventory direct handler guards", () => {
           }),
         } as never,
         configStore: makeConfigStore("/tmp/risoluto-root") as never,
+        workspaceManager: makePassThroughWorkspaceManager(),
       },
       { params: { workspace_key: "NIN-1" } } as unknown as Request,
       response,

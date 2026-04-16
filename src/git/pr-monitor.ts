@@ -20,7 +20,7 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { AgentConfig, RisolutoLogger } from "../core/types.js";
 import type { TrackerPort } from "../tracker/port.js";
-import type { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 import type { PrStatusResponse } from "./github-pr-client.js";
 
 /** Narrow GitHub client interface needed by the PR monitor. */
@@ -43,7 +43,7 @@ export interface PrMonitorDeps {
   store: AttemptStorePort;
   ghClient: PrMonitorGhClient;
   tracker: TrackerPort;
-  workspaceManager: WorkspaceManager;
+  workspaceManager: WorkspacePort;
   getConfig: () => AgentConfig;
   logger: RisolutoLogger;
   /** Typed event bus used for SSE fan-out. */

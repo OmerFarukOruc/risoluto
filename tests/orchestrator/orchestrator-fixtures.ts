@@ -125,6 +125,14 @@ export function createAttemptStore(): AttemptStorePort {
   } as unknown as AttemptStorePort;
 }
 
+/**
+ * Pass-through `withLock` for orchestrator test mocks. The lock contract on
+ * {@link WorkspacePort} is required by `worker-launcher.ts` when launching a
+ * worker — tests that exercise launch must provide it. Use this in inline mocks
+ * to keep them small and contract-correct.
+ */
+export const passThroughWithLock = async <T>(_workspaceKey: string, task: () => Promise<T>): Promise<T> => task();
+
 export function createIssueConfigStore(): IssueConfigStore {
   return {
     loadAll: vi.fn(() => []),

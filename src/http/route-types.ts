@@ -18,6 +18,7 @@ import type { TemplateStorePort } from "../prompt/port.js";
 import type { SecretsPort } from "../secrets/port.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { WebhookHandlerDeps } from "../webhook/http-adapter.js";
+import type { WorkspacePort } from "../workspace/port.js";
 
 export interface HttpRouteDeps {
   orchestrator: OrchestratorPort;
@@ -44,4 +45,5 @@ export interface HttpRouteDeps {
   webhookHandlerDeps?: WebhookHandlerDeps;
   metrics?: MetricsCollector;
   observability?: ObservabilityHub;
+  workspaceManager?: Pick<WorkspacePort, "withLock">;
 }

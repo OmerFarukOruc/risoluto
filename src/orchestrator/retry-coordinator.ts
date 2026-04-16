@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { AttemptStorePort } from "../core/attempt-store-port.js";
 import type { AttemptRecord, Issue, ModelSelection, RisolutoLogger, RuntimeIssueView } from "../core/types.js";
 import type { RunningEntry } from "./runtime-types.js";
-import type { WorkspaceManager } from "../workspace/manager.js";
+import type { WorkspacePort } from "../workspace/port.js";
 import type { TrackerPort } from "../tracker/port.js";
 import type { OutcomeContext, RetryCoordinator, RetryRuntimeContext } from "./context.js";
 import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
@@ -20,7 +20,7 @@ export type { RetryCoordinator };
 export interface RetryCoordinatorDeps {
   tracker: Pick<TrackerPort, "fetchIssueStatesByIds">;
   attemptStore: Pick<AttemptStorePort, "updateAttempt" | "createAttempt">;
-  workspaceManager: Pick<WorkspaceManager, "removeWorkspace">;
+  workspaceManager: Pick<WorkspacePort, "removeWorkspace">;
   logger: Pick<RisolutoLogger, "info" | "warn" | "error">;
 }
 

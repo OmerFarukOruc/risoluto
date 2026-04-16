@@ -7,7 +7,7 @@ import type { Request, Response } from "express";
 import type { ConfigStore } from "../config/store.js";
 import type { RuntimeIssueView } from "../core/types.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
-import { withWorkspaceLifecycleLock } from "../workspace/lifecycle-lock.js";
+import type { WorkspacePort } from "../workspace/port.js";
 
 /* ------------------------------------------------------------------ */
 /*  Response types                                                     */
@@ -120,6 +120,7 @@ function classifyWorkspace(
 export interface WorkspaceInventoryDeps {
   orchestrator: OrchestratorPort;
   configStore?: ConfigStore;
+  workspaceManager: Pick<WorkspacePort, "withLock">;
 }
 
 export async function handleWorkspaceInventory(
@@ -215,7 +216,7 @@ export async function handleWorkspaceRemove(deps: WorkspaceInventoryDeps, req: R
     return;
   }
 
-  await withWorkspaceLifecycleLock(workspaceKey, async () => {
+  await deps.workspaceManager.withLock(workspaceKey, async () => {
     const snapshot = deps.orchestrator.getSnapshot();
     const isRetryingActive =
       Array.isArray(snapshot.retrying) && snapshot.retrying.some((view) => view.workspaceKey === workspaceKey);

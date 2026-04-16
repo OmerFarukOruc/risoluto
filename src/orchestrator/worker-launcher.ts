@@ -4,7 +4,6 @@ import { isBlockedByNonTerminal, sortIssuesForDispatch } from "./dispatch.js";
 import { issueView, nowIso } from "./views.js";
 import { prepareWorkspaceForLaunch as prepareWorkspace } from "./workspace-preparation.js";
 import { sanitizeIdentifier } from "../workspace/paths.js";
-import { withWorkspaceLifecycleLock } from "../workspace/lifecycle-lock.js";
 import { isActiveState, isTodoState, normalizeStateKey } from "../state/policy.js";
 import type { NotificationEvent } from "../notification/channel.js";
 import type { ComponentObserver } from "../observability/hub.js";
@@ -428,7 +427,7 @@ export async function launchWorker(
     ctx.claimIssue(issue.id);
   }
 
-  await withWorkspaceLifecycleLock(sanitizeIdentifier(issue.identifier), async () => {
+  await ctx.deps.workspaceManager.withLock(sanitizeIdentifier(issue.identifier), async () => {
     const workspace = await prepareWorkspace(ctx, issue);
     const modelSelection = options?.modelSelectionOverride ?? ctx.resolveModelSelection(issue.identifier);
     const entry = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection, options?.recoveredAttempt);

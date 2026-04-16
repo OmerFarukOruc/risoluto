@@ -10,6 +10,7 @@ import {
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
+  passThroughWithLock,
 } from "./orchestrator-fixtures.js";
 
 afterEach(() => {
@@ -31,6 +32,7 @@ describe("Orchestrator — advanced scenarios", () => {
     const workspaceManager = {
       ensureWorkspace: vi.fn(),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -86,6 +88,7 @@ describe("Orchestrator — advanced scenarios", () => {
         createdNow: false,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const config = createConfig();
@@ -164,6 +167,7 @@ describe("Orchestrator — advanced scenarios", () => {
         };
       }),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -250,6 +254,7 @@ describe("Orchestrator — advanced scenarios", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -307,6 +312,7 @@ describe("Orchestrator — advanced scenarios", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -372,6 +378,7 @@ describe("Orchestrator — advanced scenarios", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
 
     const orchestrator = new Orchestrator({
@@ -460,6 +467,7 @@ describe("Orchestrator — advanced scenarios", () => {
         createdNow: true,
       })),
       removeWorkspace: vi.fn(async () => undefined),
+      withLock: passThroughWithLock,
     } as unknown as WorkspaceManager;
     const gitManager = {
       cloneInto: vi.fn(async () => ({ branchName: "risoluto/mt-42" })),
@@ -526,6 +534,7 @@ describe("Orchestrator — eventBus emissions", () => {
       workspaceManager: {
         ensureWorkspace: vi.fn(),
         removeWorkspace: vi.fn(async () => undefined),
+        withLock: passThroughWithLock,
       } as unknown as WorkspaceManager,
       agentRunner: { runAttempt: vi.fn() } as unknown as AgentRunner,
       eventBus: eventBus as never,
@@ -560,6 +569,7 @@ describe("Orchestrator — eventBus emissions", () => {
       workspaceManager: {
         ensureWorkspace: vi.fn(),
         removeWorkspace: vi.fn(async () => undefined),
+        withLock: passThroughWithLock,
       } as unknown as WorkspaceManager,
       agentRunner: { runAttempt: vi.fn() } as unknown as AgentRunner,
       eventBus: eventBus as never,

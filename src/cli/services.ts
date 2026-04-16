@@ -282,6 +282,7 @@ function createHttpLayer(
   overlayStore: ConfigOverlayPort,
   secretsStore: SecretsStore,
   infra: InfrastructurePhase,
+  workspace: WorkspaceDispatchPhase,
   events: EventNotificationPhase,
   codexControlPlane: CodexControlPlane,
   templateAudit: TemplateAuditPhase,
@@ -315,6 +316,7 @@ function createHttpLayer(
     auditLogger,
     metrics,
     observability,
+    workspaceManager: workspace.workspaceManager,
     webhookHandlerDeps: webhook.webhookUrlSet
       ? buildWebhookHandlerDeps({
           orchestrator,
@@ -381,6 +383,7 @@ export async function createServices(
     overlayStore,
     secretsStore,
     infra,
+    workspace,
     events,
     codexControlPlane,
     templateAudit,

@@ -9,8 +9,7 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { WorkspaceRemovalResult } from "../workspace/manager.js";
 import type { OutcomeViewInput } from "./snapshot-builder.js";
-import type { StopSignal } from "../core/signal-detection.js";
-import type { PreparedWorkerOutcome, TerminalPathKind } from "./worker-outcome/types.js";
+import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
 import type { LifecycleState } from "./core/lifecycle-state.js";
 
 /**
@@ -63,12 +62,6 @@ export interface OutcomeContext {
   buildOutcomeView: (input: OutcomeViewInput) => RuntimeIssueView;
   setDetailView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
   setCompletedView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
-  finalizeTerminalPath?: (kind: TerminalPathKind, prepared: PreparedWorkerOutcome) => Promise<void>;
-  finalizeStopSignal?: (
-    stopSignal: StopSignal,
-    prepared: PreparedWorkerOutcome,
-    turnCount: number | null,
-  ) => Promise<void>;
   notify: (event: NotificationEvent) => void;
   retryCoordinator: RetryCoordinator;
 }
@@ -94,12 +87,6 @@ export interface OrchestratorContext {
   buildOutcomeView: (input: OutcomeViewInput) => RuntimeIssueView;
   setDetailView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
   setCompletedView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
-  finalizeTerminalPath?: (kind: TerminalPathKind, prepared: PreparedWorkerOutcome) => Promise<void>;
-  finalizeStopSignal?: (
-    stopSignal: StopSignal,
-    prepared: PreparedWorkerOutcome,
-    turnCount: number | null,
-  ) => Promise<void>;
   launchWorker: (issue: Issue, attempt: number | null, options?: LaunchWorkerOptions) => Promise<void>;
   canDispatchIssue: (issue: Issue) => boolean;
   hasAvailableStateSlot: (

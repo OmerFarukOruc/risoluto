@@ -14,7 +14,6 @@ import type {
 import type { OutcomeContext } from "../../src/orchestrator/context.js";
 import type { RetryRuntimeEntry, RunningEntry } from "../../src/orchestrator/runtime-types.js";
 import { createRetryCoordinator } from "../../src/orchestrator/retry-coordinator.js";
-import { attachOutcomeRuntimeFinalizers } from "./outcome-runtime-finalizers.js";
 
 type TestOutcomeContext = OutcomeContext & { retryEntries: Map<string, RetryRuntimeEntry> };
 
@@ -170,8 +169,6 @@ function makeCtx(
     resolveModelSelection,
     notify,
   } as TestOutcomeContext;
-
-  attachOutcomeRuntimeFinalizers(ctx, { retryEntries });
 
   ctx.retryCoordinator = createRetryCoordinator(
     {

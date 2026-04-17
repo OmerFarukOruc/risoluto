@@ -7,13 +7,13 @@ import { detectStopSignal } from "../../core/signal-detection.js";
 import { prepareWorkerOutcome } from "./prepare.js";
 import type { PreparedWorkerOutcome } from "./types.js";
 import {
-  handleServiceStopped,
-  handleTerminalCleanup,
-  handleInactiveIssue,
-  handleOperatorAbort,
-  handleCancelledOrHardFailure,
-} from "./terminal-paths.js";
-import { handleStopSignal } from "./stop-signal.js";
+  finalizeCancelledOrHardFailure,
+  finalizeInactiveIssue,
+  finalizeOperatorAbort,
+  finalizeServiceStopped,
+  finalizeStopSignal,
+  finalizeTerminalCleanup,
+} from "./finalize.js";
 
 export async function handleWorkerOutcome(
   ctx: OutcomeContext,
@@ -26,18 +26,18 @@ export async function handleWorkerOutcome(
   const prepared = await prepareWorkerOutcome(ctx, { outcome, entry, issue, workspace, attempt });
 
   if (!ctx.isRunning()) {
-    handleServiceStopped(ctx, prepared);
+    finalizeServiceStopped(ctx, prepared);
     return;
   }
 
   const { latestIssue } = prepared;
 
   if (entry.cleanupOnExit || isTerminalState(latestIssue.state, ctx.getConfig())) {
-    await handleTerminalCleanup(ctx, prepared);
+    await finalizeTerminalCleanup(ctx, prepared);
     return;
   }
   if (!isActiveState(latestIssue.state, ctx.getConfig())) {
-    handleInactiveIssue(ctx, prepared);
+    finalizeInactiveIssue(ctx, prepared);
     return;
   }
   if (outcome.errorCode === "model_override_updated") {
@@ -45,11 +45,11 @@ export async function handleWorkerOutcome(
     return;
   }
   if (outcome.errorCode === "operator_abort") {
-    handleOperatorAbort(ctx, prepared);
+    finalizeOperatorAbort(ctx, prepared);
     return;
   }
   if (outcome.kind === "cancelled" || isHardFailure(outcome.errorCode)) {
-    await handleCancelledOrHardFailure(ctx, prepared);
+    await finalizeCancelledOrHardFailure(ctx, prepared);
     return;
   }
 
@@ -75,7 +75,7 @@ async function dispatchPostReconciliation(ctx: OutcomeContext, prepared: Prepare
     "post-reconciliation stop-signal check",
   );
   if (stopSignal) {
-    await handleStopSignal(ctx, stopSignal, prepared, outcome.turnCount ?? null);
+    await finalizeStopSignal(ctx, stopSignal, prepared, outcome.turnCount ?? null);
     return;
   }
   await ctx.retryCoordinator.dispatch(ctx, prepared);

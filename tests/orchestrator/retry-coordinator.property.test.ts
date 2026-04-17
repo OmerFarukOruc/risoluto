@@ -8,7 +8,6 @@ import type { PreparedWorkerOutcome } from "../../src/orchestrator/worker-outcom
 import { buildOutcomeView } from "../../src/orchestrator/snapshot-builder.js";
 import { computeBackoffForAttempt, createRetryCoordinator } from "../../src/orchestrator/retry-coordinator.js";
 import { createIssue, createWorkspace, createModelSelection, createRunningEntry } from "./issue-test-factories.js";
-import { attachOutcomeRuntimeFinalizers } from "./outcome-runtime-finalizers.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -104,8 +103,6 @@ function makeHarness(isRunning = true) {
     resolveModelSelection,
     notify,
   } as OutcomeContext;
-
-  attachOutcomeRuntimeFinalizers(ctx, { retryEntries });
 
   ctx.retryCoordinator = createRetryCoordinator(
     {

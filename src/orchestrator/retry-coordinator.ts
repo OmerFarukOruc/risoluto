@@ -9,7 +9,7 @@ import type { OutcomeContext, RetryCoordinator, RetryRuntimeContext } from "./co
 import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
 import { writeFailureWriteback } from "./worker-outcome/completion-writeback.js";
 import { issueRef } from "./worker-outcome/types.js";
-import { handleCancelledOrHardFailure } from "./worker-outcome/terminal-paths.js";
+import { finalizeCancelledOrHardFailure } from "./worker-outcome/finalize.js";
 import { issueView, nowIso } from "./views.js";
 import { isActiveState, isTerminalState } from "../state/policy.js";
 import { toErrorString } from "../utils/type-guards.js";
@@ -66,7 +66,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
     const strategy = classifyRetryStrategy(outcome.codexErrorInfo ?? null, outcome.errorCode);
     switch (strategy.action) {
       case "hard_fail":
-        await handleCancelledOrHardFailure(ctx, prepared);
+        await finalizeCancelledOrHardFailure(ctx, prepared);
         return;
       case "retry":
         this.queuePreparedRetry(prepared, strategy.delayMs, strategy.reason);

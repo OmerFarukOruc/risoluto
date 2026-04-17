@@ -12,7 +12,6 @@ import type {
 } from "../../src/core/types.js";
 import type { OutcomeContext } from "../../src/orchestrator/context.js";
 import type { RunningEntry } from "../../src/orchestrator/runtime-types.js";
-import { attachOutcomeRuntimeFinalizers } from "./outcome-runtime-finalizers.js";
 
 function makeIssue(overrides: Partial<Issue> = {}): Issue {
   return {
@@ -159,7 +158,6 @@ function makeCtx(
     },
   };
 
-  attachOutcomeRuntimeFinalizers(ctx);
   return ctx;
 }
 

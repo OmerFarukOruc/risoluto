@@ -14,7 +14,6 @@ import type { PreparedWorkerOutcome } from "../../src/orchestrator/worker-outcom
 import { buildOutcomeView } from "../../src/orchestrator/snapshot-builder.js";
 import { createRetryCoordinator } from "../../src/orchestrator/retry-coordinator.js";
 import { createIssue, createWorkspace, createModelSelection, createRunningEntry } from "./issue-test-factories.js";
-import { attachOutcomeRuntimeFinalizers } from "./outcome-runtime-finalizers.js";
 
 interface RetryHarness {
   ctx: OutcomeContext;
@@ -172,8 +171,6 @@ function makeHarness(
     resolveModelSelection,
     notify,
   } as OutcomeContext;
-
-  attachOutcomeRuntimeFinalizers(ctx, { retryEntries });
 
   const retryCoordinator = createRetryCoordinator(
     {

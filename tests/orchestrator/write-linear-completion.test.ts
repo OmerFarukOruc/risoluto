@@ -17,8 +17,6 @@ import type {
   Workspace,
 } from "../../src/core/types.js";
 import type { RunningEntry } from "../../src/orchestrator/runtime-types.js";
-import { attachOutcomeRuntimeFinalizers } from "./outcome-runtime-finalizers.js";
-
 /** Flush all pending microtasks — needed because writeLinearCompletion is void-dispatched. */
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -165,7 +163,6 @@ function makeCtx(
     },
   };
 
-  attachOutcomeRuntimeFinalizers(ctx);
   return ctx;
 }
 

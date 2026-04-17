@@ -9,18 +9,10 @@ import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { WorkspaceRemovalResult } from "../workspace/manager.js";
 import type { OutcomeViewInput } from "./snapshot-builder.js";
-import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
 import type { LifecycleState } from "./core/lifecycle-state.js";
+import type { RetryCoordinator } from "./retry-coordinator-port.js";
 
-/**
- * Retry coordination contract. Defined here (rather than retry-coordinator.ts)
- * to avoid a circular import: retry-coordinator.ts depends on OutcomeContext and
- * RetryRuntimeContext from this file, so the interface must live upstream.
- */
-export interface RetryCoordinator {
-  dispatch(ctx: OutcomeContext, prepared: PreparedWorkerOutcome): Promise<void>;
-  cancel(issueId: string): void;
-}
+export type { RetryCoordinator };
 
 /** Shared context type for outcome handlers. Used internally by worker-outcome.ts. */
 export interface OutcomeContext {

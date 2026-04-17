@@ -5,7 +5,8 @@ import type { AttemptRecord, Issue, ModelSelection, RisolutoLogger, RuntimeIssue
 import type { RunningEntry } from "./runtime-types.js";
 import type { WorkspacePort } from "../workspace/port.js";
 import type { TrackerPort } from "../tracker/port.js";
-import type { OutcomeContext, RetryCoordinator, RetryRuntimeContext } from "./context.js";
+import type { OutcomeContext, RetryRuntimeContext } from "./context.js";
+import type { RetryCoordinator } from "./retry-coordinator-port.js";
 import type { PreparedWorkerOutcome } from "./worker-outcome/types.js";
 import { writeFailureWriteback } from "./worker-outcome/completion-writeback.js";
 import { issueRef } from "./worker-outcome/types.js";

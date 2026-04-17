@@ -4,7 +4,7 @@ import { issueView } from "./views.js";
 import { isActiveState, isTerminalState } from "../state/policy.js";
 import type { AttemptRecord, Issue, ServiceConfig } from "../core/types.js";
 import type { RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
-import type { RetryCoordinator } from "./retry-coordinator.js";
+import type { RetryCoordinator } from "./retry-coordinator-port.js";
 import {
   planRunningEntryReconciliation,
   projectQueueAndDetailViews,

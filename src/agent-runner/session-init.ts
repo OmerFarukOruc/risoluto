@@ -38,12 +38,6 @@ interface SessionInitInput {
   previousThreadId?: string | null;
   /** When true and thread/resume succeeds, issue thread/rollback to undo the last bad turn. */
   rollbackLastTurn?: boolean;
-  /**
-   * Formatted PR review feedback from the previous attempt's open pull request.
-   * When present, this is appended to the rendered prompt under a
-   * "### Previous PR Review Feedback" heading.
-   */
-  previousPrFeedback?: string | null;
 }
 
 export interface SessionInitSuccess {
@@ -370,13 +364,6 @@ async function renderPromptTemplate(
       turnId,
       turnCount,
     };
-  }
-
-  // Append PR review feedback from the previous attempt when available.
-  // The feedback is pre-formatted by `formatPRFeedbackForPrompt` and
-  // contains a Markdown heading, so we add a blank line as separator.
-  if (input.previousPrFeedback) {
-    prompt = `${prompt}\n\n${input.previousPrFeedback}`;
   }
 
   return { threadId, prompt };

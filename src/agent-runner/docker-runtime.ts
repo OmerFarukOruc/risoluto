@@ -90,7 +90,6 @@ class DockerCodexRuntimeSession implements AgentSession {
         ...input,
         startupTimeoutMs: this.config.codex.startupTimeoutMs,
         rollbackLastTurn: Boolean(input.previousThreadId),
-        previousPrFeedback: input.previousPrFeedback ?? null,
       },
       {
         logger: this.deps.logger,

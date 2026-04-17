@@ -24,7 +24,6 @@ export interface AttemptLaunchInput {
   onEvent: AgentRunnerEventHandler;
   precomputedRuntimeConfig?: PrecomputedRuntimeConfig;
   previousThreadId?: string | null;
-  previousPrFeedback?: string | null;
 }
 
 export interface AttemptExecutor {
@@ -137,7 +136,6 @@ export class DefaultAttemptExecutor implements AttemptExecutor {
         signal: input.signal,
         onEvent: input.onEvent,
         previousThreadId: input.previousThreadId ?? null,
-        previousPrFeedback: input.previousPrFeedback ?? null,
       });
 
       if ("kind" in initResult) {

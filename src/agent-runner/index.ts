@@ -74,12 +74,6 @@ export class AgentRunner implements RunAttemptDispatcher {
     precomputedRuntimeConfig?: PrecomputedRuntimeConfig;
     /** Thread ID from a previous attempt — enables thread/resume on retry. */
     previousThreadId?: string | null;
-    /**
-     * Formatted PR review feedback from a previous attempt's open pull request.
-     * When set, this string is appended to the rendered prompt so the agent
-     * can address reviewer comments in the retry run.
-     */
-    previousPrFeedback?: string | null;
   }): Promise<RunOutcome> {
     const activeAttempt = await this.attemptExecutor.launch(input);
     input.onSteerReady?.((message: string) => activeAttempt.steer(message));

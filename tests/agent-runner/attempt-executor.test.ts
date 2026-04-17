@@ -41,7 +41,6 @@ function createInput(overrides?: Partial<Parameters<DefaultAttemptExecutor["laun
     signal: new AbortController().signal,
     onEvent: vi.fn(),
     previousThreadId: "thread-prev",
-    previousPrFeedback: "Address reviewer notes",
     ...overrides,
   };
 }
@@ -81,7 +80,6 @@ describe("DefaultAttemptExecutor", () => {
       initialize: vi.fn(async (input) => {
         order.push("initialize");
         expect(input.previousThreadId).toBe("thread-prev");
-        expect(input.previousPrFeedback).toBe("Address reviewer notes");
         return { threadId: "thread-123", prompt: "rendered prompt" };
       }),
       execute: vi.fn(async () => {

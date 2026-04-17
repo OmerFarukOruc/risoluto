@@ -22,7 +22,6 @@ export interface AgentSessionInitializeInput {
   signal: AbortSignal;
   onEvent: AgentRunnerEventHandler;
   previousThreadId?: string | null;
-  previousPrFeedback?: string | null;
 }
 
 export interface AgentSessionInitializeSuccess {

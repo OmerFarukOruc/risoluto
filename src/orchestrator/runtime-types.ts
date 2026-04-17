@@ -50,7 +50,6 @@ export interface RunningEntry {
 export interface LaunchWorkerOptions {
   claimHeld?: boolean;
   previousThreadId?: string | null;
-  previousPrFeedback?: string | null;
   recoveredAttempt?: AttemptRecord | null;
   modelSelectionOverride?: ModelSelection | null;
 }

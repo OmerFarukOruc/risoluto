@@ -108,7 +108,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
     prepared: PreparedWorkerOutcome,
     delayMs: number,
     reason: string,
-    metadata?: { threadId?: string | null; previousPrFeedback?: string | null },
+    metadata?: { threadId?: string | null },
   ): void {
     const nextAttempt = (prepared.attempt ?? 0) + 1;
     this.queueRetry(prepared.latestIssue, nextAttempt, delayMs, reason, metadata);
@@ -127,7 +127,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
     attempt: number,
     delayMs: number,
     error: string | null,
-    metadata?: { threadId?: string | null; previousPrFeedback?: string | null },
+    metadata?: { threadId?: string | null },
   ): void {
     if (!this.runtime.isRunning()) {
       return;
@@ -164,7 +164,6 @@ class RetryCoordinatorImpl implements RetryCoordinator {
       error,
       timer,
       threadId: metadata?.threadId ?? null,
-      previousPrFeedback: metadata?.previousPrFeedback ?? null,
       issue,
       workspaceKey: this.runtime.detailViews.get(issue.identifier)?.workspaceKey ?? null,
     });
@@ -220,7 +219,6 @@ class RetryCoordinatorImpl implements RetryCoordinator {
     ) {
       this.queueRetry(latestIssue, attempt, 1_000, retryEntry.error, {
         threadId: retryEntry.threadId,
-        previousPrFeedback: retryEntry.previousPrFeedback,
       });
       return;
     }
@@ -230,7 +228,6 @@ class RetryCoordinatorImpl implements RetryCoordinator {
     await this.runtime.launchWorker(latestIssue, attempt, {
       claimHeld: true,
       previousThreadId: retryEntry.threadId,
-      previousPrFeedback: retryEntry.previousPrFeedback,
     });
   }
 

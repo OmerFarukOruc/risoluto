@@ -19,8 +19,6 @@ export interface RetryEntry {
   timer: NodeJS.Timeout | null;
   /** Thread ID from the previous attempt — enables thread/resume on retry. */
   threadId?: string | null;
-  /** Aggregated review feedback from the previous PR — injected into the agent prompt on retry. */
-  previousPrFeedback?: string | null;
 }
 
 export interface RecentEvent {

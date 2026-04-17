@@ -395,15 +395,12 @@ describe("RetryCoordinator timer flows", () => {
     );
 
     await harness.ctx.retryCoordinator.dispatch(harness.ctx, prepared);
-    const retryEntry = getRetryEntry(harness);
-    retryEntry.previousPrFeedback = "Address requested changes";
 
     await vi.advanceTimersByTimeAsync(20_000);
 
     expect(harness.launchWorker).toHaveBeenCalledWith(issue, 2, {
       claimHeld: true,
       previousThreadId: "session-abc",
-      previousPrFeedback: "Address requested changes",
     });
     expect(harness.retryEntries.has(issue.id)).toBe(false);
   });

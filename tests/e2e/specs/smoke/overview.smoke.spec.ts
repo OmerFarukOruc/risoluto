@@ -28,10 +28,10 @@ test.describe("Overview Smoke", () => {
   test("shows token burn session totals", async ({ page }) => {
     const overview = new OverviewPage(page);
     await expect(overview.tokenBurnSection).toBeVisible({ timeout: 5000 });
-    // Verify token counts from the mock (15K input, 8K output, 23K total)
+    // Verify input/output counts from the mock (15K input, 8K output).
+    // The token strip shows Input, Output, Runtime, Cost — no combined total card.
     await expect(page.getByText("15K")).toBeVisible();
     await expect(page.getByText("8K")).toBeVisible();
-    await expect(page.getByText("23K")).toBeVisible();
   });
 
   test("shows recent events section", async ({ page }) => {

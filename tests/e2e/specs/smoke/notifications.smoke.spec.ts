@@ -40,7 +40,7 @@ test.describe("Notifications Smoke", () => {
   test("renders the persisted notification timeline", async ({ page }) => {
     await expect(page.getByText("Worker failed")).toBeVisible();
     await expect(page.getByText("ENG-1 crashed during review")).toBeVisible();
-    await expect(page.locator(".mc-stat-card-label").filter({ hasText: "Unread" })).toBeVisible();
+    await expect(page.locator(".notifications-summary-label").filter({ hasText: "Unread" })).toBeVisible();
   });
 
   test("marks the notifications sidebar item active", async ({ page }) => {

@@ -5,6 +5,7 @@ dist/
 .symphony/
 .sisyphus/
 .stitch/
+design-handoff/
 
 # Logs and local runtime output
 *.log
@@ -17,6 +18,7 @@ dist/
 # Coverage and test artifacts
 coverage/
 reports/
+.stryker-tmp/
 
 # Playwright E2E test artifacts
 playwright-report/

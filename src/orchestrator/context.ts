@@ -3,60 +3,13 @@ import type { OrchestratorDeps, RunningEntry } from "./runtime-types.js";
 import type { LaunchWorkerOptions } from "./runtime-types.js";
 import type { StallEvent } from "./stall-detector.js";
 import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
-import type { GitDiffPort, GitPostRunPort } from "../git/port.js";
 import type { NotificationEvent } from "../notification/channel.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
-import type { WorkspaceRemovalResult } from "../workspace/manager.js";
 import type { OutcomeViewInput } from "./snapshot-builder.js";
 import type { LifecycleState } from "./core/lifecycle-state.js";
-import type { RetryCoordinator } from "./retry-coordinator-port.js";
-
-export type { RetryCoordinator };
-
-/** Shared context type for outcome handlers. Used internally by worker-outcome.ts. */
-export interface OutcomeContext {
-  runningEntries: Map<string, RunningEntry>;
-  completedViews: Map<string, RuntimeIssueView>;
-  detailViews: Map<string, RuntimeIssueView>;
-  deps: {
-    tracker: {
-      fetchIssueStatesByIds: (ids: string[]) => Promise<Issue[]>;
-      resolveStateId: (stateName: string) => Promise<string | null>;
-      updateIssueState: (issueId: string, stateId: string) => Promise<void>;
-      createComment: (issueId: string, body: string) => Promise<void>;
-    };
-    attemptStore: {
-      updateAttempt: (attemptId: string, patch: Record<string, unknown>) => Promise<void>;
-      appendEvent?: (event: import("../core/types.js").AttemptEvent) => Promise<void>;
-      appendCheckpoint?: (
-        checkpoint: Omit<import("../core/types.js").AttemptCheckpointRecord, "checkpointId" | "ordinal">,
-      ) => Promise<void>;
-      upsertPr?: (pr: import("../core/attempt-store-port.js").UpsertPrInput) => Promise<void>;
-    };
-    workspaceManager: {
-      removeWorkspace: (identifier: string, issue?: Issue) => Promise<void>;
-      removeWorkspaceWithResult?: (identifier: string, issue?: Issue) => Promise<WorkspaceRemovalResult>;
-    };
-    gitManager?: GitPostRunPort & GitDiffPort;
-    eventBus?: TypedEventBus<RisolutoEventMap>;
-    logger: {
-      info: (meta: Record<string, unknown>, message: string) => void;
-      warn: (meta: Record<string, unknown>, message: string) => void;
-    };
-  };
-  isRunning: () => boolean;
-  getConfig: () => ServiceConfig;
-  releaseIssueClaim: (issueId: string) => void;
-  suppressIssueDispatch?: (issue: Issue) => void;
-  markDirty: () => void;
-  resolveModelSelection: (identifier: string) => ModelSelection;
-  buildOutcomeView: (input: OutcomeViewInput) => RuntimeIssueView;
-  setDetailView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
-  setCompletedView: (identifier: string, view: RuntimeIssueView) => RuntimeIssueView;
-  notify: (event: NotificationEvent) => void;
-  retryCoordinator: RetryCoordinator;
-}
+export type { OutcomeContext, RetryCoordinator } from "./outcome-context.js";
+import type { RetryCoordinator } from "./outcome-context.js";
 
 export interface OrchestratorContext {
   running: LifecycleState["running"];

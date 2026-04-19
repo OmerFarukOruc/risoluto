@@ -69,7 +69,7 @@ pnpm run test:frontend               # frontend unit tests
 pnpm exec playwright test --project=smoke     # E2E smoke (mocked API)
 pnpm exec playwright test --project=visual    # visual regression
 pnpm exec playwright test --project=visual --update-snapshots   # regen baselines
-pnpm run test:mutation:incremental   # Stryker (opt-in / nightly)
+pnpm run mutate                      # Stryker on changed src/ files only (agent-initiated)
 ./scripts/run-e2e.sh                 # full lifecycle against real Linear+GitHub
 
 # Quality
@@ -127,6 +127,12 @@ Recurring fixes — write the good form first time:
 - **UI changes are not done until `/visual-verify` runs.** Trigger after any edit under `frontend/src/**` or any backend file that changes HTML / API responses rendered by the UI. Part of DoD, not optional.
 - Dashboard changes also need Playwright E2E coverage: POMs in `tests/e2e/pages/` (extend `BasePage`), mocks via `ApiMock` + `ScenarioBuilder` in `tests/e2e/mocks/`, fixtures in `tests/e2e/fixtures/test.ts`. Use `freezeClock(page)` before visual tests for deterministic timestamps.
 - Visual snapshot regeneration is explicit (`--update-snapshots`) — never auto-accept diffs.
+
+### Mutation Testing (optional, agent-initiated)
+
+After writing or modifying tests in a focused area, run `pnpm run mutate` to mutation-test only the files you changed (`git diff` + untracked under `src/`). Read surviving mutants from the output and tighten the tests until they're killed — or document why a survivor is acceptable (e.g., a perf optimization with no observable behavior). First run on a fresh file is slow (~1–2 min per file); subsequent runs use the incremental cache in `reports/mutation/incremental.json`.
+
+This is a quality check, not a gate. It does not run in CI or pre-push. Reach for it when you've added a non-trivial unit of test coverage and want to verify the tests actually exercise the code.
 
 ## Docs to Keep Truthful
 

@@ -1,0 +1,19 @@
+{
+  "skill_name": "risoluto-researcher",
+  "evals": [
+    {
+      "id": 1,
+      "name": "symphony-repo-extraction",
+      "prompt": "Research the OpenAI Symphony reference implementation at https://github.com/openai/symphony — it's the Elixir project Risoluto is patterned after, so I want to know feature-by-feature where we align, where we've diverged, and what's in Symphony that isn't on our spine yet.",
+      "expected_output": "A per-target markdown file at research/openai-symphony.md containing a metadata block with commit SHA + repo health, spine-alignment section with one entry per mock-spine feature (legend code + evidence), target-novel features section with [NEW] entries, candidate flags section, coverage manifest, and a run-history row. INDEX.md also updated.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "aider-website-crawl",
+      "prompt": "Analyze the Aider project at https://aider.chat for feature alignment against the Risoluto spine. Follow links to /docs, /features, and any changelog you find. Aider is an interactive CLI rather than an orchestrator, so expect many Risoluto features to show as [R!] (Risoluto-only).",
+      "expected_output": "A per-target markdown file at research/aider-chat.md with website-crawl metadata (fetch date, pages visited), spine-alignment entries, [NEW] entries for interactive-CLI features not on our orchestrator-shaped spine, candidate flags, coverage manifest, and INDEX.md update.",
+      "files": []
+    }
+  ]
+}

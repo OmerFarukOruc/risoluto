@@ -99,10 +99,6 @@ const TELEMETRY_EVENTS: ReadonlySet<string> = new Set([
   "turn_diff",
 ]);
 
-export function isTelemetryEvent(kind: string): boolean {
-  return TELEMETRY_EVENTS.has(kind);
-}
-
 const STEP_KIND_MAP: Record<string, StepKind> = {
   reasoning: "reasoning",
   reasoning_delta: "reasoning",

@@ -13,6 +13,7 @@ import {
   clearComparedAttempts,
   comparedAttempts,
   createRunsState,
+  cycleSortColumn,
   moveActiveAttempt,
   setActiveAttempt,
   setAttemptDetail,
@@ -23,7 +24,7 @@ import {
 } from "./runs-state.js";
 import { renderRunsLoadingPanel, renderRunsSummary } from "./runs-detail.js";
 import { createRunsCompare } from "./runs-compare.js";
-import { createRunsTable } from "./runs-table.js";
+import { createRunsTable, updateRunsTableState } from "./runs-table.js";
 
 export function createRunsPage(issueId: string): HTMLElement {
   const state = createRunsState(issueId);
@@ -129,26 +130,39 @@ export function createRunsPage(issueId: string): HTMLElement {
       );
       return;
     }
-    tableColumn.replaceChildren(
-      createRunsTable({
-        attempts: state.attempts,
-        activeAttemptId: state.activeAttemptId,
-        compareAttemptIds: state.compareAttemptIds,
-        onSelect: (attemptId) => {
-          setActiveAttempt(state, attemptId);
-          if (shouldLoadActiveDetail(state)) {
-            void loadDetail(attemptId);
-          }
-          render();
-        },
-        onToggleCompare: (attemptId) => {
-          if (!toggleCompareAttempt(state, attemptId)) {
-            toast("Compare mode is limited to two runs.", "info");
-          }
-          render();
-        },
-      }),
-    );
+    const existingWrap = tableColumn.querySelector<HTMLElement>(".runs-table-wrap");
+    const scopedUpdateApplied =
+      existingWrap !== null &&
+      updateRunsTableState(existingWrap, state.attempts, state.activeAttemptId, state.compareAttemptIds);
+    if (!scopedUpdateApplied) {
+      tableColumn.replaceChildren(
+        createRunsTable({
+          attempts: state.attempts,
+          activeAttemptId: state.activeAttemptId,
+          compareAttemptIds: state.compareAttemptIds,
+          sortColumn: state.sortColumn,
+          sortDirection: state.sortDirection,
+          issueIdentifier: state.issueIdentifier,
+          onSelect: (attemptId) => {
+            setActiveAttempt(state, attemptId);
+            if (shouldLoadActiveDetail(state)) {
+              void loadDetail(attemptId);
+            }
+            render();
+          },
+          onToggleCompare: (attemptId) => {
+            if (!toggleCompareAttempt(state, attemptId)) {
+              toast("Compare mode is limited to two runs.", "info");
+            }
+            render();
+          },
+          onSort: (column) => {
+            cycleSortColumn(state, column);
+            render();
+          },
+        }),
+      );
+    }
 
     const selected = comparedAttempts(state);
     if (selected.length === 2) {
@@ -218,11 +232,6 @@ export function createRunsPage(issueId: string): HTMLElement {
         toast("Compare mode is limited to two runs.", "info");
       }
       render();
-      return;
-    }
-    if (event.key === "Enter" && state.activeAttemptId) {
-      event.preventDefault();
-      router.navigate(`/attempts/${state.activeAttemptId}`);
       return;
     }
     if (event.key === "Backspace") {

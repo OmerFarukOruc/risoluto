@@ -30,7 +30,16 @@
 .runs-table-wrap {
   padding: 0;
   overflow: auto;
-  max-height: calc(100vh - 220px);
+  max-height: calc(100dvh - var(--runs-chrome-height, 220px));
+}
+
+.runs-table {
+  table-layout: fixed;
+  width: 100%;
+  /* Matches the card-stack container-query breakpoint (≤760px) so there's no
+     narrow band where horizontal scroll would appear before the card layout
+     kicks in. */
+  min-width: 760px;
 }
 
 .runs-table thead th {
@@ -43,10 +52,85 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-wider);
   font-size: var(--text-xxs);
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.runs-table thead th.runs-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--motion-fast) var(--ease-out-quart);
+}
+
+.runs-table thead th.runs-sortable:hover {
+  color: var(--text-primary);
+}
+
+.runs-table thead th.is-sorted {
+  color: var(--text-primary);
+}
+
+.runs-table thead th.runs-sortable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text-accent) 70%, var(--border-strong));
+  outline-offset: -2px;
+}
+
+.runs-sort-indicator {
+  display: inline-block;
+  margin-left: var(--space-1);
+  /* Reserve 1ch so toggling the arrow doesn't reflow neighboring columns. */
+  min-width: 1ch;
+  color: var(--text-accent);
 }
 
 .runs-table tbody tr {
   height: 44px;
+}
+
+.runs-table td {
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+/* Override global .text-mono { word-break: break-all } inside the runs table */
+.runs-table .text-mono {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.runs-table .col-compare {
+  width: 36px;
+}
+.runs-table .col-run {
+  width: 72px;
+}
+.runs-table .col-status {
+  width: 124px;
+}
+.runs-table .col-start {
+  width: 132px;
+}
+.runs-table .col-duration {
+  width: 108px;
+}
+.runs-table .col-model {
+  width: 180px;
+}
+.runs-table .col-appserver {
+  width: auto;
+  min-width: 180px;
+}
+.runs-table .col-tokens {
+  width: 128px;
 }
 
 .runs-row.is-active {
@@ -63,50 +147,80 @@
   background: color-mix(in srgb, var(--status-running) 5%, var(--bg-surface));
 }
 
+.runs-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text-accent) 70%, var(--border-strong));
+  outline-offset: -2px;
+}
+
 .runs-compare-cell {
   width: 36px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.runs-compare-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 44px;
+  cursor: pointer;
+}
+
+.runs-compare-target > input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--text-accent);
 }
 
 .runs-run-cell,
 .runs-app-server,
-.runs-time-cell,
 .runs-detail-header,
 .runs-compare-card-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
-.runs-run-cell {
-  flex-wrap: wrap;
+.runs-run-cell > strong {
+  flex-shrink: 0;
 }
 
-.runs-time-cell {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-}
-
-.runs-app-server {
-  flex-wrap: wrap;
-}
-
-.runs-live-pill {
-  color: var(--status-running);
-}
-
-.runs-error-cell {
-  max-width: 240px;
-  color: var(--text-secondary);
-  white-space: nowrap;
+.runs-app-server > strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.runs-error-cell.is-error,
-.runs-inline-error,
-.attempt-error-copy {
-  color: var(--status-blocked);
+.runs-live-pill {
+  color: var(--status-running);
+  flex-shrink: 0;
+}
+
+.runs-model-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.runs-model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.runs-reasoning-chip {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 
 .runs-summary-strip,
@@ -162,6 +276,11 @@
   margin: 0;
 }
 
+.runs-inline-error,
+.attempt-error-copy {
+  color: var(--status-blocked);
+}
+
 @media (max-width: 1100px) {
   .runs-layout {
     grid-template-columns: 1fr;
@@ -177,5 +296,24 @@
   .runs-compare-cards,
   .runs-compare-metric {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Card-stack fallback — container-queries.css switches the table to block layout;
+   restore wrapping + drop fixed row height so cells can breathe. */
+@container (max-width: 760px) {
+  .runs-table,
+  .runs-table td,
+  .runs-table .text-mono {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .runs-table td {
+    height: auto;
+  }
+
+  .runs-table {
+    min-width: 0;
   }
 }

@@ -5,7 +5,6 @@ export interface TableCellOptions {
 }
 
 export interface TableRowInteractionOptions {
-  ariaSelected?: boolean;
   keyboard?: "enter";
 }
 
@@ -60,13 +59,12 @@ export function applyTableRowInteraction(
   options: TableRowInteractionOptions = {},
 ): HTMLTableRowElement {
   row.tabIndex = 0;
-  if (options.ariaSelected !== undefined) {
-    row.setAttribute("aria-selected", String(options.ariaSelected));
-  }
   row.addEventListener("click", onActivate);
   if (options.keyboard === "enter") {
     row.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
         onActivate();
       }
     });

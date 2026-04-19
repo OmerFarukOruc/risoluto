@@ -1,5 +1,8 @@
 import type { AttemptRecord, AttemptSummary } from "../types";
 
+export type SortableColumn = "run" | "status" | "started" | "duration" | "model" | "appserver" | "tokens";
+export type SortDirection = "asc" | "desc";
+
 function compareAttempts(left: AttemptSummary, right: AttemptSummary): number {
   const leftLive = left.endedAt === null;
   const rightLive = right.endedAt === null;
@@ -12,6 +15,60 @@ function compareAttempts(left: AttemptSummary, right: AttemptSummary): number {
     return rightStarted - leftStarted;
   }
   return (right.attemptNumber ?? 0) - (left.attemptNumber ?? 0);
+}
+
+function durationSeconds(attempt: AttemptSummary): number {
+  const start = Date.parse(attempt.startedAt ?? "") || 0;
+  const end = Date.parse(attempt.endedAt ?? "") || 0;
+  if (!start || !end) {
+    return 0;
+  }
+  return (end - start) / 1000;
+}
+
+function sortValue(attempt: AttemptSummary, column: SortableColumn): number | string {
+  switch (column) {
+    case "run":
+      return attempt.attemptNumber ?? 0;
+    case "status":
+      return attempt.status ?? "";
+    case "started":
+      return Date.parse(attempt.startedAt ?? "") || 0;
+    case "duration":
+      return durationSeconds(attempt);
+    case "model":
+      return (attempt.model ?? "").toLowerCase();
+    case "appserver":
+      return (attempt.appServerBadge?.effectiveProvider ?? "").toLowerCase();
+    case "tokens":
+      return attempt.tokenUsage?.totalTokens ?? 0;
+  }
+}
+
+function applySort(state: RunsState): void {
+  if (state.sortColumn === null) {
+    state.attempts.sort(compareAttempts);
+  } else {
+    const column = state.sortColumn;
+    const direction = state.sortDirection === "asc" ? 1 : -1;
+    state.attempts.sort((left, right) => {
+      const leftValue = sortValue(left, column);
+      const rightValue = sortValue(right, column);
+      if (leftValue < rightValue) {
+        return -direction;
+      }
+      if (leftValue > rightValue) {
+        return direction;
+      }
+      return 0;
+    });
+  }
+  if (state.activeAttemptId) {
+    const index = state.attempts.findIndex((attempt) => attempt.attemptId === state.activeAttemptId);
+    if (index !== -1) {
+      state.focusIndex = index;
+    }
+  }
 }
 
 export interface RunsState {
@@ -27,6 +84,8 @@ export interface RunsState {
   detailLoadingId: string | null;
   error: string | null;
   details: Map<string, AttemptRecord>;
+  sortColumn: SortableColumn | null;
+  sortDirection: SortDirection;
 }
 
 export function createRunsState(issueIdentifier: string): RunsState {
@@ -43,6 +102,8 @@ export function createRunsState(issueIdentifier: string): RunsState {
     detailLoadingId: null,
     error: null,
     details: new Map<string, AttemptRecord>(),
+    sortColumn: null,
+    sortDirection: "desc",
   };
 }
 
@@ -60,7 +121,8 @@ export function setRunsData(
   state.issueTitle = payload.issueTitle;
   state.issueStatus = payload.issueStatus ?? null;
   state.currentAttemptId = payload.currentAttemptId;
-  state.attempts = [...payload.attempts].sort(compareAttempts);
+  state.attempts = [...payload.attempts];
+  applySort(state);
   state.loading = false;
   state.error = null;
   state.compareAttemptIds = state.compareAttemptIds.filter((attemptId) =>
@@ -73,6 +135,19 @@ export function setRunsData(
     0,
     state.attempts.findIndex((attempt) => attempt.attemptId === state.activeAttemptId),
   );
+}
+
+export function cycleSortColumn(state: RunsState, column: SortableColumn): void {
+  if (state.sortColumn !== column) {
+    state.sortColumn = column;
+    state.sortDirection = "asc";
+  } else if (state.sortDirection === "asc") {
+    state.sortDirection = "desc";
+  } else {
+    state.sortColumn = null;
+    state.sortDirection = "desc";
+  }
+  applySort(state);
 }
 
 export function setRunsError(state: RunsState, message: string): void {

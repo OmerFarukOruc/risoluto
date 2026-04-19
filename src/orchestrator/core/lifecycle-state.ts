@@ -37,11 +37,6 @@ export interface LifecycleState {
   markDirty: () => void;
 }
 
-export type LifecycleCommand =
-  | { type: "reconcile_running_entries"; issuesById: ReadonlyMap<string, Issue> }
-  | { type: "project_queue_views"; candidateIssues: readonly Issue[] }
-  | { type: "seed_completed_claims"; attempts: readonly AttemptRecord[] };
-
 export interface RunningEntryReconciliationPlan {
   issueId: string;
   latestIssue: Issue | null;

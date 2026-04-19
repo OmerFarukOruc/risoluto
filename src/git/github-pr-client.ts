@@ -57,11 +57,9 @@ function isDuplicatePrError(error: unknown): boolean {
   }
   const payload = error.payload as Record<string, unknown>;
 
-  // Check top-level message first.
   const message = typeof payload.message === "string" ? payload.message : "";
   if (message.includes("already exists")) return true;
 
-  // Check nested error messages (GitHub validation errors array).
   const errors = payload.errors;
   if (!Array.isArray(errors)) return false;
 

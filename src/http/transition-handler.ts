@@ -58,14 +58,12 @@ export async function handleTransition(deps: TransitionDeps, req: Request, res: 
     return;
   }
 
-  // Resolve workflow state UUID (team-filtered when project slug is configured)
   const stateId = await deps.tracker.resolveStateId(targetState);
   if (!stateId) {
     res.status(422).json({ ok: false, reason: `No tracker state found matching: ${targetState}` });
     return;
   }
 
-  // Execute transition via tracker API
   const { success } = await deps.tracker.transitionIssue(issueId, stateId);
 
   if (!success) {

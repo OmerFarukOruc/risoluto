@@ -100,8 +100,6 @@ export class DbConfigStore implements ConfigOverlayPort {
     this.logger.info("config refreshed from DB");
   }
 
-  // --- ConfigStore-compatible surface ---
-
   getWorkflow(): WorkflowDefinition {
     if (!this.cachedWorkflow) throw new Error("DbConfigStore not started — call refresh() first");
     return this.cachedWorkflow;
@@ -119,8 +117,6 @@ export class DbConfigStore implements ConfigOverlayPort {
   validateDispatch(): ValidationError | null {
     return validateDispatch(this.getConfig());
   }
-
-  // --- ConfigOverlayPort implementation ---
 
   toMap(): Record<string, unknown> {
     return structuredClone(this.cachedMap) as Record<string, unknown>;
@@ -174,8 +170,6 @@ export class DbConfigStore implements ConfigOverlayPort {
     };
   }
 
-  // --- Internal helpers ---
-
   private writeSections(map: Record<string, unknown>): void {
     const now = new Date().toISOString();
     const mapKeys = new Set<string>();
@@ -192,7 +186,6 @@ export class DbConfigStore implements ConfigOverlayPort {
       }
     }
 
-    // Remove DB rows for keys no longer present in the map.
     const allRows = this.db.select({ key: config.key }).from(config).all();
     for (const row of allRows) {
       if (!mapKeys.has(row.key)) {

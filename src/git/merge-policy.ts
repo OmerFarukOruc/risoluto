@@ -41,14 +41,12 @@ export function evaluateMergePolicy(
     return { allowed: false, reason: "auto-merge disabled" };
   }
 
-  // Check excludeLabels — any match blocks immediately.
   for (const label of policy.excludeLabels) {
     if (prLabels.includes(label)) {
       return { allowed: false, reason: `excluded label present: ${label}` };
     }
   }
 
-  // Check requireLabels — all must be present.
   if (policy.requireLabels.length > 0) {
     const missingLabels = policy.requireLabels.filter((label) => !prLabels.includes(label));
     if (missingLabels.length > 0) {
@@ -56,7 +54,6 @@ export function evaluateMergePolicy(
     }
   }
 
-  // Check maxChangedFiles.
   if (policy.maxChangedFiles != null && changedFiles.length > policy.maxChangedFiles) {
     return {
       allowed: false,
@@ -64,7 +61,6 @@ export function evaluateMergePolicy(
     };
   }
 
-  // Check maxDiffLines (additions + deletions).
   const totalDiffLines = diffStats.additions + diffStats.deletions;
   if (policy.maxDiffLines != null && totalDiffLines > policy.maxDiffLines) {
     return {
@@ -73,7 +69,6 @@ export function evaluateMergePolicy(
     };
   }
 
-  // Check allowedPaths — if non-empty, every changed file must match at least one prefix.
   if (policy.allowedPaths.length > 0) {
     const blockedFiles = changedFiles.filter((file) => !policy.allowedPaths.some((prefix) => file.startsWith(prefix)));
     if (blockedFiles.length > 0) {

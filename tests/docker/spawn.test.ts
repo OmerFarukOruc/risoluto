@@ -309,7 +309,7 @@ describe("buildDockerRunArgs", () => {
     const envArgs = result.args.filter((_, i) => result.args[i - 1] === "-e");
     expect(envArgs).toContain("RISOLUTO_EGRESS_ALLOWLIST=api.openai.com api.linear.app");
     // Entrypoint should contain iptables rules
-    const bashScript = result.args[result.args.length - 1];
+    const bashScript = result.args.at(-1);
     expect(bashScript).toContain("iptables -A OUTPUT");
     expect(bashScript).toContain("RISOLUTO_EGRESS_ALLOWLIST");
   });
@@ -319,7 +319,7 @@ describe("buildDockerRunArgs", () => {
     expect(result.args).not.toContain("--cap-add=NET_ADMIN");
     const envArgs = result.args.filter((_, i) => result.args[i - 1] === "-e");
     expect(envArgs).not.toEqual(expect.arrayContaining([expect.stringContaining("RISOLUTO_EGRESS_ALLOWLIST")]));
-    const bashScript = result.args[result.args.length - 1];
+    const bashScript = result.args.at(-1);
     expect(bashScript).not.toContain("iptables");
   });
 });

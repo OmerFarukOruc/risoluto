@@ -120,7 +120,6 @@ export class SqliteAttemptStore {
   }
 
   async appendCheckpoint(checkpoint: Omit<AttemptCheckpointRecord, "checkpointId" | "ordinal">): Promise<void> {
-    // Get current max ordinal and last checkpoint row in a single query.
     const lastRow = this.getDb()
       .select()
       .from(attemptCheckpoints)

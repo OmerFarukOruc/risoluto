@@ -165,7 +165,6 @@ export async function generatePrSummary(workspaceDir: string, defaultBranch: str
 
   const result = await runCodexExec(prompt, workspaceDir);
 
-  // Validate the output looks like markdown bullets
   if (result === null) return null;
   const trimmed = result.trim();
   if (trimmed.length === 0) return null;

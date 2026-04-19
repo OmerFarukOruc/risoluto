@@ -74,7 +74,6 @@ export function seedDefaults(db: RisolutoDatabase): void {
       .onConflictDoNothing()
       .run();
 
-    // Set the selected template in system config
     const systemRow = db.select().from(config).where(eq(config.key, "system")).get();
     if (systemRow) {
       const systemConfig = JSON.parse(systemRow.value) as Record<string, unknown>;

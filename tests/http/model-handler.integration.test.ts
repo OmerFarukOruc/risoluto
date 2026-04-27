@@ -25,7 +25,7 @@ describe("POST /api/v1/:issue_identifier/model — integration", () => {
   // -----------------------------------------------------------------------
   it("returns 202 with selection payload when orchestrator resolves with an update", async () => {
     const orchestrator = buildStubOrchestrator({
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: false,
@@ -50,7 +50,7 @@ describe("POST /api/v1/:issue_identifier/model — integration", () => {
 
   it("forwards reasoning_effort through to the response selection", async () => {
     const orchestrator = buildStubOrchestrator({
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: true,
         appliesNextAttempt: false,
@@ -76,7 +76,7 @@ describe("POST /api/v1/:issue_identifier/model — integration", () => {
   // 404 path — lines 26-32 in model-handler.ts
   // -----------------------------------------------------------------------
   it("returns 404 when orchestrator returns null (issue not found)", async () => {
-    // Default stub already returns null for updateIssueModelSelection
+    // Default stub already returns null for the model-selection command.
     ctx = await startTestServer();
 
     const res = await fetch(`${ctx.baseUrl}/api/v1/UNKNOWN-1/model`, {

@@ -25,7 +25,7 @@ function makeResponse(): Response & { _status: number; _body: unknown } {
 
 function makeOrchestrator(updateResult: unknown = null) {
   return {
-    updateIssueModelSelection: vi.fn().mockResolvedValue(updateResult),
+    executeCommand: vi.fn().mockResolvedValue(updateResult),
   };
 }
 
@@ -100,7 +100,13 @@ describe("handleModelUpdate", () => {
     const res = makeResponse();
     await handleModelUpdate(orch as never, makeRequest({ model: "gpt-4o" }, { issue_identifier: "MT-1" }), res);
     expect(res._status).toBe(202);
-    expect(orch.updateIssueModelSelection).toHaveBeenCalledWith(expect.objectContaining({ reasoningEffort: null }));
+    expect(orch.executeCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "update_issue_model_selection",
+        identifier: "MT-1",
+        reasoningEffort: null,
+      }),
+    );
   });
 
   it("accepts valid effort values: none, minimal, low, medium, high, xhigh", async () => {

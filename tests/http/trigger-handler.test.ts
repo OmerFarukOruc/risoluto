@@ -25,10 +25,13 @@ function makeDeps(overrides: Partial<TriggerHandlerDeps> = {}): TriggerHandlerDe
       }),
     } as TriggerHandlerDeps["tracker"],
     orchestrator: {
-      requestRefresh: vi.fn().mockReturnValue({
+      executeCommand: vi.fn().mockResolvedValue({
         queued: true,
         coalesced: false,
+        requestedAt: "2026-03-22T00:00:00Z",
+        targeted: false,
       }),
+      requestRefresh: vi.fn(),
       requestTargetedRefresh: vi.fn(),
     },
     webhookInbox: {
@@ -74,7 +77,7 @@ describe("handleTriggerDispatch", () => {
 
     await handleTriggerDispatch(deps, req, res);
 
-    expect(deps.orchestrator.requestRefresh).toHaveBeenCalledWith("trigger:re_poll");
+    expect(deps.orchestrator.executeCommand).toHaveBeenCalledWith({ type: "refresh", reason: "trigger:re_poll" });
     expect(res._status).toBe(202);
   });
 
@@ -88,7 +91,12 @@ describe("handleTriggerDispatch", () => {
 
     await handleTriggerDispatch(deps, req, res);
 
-    expect(deps.orchestrator.requestTargetedRefresh).toHaveBeenCalledWith("issue-2", "ENG-2", "trigger:refresh_issue");
+    expect(deps.orchestrator.executeCommand).toHaveBeenCalledWith({
+      type: "refresh",
+      issueId: "issue-2",
+      issueIdentifier: "ENG-2",
+      reason: "trigger:refresh_issue",
+    });
     expect(res._status).toBe(202);
   });
 
@@ -112,7 +120,12 @@ describe("handleTriggerDispatch", () => {
       description: "Production deploy is red",
       stateName: "Backlog",
     });
-    expect(deps.orchestrator.requestTargetedRefresh).toHaveBeenCalledWith("issue-1", "ENG-1", "trigger:create_issue");
+    expect(deps.orchestrator.executeCommand).toHaveBeenCalledWith({
+      type: "refresh",
+      issueId: "issue-1",
+      issueIdentifier: "ENG-1",
+      reason: "trigger:create_issue",
+    });
     expect(res._status).toBe(202);
   });
 
@@ -135,7 +148,7 @@ describe("handleTriggerDispatch", () => {
 
     expect(res._status).toBe(200);
     expect(res._body).toMatchObject({ ok: true, duplicate: true });
-    expect(deps.orchestrator.requestRefresh).not.toHaveBeenCalled();
+    expect(deps.orchestrator.executeCommand).not.toHaveBeenCalled();
   });
 
   it("returns 403 when the action is outside the allowlist", async () => {

@@ -34,16 +34,11 @@ export async function handleTemplateOverride(
     return;
   }
 
-  const updated =
-    typeof orchestrator.executeCommand === "function"
-      ? await orchestrator.executeCommand({
-          type: "set_issue_template_override",
-          identifier,
-          templateId,
-        })
-      : orchestrator.updateIssueTemplateOverride(identifier, templateId)
-        ? { updated: true, appliesNextAttempt: true }
-        : null;
+  const updated = await orchestrator.executeCommand({
+    type: "set_issue_template_override",
+    identifier,
+    templateId,
+  });
   if (!updated) {
     issueNotFound(response);
     return;
@@ -67,15 +62,10 @@ export async function handleTemplateClear(
 ): Promise<void> {
   const identifier = String(request.params.issue_identifier);
 
-  const cleared =
-    typeof orchestrator.executeCommand === "function"
-      ? await orchestrator.executeCommand({
-          type: "clear_issue_template_override",
-          identifier,
-        })
-      : orchestrator.clearIssueTemplateOverride(identifier)
-        ? { cleared: true }
-        : null;
+  const cleared = await orchestrator.executeCommand({
+    type: "clear_issue_template_override",
+    identifier,
+  });
   if (!cleared) {
     issueNotFound(response);
     return;

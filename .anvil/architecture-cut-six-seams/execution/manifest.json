@@ -1,0 +1,81 @@
+{
+  "run": "architecture-cut-six-seams",
+  "phase": "execution",
+  "status": "pushed-reviewable-checkpoint",
+  "worktree": "/home/oruc/Desktop/workspace/risoluto-worktrees/architecture-cut-six-seams",
+  "integration_branch": "chore/batch-architecture-cut-six-seams",
+  "base_commit": "f7ed42e",
+  "commit": "branch HEAD at push time",
+  "pr": null,
+  "worker_dispatch": {
+    "used": false,
+    "reason": "Delegation was not explicitly authorized in this session, so the plan was implemented serially in the integration worktree."
+  },
+  "units": [
+    {
+      "name": "workspace inventory seam",
+      "status": "complete",
+      "summary": "Moved disk inventory, size and mtime calculation, classification, safe path checks, and removal into src/workspace/inventory.ts while keeping HTTP snake_case mapping in src/http/workspace-inventory.ts."
+    },
+    {
+      "name": "orchestrator command cleanup",
+      "status": "complete",
+      "summary": "Removed legacy write shortcuts from OrchestratorPort and Orchestrator and routed HTTP writes through executeCommand directly."
+    },
+    {
+      "name": "frontend runtime and settings facade cleanup",
+      "status": "complete",
+      "summary": "Deleted polling, event-source, and unified settings facades; imports now target runtime-client and the feature-local settings page directly."
+    },
+    {
+      "name": "webhook runtime cleanup",
+      "status": "complete",
+      "summary": "Made src/webhook/runtime.ts the real runtime implementation and removed the service alias file."
+    },
+    {
+      "name": "sqlite schema ownership split",
+      "status": "complete",
+      "summary": "Kept database open/close in database.ts and moved schema bootstrap and v4-v8 migrations behind ensureSqliteSchema(...)."
+    },
+    {
+      "name": "lifecycle-state write helpers",
+      "status": "complete",
+      "summary": "Added running and retry write helpers and migrated production write paths away from direct Map set/delete/clear calls."
+    }
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec vitest run tests/http/routes.test.ts tests/http/api-contracts.test.ts tests/http/load.test.ts tests/orchestrator/restart-recovery.integration.test.ts tests/http/model-handler.integration.test.ts",
+      "status": "passed",
+      "note": "Vitest selected 2 matching files in this configuration and reported 45 passing tests."
+    },
+    {
+      "command": "pnpm run format:check",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm run typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm run typecheck:frontend",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm run build",
+      "status": "passed",
+      "note": "Vite emitted existing large-chunk warnings only."
+    },
+    {
+      "command": "pnpm run lint",
+      "status": "passed",
+      "note": "0 errors, 87 warning-only baseline/max-lines/naming warnings."
+    },
+    {
+      "command": "pnpm test",
+      "status": "passed",
+      "note": "292 files passed; 3723 passed, 1 skipped, 3724 total."
+    }
+  ],
+  "updated_at": "2026-04-27T10:41:32Z"
+}

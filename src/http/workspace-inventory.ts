@@ -1,12 +1,13 @@
-import { readdir, rm, stat } from "node:fs/promises";
-import path from "node:path";
-import { isWithinRoot } from "../workspace/paths.js";
-
 import type { Request, Response } from "express";
 
 import type { ConfigStore } from "../config/store.js";
-import type { RuntimeIssueView } from "../core/types.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
+import {
+  listWorkspaceInventory,
+  removeWorkspaceDirectory,
+  type WorkspaceInventoryEntry as DomainWorkspaceInventoryEntry,
+  type WorkspaceInventoryResult as DomainWorkspaceInventoryResult,
+} from "../workspace/inventory.js";
 import type { WorkspacePort } from "../workspace/port.js";
 
 /* ------------------------------------------------------------------ */
@@ -36,84 +37,6 @@ interface WorkspaceInventoryResponse {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Disk usage helpers                                                  */
-/* ------------------------------------------------------------------ */
-
-async function computeDirSize(dirPath: string): Promise<number> {
-  let total = 0;
-  try {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const isDirectory = entry.isDirectory();
-      const isFile = entry.isFile();
-      if (!isDirectory && !isFile) continue;
-
-      const fullPath = path.join(dirPath, entry.name);
-      if (isDirectory) {
-        total += await computeDirSize(fullPath);
-      } else {
-        const info = await stat(fullPath);
-        total += info.size;
-      }
-    }
-  } catch {
-    // Permission errors or race conditions — return what we have
-  }
-  return total;
-}
-
-async function getDirMtime(dirPath: string): Promise<string | null> {
-  try {
-    const info = await stat(dirPath);
-    return info.mtime.toISOString();
-  } catch {
-    return null;
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Workspace classification                                            */
-/* ------------------------------------------------------------------ */
-
-interface WorkspaceStatus {
-  status: "running" | "retrying" | "completed" | "orphaned";
-  issue: { identifier: string; title: string; state: string } | null;
-}
-
-function classifyWorkspace(
-  key: string,
-  runningViews: RuntimeIssueView[],
-  retryingViews: RuntimeIssueView[],
-  completedViews: RuntimeIssueView[],
-): WorkspaceStatus {
-  const running = runningViews.find((v) => v.workspaceKey === key);
-  if (running) {
-    return {
-      status: "running" as const,
-      issue: { identifier: running.identifier, title: running.title, state: running.state },
-    };
-  }
-
-  const retrying = retryingViews.find((v) => v.workspaceKey === key);
-  if (retrying) {
-    return {
-      status: "retrying" as const,
-      issue: { identifier: retrying.identifier, title: retrying.title, state: retrying.state },
-    };
-  }
-
-  const completed = completedViews.find((v) => v.workspaceKey === key);
-  if (completed) {
-    return {
-      status: "completed" as const,
-      issue: { identifier: completed.identifier, title: completed.title, state: completed.state },
-    };
-  }
-
-  return { status: "orphaned", issue: null };
-}
-
-/* ------------------------------------------------------------------ */
 /*  Handler                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -121,6 +44,36 @@ export interface WorkspaceInventoryDeps {
   orchestrator: OrchestratorPort;
   configStore?: ConfigStore;
   workspaceManager: Pick<WorkspacePort, "withLock">;
+}
+
+function toHttpEntry(entry: DomainWorkspaceInventoryEntry): WorkspaceInventoryEntry {
+  return {
+    workspace_key: entry.workspaceKey,
+    path: entry.path,
+    status: entry.status,
+    strategy: entry.strategy,
+    issue: entry.issue,
+    disk_bytes: entry.diskBytes,
+    last_modified_at: entry.lastModifiedAt,
+  };
+}
+
+function toHttpResponse(inventory: DomainWorkspaceInventoryResult): WorkspaceInventoryResponse {
+  return {
+    workspaces: inventory.workspaces.map(toHttpEntry),
+    generated_at: inventory.generatedAt,
+    total: inventory.total,
+    active: inventory.active,
+    orphaned: inventory.orphaned,
+  };
+}
+
+function activeWorkspaceKeys(snapshot: ReturnType<OrchestratorPort["getSnapshot"]>): Set<string> {
+  return new Set(
+    [...snapshot.running, ...(snapshot.retrying ?? [])]
+      .map((view) => view.workspaceKey)
+      .filter((workspaceKey): workspaceKey is string => typeof workspaceKey === "string" && workspaceKey.length > 0),
+  );
 }
 
 export async function handleWorkspaceInventory(
@@ -138,59 +91,15 @@ export async function handleWorkspaceInventory(
   }
 
   const snapshot = deps.orchestrator.getSnapshot();
+  const inventory = await listWorkspaceInventory({
+    workspaceRoot,
+    strategy,
+    runningViews: snapshot.running,
+    retryingViews: snapshot.retrying ?? [],
+    completedViews: snapshot.completed ?? [],
+  });
 
-  let fsEntries: string[];
-  try {
-    const entries = await readdir(workspaceRoot, { withFileTypes: true });
-    fsEntries = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      res.json({
-        workspaces: [],
-        generated_at: new Date().toISOString(),
-        total: 0,
-        active: 0,
-        orphaned: 0,
-      } satisfies WorkspaceInventoryResponse);
-      return;
-    }
-    throw error;
-  }
-
-  const workspaces: WorkspaceInventoryEntry[] = await Promise.all(
-    fsEntries.map(async (key) => {
-      const wsPath = path.join(workspaceRoot, key);
-      const { status, issue } = classifyWorkspace(key, snapshot.running, snapshot.retrying, snapshot.completed ?? []);
-
-      const [diskBytes, lastModified] = await Promise.all([computeDirSize(wsPath), getDirMtime(wsPath)]);
-
-      return {
-        workspace_key: key,
-        path: wsPath,
-        status,
-        strategy,
-        issue,
-        disk_bytes: diskBytes,
-        last_modified_at: lastModified,
-      };
-    }),
-  );
-
-  const statusOrder: Record<string, number> = { running: 0, retrying: 1, completed: 2, orphaned: 3 };
-  workspaces.sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
-
-  const active = workspaces.filter((w) => w.status === "running" || w.status === "retrying").length;
-  const orphaned = workspaces.filter((w) => w.status === "orphaned").length;
-
-  const response: WorkspaceInventoryResponse = {
-    workspaces,
-    generated_at: new Date().toISOString(),
-    total: workspaces.length,
-    active,
-    orphaned,
-  };
-
-  res.json(response);
+  res.json(toHttpResponse(inventory));
 }
 
 export async function handleWorkspaceRemove(deps: WorkspaceInventoryDeps, req: Request, res: Response): Promise<void> {
@@ -208,40 +117,27 @@ export async function handleWorkspaceRemove(deps: WorkspaceInventoryDeps, req: R
     return;
   }
 
-  const resolvedRoot = path.resolve(workspaceRoot);
-  const wsPath = path.resolve(workspaceRoot, workspaceKey);
-
-  if (wsPath === resolvedRoot || !isWithinRoot(resolvedRoot, wsPath)) {
-    res.status(400).json({ error: { code: "bad_request", message: "Invalid workspace key" } });
-    return;
-  }
-
   await deps.workspaceManager.withLock(workspaceKey, async () => {
     const snapshot = deps.orchestrator.getSnapshot();
-    const isRetryingActive =
-      Array.isArray(snapshot.retrying) && snapshot.retrying.some((view) => view.workspaceKey === workspaceKey);
-    const isActive = snapshot.running.some((view) => view.workspaceKey === workspaceKey) || isRetryingActive;
+    const result = await removeWorkspaceDirectory({
+      workspaceRoot,
+      workspaceKey,
+      activeWorkspaceKeys: activeWorkspaceKeys(snapshot),
+    });
 
-    if (isActive) {
-      res.status(409).json({ error: { code: "conflict", message: "Cannot remove an active workspace" } });
-      return;
-    }
-
-    try {
-      const info = await stat(wsPath);
-      if (!info.isDirectory()) {
+    switch (result.status) {
+      case "removed":
+        res.status(204).end();
+        return;
+      case "invalid_key":
+        res.status(400).json({ error: { code: "bad_request", message: "Invalid workspace key" } });
+        return;
+      case "active":
+        res.status(409).json({ error: { code: "conflict", message: "Cannot remove an active workspace" } });
+        return;
+      case "not_found":
         res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
         return;
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        res.status(404).json({ error: { code: "not_found", message: "Workspace not found" } });
-        return;
-      }
-      throw error;
     }
-
-    await rm(wsPath, { recursive: true, force: true });
-    res.status(204).end();
   });
 }

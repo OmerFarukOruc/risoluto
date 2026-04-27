@@ -214,6 +214,41 @@ export function setRateLimitsInState(state: LifecycleState, rateLimits: unknown)
   state.markDirty();
 }
 
+export function setRunningEntryInState(state: LifecycleState, issueId: string, entry: RunningEntry): void {
+  state.runningEntries.set(issueId, entry);
+  state.markDirty();
+}
+
+export function deleteRunningEntryInState(state: LifecycleState, issueId: string): boolean {
+  const deleted = state.runningEntries.delete(issueId);
+  if (deleted) {
+    state.markDirty();
+  }
+  return deleted;
+}
+
+export function setRetryEntryInState(state: LifecycleState, issueId: string, entry: RetryRuntimeEntry): void {
+  state.retryEntries.set(issueId, entry);
+  state.markDirty();
+}
+
+export function deleteRetryEntryInState(state: LifecycleState, issueId: string): boolean {
+  const deleted = state.retryEntries.delete(issueId);
+  if (deleted) {
+    state.markDirty();
+  }
+  return deleted;
+}
+
+export function clearRetryEntriesInState(state: LifecycleState): boolean {
+  if (state.retryEntries.size === 0) {
+    return false;
+  }
+  state.retryEntries.clear();
+  state.markDirty();
+  return true;
+}
+
 export function setDetailViewInState(
   state: LifecycleState,
   identifier: string,

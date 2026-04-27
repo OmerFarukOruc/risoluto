@@ -1,12 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  connectEventSource,
-  subscribeNotificationUpdates,
-  subscribeIssueEvents,
-  subscribeAllEvents,
-  type AgentEventPayload,
-} from "../../frontend/src/state/event-source";
+import { getRuntimeClient, type AgentEventPayload } from "../../frontend/src/state/runtime-client";
 import { resetRuntimeClientForTesting } from "../../frontend/src/state/runtime-client";
 
 const fakeTarget = new EventTarget();
@@ -75,20 +69,20 @@ describe("subscribeIssueEvents", () => {
   });
 
   it("calls the handler when the identifier matches", () => {
-    unsubscribe = subscribeIssueEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeIssueEvents("ENG-1", handler);
     dispatch(makePayload({ identifier: "ENG-1" }));
     expect(handler).toHaveBeenCalledOnce();
     expect(handler).toHaveBeenCalledWith(makePayload({ identifier: "ENG-1" }));
   });
 
   it("ignores events for a different identifier", () => {
-    unsubscribe = subscribeIssueEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeIssueEvents("ENG-1", handler);
     dispatch(makePayload({ identifier: "ENG-2" }));
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("returns an unsubscribe function that stops further calls", () => {
-    unsubscribe = subscribeIssueEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeIssueEvents("ENG-1", handler);
     unsubscribe();
     dispatch(makePayload({ identifier: "ENG-1" }));
     expect(handler).not.toHaveBeenCalled();
@@ -96,8 +90,8 @@ describe("subscribeIssueEvents", () => {
 
   it("supports multiple independent subscriptions for the same identifier", () => {
     const handler2 = vi.fn();
-    unsubscribe = subscribeIssueEvents("ENG-1", handler);
-    const unsub2 = subscribeIssueEvents("ENG-1", handler2);
+    unsubscribe = getRuntimeClient().subscribeIssueEvents("ENG-1", handler);
+    const unsub2 = getRuntimeClient().subscribeIssueEvents("ENG-1", handler2);
     dispatch(makePayload({ identifier: "ENG-1" }));
     expect(handler).toHaveBeenCalledOnce();
     expect(handler2).toHaveBeenCalledOnce();
@@ -122,7 +116,7 @@ describe("subscribeAllEvents", () => {
   });
 
   it("calls handler when identifier matches", () => {
-    unsubscribe = subscribeAllEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeAllEvents("ENG-1", handler);
     dispatchAnyEvent("agent.event", { identifier: "ENG-1", message: "hello" });
     expect(handler).toHaveBeenCalledOnce();
     expect(handler).toHaveBeenCalledWith({
@@ -132,26 +126,26 @@ describe("subscribeAllEvents", () => {
   });
 
   it("ignores events for a different identifier", () => {
-    unsubscribe = subscribeAllEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeAllEvents("ENG-1", handler);
     dispatchAnyEvent("agent.event", { identifier: "ENG-2", message: "hello" });
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("ignores events without a payload", () => {
-    unsubscribe = subscribeAllEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeAllEvents("ENG-1", handler);
     fakeTarget.dispatchEvent(new CustomEvent("risoluto:any-event", { detail: { type: "agent.event" } }));
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("returns an unsubscribe function that stops further calls", () => {
-    unsubscribe = subscribeAllEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeAllEvents("ENG-1", handler);
     unsubscribe();
     dispatchAnyEvent("agent.event", { identifier: "ENG-1", message: "hello" });
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("forwards the event type along with the payload", () => {
-    unsubscribe = subscribeAllEvents("ENG-1", handler);
+    unsubscribe = getRuntimeClient().subscribeAllEvents("ENG-1", handler);
     dispatchAnyEvent("issue.started", { identifier: "ENG-1", status: "running" });
     dispatchAnyEvent("worker.failed", { identifier: "ENG-1", error: "timeout" });
     expect(handler).toHaveBeenCalledTimes(2);
@@ -169,7 +163,7 @@ describe("subscribeAllEvents", () => {
 describe("subscribeNotificationUpdates", () => {
   it("calls the handler for both created and updated notification events", () => {
     const handler = vi.fn();
-    const unsubscribe = subscribeNotificationUpdates(handler);
+    const unsubscribe = getRuntimeClient().subscribeNotificationUpdates(handler);
 
     fakeTarget.dispatchEvent(new CustomEvent("risoluto:notification-created"));
     fakeTarget.dispatchEvent(new CustomEvent("risoluto:notification-updated"));
@@ -180,7 +174,7 @@ describe("subscribeNotificationUpdates", () => {
 
   it("returns an unsubscribe function that removes both listeners", () => {
     const handler = vi.fn();
-    const unsubscribe = subscribeNotificationUpdates(handler);
+    const unsubscribe = getRuntimeClient().subscribeNotificationUpdates(handler);
 
     unsubscribe();
     fakeTarget.dispatchEvent(new CustomEvent("risoluto:notification-created"));
@@ -207,7 +201,7 @@ describe("connectEventSource", () => {
     // @ts-expect-error test override
     global.window.location.href = "http://127.0.0.1:4000/?read_token=read-secret";
 
-    connectEventSource();
+    getRuntimeClient().connectEventSource();
 
     expect(eventSourceSpy).toHaveBeenCalledWith("/api/v1/events?read_token=read-secret");
     expect(global.window.history.replaceState).toHaveBeenCalled();

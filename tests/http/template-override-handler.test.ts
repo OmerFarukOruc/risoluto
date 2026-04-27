@@ -25,13 +25,20 @@ function makeResponse(): Response & { _status: number; _body: unknown } {
 
 function makeOrchestrator(
   overrides: {
-    updateIssueTemplateOverride?: boolean;
-    clearIssueTemplateOverride?: boolean;
+    setResult?: unknown;
+    clearResult?: unknown;
   } = {},
 ) {
   return {
-    updateIssueTemplateOverride: vi.fn().mockReturnValue(overrides.updateIssueTemplateOverride ?? true),
-    clearIssueTemplateOverride: vi.fn().mockReturnValue(overrides.clearIssueTemplateOverride ?? true),
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string }) => {
+      if (command.type === "set_issue_template_override") {
+        return overrides.setResult === undefined ? { updated: true, appliesNextAttempt: true } : overrides.setResult;
+      }
+      if (command.type === "clear_issue_template_override") {
+        return overrides.clearResult === undefined ? { cleared: true } : overrides.clearResult;
+      }
+      return null;
+    }),
   };
 }
 
@@ -42,12 +49,12 @@ function makeTemplateStore(template: { id: string; name: string } | null = { id:
 }
 
 describe("handleTemplateOverride", () => {
-  it("returns 202 with updated shape on success", () => {
+  it("returns 202 with updated shape on success", async () => {
     const res = makeResponse();
     const orch = makeOrchestrator();
     const store = makeTemplateStore();
 
-    handleTemplateOverride(
+    await handleTemplateOverride(
       orch as never,
       store as never,
       makeRequest({ template_id: "tmpl-1" }, { issue_identifier: "MT-1" }),
@@ -60,27 +67,31 @@ describe("handleTemplateOverride", () => {
     expect(body.applies_next_attempt).toBe(true);
   });
 
-  it("calls updateIssueTemplateOverride with correct args", () => {
+  it("calls executeCommand with correct args", async () => {
     const res = makeResponse();
     const orch = makeOrchestrator();
     const store = makeTemplateStore();
 
-    handleTemplateOverride(
+    await handleTemplateOverride(
       orch as never,
       store as never,
       makeRequest({ template_id: "tmpl-abc" }, { issue_identifier: "MT-2" }),
       res,
     );
 
-    expect(orch.updateIssueTemplateOverride).toHaveBeenCalledWith("MT-2", "tmpl-abc");
+    expect(orch.executeCommand).toHaveBeenCalledWith({
+      type: "set_issue_template_override",
+      identifier: "MT-2",
+      templateId: "tmpl-abc",
+    });
   });
 
-  it("returns 404 when template_id is not found in store", () => {
+  it("returns 404 when template_id is not found in store", async () => {
     const res = makeResponse();
     const orch = makeOrchestrator();
     const store = makeTemplateStore(null);
 
-    handleTemplateOverride(
+    await handleTemplateOverride(
       orch as never,
       store as never,
       makeRequest({ template_id: "nonexistent" }, { issue_identifier: "MT-1" }),
@@ -90,15 +101,15 @@ describe("handleTemplateOverride", () => {
     expect(res._status).toBe(404);
     const body = res._body as { error: { code: string } };
     expect(body.error.code).toBe("template_not_found");
-    expect(orch.updateIssueTemplateOverride).not.toHaveBeenCalled();
+    expect(orch.executeCommand).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when orchestrator returns false (unknown issue identifier)", () => {
+  it("returns 404 when orchestrator returns null (unknown issue identifier)", async () => {
     const res = makeResponse();
-    const orch = makeOrchestrator({ updateIssueTemplateOverride: false });
+    const orch = makeOrchestrator({ setResult: null });
     const store = makeTemplateStore();
 
-    handleTemplateOverride(
+    await handleTemplateOverride(
       orch as never,
       store as never,
       makeRequest({ template_id: "tmpl-1" }, { issue_identifier: "UNKNOWN-99" }),
@@ -112,31 +123,34 @@ describe("handleTemplateOverride", () => {
 });
 
 describe("handleTemplateClear", () => {
-  it("returns 200 with cleared shape on success", () => {
+  it("returns 200 with cleared shape on success", async () => {
     const res = makeResponse();
     const orch = makeOrchestrator();
 
-    handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "MT-1" }), res);
+    await handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "MT-1" }), res);
 
     expect(res._status).toBe(200);
     const body = res._body as Record<string, unknown>;
     expect(body.cleared).toBe(true);
   });
 
-  it("calls clearIssueTemplateOverride with correct identifier", () => {
+  it("calls executeCommand with correct identifier", async () => {
     const res = makeResponse();
     const orch = makeOrchestrator();
 
-    handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "MT-42" }), res);
+    await handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "MT-42" }), res);
 
-    expect(orch.clearIssueTemplateOverride).toHaveBeenCalledWith("MT-42");
+    expect(orch.executeCommand).toHaveBeenCalledWith({
+      type: "clear_issue_template_override",
+      identifier: "MT-42",
+    });
   });
 
-  it("returns 404 when orchestrator returns false (unknown issue identifier)", () => {
+  it("returns 404 when orchestrator returns null (unknown issue identifier)", async () => {
     const res = makeResponse();
-    const orch = makeOrchestrator({ clearIssueTemplateOverride: false });
+    const orch = makeOrchestrator({ clearResult: null });
 
-    handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "UNKNOWN-99" }), res);
+    await handleTemplateClear(orch as never, makeRequest({}, { issue_identifier: "UNKNOWN-99" }), res);
 
     expect(res._status).toBe(404);
     const body = res._body as { error: { code: string } };

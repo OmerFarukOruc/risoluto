@@ -54,6 +54,7 @@ export interface OutcomeContext {
   getConfig: () => ServiceConfig;
   releaseIssueClaim: (issueId: string) => void;
   suppressIssueDispatch?: (issue: Issue) => void;
+  deleteRunningEntry: (issueId: string) => boolean;
   markDirty: () => void;
   resolveModelSelection: (identifier: string) => ModelSelection;
   buildOutcomeView: (input: OutcomeViewInput) => RuntimeIssueView;

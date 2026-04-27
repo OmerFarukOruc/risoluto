@@ -468,7 +468,7 @@ describe("Orchestrator", () => {
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
 
-    const abortResult = orchestrator.abortIssue(issue.identifier);
+    const abortResult = await orchestrator.executeCommand({ type: "abort_issue", identifier: issue.identifier });
     expect(abortResult).toEqual(expect.objectContaining({ ok: true, alreadyStopping: false }));
     expect(orchestrator.getSnapshot().running).toEqual([
       expect.objectContaining({
@@ -604,7 +604,8 @@ describe("Orchestrator", () => {
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
 
-    const result = await orchestrator.updateIssueModelSelection({
+    const result = await orchestrator.executeCommand({
+      type: "update_issue_model_selection",
       identifier: "MT-42",
       model: "gpt-5",
       reasoningEffort: "medium",

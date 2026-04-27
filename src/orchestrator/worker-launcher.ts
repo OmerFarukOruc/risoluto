@@ -143,6 +143,7 @@ type LaunchContext = {
     | "observability"
   >;
   runningEntries: Map<string, RunningEntry>;
+  setRunningEntry: (issueId: string, entry: RunningEntry) => void;
   completedViews: Map<string, ReturnType<typeof issueView>>;
   detailViews: Map<string, ReturnType<typeof issueView>>;
   getQueuedViews: () => ReturnType<typeof issueView>[];
@@ -432,9 +433,8 @@ export async function launchWorker(
     const modelSelection = options?.modelSelectionOverride ?? ctx.resolveModelSelection(issue.identifier);
     const entry = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection, options?.recoveredAttempt);
 
-    ctx.runningEntries.set(issue.id, entry);
+    ctx.setRunningEntry(issue.id, entry);
     ctx.completedViews.delete(issue.identifier);
-    ctx.markDirty();
     ctx.setQueuedViews(ctx.getQueuedViews().filter((view) => view.issueId !== issue.id));
 
     if (options?.recoveredAttempt) {

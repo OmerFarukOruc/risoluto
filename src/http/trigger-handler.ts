@@ -153,10 +153,7 @@ async function handleDuplicateTriggerDelivery(
 }
 
 async function handleRePollTrigger(deps: TriggerHandlerDeps, response: Response): Promise<void> {
-  const refresh =
-    typeof deps.orchestrator.executeCommand === "function"
-      ? await deps.orchestrator.executeCommand({ type: "refresh", reason: "trigger:re_poll" })
-      : deps.orchestrator.requestRefresh("trigger:re_poll");
+  const refresh = await deps.orchestrator.executeCommand({ type: "refresh", reason: "trigger:re_poll" });
   response.status(202).json({ ok: true, action: "re_poll", queued: refresh.queued, coalesced: refresh.coalesced });
 }
 
@@ -166,27 +163,12 @@ async function handleRefreshIssueTrigger(
   dispatch: Pick<TriggerDispatchContext, "action" | "issueId" | "issueIdentifier">,
 ): Promise<void> {
   if (dispatch.issueId && dispatch.issueIdentifier) {
-    const refresh =
-      typeof deps.orchestrator.executeCommand === "function"
-        ? await deps.orchestrator.executeCommand({
-            type: "refresh",
-            issueId: dispatch.issueId,
-            issueIdentifier: dispatch.issueIdentifier,
-            reason: "trigger:refresh_issue",
-          })
-        : (deps.orchestrator.requestTargetedRefresh(
-            dispatch.issueId,
-            dispatch.issueIdentifier,
-            "trigger:refresh_issue",
-          ),
-          {
-            queued: true,
-            coalesced: false,
-            requestedAt: new Date().toISOString(),
-            targeted: true,
-            issueId: dispatch.issueId,
-            issueIdentifier: dispatch.issueIdentifier,
-          });
+    const refresh = await deps.orchestrator.executeCommand({
+      type: "refresh",
+      issueId: dispatch.issueId,
+      issueIdentifier: dispatch.issueIdentifier,
+      reason: "trigger:refresh_issue",
+    });
     response.status(202).json({
       ok: true,
       action: dispatch.action,
@@ -197,10 +179,7 @@ async function handleRefreshIssueTrigger(
     return;
   }
 
-  const refresh =
-    typeof deps.orchestrator.executeCommand === "function"
-      ? await deps.orchestrator.executeCommand({ type: "refresh", reason: "trigger:refresh_issue" })
-      : deps.orchestrator.requestRefresh("trigger:refresh_issue");
+  const refresh = await deps.orchestrator.executeCommand({ type: "refresh", reason: "trigger:refresh_issue" });
   response.status(202).json({
     ok: true,
     action: dispatch.action,
@@ -232,16 +211,12 @@ async function handleCreateIssueTrigger(
     stateName: pickString(body, "state_name", "stateName"),
   };
   const created = await deps.tracker.createIssue(input);
-  if (typeof deps.orchestrator.executeCommand === "function") {
-    await deps.orchestrator.executeCommand({
-      type: "refresh",
-      issueId: created.issueId,
-      issueIdentifier: created.identifier,
-      reason: "trigger:create_issue",
-    });
-  } else {
-    deps.orchestrator.requestTargetedRefresh(created.issueId, created.identifier, "trigger:create_issue");
-  }
+  await deps.orchestrator.executeCommand({
+    type: "refresh",
+    issueId: created.issueId,
+    issueIdentifier: created.identifier,
+    reason: "trigger:create_issue",
+  });
   response.status(202).json({
     ok: true,
     action: "create_issue",

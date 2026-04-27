@@ -293,14 +293,19 @@ describe("Abort race conditions", () => {
 
   it("concurrent abort and completion don't corrupt orchestrator state", async () => {
     // Create an orchestrator with an issue that has a running worker
-    const abortIssue = vi.fn().mockReturnValue({
-      ok: true,
-      alreadyStopping: false,
-      requestedAt: new Date().toISOString(),
+    const executeCommand = vi.fn().mockImplementation(async (command: { type: string }) => {
+      if (command.type === "abort_issue") {
+        return {
+          ok: true,
+          alreadyStopping: false,
+          requestedAt: new Date().toISOString(),
+        };
+      }
+      return null;
     });
     const stopWorkerForIssue = vi.fn();
 
-    const orchestrator = buildStubOrchestrator({ abortIssue });
+    const orchestrator = buildStubOrchestrator({ executeCommand });
 
     ctx = await startTestServer({
       withDatabase: true,
@@ -344,7 +349,10 @@ describe("Abort race conditions", () => {
 
   it("rapid abort calls are idempotent", async () => {
     let callCount = 0;
-    const abortIssue = vi.fn().mockImplementation(() => {
+    const executeCommand = vi.fn().mockImplementation(async (command: { type: string }) => {
+      if (command.type !== "abort_issue") {
+        return null;
+      }
       callCount += 1;
       if (callCount === 1) {
         return { ok: true, alreadyStopping: false, requestedAt: new Date().toISOString() };
@@ -354,7 +362,7 @@ describe("Abort race conditions", () => {
 
     ctx = await startTestServer({
       withDatabase: true,
-      orchestrator: buildStubOrchestrator({ abortIssue }),
+      orchestrator: buildStubOrchestrator({ executeCommand }),
     });
 
     // Fire three abort requests concurrently
@@ -369,8 +377,8 @@ describe("Abort race conditions", () => {
       expect(result.status).toBeLessThan(500);
     }
 
-    // abortIssue should have been called for each request
-    expect(abortIssue).toHaveBeenCalledTimes(3);
+    // executeCommand should have received an abort command for each request
+    expect(executeCommand).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -386,9 +394,12 @@ describe("Refresh coalescing", () => {
   });
 
   it("rapid POST /api/v1/refresh calls report coalescing", async () => {
-    const requestRefresh = vi.fn().mockImplementation((_reason: string) => {
+    const executeCommand = vi.fn().mockImplementation(async (command: { type: string; reason?: string }) => {
+      if (command.type !== "refresh") {
+        return null;
+      }
       // Simulate coalescing: first call is queued, subsequent are coalesced
-      const callNumber = requestRefresh.mock.calls.length;
+      const callNumber = executeCommand.mock.calls.length;
       return {
         queued: callNumber === 1,
         coalesced: callNumber > 1,
@@ -397,7 +408,7 @@ describe("Refresh coalescing", () => {
     });
 
     ctx = await startTestServer({
-      orchestrator: buildStubOrchestrator({ requestRefresh }),
+      orchestrator: buildStubOrchestrator({ executeCommand }),
     });
 
     const results = await Promise.all(
@@ -414,8 +425,8 @@ describe("Refresh coalescing", () => {
       expect(result.status).toBe(202);
     }
 
-    // requestRefresh should have been called 5 times
-    expect(requestRefresh).toHaveBeenCalledTimes(5);
+    // executeCommand should have received a refresh command for each request
+    expect(executeCommand).toHaveBeenCalledTimes(5);
 
     // At least the first call should have queued=true
     const firstResult = results.find(

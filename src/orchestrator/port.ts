@@ -89,14 +89,4 @@ export interface OrchestratorPort {
   getSerializedState(): Record<string, unknown>;
   getIssueDetail(identifier: string): IssueDetailView | null;
   getAttemptDetail(attemptId: string): AttemptDetailView | null;
-  abortIssue(identifier: string): AbortIssueResult;
-  updateIssueModelSelection(input: {
-    identifier: string;
-    model: string;
-    reasoningEffort: ReasoningEffort | null;
-  }): Promise<UpdateIssueModelSelectionResult>;
-  steerIssue(identifier: string, message: string): Promise<SteerIssueResult>;
-  getTemplateOverride(identifier: string): string | null;
-  updateIssueTemplateOverride(identifier: string, templateId: string): boolean;
-  clearIssueTemplateOverride(identifier: string): boolean;
 }

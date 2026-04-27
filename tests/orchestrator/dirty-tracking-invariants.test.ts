@@ -371,7 +371,7 @@ describe("claimedIssueIds invalidation", () => {
 
     expect(orchestrator.getSnapshot().counts.running).toBe(1);
 
-    orchestrator.abortIssue(issue.identifier);
+    await orchestrator.executeCommand({ type: "abort_issue", identifier: issue.identifier });
     control.resolveAbort?.();
     await Promise.resolve();
     await Promise.resolve();
@@ -418,7 +418,8 @@ describe("issueModelOverrides invalidation", () => {
     const runningBefore = snapshotBefore.running.find((r) => r.identifier === "MT-01");
     expect(runningBefore?.model).not.toBe("custom-model");
 
-    await orchestrator.updateIssueModelSelection({
+    await orchestrator.executeCommand({
+      type: "update_issue_model_selection",
       identifier: "MT-01",
       model: "custom-model",
       reasoningEffort: null,
@@ -449,14 +450,18 @@ describe("issueTemplateOverrides invalidation", () => {
     await Promise.resolve();
 
     // Before: no override.
-    expect(orchestrator.getTemplateOverride("MT-01")).toBeNull();
+    expect(orchestrator.getIssueDetail("MT-01")?.configuredTemplateId).toBeNull();
 
     // Mutate: set an override (issue must be known — it's running, so detail exists).
-    const updated = orchestrator.updateIssueTemplateOverride("MT-01", "tpl-abc");
-    expect(updated).toBe(true);
+    const updated = await orchestrator.executeCommand({
+      type: "set_issue_template_override",
+      identifier: "MT-01",
+      templateId: "tpl-abc",
+    });
+    expect(updated).toEqual({ updated: true, appliesNextAttempt: true });
 
-    // After: override is visible via getTemplateOverride.
-    expect(orchestrator.getTemplateOverride("MT-01")).toBe("tpl-abc");
+    // After: override is visible in issue detail projection.
+    expect(orchestrator.getIssueDetail("MT-01")?.configuredTemplateId).toBe("tpl-abc");
 
     await orchestrator.stop();
   });
@@ -470,12 +475,16 @@ describe("issueTemplateOverrides invalidation", () => {
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
 
-    orchestrator.updateIssueTemplateOverride("MT-01", "tpl-abc");
-    expect(orchestrator.getTemplateOverride("MT-01")).toBe("tpl-abc");
+    await orchestrator.executeCommand({
+      type: "set_issue_template_override",
+      identifier: "MT-01",
+      templateId: "tpl-abc",
+    });
+    expect(orchestrator.getIssueDetail("MT-01")?.configuredTemplateId).toBe("tpl-abc");
 
-    const cleared = orchestrator.clearIssueTemplateOverride("MT-01");
-    expect(cleared).toBe(true);
-    expect(orchestrator.getTemplateOverride("MT-01")).toBeNull();
+    const cleared = await orchestrator.executeCommand({ type: "clear_issue_template_override", identifier: "MT-01" });
+    expect(cleared).toEqual({ cleared: true });
+    expect(orchestrator.getIssueDetail("MT-01")?.configuredTemplateId).toBeNull();
 
     await orchestrator.stop();
   });

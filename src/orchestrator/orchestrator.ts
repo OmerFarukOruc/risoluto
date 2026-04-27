@@ -2,7 +2,7 @@ import { updateIssueModelSelection } from "./model-selection.js";
 import { sortIssuesForDispatch } from "./dispatch.js";
 import { Watchdog } from "./watchdog.js";
 import { seedCompletedClaims } from "./lifecycle.js";
-import { createLifecycleState } from "./core/lifecycle-state.js";
+import { clearRetryEntriesInState, createLifecycleState } from "./core/lifecycle-state.js";
 import type { AttemptDetailView, IssueDetailView } from "./snapshot-builder.js";
 import {
   createRunLifecycleCoordinator,
@@ -164,10 +164,7 @@ export class Orchestrator implements OrchestratorPort {
     for (const retry of this._state.retryEntries.values()) {
       if (retry.timer) clearTimeout(retry.timer);
     }
-    if (this._state.retryEntries.size > 0) {
-      this._state.retryEntries.clear();
-      this.markStateDirty();
-    }
+    clearRetryEntriesInState(this._state);
     if (this._state.claimedIssueIds.size > 0) {
       this._state.claimedIssueIds.clear();
       this.markStateDirty();
@@ -295,34 +292,6 @@ export class Orchestrator implements OrchestratorPort {
   getAttemptDetail(attemptId: string): AttemptDetailView | null {
     const detail = this.runtimeCoordinator.buildAttemptDetail(attemptId);
     return detail ? { ...detail } : null;
-  }
-
-  abortIssue(identifier: string): AbortIssueResult {
-    return this.handleAbortIssueCommand(identifier);
-  }
-
-  async updateIssueModelSelection(input: {
-    identifier: string;
-    model: string;
-    reasoningEffort: ReasoningEffort | null;
-  }): Promise<UpdateIssueModelSelectionResult> {
-    return this.handleUpdateIssueModelSelectionCommand(input);
-  }
-
-  getTemplateOverride(identifier: string): string | null {
-    return this._state.issueTemplateOverrides.get(identifier) ?? null;
-  }
-
-  updateIssueTemplateOverride(identifier: string, templateId: string): boolean {
-    return Boolean(this.handleSetIssueTemplateOverrideCommand(identifier, templateId));
-  }
-
-  clearIssueTemplateOverride(identifier: string): boolean {
-    return Boolean(this.handleClearIssueTemplateOverrideCommand(identifier));
-  }
-
-  async steerIssue(identifier: string, message: string): Promise<SteerIssueResult> {
-    return this.handleSteerIssueCommand(identifier, message);
   }
 
   private handleAbortIssueCommand(identifier: string): AbortIssueResult {

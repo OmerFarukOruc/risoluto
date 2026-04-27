@@ -153,6 +153,11 @@ function makeCtx(
     isRunning: () => isRunning,
     getConfig: () => config,
     releaseIssueClaim,
+    deleteRunningEntry: (issueId) => {
+      const deleted = runningEntries.delete(issueId);
+      if (deleted) markDirty();
+      return deleted;
+    },
     markDirty,
     buildOutcomeView: (input) =>
       buildOutcomeView(input.issue, input.workspace, input.entry, input.configuredSelection, input.overrides),
@@ -186,6 +191,20 @@ function makeCtx(
       getConfig: () => config,
       claimIssue,
       releaseIssueClaim,
+      deleteRunningEntry: (issueId) => {
+        const deleted = runningEntries.delete(issueId);
+        if (deleted) markDirty();
+        return deleted;
+      },
+      setRetryEntry: (issueId, entry) => {
+        retryEntries.set(issueId, entry);
+        markDirty();
+      },
+      deleteRetryEntry: (issueId) => {
+        const deleted = retryEntries.delete(issueId);
+        if (deleted) markDirty();
+        return deleted;
+      },
       hasAvailableStateSlot,
       markDirty,
       notify,
@@ -755,8 +774,8 @@ describe("handleWorkerFailure", () => {
     await handleWorkerFailure(
       {
         runningEntries,
+        deleteRunningEntry: (issueId) => runningEntries.delete(issueId),
         releaseIssueClaim,
-        markDirty: vi.fn(),
         pushEvent,
         deps: { attemptStore: { updateAttempt }, logger: { warn } },
       },
@@ -787,8 +806,8 @@ describe("handleWorkerFailure", () => {
     await handleWorkerFailure(
       {
         runningEntries,
+        deleteRunningEntry: (issueId) => runningEntries.delete(issueId),
         releaseIssueClaim: vi.fn(),
-        markDirty: vi.fn(),
         pushEvent,
         deps: { attemptStore: { updateAttempt }, logger: { warn } },
       },

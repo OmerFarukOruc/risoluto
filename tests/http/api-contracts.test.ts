@@ -13,7 +13,7 @@ import { registerHttpRoutes } from "../../src/http/routes.js";
  */
 
 function makeOrchestrator() {
-  return {
+  const orchestrator = {
     getSnapshot: vi.fn().mockReturnValue({
       generatedAt: "2024-01-01T00:00:00Z",
       counts: { running: 2, retrying: 1, queued: 3, completed: 10 },
@@ -53,8 +53,6 @@ function makeOrchestrator() {
     }),
     getIssueDetail: vi.fn().mockReturnValue(null),
     getAttemptDetail: vi.fn().mockReturnValue(null),
-    abortIssue: vi.fn().mockReturnValue({ ok: false, code: "not_found", message: "Unknown issue identifier" }),
-    updateIssueModelSelection: vi.fn().mockResolvedValue(null),
     getSerializedState: vi.fn().mockReturnValue({
       generated_at: "2024-01-01T00:00:00Z",
       counts: { running: 2, retrying: 1, queued: 3, completed: 10 },
@@ -86,6 +84,21 @@ function makeOrchestrator() {
       },
       rate_limits: null,
       recent_events: [{ issue_identifier: "NIN-1", content: null, metadata: null }],
+    }),
+  };
+  return {
+    ...orchestrator,
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string; identifier?: string }) => {
+      if (command.type === "refresh") {
+        return { ...orchestrator.requestRefresh(), targeted: false };
+      }
+      if (command.type === "abort_issue") {
+        return { ok: false, code: "not_found", message: "Unknown issue identifier" };
+      }
+      if (command.type === "update_issue_model_selection") {
+        return null;
+      }
+      return null;
     }),
   };
 }
@@ -305,7 +318,7 @@ describe("API Contract Snapshots", () => {
 
   describe("POST /api/v1/:id/abort (success)", () => {
     it("response structure matches snapshot", async () => {
-      orchestrator.abortIssue.mockReturnValueOnce({
+      orchestrator.executeCommand.mockResolvedValueOnce({
         ok: true,
         alreadyStopping: false,
         requestedAt: "2024-01-01T00:00:00Z",

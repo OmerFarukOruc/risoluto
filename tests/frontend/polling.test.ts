@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createJsonResponse, createSnapshot, installDomHarness } from "./helpers";
-import { resetRuntimeClientForTesting } from "../../frontend/src/state/runtime-client";
+import { getRuntimeClient, resetRuntimeClientForTesting } from "../../frontend/src/state/runtime-client";
 
 function createDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve = (_value: T): void => undefined;
@@ -29,8 +29,7 @@ describe("startPolling", () => {
   });
 
   afterEach(async () => {
-    const polling = await import("../../frontend/src/state/polling");
-    polling.stopPolling();
+    getRuntimeClient().stopPolling();
     resetRuntimeClientForTesting();
     restoreDom?.();
     dom = null;
@@ -46,8 +45,7 @@ describe("startPolling", () => {
     const fetchMock = vi.fn().mockResolvedValue(createJsonResponse(createSnapshot("2026-03-20T00:00:00.000Z")));
     vi.stubGlobal("fetch", fetchMock);
 
-    const polling = await import("../../frontend/src/state/polling");
-    polling.startPolling();
+    getRuntimeClient().startPolling();
 
     await flushMicrotasks();
     await vi.advanceTimersByTimeAsync(15_000);
@@ -65,8 +63,7 @@ describe("startPolling", () => {
     const fetchMock = vi.fn().mockImplementation(() => deferred.promise);
     vi.stubGlobal("fetch", fetchMock);
 
-    const polling = await import("../../frontend/src/state/polling");
-    polling.startPolling();
+    getRuntimeClient().startPolling();
 
     await flushMicrotasks();
     expect(fetchMock).toHaveBeenCalledTimes(1);

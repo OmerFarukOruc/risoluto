@@ -8,8 +8,8 @@ import { TokenRefreshError } from "../codex/token-refresh.js";
 /** Context required by the worker-failure handler. */
 export interface WorkerFailureContext {
   runningEntries: Map<string, RunningEntry>;
+  deleteRunningEntry: (issueId: string) => boolean;
   releaseIssueClaim: (issueId: string) => void;
-  markDirty: () => void;
   pushEvent: RuntimeEventSink;
   deps: {
     attemptStore: { updateAttempt: (attemptId: string, patch: Record<string, unknown>) => Promise<void> };
@@ -50,8 +50,7 @@ export async function handleWorkerFailure(
     }
   }
 
-  ctx.runningEntries.delete(issue.id);
-  ctx.markDirty();
+  ctx.deleteRunningEntry(issue.id);
   ctx.releaseIssueClaim(issue.id);
   ctx.pushEvent({
     at: nowIso(),

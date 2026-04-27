@@ -67,6 +67,11 @@ function makeCtx(overrides?: { latestIssue?: Issue }): OutcomeContext {
         },
       }) as unknown as ReturnType<OutcomeContext["getConfig"]>,
     releaseIssueClaim: vi.fn(),
+    deleteRunningEntry: (issueId) => {
+      const deleted = runningEntries.delete(issueId);
+      if (deleted) markDirty();
+      return deleted;
+    },
     markDirty,
     resolveModelSelection: vi.fn().mockReturnValue(createModelSelection()),
     buildOutcomeView: (input) =>

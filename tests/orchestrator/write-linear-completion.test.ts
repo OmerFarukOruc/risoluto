@@ -140,6 +140,11 @@ function makeCtx(
     isRunning: () => true,
     getConfig: () => config,
     releaseIssueClaim: vi.fn(),
+    deleteRunningEntry: (issueId) => {
+      const deleted = runningEntries.delete(issueId);
+      if (deleted) markDirty();
+      return deleted;
+    },
     markDirty,
     resolveModelSelection: vi
       .fn()

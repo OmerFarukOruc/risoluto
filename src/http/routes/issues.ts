@@ -14,13 +14,10 @@ export function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
   app
     .route("/api/v1/:issue_identifier/abort")
     .post(async (req, res) => {
-      const result =
-        typeof deps.orchestrator.executeCommand === "function"
-          ? await deps.orchestrator.executeCommand({
-              type: "abort_issue",
-              identifier: req.params.issue_identifier,
-            })
-          : deps.orchestrator.abortIssue(req.params.issue_identifier);
+      const result = await deps.orchestrator.executeCommand({
+        type: "abort_issue",
+        identifier: req.params.issue_identifier,
+      });
       if (!result.ok) {
         const status = result.code === "not_found" ? 404 : 409;
         res.status(status).json({ error: { code: result.code, message: result.message } });
@@ -117,14 +114,11 @@ export function registerIssueRoutes(app: Express, deps: HttpRouteDeps): void {
   app
     .route("/api/v1/:issue_identifier/steer")
     .post(validateBody(steerSchema), async (req, res) => {
-      const result =
-        typeof deps.orchestrator.executeCommand === "function"
-          ? await deps.orchestrator.executeCommand({
-              type: "steer_issue",
-              identifier: req.params.issue_identifier,
-              message: req.body.message,
-            })
-          : await deps.orchestrator.steerIssue(req.params.issue_identifier, req.body.message);
+      const result = await deps.orchestrator.executeCommand({
+        type: "steer_issue",
+        identifier: req.params.issue_identifier,
+        message: req.body.message,
+      });
       if (!result) {
         res.status(404).json({ error: { code: "not_found", message: "issue not running" } });
         return;

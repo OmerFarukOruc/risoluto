@@ -55,7 +55,12 @@ function makeResponse(): Response & { _status: number; _body: unknown } {
 function makeOrchestrator(detail: Record<string, unknown> | null = null) {
   return {
     getIssueDetail: vi.fn().mockReturnValue(detail),
-    requestRefresh: vi.fn().mockReturnValue({ queued: true, coalesced: false, requestedAt: "" }),
+    executeCommand: vi.fn().mockResolvedValue({
+      queued: true,
+      coalesced: false,
+      requestedAt: "",
+      targeted: false,
+    }),
   };
 }
 
@@ -183,7 +188,7 @@ describe("handleTransition", () => {
     expect(tracker.transitionIssue).toHaveBeenCalledWith("issue-uuid", "state-uuid-123");
   });
 
-  it("calls orchestrator.requestRefresh after a successful transition", async () => {
+  it("calls orchestrator.executeCommand after a successful transition", async () => {
     const res = makeResponse();
     const orchestrator = makeOrchestrator({ issueId: "issue-uuid", state: "Todo" });
     const tracker = makeTracker();
@@ -195,7 +200,7 @@ describe("handleTransition", () => {
       res,
     );
 
-    expect(orchestrator.requestRefresh).toHaveBeenCalledWith("manual-transition");
+    expect(orchestrator.executeCommand).toHaveBeenCalledWith({ type: "refresh", reason: "manual-transition" });
   });
 
   it("returns the full unavailable error payload when tracker is not configured", async () => {
@@ -247,6 +252,6 @@ describe("handleTransition", () => {
 
     expect(res._status).toBe(422);
     expect(res._body).toEqual({ ok: false, reason: "Issue state transition failed" });
-    expect(orchestrator.requestRefresh).not.toHaveBeenCalled();
+    expect(orchestrator.executeCommand).not.toHaveBeenCalled();
   });
 });

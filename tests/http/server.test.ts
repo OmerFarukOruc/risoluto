@@ -96,16 +96,29 @@ describe("HttpServer", () => {
         coalesced: false,
         requestedAt: "2026-03-16T00:00:00Z",
       }),
-      updateIssueModelSelection: async () => ({
-        updated: true,
-        restarted: false,
-        appliesNextAttempt: true,
-        selection: {
-          model: "gpt-5.4",
-          reasoningEffort: "high",
-          source: "override",
-        },
-      }),
+      executeCommand: async (command: { type: string }) => {
+        if (command.type === "refresh") {
+          return {
+            queued: true,
+            coalesced: false,
+            requestedAt: "2026-03-16T00:00:00Z",
+            targeted: false,
+          };
+        }
+        if (command.type === "update_issue_model_selection") {
+          return {
+            updated: true,
+            restarted: false,
+            appliesNextAttempt: true,
+            selection: {
+              model: "gpt-5.4",
+              reasoningEffort: "high",
+              source: "override",
+            },
+          };
+        }
+        return null;
+      },
       getIssueDetail: (identifier: string) =>
         identifier === "MT-42"
           ? {
@@ -316,7 +329,7 @@ describe("HttpServer", () => {
 
   it("rejects invalid reasoning_effort string with 400", async () => {
     const orchestrator = {
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: true,
@@ -342,7 +355,7 @@ describe("HttpServer", () => {
 
   it("rejects non-string reasoning_effort with 400", async () => {
     const orchestrator = {
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: true,
@@ -368,7 +381,7 @@ describe("HttpServer", () => {
 
   it("accepts omitted reasoning_effort", async () => {
     const orchestrator = {
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: true,
@@ -391,7 +404,7 @@ describe("HttpServer", () => {
 
   it("accepts explicit null reasoning_effort", async () => {
     const orchestrator = {
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: true,
@@ -414,7 +427,7 @@ describe("HttpServer", () => {
 
   it("accepts camelCase reasoningEffort alias", async () => {
     const orchestrator = {
-      updateIssueModelSelection: async () => ({
+      executeCommand: async () => ({
         updated: true,
         restarted: false,
         appliesNextAttempt: true,
@@ -466,7 +479,7 @@ describe("HttpServer", () => {
       }),
       getIssueDetail: () => null,
       getAttemptDetail: () => null,
-      updateIssueModelSelection: async () => null,
+      executeCommand: async () => null,
     } as unknown as Orchestrator;
 
     server = new HttpServer({

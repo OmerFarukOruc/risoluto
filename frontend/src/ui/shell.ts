@@ -32,8 +32,8 @@ export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl
   bannerDismiss.textContent = "\u2715";
   bannerDismiss.setAttribute("aria-label", "Dismiss stale state banner");
   bannerDismiss.addEventListener("click", () => {
-    import("../state/polling.js")
-      .then((m) => m.dismissStaleBanner())
+    import("../state/runtime-client.js")
+      .then((module) => module.getRuntimeClient().dismissStaleBanner())
       .catch(() => {
         bannerEl.hidden = true;
       });

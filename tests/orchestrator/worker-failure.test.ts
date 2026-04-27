@@ -26,8 +26,8 @@ function makeCtx(
 
   const ctx: WorkerFailureContext = {
     runningEntries,
+    deleteRunningEntry: (issueId) => runningEntries.delete(issueId),
     releaseIssueClaim,
-    markDirty: vi.fn(),
     pushEvent,
     deps: {
       attemptStore: { updateAttempt },

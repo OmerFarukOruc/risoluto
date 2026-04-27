@@ -10,8 +10,7 @@ export async function prepareWorkerOutcome(
   const { outcome, entry, issue, workspace, attempt } = input;
 
   await entry.flushPersistence();
-  ctx.runningEntries.delete(issue.id);
-  ctx.markDirty();
+  ctx.deleteRunningEntry(issue.id);
 
   const latestIssue = (await ctx.deps.tracker.fetchIssueStatesByIds([issue.id]).catch(() => [issue]))[0] ?? issue;
 

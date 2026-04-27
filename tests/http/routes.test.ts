@@ -12,7 +12,7 @@ import { registerHttpRoutes } from "../../src/http/routes.js";
 import { createMockLogger } from "../helpers.js";
 
 function makeOrchestrator() {
-  return {
+  const orchestrator = {
     getSerializedState: vi.fn().mockReturnValue({
       generated_at: "2024-01-01T00:00:00Z",
       counts: { running: 0, retrying: 0, queued: 0, completed: 0 },
@@ -44,9 +44,29 @@ function makeOrchestrator() {
     }),
     getIssueDetail: vi.fn().mockReturnValue(null),
     getAttemptDetail: vi.fn().mockReturnValue(null),
-    abortIssue: vi.fn().mockReturnValue({ ok: false, code: "not_found", message: "Unknown issue identifier" }),
-    updateIssueModelSelection: vi.fn().mockResolvedValue(null),
-    steerIssue: vi.fn().mockResolvedValue(null),
+  };
+  return {
+    ...orchestrator,
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string }) => {
+      switch (command.type) {
+        case "refresh":
+          return {
+            ...orchestrator.requestRefresh(),
+            targeted: false,
+          };
+        case "abort_issue":
+          return { ok: false, code: "not_found", message: "Unknown issue identifier" };
+        case "update_issue_model_selection":
+          return null;
+        case "steer_issue":
+          return null;
+        case "set_issue_template_override":
+        case "clear_issue_template_override":
+          return null;
+        default:
+          throw new Error(`Unsupported command: ${command.type}`);
+      }
+    }),
   };
 }
 
@@ -289,7 +309,7 @@ describe("HTTP routes", () => {
   });
 
   it("POST /api/v1/:identifier/abort returns 202 for active issue", async () => {
-    orchestrator.abortIssue.mockReturnValueOnce({
+    orchestrator.executeCommand.mockResolvedValueOnce({
       ok: true,
       alreadyStopping: false,
       requestedAt: "2024-01-01T00:00:00Z",
@@ -299,10 +319,11 @@ describe("HTTP routes", () => {
     const body = await res.json();
     expect(body.status).toBe("stopping");
     expect(body.already_stopping).toBe(false);
+    expect(orchestrator.executeCommand).toHaveBeenCalledWith({ type: "abort_issue", identifier: "MT-1" });
   });
 
   it("POST /api/v1/:identifier/abort returns 409 for non-running issue", async () => {
-    orchestrator.abortIssue.mockReturnValueOnce({
+    orchestrator.executeCommand.mockResolvedValueOnce({
       ok: false,
       code: "conflict",
       message: "Issue is not currently running",
@@ -346,7 +367,7 @@ describe("HTTP routes", () => {
   });
 
   it("POST /api/v1/:identifier/steer returns 200 when steer succeeds", async () => {
-    orchestrator.steerIssue.mockResolvedValueOnce({ ok: true });
+    orchestrator.executeCommand.mockResolvedValueOnce({ ok: true });
     const res = await fetchRoute("/api/v1/MT-42/steer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -356,6 +377,11 @@ describe("HTTP routes", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.message).toBe("steer sent");
+    expect(orchestrator.executeCommand).toHaveBeenCalledWith({
+      type: "steer_issue",
+      identifier: "MT-42",
+      message: "focus on tests",
+    });
   });
 
   it("POST /api/v1/:identifier/steer returns 400 with empty body", async () => {

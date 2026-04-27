@@ -10,9 +10,6 @@ import { createWebhookRuntime, evaluateWebhookConfig, type WebhookRuntime } from
 
 /**
  * Webhook infrastructure composition helpers.
- *
- * Kept as a stable compatibility surface for CLI/service wiring while the
- * real lifecycle lives in `src/webhook/runtime.ts`.
  */
 export { evaluateWebhookConfig };
 

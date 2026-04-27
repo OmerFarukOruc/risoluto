@@ -47,6 +47,32 @@ export function buildStubOrchestrator(overrides: Partial<OrchestratorPort> = {})
   return {
     start: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     stop: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string; reason?: string }) => {
+      if (command.type === "refresh") {
+        return {
+          queued: false,
+          coalesced: false,
+          requestedAt: new Date().toISOString(),
+          targeted: false,
+        };
+      }
+      if (command.type === "abort_issue") {
+        return { ok: false, code: "not_found", message: "stub" };
+      }
+      if (command.type === "steer_issue") {
+        return null;
+      }
+      if (command.type === "update_issue_model_selection") {
+        return null;
+      }
+      if (command.type === "set_issue_template_override") {
+        return null;
+      }
+      if (command.type === "clear_issue_template_override") {
+        return null;
+      }
+      throw new Error(`Unsupported test command: ${command.type}`);
+    }),
     requestRefresh: vi.fn().mockReturnValue({
       queued: false,
       coalesced: false,
@@ -93,12 +119,6 @@ export function buildStubOrchestrator(overrides: Partial<OrchestratorPort> = {})
     }),
     getIssueDetail: vi.fn().mockReturnValue(null),
     getAttemptDetail: vi.fn().mockReturnValue(null),
-    abortIssue: vi.fn().mockReturnValue({ ok: false, code: "not_found", message: "stub" }),
-    updateIssueModelSelection: vi.fn<() => Promise<null>>().mockResolvedValue(null),
-    steerIssue: vi.fn<() => Promise<null>>().mockResolvedValue(null),
-    getTemplateOverride: vi.fn().mockReturnValue(null),
-    updateIssueTemplateOverride: vi.fn().mockReturnValue(false),
-    clearIssueTemplateOverride: vi.fn().mockReturnValue(false),
     ...overrides,
   };
 }

@@ -1,5 +1,5 @@
 import type { Issue, ModelSelection, RuntimeIssueView, ServiceConfig, TokenUsageSnapshot } from "../core/types.js";
-import type { OrchestratorDeps, RunningEntry } from "./runtime-types.js";
+import type { OrchestratorDeps, RetryRuntimeEntry, RunningEntry } from "./runtime-types.js";
 import type { LaunchWorkerOptions } from "./runtime-types.js";
 import type { StallEvent } from "./stall-detector.js";
 import type { RuntimeEventRecord } from "../core/lifecycle-events.js";
@@ -25,6 +25,10 @@ export interface OrchestratorContext {
   resolveModelSelection: (identifier: string) => ModelSelection;
   releaseIssueClaim: (issueId: string) => void;
   claimIssue: (issueId: string) => void;
+  setRunningEntry: (issueId: string, entry: RunningEntry) => void;
+  deleteRunningEntry: (issueId: string) => boolean;
+  setRetryEntry: (issueId: string, entry: RetryRuntimeEntry) => void;
+  deleteRetryEntry: (issueId: string) => boolean;
   markDirty: () => void;
   notify: (event: NotificationEvent) => void;
   pushEvent: (event: RuntimeEventRecord) => void;
@@ -59,6 +63,10 @@ export type RetryRuntimeContext = Pick<
   | "getConfig"
   | "claimIssue"
   | "releaseIssueClaim"
+  | "setRunningEntry"
+  | "deleteRunningEntry"
+  | "setRetryEntry"
+  | "deleteRetryEntry"
   | "hasAvailableStateSlot"
   | "markDirty"
   | "notify"

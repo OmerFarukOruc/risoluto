@@ -1,0 +1,13 @@
+{
+  "slug": "architecture-cut-six-seams",
+  "active": false,
+  "phase": "execution",
+  "phase_status": "pushed-reviewable-checkpoint",
+  "integration_branch": "chore/batch-architecture-cut-six-seams",
+  "worktree": "/home/oruc/Desktop/workspace/risoluto-worktrees/architecture-cut-six-seams",
+  "base_commit": "f7ed42e",
+  "commit": "branch HEAD at push time",
+  "pr": null,
+  "updated_at": "2026-04-27T10:41:32Z",
+  "next_required_action": "Review the pushed branch and decide whether to open a PR or revise."
+}

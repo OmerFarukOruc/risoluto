@@ -87,6 +87,11 @@ function makeHarness(isRunning = true) {
     isRunning: () => isRunning,
     getConfig: () => config,
     releaseIssueClaim,
+    deleteRunningEntry: (issueId) => {
+      const deleted = runningEntries.delete(issueId);
+      if (deleted) markDirty();
+      return deleted;
+    },
     markDirty,
     buildOutcomeView: (input) =>
       buildOutcomeView(input.issue, input.workspace, input.entry, input.configuredSelection, input.overrides),
@@ -120,6 +125,20 @@ function makeHarness(isRunning = true) {
       getConfig: () => config,
       claimIssue: vi.fn(),
       releaseIssueClaim,
+      deleteRunningEntry: (issueId) => {
+        const deleted = runningEntries.delete(issueId);
+        if (deleted) markDirty();
+        return deleted;
+      },
+      setRetryEntry: (issueId, entry) => {
+        retryEntries.set(issueId, entry);
+        markDirty();
+      },
+      deleteRetryEntry: (issueId) => {
+        const deleted = retryEntries.delete(issueId);
+        if (deleted) markDirty();
+        return deleted;
+      },
       hasAvailableStateSlot: vi.fn().mockReturnValue(true),
       markDirty,
       notify,

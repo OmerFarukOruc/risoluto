@@ -85,10 +85,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
       clearTimeout(retryEntry.timer);
     }
 
-    const deleted = this.runtime.retryEntries.delete(issueId);
-    if (deleted) {
-      this.runtime.markDirty();
-    }
+    this.runtime.deleteRetryEntry(issueId);
     if (!this.runtime.runningEntries.has(issueId)) {
       this.runtime.releaseIssueClaim(issueId);
     }
@@ -156,7 +153,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
       });
     }, delayMs);
 
-    this.runtime.retryEntries.set(issue.id, {
+    this.runtime.setRetryEntry(issue.id, {
       issueId: issue.id,
       identifier: issue.identifier,
       attempt,
@@ -167,7 +164,6 @@ class RetryCoordinatorImpl implements RetryCoordinator {
       issue,
       workspaceKey: this.runtime.detailViews.get(issue.identifier)?.workspaceKey ?? null,
     });
-    this.runtime.markDirty();
     this.runtime.notify({
       type: "worker_retry",
       severity: "critical",
@@ -223,8 +219,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
       return;
     }
 
-    this.runtime.retryEntries.delete(issueId);
-    this.runtime.markDirty();
+    this.runtime.deleteRetryEntry(issueId);
     await this.runtime.launchWorker(latestIssue, attempt, {
       claimHeld: true,
       previousThreadId: retryEntry.threadId,
@@ -233,8 +228,7 @@ class RetryCoordinatorImpl implements RetryCoordinator {
 
   private async handleRetryLaunchFailure(issue: Issue, attempt: number, error: unknown): Promise<void> {
     const runningEntry = this.runtime.runningEntries.get(issue.id) ?? null;
-    this.runtime.runningEntries.delete(issue.id);
-    this.runtime.markDirty();
+    this.runtime.deleteRunningEntry(issue.id);
     this.cancel(issue.id);
 
     const errorText = toErrorString(error);

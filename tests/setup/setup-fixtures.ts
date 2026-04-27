@@ -144,7 +144,17 @@ export function createOrchestratorMock(): Orchestrator {
   });
   vi.spyOn(orchestrator, "getIssueDetail").mockReturnValue(null);
   vi.spyOn(orchestrator, "getAttemptDetail").mockReturnValue(null);
-  vi.spyOn(orchestrator, "updateIssueModelSelection").mockResolvedValue(null);
+  vi.spyOn(orchestrator, "executeCommand").mockImplementation(async (command) => {
+    if (command.type === "refresh") {
+      return {
+        queued: true,
+        coalesced: false,
+        requestedAt: "2026-03-22T00:00:00Z",
+        targeted: false,
+      };
+    }
+    return null as never;
+  });
   return orchestrator;
 }
 

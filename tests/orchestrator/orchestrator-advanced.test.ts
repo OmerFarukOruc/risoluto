@@ -580,7 +580,8 @@ describe("Orchestrator — eventBus emissions", () => {
 
     // updateIssueModelSelection requires an issue detail to exist.
     // Since no worker is running, it returns null for unknown identifiers.
-    const result = await orchestrator.updateIssueModelSelection({
+    const result = await orchestrator.executeCommand({
+      type: "update_issue_model_selection",
       identifier: "UNKNOWN-99",
       model: "gpt-5",
       reasoningEffort: "high",

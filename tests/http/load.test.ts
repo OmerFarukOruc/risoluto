@@ -22,7 +22,7 @@ import { registerHttpRoutes } from "../../src/http/routes.js";
  */
 
 function makeOrchestrator() {
-  return {
+  const orchestrator = {
     getSnapshot: vi.fn().mockReturnValue({
       generatedAt: "2024-01-01T00:00:00Z",
       counts: { running: 2, retrying: 0, queued: 3, completed: 10 },
@@ -68,8 +68,21 @@ function makeOrchestrator() {
       currentAttemptId: "att-1",
     }),
     getAttemptDetail: vi.fn().mockReturnValue(null),
-    abortIssue: vi.fn().mockReturnValue({ ok: false, code: "not_found", message: "Unknown" }),
-    updateIssueModelSelection: vi.fn().mockResolvedValue(null),
+  };
+  return {
+    ...orchestrator,
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string; identifier?: string }) => {
+      if (command.type === "refresh") {
+        return { ...orchestrator.requestRefresh(), targeted: false };
+      }
+      if (command.type === "abort_issue") {
+        return { ok: false, code: "not_found", message: "Unknown" };
+      }
+      if (command.type === "update_issue_model_selection") {
+        return null;
+      }
+      return null;
+    }),
   };
 }
 

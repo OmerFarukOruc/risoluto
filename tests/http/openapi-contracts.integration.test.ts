@@ -233,27 +233,38 @@ function buildSeededOrchestrator(): OrchestratorPort {
       if (attemptId === "att-1") return attemptDetail;
       return null;
     }),
-    abortIssue: vi.fn().mockImplementation((identifier: string) => {
-      if (identifier === "ENG-123") {
-        return {
-          ok: true,
-          alreadyStopping: false,
-          requestedAt: "2026-01-01T00:00:00Z",
-        };
+    executeCommand: vi.fn().mockImplementation(async (command: { type: string; identifier?: string }) => {
+      if (command.type === "abort_issue") {
+        if (command.identifier === "ENG-123") {
+          return {
+            ok: true,
+            alreadyStopping: false,
+            requestedAt: "2026-01-01T00:00:00Z",
+          };
+        }
+        return { ok: false, code: "not_found", message: "Unknown issue identifier" };
       }
-      return { ok: false, code: "not_found", message: "Unknown issue identifier" };
-    }),
-    updateIssueModelSelection: vi.fn().mockImplementation(async (input: { identifier: string }) => {
-      if (input.identifier === "ENG-123") {
+      if (command.type === "update_issue_model_selection") {
+        if (command.identifier === "ENG-123") {
+          return {
+            updated: true,
+            restarted: false,
+            appliesNextAttempt: true,
+            selection: {
+              model: "o4-mini",
+              reasoningEffort: null,
+              source: "override" as const,
+            },
+          };
+        }
+        return null;
+      }
+      if (command.type === "refresh") {
         return {
-          updated: true,
-          restarted: false,
-          appliesNextAttempt: true,
-          selection: {
-            model: "o4-mini",
-            reasoningEffort: null,
-            source: "override" as const,
-          },
+          queued: true,
+          coalesced: false,
+          requestedAt: "2026-01-01T00:00:00Z",
+          targeted: false,
         };
       }
       return null;

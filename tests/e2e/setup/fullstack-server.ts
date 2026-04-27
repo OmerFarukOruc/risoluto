@@ -557,12 +557,20 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
     getSerializedState: () => serializeSnapshot(buildSnapshot(state) as RuntimeSnapshot & Record<string, unknown>),
     getIssueDetail: (identifier: string) => buildIssueDetail(state, identifier),
     getAttemptDetail: (attemptId: string) => state.attempts.find((attempt) => attempt.attemptId === attemptId) ?? null,
-    abortIssue: () => ({ ok: false as const, code: "not_found" as const, message: "stub" }),
-    updateIssueModelSelection: async () => null,
-    steerIssue: async () => null,
-    getTemplateOverride: () => null,
-    updateIssueTemplateOverride: () => false,
-    clearIssueTemplateOverride: () => false,
+    executeCommand: async (command: { type: string; reason?: string }) => {
+      if (command.type === "refresh") {
+        return {
+          queued: true,
+          coalesced: false,
+          requestedAt: new Date().toISOString(),
+          targeted: false,
+        };
+      }
+      if (command.type === "abort_issue") {
+        return { ok: false as const, code: "not_found" as const, message: "stub" };
+      }
+      return null;
+    },
     getIssues: () => [...state.issues],
     getEvents: () => [...state.events],
     getRecoveryReport: () => null,

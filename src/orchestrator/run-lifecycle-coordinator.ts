@@ -19,6 +19,8 @@ import { createRetryCoordinator } from "./retry-coordinator.js";
 import {
   applyUsageEventInState,
   claimIssueInState,
+  deleteRetryEntryInState,
+  deleteRunningEntryInState,
   MAX_RECENT_EVENTS,
   pushRecentEventInState,
   releaseIssueClaimInState,
@@ -26,6 +28,8 @@ import {
   setDetailViewInState,
   setQueuedViewsInState,
   setRateLimitsInState,
+  setRetryEntryInState,
+  setRunningEntryInState,
   type LifecycleState,
 } from "./core/lifecycle-state.js";
 import {
@@ -168,6 +172,10 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
       suppressIssueDispatch: (issue) =>
         (this.state.operatorAbortSuppressions ??= new Map()).set(issue.id, buildIssueDispatchFingerprint(issue)),
       claimIssue: (issueId) => claimIssueInState(this.state, issueId),
+      setRunningEntry: (issueId, entry) => setRunningEntryInState(this.state, issueId, entry),
+      deleteRunningEntry: (issueId) => deleteRunningEntryInState(this.state, issueId),
+      setRetryEntry: (issueId, entry) => setRetryEntryInState(this.state, issueId, entry),
+      deleteRetryEntry: (issueId) => deleteRetryEntryInState(this.state, issueId),
       markDirty: () => this.state.markDirty(),
       notify: (event) => this.notifyChannel(event),
       pushEvent: (event) => this.pushEvent(event),

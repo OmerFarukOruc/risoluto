@@ -1,4 +1,4 @@
-import type { AgentEventPayload } from "../state/event-source.js";
+import type { AgentEventPayload } from "../state/runtime-client.js";
 
 export interface LiveLog {
   el: HTMLElement;

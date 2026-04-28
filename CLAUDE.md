@@ -34,6 +34,7 @@ Every Claude Code session in this repo should read these before planning non-tri
 | `docs/strategy/MEMORY_WIRING.md` | How this context loads. Three-tier design: CLAUDE.md pointers, skill slices, future qmd semantic search. |
 | `research/INDEX.md` *(private submodule)* | Peer-by-peer alignment matrix + negative space. Absent when submodule isn't initialized — degrade gracefully. |
 | `research/RISOLUTO_FEATURES.md` *(private submodule)* | Canonical feature spine. Source of truth for feature-parity claims. |
+| `.cache/wiki-signal.md` *(generated, gitignored)* | Auto-refreshed at session start by `.claude/hooks/wiki-signal.sh`. Concepts, syntheses, entities, and ingested sources from the personal wiki at `~/Documents/my-vault-v2` whose `projects:` frontmatter contains `risoluto`. Read it for upstream signal — adjacent agent-orchestration patterns, OSS prior art (Symphony, AFK pipelines, sub-agent vs team debates), and contradictions worth holding before designing new surfaces. Affiliation rules live in the wiki's `wiki/meta/projects.yaml`; `/wiki-ingest` re-evaluates on every commit. |
 
 **Rule.** If a task contradicts `VISION.md` (e.g., proposing a web IDE surface, a generic agent framework shape, or a multi-tenant auth model as first-class), stop and flag before implementing. If it touches an `OPEN_QUESTIONS.md` entry, surface the question to the operator before designing around it.
 

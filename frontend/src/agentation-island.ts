@@ -36,7 +36,7 @@ async function mountAgentation(): Promise<void> {
   createRoot(root).render(createElement<AgentationProps>(Agentation, { endpoint }));
 }
 
-if (typeof document !== "undefined") {
+if (shouldMountAgentation()) {
   try {
     await mountAgentation();
   } catch (error) {

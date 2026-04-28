@@ -10,6 +10,15 @@
             "statusMessage": "Re-injecting architecture context..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/wiki-signal.sh",
+            "statusMessage": "Refreshing wiki signal..."
+          }
+        ]
       }
     ],
     "PreToolUse": [

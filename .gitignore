@@ -7,6 +7,9 @@ dist/
 .stitch/
 design-handoff/
 
+# Generated wiki signal — refreshed by .claude/hooks/wiki-signal.sh
+.cache/
+
 # Logs and local runtime output
 *.log
 

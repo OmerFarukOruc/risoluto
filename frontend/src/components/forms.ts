@@ -1,6 +1,7 @@
 import {
   applyFieldConstraints,
   createCharacterCounter,
+  type FieldControl,
   hasValidationRules,
   isFieldControl,
   isTextEntryControl,
@@ -23,6 +24,19 @@ export interface SelectOption {
   label: string;
 }
 
+/**
+ * Resolve the labellable control inside an arbitrary element tree. Many
+ * field builders return a wrapper `<div>` that contains the real input
+ * (e.g. number controls with inline error elements, or selects wrapped
+ * for danger-warning patterns). Without this lookup, `label.htmlFor`
+ * would point nowhere and the field would be unannounced to assistive
+ * tech — a systemic accessibility regression.
+ */
+function resolveLabellableControl(root: HTMLElement): FieldControl | null {
+  if (isFieldControl(root)) return root;
+  return root.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select");
+}
+
 export function createField(options: FieldOptions, control: HTMLElement): HTMLElement {
   const field = document.createElement("div");
   field.className = "form-field";
@@ -31,13 +45,14 @@ export function createField(options: FieldOptions, control: HTMLElement): HTMLEl
   label.className = `form-label${options.required ? " required" : ""}`;
   label.textContent = options.label;
 
+  const labellable = resolveLabellableControl(control);
   const describedBy: string[] = [];
-  if (isFieldControl(control)) {
-    applyFieldConstraints(control, options);
-    if (!control.id) {
-      control.id = `field-${crypto.randomUUID()}`;
+  if (labellable) {
+    applyFieldConstraints(labellable, options);
+    if (!labellable.id) {
+      labellable.id = `field-${crypto.randomUUID()}`;
     }
-    label.htmlFor = control.id;
+    label.htmlFor = labellable.id;
   }
 
   field.append(label, control);
@@ -45,32 +60,32 @@ export function createField(options: FieldOptions, control: HTMLElement): HTMLEl
   if (options.hint) {
     const hint = document.createElement("span");
     hint.className = "form-hint";
-    hint.id = `${control.id || "field"}-hint`;
+    hint.id = `${labellable?.id ?? "field"}-hint`;
     hint.textContent = options.hint;
     describedBy.push(hint.id);
     field.append(hint);
   }
 
-  if (isTextEntryControl(control) && options.maxLength) {
-    field.append(createCharacterCounter(control, options.maxLength));
+  if (labellable && isTextEntryControl(labellable) && options.maxLength) {
+    field.append(createCharacterCounter(labellable, options.maxLength));
   }
 
-  if (isFieldControl(control)) {
+  if (labellable) {
     const errorEl = document.createElement("span");
     errorEl.className = "form-error";
-    errorEl.id = `${control.id}-error`;
+    errorEl.id = `${labellable.id}-error`;
     errorEl.hidden = true;
     errorEl.setAttribute("role", "alert");
     describedBy.push(errorEl.id);
     field.append(errorEl);
-    syncFieldError(control, errorEl, options.error);
+    syncFieldError(labellable, errorEl, options.error);
 
     if (hasValidationRules(options)) {
-      const update = () => syncFieldError(control, errorEl);
-      control.addEventListener(control instanceof HTMLSelectElement ? "change" : "input", update);
-      control.addEventListener("blur", update);
+      const update = () => syncFieldError(labellable, errorEl);
+      labellable.addEventListener(labellable instanceof HTMLSelectElement ? "change" : "input", update);
+      labellable.addEventListener("blur", update);
     }
-    control.setAttribute("aria-describedby", describedBy.join(" "));
+    labellable.setAttribute("aria-describedby", describedBy.join(" "));
   }
 
   return field;

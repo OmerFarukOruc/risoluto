@@ -54,6 +54,29 @@ export interface EmptyStateOptions {
   actionVariant?: "primary" | "ghost";
 }
 
+/**
+ * Render detail text, converting `backtick`-wrapped runs to <code> spans so
+ * operator-grade hints like "tail `./risoluto-logs`" render with monospace
+ * emphasis. Newlines are preserved via `white-space: pre-line` in CSS.
+ */
+function appendDetailWithCode(target: HTMLElement, detail: string): void {
+  const codePattern = /`([^`\n]+)`/g;
+  let cursor = 0;
+  for (const match of detail.matchAll(codePattern)) {
+    const start = match.index;
+    if (start > cursor) {
+      target.append(document.createTextNode(detail.slice(cursor, start)));
+    }
+    const code = document.createElement("code");
+    code.textContent = match[1];
+    target.append(code);
+    cursor = start + match[0].length;
+  }
+  if (cursor < detail.length) {
+    target.append(document.createTextNode(detail.slice(cursor)));
+  }
+}
+
 function buildStateBox(config: StateBoxConfig): HTMLElement {
   const box = document.createElement("div");
   box.className = config.containerClass;
@@ -74,7 +97,7 @@ function buildStateBox(config: StateBoxConfig): HTMLElement {
 
   const text = document.createElement("p");
   text.className = config.textClass;
-  text.textContent = config.detail;
+  appendDetailWithCode(text, config.detail);
 
   box.append(icon, kicker, heading, text);
 

@@ -480,6 +480,15 @@
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
   max-width: 46ch;
+  white-space: pre-line;
+}
+
+.mc-empty-state p code {
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
 }
 
 .event-row {

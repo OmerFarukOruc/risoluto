@@ -46,7 +46,7 @@ function createWorkbench(configValues: Array<Record<string, unknown>>) {
       expandedDiffs: new Set<string>(),
       expandedPaths: new Set<string>(),
       openExperts: new Set<string>(),
-      mode: "simple",
+      mode: "focused",
     },
     deps: { api, toast, storage },
   });
@@ -134,10 +134,10 @@ describe("settings-workbench", () => {
     });
 
     await workbench.load();
-    workbench.setMode("simple");
+    workbench.setMode("focused");
 
-    expect(storage.setItem).toHaveBeenCalledWith("risoluto.settingsMode", "simple");
-    expect(workbench.state.mode).toBe("simple");
+    expect(storage.setItem).toHaveBeenCalledWith("risoluto.settingsMode", "focused");
+    expect(workbench.state.mode).toBe("focused");
     expect(workbench.state.selectedSectionId).not.toBe("credentials");
   });
 

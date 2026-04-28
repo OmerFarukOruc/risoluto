@@ -39,7 +39,10 @@ export interface SettingsWorkbench {
   subscribe(listener: () => void): () => void;
   load(): Promise<void>;
   saveSection(sectionId: string): Promise<void>;
+  saveAllSections(): Promise<void>;
   revertSection(sectionId: string): void;
+  revertAllSections(): void;
+  dirtySectionIds(): string[];
   setFilter(value: string): void;
   selectSection(sectionId: string): void;
   toggleDiff(sectionId: string): void;
@@ -257,6 +260,21 @@ export function createSettingsWorkbench(options: CreateSettingsWorkbenchOptions 
         return false;
       }
       return sectionHasUnsavedDrafts(section, state.drafts[sectionId], state.effective);
+    },
+    dirtySectionIds(): string[] {
+      return getSections()
+        .filter((section) => sectionHasUnsavedDrafts(section, state.drafts[section.id], state.effective))
+        .map((section) => section.id);
+    },
+    async saveAllSections(): Promise<void> {
+      const ids = workbench.dirtySectionIds();
+      for (const id of ids) {
+        await workbench.saveSection(id);
+      }
+    },
+    revertAllSections(): void {
+      const ids = workbench.dirtySectionIds();
+      ids.forEach((id) => workbench.revertSection(id));
     },
   };
 

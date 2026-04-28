@@ -5,7 +5,21 @@ import type { SettingsState } from "../../frontend/src/features/settings/setting
 import { type SettingsPageData, updateSettingsHeader } from "../../frontend/src/features/settings/settings-view-render";
 
 function createStubElement(): HTMLElement {
-  return { textContent: "" } as unknown as HTMLElement;
+  const classes = new Set<string>();
+  return {
+    textContent: "",
+    classList: {
+      add: (...names: string[]) => names.forEach((name) => classes.add(name)),
+      remove: (...names: string[]) => names.forEach((name) => classes.delete(name)),
+      toggle: (name: string, force?: boolean) => {
+        const wantPresent = force ?? !classes.has(name);
+        if (wantPresent) classes.add(name);
+        else classes.delete(name);
+        return wantPresent;
+      },
+      contains: (name: string) => classes.has(name),
+    },
+  } as unknown as HTMLElement;
 }
 
 function createSettingsState(): SettingsState {
@@ -21,7 +35,7 @@ function createSettingsState(): SettingsState {
     expandedDiffs: new Set<string>(),
     expandedPaths: new Set<string>(),
     openExperts: new Set<string>(),
-    mode: "simple",
+    mode: "focused",
   };
 }
 

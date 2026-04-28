@@ -21,6 +21,9 @@ interface RenderLoadedSettingsOptions {
   onTogglePaths: (sectionId: string) => void;
   onSaveSection: (sectionId: string) => void;
   onRevertSection: (sectionId: string) => void;
+  onSaveAllSections?: () => void;
+  onRevertAll?: () => void;
+  dirtySectionIds?: () => string[];
   onSetMode?: (mode: SettingsMode) => void;
   onDraftChange: (sectionId: string, fieldPath: string, value: string) => void;
   onFocusSection: (sectionId: string) => void;
@@ -37,6 +40,7 @@ export function updateSettingsHeader(
   _state: SettingsState,
   loadState: AsyncState<SettingsPageData>,
 ): void {
+  schemaBadge.classList.remove("is-error");
   if (loadState.loading) {
     subtitle.textContent = "Loading tracker, provider, sandbox, and runtime settings.";
     schemaBadge.textContent = "Loading…";
@@ -45,6 +49,7 @@ export function updateSettingsHeader(
   if (loadState.error) {
     subtitle.textContent = "Settings could not be loaded. Check the API or network, then try again.";
     schemaBadge.textContent = "Unavailable";
+    schemaBadge.classList.add("is-error");
     return;
   }
   if (!loadState.data) {
@@ -78,6 +83,9 @@ export function renderLoadedSettings(
     onTogglePaths: options.onTogglePaths,
     onSaveSection: options.onSaveSection,
     onRevertSection: options.onRevertSection,
+    onSaveAllSections: options.onSaveAllSections,
+    onRevertAll: options.onRevertAll,
+    dirtySectionIds: options.dirtySectionIds,
     onSetMode: options.onSetMode,
     onDraftChange: options.onDraftChange,
     onFocusSection: options.onFocusSection,
@@ -105,12 +113,12 @@ export function renderLoadedSettings(
  */
 async function sendTestSlack(state: SettingsState, sectionId: string): Promise<void> {
   if (isSectionDirty(state, sectionId)) {
-    toast("Unsaved changes — save first, then click Send test.", "warning");
+    toast("Unsaved changes: save first, then click Send test.", "warning");
     return;
   }
   try {
     await api.postNotificationTest();
-    toast("Slack test sent — check your channel.", "success");
+    toast("Slack test sent: check your channel.", "success");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Slack test failed.";
     toast(message, "error");

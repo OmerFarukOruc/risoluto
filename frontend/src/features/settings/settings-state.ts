@@ -19,7 +19,7 @@ export interface SettingsState {
 
 function readPersistedMode(): SettingsMode {
   const stored = localStorage.getItem("risoluto.settingsMode");
-  return stored === "advanced" ? "advanced" : "simple";
+  return stored === "advanced" ? "advanced" : "focused";
 }
 
 export function createSettingsState(): SettingsState {

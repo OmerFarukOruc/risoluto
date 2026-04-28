@@ -5,6 +5,8 @@ import {
   createTextInput,
   createTextareaControl,
 } from "../../components/forms";
+import { openConfirmModal } from "../../ui/confirm-modal.js";
+import { toast } from "../../ui/toast.js";
 import { formatDurationHuman } from "../../utils/format.js";
 
 import type { SettingsFieldDefinition } from "./settings-helpers";
@@ -19,21 +21,25 @@ interface SettingsFieldRenderOptions {
 
 export function createSettingsField(field: SettingsFieldDefinition, options: SettingsFieldRenderOptions): HTMLElement {
   const control = buildControl(field, options);
-  const wrapper = createField({ label: field.label, hint: field.hint }, control);
+  const wrapper = createField({ label: field.label, hint: field.hint, required: field.validation?.required }, control);
   wrapper.dataset.fieldKind = field.kind;
 
   if (options.hintId) {
     const hintEl = wrapper.querySelector(".form-hint");
-    const oldHintId = hintEl?.id;
     if (hintEl) {
+      // Only wire the IDREF when the hint element actually exists.
+      // Without this guard, fields without a `hint` property still got
+      // `aria-describedby="settings-hint-foo"` pointing at nothing, which
+      // silently degrades AT comprehension.
+      const oldHintId = hintEl.id;
       hintEl.id = options.hintId;
-    }
-    const fieldControl = wrapper.querySelector("input, textarea, select");
-    if (fieldControl) {
-      const existing = fieldControl.getAttribute("aria-describedby") ?? "";
-      const ids = existing ? existing.split(" ").filter((id) => id !== oldHintId) : [];
-      ids.unshift(options.hintId);
-      fieldControl.setAttribute("aria-describedby", ids.join(" "));
+      const fieldControl = wrapper.querySelector("input, textarea, select");
+      if (fieldControl) {
+        const existing = fieldControl.getAttribute("aria-describedby") ?? "";
+        const ids = existing ? existing.split(" ").filter((id) => id !== oldHintId) : [];
+        ids.unshift(options.hintId);
+        fieldControl.setAttribute("aria-describedby", ids.join(" "));
+      }
     }
   }
 
@@ -136,11 +142,27 @@ function buildCredentialControl(): HTMLElement {
             del.className = "settings-credential-delete";
             del.textContent = "\u00d7";
             del.setAttribute("aria-label", `Delete ${key}`);
-            del.addEventListener("click", async () => {
-              if (confirm(`Delete credential "${key}"? This cannot be undone.`)) {
-                await api.deleteSecret(key);
-                await refresh();
-              }
+            del.addEventListener("click", () => {
+              const body = document.createElement("p");
+              body.className = "text-secondary";
+              body.textContent = `Delete the credential "${key}"? Any service relying on this key will fail until it's re-added.`;
+              openConfirmModal({
+                title: `Delete ${key}?`,
+                body,
+                cancelLabel: "Keep credential",
+                confirmLabel: "Delete credential",
+                pendingLabel: "Deleting…",
+                variant: "danger",
+                onConfirm: async () => {
+                  try {
+                    await api.deleteSecret(key);
+                    await refresh();
+                  } catch (error) {
+                    toast(error instanceof Error ? error.message : "Failed to delete credential.", "error");
+                    return false;
+                  }
+                },
+              });
             });
             pill.append(name, del);
             pills.append(pill);
@@ -149,14 +171,7 @@ function buildCredentialControl(): HTMLElement {
         }
 
         const addBtn = createButton("+ Add credential", "ghost");
-        addBtn.addEventListener("click", async () => {
-          const key = prompt("Credential key name (e.g. LINEAR_API_KEY):");
-          if (!key?.trim()) return;
-          const value = prompt(`Value for ${key}:`);
-          if (!value?.trim()) return;
-          await api.postSecret(key.trim(), value.trim());
-          await refresh();
-        });
+        addBtn.addEventListener("click", () => openCredentialAddModal(refresh, api));
         container.append(addBtn);
         // Encryption posture is documented once via the form field hint
         // (see settings-section-defs.ts), no need to repeat it here.
@@ -165,7 +180,11 @@ function buildCredentialControl(): HTMLElement {
         const err = document.createElement("p");
         err.className = "form-error";
         err.textContent = "Failed to load credentials.";
-        container.append(err);
+        const retryBtn = createButton("Retry", "ghost");
+        retryBtn.addEventListener("click", () => {
+          void refresh();
+        });
+        container.append(err, retryBtn);
       }
     }
 
@@ -173,6 +192,79 @@ function buildCredentialControl(): HTMLElement {
   })();
 
   return container;
+}
+
+interface CredentialApi {
+  postSecret: (key: string, value: string) => Promise<unknown>;
+}
+
+function openCredentialAddModal(refresh: () => Promise<void>, api: CredentialApi): void {
+  const form = document.createElement("div");
+  form.className = "settings-credential-form";
+
+  const idSuffix = crypto.randomUUID().slice(0, 8);
+  const keyInputId = `credential-key-${idSuffix}`;
+  const valueInputId = `credential-value-${idSuffix}`;
+
+  const keyField = document.createElement("div");
+  keyField.className = "form-field";
+  const keyLabel = document.createElement("label");
+  keyLabel.className = "form-label";
+  keyLabel.htmlFor = keyInputId;
+  keyLabel.textContent = "Credential key";
+  const keyInput = document.createElement("input");
+  keyInput.id = keyInputId;
+  keyInput.type = "text";
+  keyInput.className = "mc-input";
+  keyInput.placeholder = "LINEAR_API_KEY";
+  keyInput.autocomplete = "off";
+  keyInput.spellcheck = false;
+  keyField.append(keyLabel, keyInput);
+
+  const valueField = document.createElement("div");
+  valueField.className = "form-field";
+  const valueLabel = document.createElement("label");
+  valueLabel.className = "form-label";
+  valueLabel.htmlFor = valueInputId;
+  valueLabel.textContent = "Value";
+  const valueInput = document.createElement("input");
+  valueInput.id = valueInputId;
+  valueInput.type = "password";
+  valueInput.className = "mc-input";
+  valueInput.placeholder = "Paste credential value";
+  valueInput.autocomplete = "off";
+  valueInput.spellcheck = false;
+  valueField.append(valueLabel, valueInput);
+
+  form.append(keyField, valueField);
+
+  openConfirmModal({
+    title: "Add credential",
+    body: form,
+    cancelLabel: "Cancel",
+    confirmLabel: "Save credential",
+    pendingLabel: "Saving…",
+    variant: "primary",
+    onOpen: (controls) => {
+      controls.setConfirmDisabled(true);
+      const update = (): void => controls.setConfirmDisabled(!keyInput.value.trim() || !valueInput.value.trim());
+      keyInput.addEventListener("input", update);
+      valueInput.addEventListener("input", update);
+      keyInput.focus();
+    },
+    onConfirm: async () => {
+      const key = keyInput.value.trim();
+      const value = valueInput.value.trim();
+      if (!key || !value) return false;
+      try {
+        await api.postSecret(key, value);
+        await refresh();
+      } catch (error) {
+        toast(error instanceof Error ? error.message : "Failed to save credential.", "error");
+        return false;
+      }
+    },
+  });
 }
 
 function buildJsonTextareaGroup(textarea: HTMLTextAreaElement): HTMLElement {
@@ -356,6 +448,7 @@ function buildChipEditor(field: SettingsFieldDefinition, options: SettingsFieldR
   input.type = "text";
   input.className = "settings-chip-input";
   input.placeholder = field.placeholder ?? "Type and press Enter\u2026";
+  input.setAttribute("aria-label", `Add ${field.label}`);
 
   function emitValue(): void {
     options.onInput(items.join("\n"));

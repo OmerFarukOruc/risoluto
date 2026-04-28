@@ -35,6 +35,8 @@ interface SettingsRenderOptions {
   onSaveAllSections?: () => void;
   /** Called by the unified save bar to revert all draft changes. */
   onRevertAll?: () => void;
+  /** Returns the IDs of currently dirty sections (used to label and gate the bulk-save bar). */
+  dirtySectionIds?: () => string[];
 }
 
 /** AbortController for cleaning up event listeners between renders. */
@@ -190,11 +192,14 @@ function renderRail(
 function createModeToggle(state: SettingsState, options: SettingsRenderOptions, signal: AbortSignal): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "settings-mode-toggle";
+  wrapper.setAttribute("role", "group");
+  wrapper.setAttribute("aria-label", "Settings mode");
 
   const simpleBtn = document.createElement("button");
   simpleBtn.type = "button";
   simpleBtn.className = "settings-mode-btn";
-  simpleBtn.classList.toggle("is-active", state.mode === "simple");
+  simpleBtn.classList.toggle("is-active", state.mode === "focused");
+  simpleBtn.setAttribute("aria-pressed", state.mode === "focused" ? "true" : "false");
   simpleBtn.textContent = "Focused";
   simpleBtn.title = "Show the common settings";
 
@@ -202,10 +207,11 @@ function createModeToggle(state: SettingsState, options: SettingsRenderOptions, 
   advancedBtn.type = "button";
   advancedBtn.className = "settings-mode-btn";
   advancedBtn.classList.toggle("is-active", state.mode === "advanced");
+  advancedBtn.setAttribute("aria-pressed", state.mode === "advanced" ? "true" : "false");
   advancedBtn.textContent = "Advanced";
   advancedBtn.title = "Show all settings and expert options";
 
-  simpleBtn.addEventListener("click", () => options.onSetMode?.("simple"), { signal });
+  simpleBtn.addEventListener("click", () => options.onSetMode?.("focused"), { signal });
   advancedBtn.addEventListener("click", () => options.onSetMode?.("advanced"), { signal });
 
   wrapper.append(simpleBtn, advancedBtn);
@@ -245,6 +251,7 @@ function createNavItem(
     modifiedBadge.className = "settings-nav-badge-modified";
     modifiedBadge.setAttribute("role", "img");
     modifiedBadge.setAttribute("aria-label", "Has saved overrides");
+    modifiedBadge.title = "Has saved overrides";
     topRow.append(modifiedBadge);
   }
 
@@ -253,6 +260,7 @@ function createNavItem(
     unsavedBadge.className = "settings-nav-badge-unsaved";
     unsavedBadge.setAttribute("role", "img");
     unsavedBadge.setAttribute("aria-label", "Has unsaved changes");
+    unsavedBadge.title = "Has unsaved changes";
     topRow.append(unsavedBadge);
   }
 
@@ -291,18 +299,23 @@ function renderContent(
   content.replaceChildren();
   const toolbar = document.createElement("section");
   toolbar.className = "mc-toolbar settings-toolbar";
-  const hint = document.createElement("span");
-  hint.className = "text-secondary";
-  hint.textContent =
-    "Search sections, fields, and values. Press / to focus search. Cmd/Ctrl+Enter saves the current section.";
   searchInput.value = state.filter;
-  searchInput.oninput = () => options.onFilter(searchInput.value);
-  toolbar.append(searchInput, hint);
+  searchInput.addEventListener("input", () => options.onFilter(searchInput.value), { signal });
+  toolbar.append(searchInput);
+  if (showCoachingCopy()) {
+    const hint = document.createElement("span");
+    hint.className = "text-secondary";
+    hint.textContent =
+      "Search sections, fields, and values. Press / to focus search. Cmd/Ctrl+Enter saves the current section.";
+    toolbar.append(hint);
+  }
+  const helpToggle = createCoachingToggle(signal);
+  toolbar.append(helpToggle);
   content.append(toolbar);
-  content.append(createSettingsIntro());
   if (state.error) {
     const error = document.createElement("div");
-    error.className = "form-error";
+    error.className = "settings-error";
+    error.setAttribute("role", "alert");
     error.textContent = state.error;
     content.append(error);
   }
@@ -321,6 +334,59 @@ function renderContent(
   for (const section of sections) {
     content.append(buildSectionCard(section, state, options, signal));
   }
+
+  const bulkBar = buildBulkActionsBar(state, options, signal);
+  if (bulkBar) {
+    content.append(bulkBar);
+  }
+}
+
+/**
+ * Sticky bottom toolbar that surfaces Save-all / Revert-all when there are
+ * dirty sections. Only visible when `dirtySectionIds` and the bulk handlers
+ * are wired (the legacy /settings entrypoint omits them).
+ */
+function buildBulkActionsBar(
+  state: SettingsState,
+  options: SettingsRenderOptions,
+  signal: AbortSignal,
+): HTMLElement | null {
+  const dirty = options.dirtySectionIds?.() ?? [];
+  if (dirty.length === 0 || (!options.onSaveAllSections && !options.onRevertAll)) {
+    return null;
+  }
+
+  const bar = document.createElement("div");
+  bar.className = "settings-bulk-actions";
+  bar.setAttribute("role", "region");
+  bar.setAttribute("aria-label", "Bulk save actions");
+
+  const summary = document.createElement("span");
+  summary.className = "settings-bulk-summary";
+  summary.textContent =
+    dirty.length === 1 ? "1 section has unsaved changes" : `${dirty.length} sections have unsaved changes`;
+
+  const actions = document.createElement("div");
+  actions.className = "settings-bulk-actions-buttons";
+
+  const isSaving = state.savingSectionId !== null;
+
+  if (options.onRevertAll) {
+    const revert = createSectionAction("Revert all");
+    revert.disabled = isSaving;
+    revert.addEventListener("click", () => options.onRevertAll?.(), { signal });
+    actions.append(revert);
+  }
+  if (options.onSaveAllSections) {
+    const saveAll = createSectionAction(`Save all (${dirty.length})`, true);
+    saveAll.disabled = isSaving;
+    saveAll.title = `Save all ${dirty.length} dirty sections`;
+    saveAll.addEventListener("click", () => options.onSaveAllSections?.(), { signal });
+    actions.append(saveAll);
+  }
+
+  bar.append(summary, actions);
+  return bar;
 }
 
 function buildSectionCard(
@@ -336,19 +402,22 @@ function buildSectionCard(
   const card = document.createElement("section");
   card.className = "mc-panel settings-card";
   card.id = `settings-${section.id}`;
+  card.setAttribute("aria-labelledby", `settings-heading-${section.id}`);
 
   card.append(buildSectionHeader(section));
 
   const allGroups = sectionGroups(section);
   // In Focused mode, hide expert-tier groups entirely
-  const groups = state.mode === "simple" ? allGroups.filter((g) => g.tier !== "expert") : allGroups;
+  const groups = state.mode === "focused" ? allGroups.filter((g) => g.tier !== "expert") : allGroups;
   let prevTier: string | undefined;
   groups.forEach((group, index) => {
     card.append(createGroupElement(section, group, drafts, state, options, index === 0, prevTier));
     prevTier = group.tier ?? (group.advanced ? "expert" : "essential");
   });
 
-  card.append(buildSectionActions(section, state, options, signal));
+  if (!isCredentialOnlySection(section)) {
+    card.append(buildSectionActions(section, state, options, signal));
+  }
 
   // Developer tools: only in Advanced mode
   if (state.mode === "advanced") {
@@ -359,6 +428,37 @@ function buildSectionCard(
   return stack;
 }
 
+/**
+ * Credential-only sections (e.g. Credentials) manage state via their inline
+ * delete + add modal. The standard Revert/Save bar is dead UI here — the
+ * "Save credentials" button never has a draft to flush.
+ */
+function isCredentialOnlySection(section: SettingsSectionDefinition): boolean {
+  return section.fields.length > 0 && section.fields.every((field) => field.kind === "credential");
+}
+
+/**
+ * Run native HTML5 form validation across every required input/select/textarea
+ * inside a settings section card before save. Returns false if any field
+ * fails — and surfaces the validation UI by calling reportValidity() on the
+ * first invalid control. Prevents silently saving an empty required field
+ * (e.g. tracker.project_slug).
+ */
+function validateSectionRequiredFields(sectionId: string): boolean {
+  const card = document.getElementById(`settings-${sectionId}`);
+  if (!card) return true;
+  const required = card.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+    "input[required], select[required], textarea[required]",
+  );
+  for (const control of required) {
+    if (!control.checkValidity()) {
+      control.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+
 function buildSectionHeader(section: SettingsSectionDefinition): HTMLElement {
   const header = document.createElement("div");
   header.className = "settings-section-header";
@@ -367,6 +467,7 @@ function buildSectionHeader(section: SettingsSectionDefinition): HTMLElement {
   titleRow.className = "settings-section-title-row";
 
   const title = document.createElement("h2");
+  title.id = `settings-heading-${section.id}`;
   title.className = "settings-section-title";
   title.textContent = section.title;
 
@@ -403,18 +504,32 @@ function buildSectionActions(
   revert.disabled = isSaving;
   revert.addEventListener("click", () => options.onRevertSection(section.id), { signal });
 
-  const save = createSectionAction(section.saveLabel, true);
+  const saveLabel = isSaving ? "Saving…" : section.saveLabel;
+  const save = createSectionAction(saveLabel, true);
   save.disabled = isSaving;
-  save.addEventListener("click", () => options.onSaveSection(section.id), { signal });
-
-  actions.append(revert, save);
-
+  // Cmd+S shadows the browser Save Page on most platforms; only advertise
+  // Cmd+Enter as the documented shortcut even though both are wired.
+  save.title = `${section.saveLabel} (Cmd/Ctrl+Enter)`;
   if (isSaving) {
-    const saving = document.createElement("span");
-    saving.className = "settings-saving-indicator";
-    saving.textContent = "Saving\u2026";
-    actions.append(saving);
+    save.setAttribute("aria-busy", "true");
   }
+  save.addEventListener(
+    "click",
+    () => {
+      if (!validateSectionRequiredFields(section.id)) return;
+      options.onSaveSection(section.id);
+    },
+    { signal },
+  );
+
+  const shortcut = document.createElement("kbd");
+  shortcut.className = "settings-actions-shortcut";
+  shortcut.setAttribute("aria-hidden", "true");
+  shortcut.textContent = "⌘↵";
+
+  actions.append(revert, save, shortcut);
+  // The Save button itself flips to "Saving\u2026" + aria-busy while in flight,
+  // so a separate .settings-saving-indicator span would be redundant.
 
   return actions;
 }
@@ -528,7 +643,7 @@ function createGroupElement(
     if (group.description) {
       const desc = document.createElement("p");
       desc.className = "settings-group-desc";
-      desc.textContent = group.description;
+      appendDescriptionWithLinks(desc, group.description);
       heading.append(desc);
     }
     wrapper.append(heading);
@@ -568,32 +683,115 @@ function createGroupGrid(
   return grid;
 }
 
-function createSettingsIntro(): HTMLElement {
-  const intro = document.createElement("section");
-  intro.className = "settings-intro";
+/**
+ * Render a group description that may contain bare https?:// URLs as a mix
+ * of text nodes and anchor elements. Preserves newlines (CSS handles via
+ * white-space: pre-line on .settings-group-desc).
+ *
+ * URL detection is greedy on non-whitespace then trims trailing sentence
+ * punctuation, so "Visit https://api.example.com/foo. Then..." links to
+ * the full URL without swallowing the period.
+ */
+function appendDescriptionWithLinks(target: HTMLElement, description: string): void {
+  const urlPattern = /https?:\/\/\S+/g;
+  const trailingPunctuation = /[.,;:!?)\]]+$/;
+  let cursor = 0;
+  for (const match of description.matchAll(urlPattern)) {
+    const start = match.index;
+    let raw = match[0];
+    const trail = raw.match(trailingPunctuation);
+    if (trail) raw = raw.slice(0, raw.length - trail[0].length);
 
-  const title = document.createElement("p");
-  title.className = "settings-intro-title";
-  title.textContent = "Start with Tracker, then provider and sandbox defaults.";
+    if (start > cursor) {
+      target.append(document.createTextNode(description.slice(cursor, start)));
+    }
+    const link = document.createElement("a");
+    link.href = raw;
+    link.textContent = raw;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "settings-group-desc-link";
+    target.append(link);
+    cursor = start + raw.length;
+  }
+  if (cursor < description.length) {
+    target.append(document.createTextNode(description.slice(cursor)));
+  }
+}
 
-  const body = document.createElement("p");
-  body.className = "settings-intro-body";
-  body.textContent =
-    "Most setups only need a tracker, a project, and the states that mean work is active or done. Switch to Advanced when you need the rest.";
+/**
+ * Coaching copy (toolbar hint, per-section next-step lines) is shown for the
+ * first N visits, then suppressed so returning operators stop reading
+ * tutorial text every time they bump a value. The on-demand toggle
+ * (createCoachingToggle) lets a returning operator re-enable it without
+ * clearing localStorage.
+ */
+const COACHING_VISIT_THRESHOLD = 3;
+const COACHING_OVERRIDE_KEY = "risoluto.settings.coachingOverride";
 
-  intro.append(title, body);
-  return intro;
+function showCoachingCopy(): boolean {
+  try {
+    if (localStorage.getItem(COACHING_OVERRIDE_KEY) === "on") return true;
+    const visits = Number.parseInt(localStorage.getItem("risoluto.settings.visitCount") ?? "0", 10);
+    return !Number.isFinite(visits) || visits <= COACHING_VISIT_THRESHOLD;
+  } catch {
+    return true;
+  }
+}
+
+function readCoachingOverride(): boolean {
+  try {
+    return localStorage.getItem(COACHING_OVERRIDE_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function writeCoachingOverride(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(COACHING_OVERRIDE_KEY, "on");
+    else localStorage.removeItem(COACHING_OVERRIDE_KEY);
+  } catch {
+    // localStorage unavailable; toggle is session-only
+  }
+}
+
+/**
+ * On-demand coaching toggle. After the visit-count threshold expires, the
+ * toolbar hint and next-step hints disappear. This "?" button lets a
+ * returning operator re-enable them on demand and persists the choice.
+ */
+function createCoachingToggle(signal: AbortSignal): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "settings-coaching-toggle";
+  const isOn = readCoachingOverride();
+  button.classList.toggle("is-active", isOn);
+  button.setAttribute("aria-pressed", isOn ? "true" : "false");
+  button.setAttribute("aria-label", isOn ? "Hide coaching hints" : "Show coaching hints");
+  button.title = isOn ? "Hide coaching hints" : "Show keyboard shortcuts and next-step hints";
+  button.textContent = "?";
+  button.addEventListener(
+    "click",
+    () => {
+      writeCoachingOverride(!readCoachingOverride());
+      window.dispatchEvent(new CustomEvent("risoluto:settings-coaching-changed"));
+    },
+    { signal },
+  );
+  return button;
 }
 
 function createNextStepHint(sectionId: string): HTMLElement | null {
+  if (!showCoachingCopy()) {
+    return null;
+  }
   const text =
     sectionId === SECTION_IDS.TRACKER
       ? "Next: choose a model provider and sign-in method."
       : sectionId === SECTION_IDS.MODEL_PROVIDER_AUTH
         ? "Next: review sandbox defaults so runs use the safety level you expect."
-        : sectionId === SECTION_IDS.SANDBOX
-          ? "Next: move an issue into an active state so Risoluto can pick it up."
-          : null;
+        : null;
 
   if (!text) {
     return null;

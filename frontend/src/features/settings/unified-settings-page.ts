@@ -40,21 +40,24 @@ export function clearUnifiedSettingsCache(): void {
   cachedState = null;
 }
 
-function extractHeader(root: HTMLElement): { actions: HTMLElement[]; subtitle: string } {
+function extractHeader(root: HTMLElement): {
+  actions: HTMLElement[];
+  subtitleElement: HTMLElement | null;
+} {
   const header = Array.from(root.children).find(
     (candidate): candidate is HTMLElement =>
       candidate instanceof HTMLElement && candidate.classList.contains("mc-strip"),
   );
   if (!header) {
-    return { actions: [], subtitle: "" };
+    return { actions: [], subtitleElement: null };
   }
-  const subtitle = header.querySelector<HTMLElement>(".page-subtitle")?.textContent?.trim() ?? "";
+  const subtitleElement = header.querySelector<HTMLElement>(".page-subtitle") ?? null;
   const primaryCopy = header.firstElementChild;
   const actions = Array.from(header.children).filter(
     (candidate): candidate is HTMLElement => candidate instanceof HTMLElement && candidate !== primaryCopy,
   );
   header.remove();
-  return { actions, subtitle };
+  return { actions, subtitleElement };
 }
 
 export function readRequestedSettingsSection(
@@ -102,7 +105,7 @@ function buildDevtoolsSection(state: UnifiedSettingsCache): HTMLDetailsElement {
   details.className = "settings-devtools-section mc-panel";
 
   const summary = document.createElement("summary");
-  summary.textContent = "Developer tools \u2014 Raw JSON configuration editor";
+  summary.textContent = "Developer tools: Raw JSON configuration editor";
   details.append(summary);
 
   const configPage = createConfigPage({ state: state.advancedState });
@@ -110,6 +113,27 @@ function buildDevtoolsSection(state: UnifiedSettingsCache): HTMLDetailsElement {
   configPage.classList.add("settings-devtools-content");
 
   details.append(configPage);
+  return details;
+}
+
+/**
+ * Codex admin is operational diagnostics (threads, MCP servers, pending
+ * requests), not configuration. Wrapping it in <details> prevents a
+ * domain collision mid-scroll for operators who arrived to bump a config
+ * value. Keeps the section reachable without injecting an unrelated
+ * dashboard into the configuration flow.
+ */
+function buildCodexAdminCollapsible(): HTMLDetailsElement {
+  const details = document.createElement("details");
+  details.className = "settings-codex-admin-section mc-panel";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Codex admin: control-plane diagnostics";
+  details.append(summary);
+
+  const codexAdmin = createCodexAdminSection();
+  codexAdmin.classList.add("settings-codex-admin-content");
+  details.append(codexAdmin);
   return details;
 }
 
@@ -127,12 +151,16 @@ export function createUnifiedSettingsPage(): HTMLElement {
   body.className = "settings-unified-body";
 
   const generalSection = createSettingsPage({ workbench: state.generalWorkbench });
-  const { actions: innerActions } = extractHeader(generalSection);
+  const { actions: innerActions, subtitleElement: innerSubtitle } = extractHeader(generalSection);
+  if (innerSubtitle) {
+    const outerSubtitle = header.querySelector<HTMLElement>(".page-subtitle");
+    outerSubtitle?.replaceWith(innerSubtitle);
+  }
   if (innerActions.length > 0) {
     header.append(...innerActions);
   }
 
-  const codexAdminSection = createCodexAdminSection();
+  const codexAdminSection = buildCodexAdminCollapsible();
   const devtoolsSection = buildDevtoolsSection(state);
 
   body.append(generalSection, codexAdminSection, devtoolsSection);

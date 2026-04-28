@@ -5,8 +5,8 @@
 
 import type { IconName } from "../../ui/icons";
 
-/** Controls which settings are visible: "simple" keeps the common settings in front. */
-export type SettingsMode = "simple" | "advanced";
+/** Controls which settings are visible: "focused" keeps the common settings in front. */
+export type SettingsMode = "focused" | "advanced";
 
 /** Section IDs used throughout settings for navigation and conditional logic. */
 export const SECTION_IDS = {

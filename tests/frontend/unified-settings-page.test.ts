@@ -32,7 +32,7 @@ describe("unified-settings-page helpers", () => {
     const cache = getUnifiedSettingsCache();
     const history = { replaceState: vi.fn() };
 
-    expect(cache.generalWorkbench.state.mode).toBe("simple");
+    expect(cache.generalWorkbench.state.mode).toBe("focused");
 
     syncRequestedSettingsSection(cache, { section: "credentials", shouldReplace: false }, history);
 

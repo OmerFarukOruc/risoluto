@@ -35,7 +35,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: var(--font-bold);
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 
@@ -45,13 +45,15 @@
   color: var(--text-secondary);
 }
 
-.settings-devtools-section {
+.settings-devtools-section,
+.settings-codex-admin-section {
   padding: var(--space-6);
   border-color: color-mix(in srgb, var(--text-accent) 8%, var(--border-subtle));
   background: color-mix(in srgb, var(--bg-elevated) 70%, var(--bg-surface));
 }
 
-.settings-devtools-section summary {
+.settings-devtools-section summary,
+.settings-codex-admin-section summary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -64,30 +66,49 @@
   user-select: none;
 }
 
-.settings-devtools-section summary::-webkit-details-marker {
+.settings-devtools-section summary::-webkit-details-marker,
+.settings-codex-admin-section summary::-webkit-details-marker {
   display: none;
 }
 
-.settings-devtools-section summary::before {
+.settings-devtools-section summary::before,
+.settings-codex-admin-section summary::before {
   content: "\25B6";
   font-size: var(--text-xs);
   transition: transform var(--motion-fast) var(--ease-out-quart);
   color: var(--text-muted);
 }
 
-.settings-devtools-section[open] summary::before {
+.settings-devtools-section[open] summary::before,
+.settings-codex-admin-section[open] summary::before {
   transform: rotate(90deg);
 }
 
-.settings-devtools-section[open] summary {
+.settings-devtools-section[open] summary,
+.settings-codex-admin-section[open] summary {
   color: var(--text-primary);
   margin-bottom: var(--space-4);
 }
 
-.settings-devtools-section summary:focus-visible {
+.settings-devtools-section summary:focus-visible,
+.settings-codex-admin-section summary:focus-visible {
   outline: 2px solid var(--interactive-primary);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* The h2 inside the now-collapsed Codex Admin block is redundant with the
+   summary text — hide it visually, keep it for AT landmark navigation. */
+.settings-codex-admin-content .codex-admin-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .settings-devtools-content {
@@ -104,6 +125,20 @@
 
 .codex-admin-root,
 .codex-admin-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.codex-admin-heading {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--dashboard-h2-size);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text-primary);
+}
+
+.codex-admin-body {
   display: grid;
   gap: var(--space-4);
 }
@@ -145,6 +180,7 @@
   font-family: var(--font-heading);
   font-size: var(--text-xl);
   color: var(--text-primary);
+  font-feature-settings: var(--font-features-tabular);
 }
 
 .codex-admin-tag-row {
@@ -155,11 +191,11 @@
 }
 
 .codex-admin-tag.is-success {
-  background: color-mix(in srgb, var(--accent-success, #2f9e44) 12%, var(--bg-surface) 88%);
+  background: color-mix(in srgb, var(--accent-success) 12%, var(--bg-surface) 88%);
 }
 
 .codex-admin-tag.is-warn {
-  background: color-mix(in srgb, var(--accent-warning, #f08c00) 12%, var(--bg-surface) 88%);
+  background: color-mix(in srgb, var(--accent-warning) 12%, var(--bg-surface) 88%);
 }
 
 .codex-admin-diagnostics {
@@ -265,15 +301,6 @@
 .settings-shell-tab:focus-visible {
   outline: 2px solid var(--interactive-primary);
   outline-offset: 2px;
-}
-
-
-.settings-saving-indicator {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
 }
 
 @media (max-width: 760px) {

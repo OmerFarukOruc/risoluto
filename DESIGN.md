@@ -1,660 +1,623 @@
-# Risoluto Design System
-
-## Design Context
-
-### Users
-
-Risoluto is for developers and operators running autonomous coding workflows on their own machines. They are usually scanning status quickly, stepping into details only when something needs intervention, and they often work with several terminal and browser surfaces open at once.
-
-Their workflow expectations are:
-
-- status should be legible at a glance
-- live state should feel trustworthy, not noisy
-- detailed panes should be dense but scannable
-- configuration surfaces should feel precise and safe
-
-### Brand Personality
-
-**Precise, calm, reliable.** The product should feel like an instrument panel for serious engineering work: trustworthy, composed, and efficient. Distinctive is good; cute is not.
-
-Risoluto should read as:
-
-- technically credible
-- operationally calm
-- intentionally designed
-- sharp rather than soft
-
-It should not read as:
-
-- playful
-- fluffy
-- trend-driven
-- over-decorated
-
-### Aesthetic Direction
-
-- **Visual tone:** Mission-control UI with restrained warmth, crisp geometry, and dense but readable information layout.
-- **Theme:** Light and dark are both supported, but dark is the default operating mode.
-- **Accent:** Copper is reserved for brand, active navigation, and primary action. Runtime states use semantic colors instead of brand color.
-- **Typography:** Space Grotesk for headings, Manrope for interface/body copy, IBM Plex Mono for logs, identifiers, counters, and badges.
-- **Shape:** Sharp edges dominate. Small 2px radii are acceptable for controls; major surfaces should remain squared-off.
-- **Motion:** Purposeful and low-amplitude. Motion should clarify live state, transitions, reveal order, or hierarchy.
-- **References:** Linear, Raycast, GitHub, terminal-first monitoring tools, and operator dashboards that prize signal over spectacle.
-- **Anti-references:** Bubbly SaaS cards, purple gradients, playful illustrations, overly rounded surfaces, and empty-state-heavy consumer UI patterns.
-
-### Design Principles
-
-1. **Operational clarity first** — users should understand state, urgency, and next action in a glance.
-2. **Semantic color discipline** — copper signals brand and intent; status colors signal system meaning.
-3. **High signal per pixel** — optimize for cramped developer workspaces and fast scanning.
-4. **Crisp composition** — use sharp framing, structured spacing, and strong alignment instead of decorative flourish.
-5. **Accessibility by default** — keyboard access, durable contrast, and motion restraint are baseline expectations.
-
-## Source Of Truth
-
-The live design system is implemented in `frontend/src/styles/`. Files are organized into layers:
-
-### Foundation Layer
-
-| File | Purpose |
-| --- | --- |
-| `frontend/index.html` | Font loading (preload + swap) and dark-theme default |
-| `design-system.css` | Core palette, theme tokens, semantic status colors, surface hierarchy, typography hierarchy classes, and deprecated legacy components |
-| `tokens.css` | App-specific aliases, extended typography scale, tracking/leading tokens, font features, control sizing, shell dimensions, status tint percentages, and tone tokens |
-| `primitives.css` | Page structure, utility typography, skeletons, toasts, and shared primitives |
-| `components.css` | Shared surfaces (mc-*), buttons, badges, chips, status treatments, and component-level rules |
-
-### Feature Layer
-
-| File | Purpose |
-| --- | --- |
-| `animations.css` | Keyframe animations and motion utilities |
-| `container-queries.css` | Container query breakpoints for responsive components |
-| `containers.css` | Container wrapper definitions |
-| `forms.css` | Form-specific styling |
-| `modal.css` | Modal/dialog component system |
-| `palette.css` | Extended palette utilities |
-
-### Polish Layer
-
-| File | Purpose |
-| --- | --- |
-| `polish-tokens.css` | Polish-specific design tokens |
-| `polish-brand.css` | Brand-level polish refinements |
-| `polish-delight.css` | Micro-interactions and delight effects |
-| `polish-motion.css` | Motion choreography and transition orchestration |
-| `hardening.css` | Edge-case hardening (overflow, truncation, empty states, resilience) |
-
-### Page Layer
-
-| File | Purpose |
-| --- | --- |
-| `shell.css` / `shell-responsive.css` | App shell, sidebar, header, responsive breakpoints |
-| `overview.css` | Dashboard overview panels |
-| `queue.css` / `queue-dnd.css` | Issue queue and drag-and-drop |
-| `kanban.css` | Kanban board view |
-| `logs.css` | Log viewer |
-| `settings.css` / `unified-settings.css` | Settings pages |
-| `config.css` | Configuration panels |
-| `setup.css` / `welcome.css` | Setup wizard and welcome flow |
-| `observability.css` | Observability dashboard |
-| `issue.css` / `issue-inspector-rail.css` | Issue detail and inspector rail |
-| `attempt.css` / `runs.css` | Attempt and run views |
-| `workspace.css` | Workspace management |
-| `git.css` / `diff.css` | Git status and diff rendering |
-| `secrets.css` | Secrets management UI |
-| `notifications.css` | Notification toasts and alerts |
-| `state-guide.css` | State guide reference |
-| `audit.css` | Audit log pages |
-| `templates.css` | Template rendering utilities |
-
-Page-specific styles extend the foundation and feature layers but are not the canonical token source.
-
-## Color System
-
-### Brand Accent
-
-Copper is the live brand accent and should be used deliberately.
-
-**Copper scale:**
-
-- `--color-copper-50`: `#f9eee9`
-- `--color-copper-100`: `#f3ddd4`
-- `--color-copper-200`: `#e8bba9`
-- `--color-copper-300`: `#da9478`
-- `--color-copper-400`: `#c96e4a`
-- `--color-copper-500`: `#b45837`
-- `--color-copper-600`: `#9a472b`
-- `--color-copper-700`: `#7a3520`
-- `--color-copper-800`: `#5d2a1c`
-
-**Interactive brand tokens:**
-
-- `--interactive-primary`: `#8a3f26` (light) / `#cd7350` (dark)
-- `--interactive-primary-hover`: `#7a3520` (light) / `#da9478` (dark)
-- `--interactive-primary-active`: `#5d2a1c` (light) / `#e8bba9` (dark)
-- `--interactive-primary-text`: `#ffffff` (light) / `#0c1016` (dark)
-
-### Accent Usage Rules
-
-Copper is appropriate for:
-
-- primary CTAs
-- active navigation state
-- command surfaces that need focal emphasis
-- key brand moments and selective highlights
-
-Copper should not be used for:
-
-- runtime status semantics
-- secondary actions
-- decorative borders on arbitrary panels
-- replacing warning or error colors
-
-### Semantic Status Colors
-
-The runtime model depends on semantic status tokens:
-
-- Backlog: `--status-backlog` — `#7b8fa8`
-- Triage: `--status-triage` — `#8b8fa0`
-- Queued: `--status-queued` — `#4f7cff`
-- Claimed: `--status-claimed` — `#7c62d6`
-- Running: `--status-running` — `#2f9e44`
-- Retrying: `--status-retrying` — `#d98a1c`
-- Blocked: `--status-blocked` — `#d94841`
-- Completed: `--status-completed` — `#3a9e7a`
-- Closed: `--status-closed` — `#7a9652`
-- Cancelled: `--status-cancelled` — `#b25c6a`
-- Duplicate: `--status-duplicate` — `#8a7f94`
-- Pending change: `--status-pending-change` — `#b45837`
-- Gate: `--status-gate` — `#f59e0b` (defined in `tokens.css`)
-
-Dark mode brightens these slightly for legibility while preserving semantic meaning.
-
-### Severity Scale
-
-Used for issue card borders and priority badges:
-
-- `--severity-critical`: maps to `--status-blocked`
-- `--severity-high`: `#d98a1c`
-- `--severity-medium`: maps to `--status-queued`
-- `--severity-low`: maps to `--text-muted`
-
-### Event-Type Tints
-
-Subtle background tints for activity log rows (8% mix into transparent):
-
-- `--event-tint-config`: queued-tinted
-- `--event-tint-start`: running-tinted
-- `--event-tint-complete`: completed-tinted
-- `--event-tint-error`: blocked-tinted
-
-### Status Tint Percentages
-
-Controls visual intensity of status color blending across the UI:
-
-- `--status-tint-badge-bg`: 18% (20% in dark)
-- `--status-tint-badge-border`: 34%
-- `--status-tint-surface`: 4%
-- `--status-tint-surface-claimed`: 3%
-- `--status-tint-list`: 6%
-- `--status-tint-list-claimed`: 5%
-- `--status-tint-interactive`: 12%
-
-### Semantic Color Scales
-
-Retained for badge classes and utility use:
-
-- Success: `--color-success-{50,100,500,600,700}` (green)
-- Warning: `--color-warning-{50,100,500,600,700}` (amber)
-- Danger: `--color-danger-{50,100,500,600,700}` (red)
-- Info: `--color-info-{50,100,500,600,700}` (blue)
-- Gray: `--color-gray-{50..900}` (neutral)
-
-### Theme Surfaces
-
-**Light theme base:**
-
-- `--bg-base`: `#f7f5f1`
-- `--bg-surface`: `#ffffff`
-- `--bg-elevated`: `#f0ede7`
-- `--bg-muted`: `#e8e4dc`
-- `--bg-subtle`: `#e0dbd2`
-- `--text-primary`: `#1a1f28`
-- `--text-secondary`: `#4a535f` (WCAG AA 6.0:1 on white)
-- `--text-muted`: `#5c6570` (WCAG AA 5.1:1 on white)
-- `--text-subtle`: `#9ba3ad`
-- `--text-accent`: `#9a472b`
-- `--border-default`: `#cdc7be`
-- `--border-subtle`: `#ddd8d0`
-- `--border-muted`: `#ece8e2`
-- `--border-strong`: `#ada7a0`
-
-**Dark theme base:**
-
-- `--bg-base`: `#0c1016`
-- `--bg-surface`: `#121824`
-- `--bg-elevated`: `#182131`
-- `--bg-muted`: `#1e293b`
-- `--bg-subtle`: `#243040`
-- `--text-primary`: `#eaf0f6`
-- `--text-secondary`: `#a8b5c3`
-- `--text-muted`: `#8ba0b5` (WCAG AA 4.5:1 on dark surfaces)
-- `--text-subtle`: `#617181`
-- `--text-accent`: `#d4795a` (WCAG AA 4.5:1+ on dark sidebar)
-- `--border-default`: `#344658`
-- `--border-subtle`: `#263546`
-- `--border-muted`: `#1d2838`
-- `--border-strong`: `#506980`
-
-### Derived Tone Tokens
-
-`tokens.css` defines semantic background helpers for live, warning, and danger surfaces:
-
-- `--tone-live-bg`: 6% running mix (10% in dark)
-- `--tone-warning-bg`: 8% retrying mix (12% in dark)
-- `--tone-danger-bg`: 8% blocked mix (12% in dark)
-- `--tone-warning-border`: `--status-retrying`
-- `--tone-danger-border`: `--status-blocked`
-
-### Brand Signal Seam
-
-`--brand-signal-seam` is a repeating linear gradient used for decorative brand accents — a dashed copper line effect.
+---
+version: alpha
+name: Risoluto
+description: Mission-control interface for autonomous coding operations
+colors:
+  primary: "#8a3f26"
+  on-primary: "#ffffff"
+  primary-dark: "#cd7350"
+  on-primary-dark: "#0c1016"
+  copper-50: "#f9eee9"
+  copper-100: "#f3ddd4"
+  copper-200: "#e8bba9"
+  copper-300: "#da9478"
+  copper-400: "#c96e4a"
+  copper-500: "#b45837"
+  copper-600: "#9a472b"
+  copper-700: "#7a3520"
+  copper-800: "#5d2a1c"
+  surface-light-canvas: "#f7f5f1"
+  surface-light-base: "#ffffff"
+  surface-light-elevated: "#f0ede7"
+  surface-light-muted: "#e8e4dc"
+  surface-light-subtle: "#e0dbd2"
+  surface-dark-canvas: "#0c1016"
+  surface-dark-base: "#121824"
+  surface-dark-elevated: "#182131"
+  surface-dark-muted: "#1e293b"
+  surface-dark-subtle: "#243040"
+  text-light-primary: "#1a1f28"
+  text-light-secondary: "#4a535f"
+  text-light-muted: "#5c6570"
+  text-light-subtle: "#9ba3ad"
+  text-light-accent: "#9a472b"
+  text-dark-primary: "#eaf0f6"
+  text-dark-secondary: "#a8b5c3"
+  text-dark-muted: "#8ba0b5"
+  text-dark-subtle: "#617181"
+  text-dark-accent: "#d4795a"
+  border-light-default: "#cdc7be"
+  border-light-subtle: "#ddd8d0"
+  border-light-muted: "#ece8e2"
+  border-light-strong: "#ada7a0"
+  border-dark-default: "#344658"
+  border-dark-subtle: "#263546"
+  border-dark-muted: "#1d2838"
+  border-dark-strong: "#506980"
+  status-backlog: "#5e7491"
+  status-triage: "#666a7c"
+  status-queued: "#4264d6"
+  status-queued-dark: "#6b8fff"
+  status-claimed: "#7c62d6"
+  status-claimed-text: "#6046b6"
+  status-claimed-dark: "#9d84e8"
+  status-running: "#1e7a2f"
+  status-running-dark: "#4db86a"
+  status-retrying: "#a56812"
+  status-retrying-text: "#7a4a0b"
+  status-retrying-dark: "#e8a33c"
+  status-blocked: "#c73d35"
+  status-blocked-text: "#a8241f"
+  status-blocked-dark: "#e86060"
+  status-completed: "#247a5c"
+  status-completed-dark: "#4dc49a"
+  status-closed: "#5d7a3a"
+  status-cancelled: "#b25c6a"
+  status-duplicate: "#756a80"
+  status-pending-change: "#b45837"
+  status-gate: "#a56812"
+  status-gate-dark: "#f59e0b"
+  status-running-surface: "#eaf6ee"
+  status-running-surface-dark: "#15251c"
+  status-blocked-surface: "#fbeceb"
+  status-blocked-surface-dark: "#331c20"
+  status-queued-surface: "#edf2ff"
+  status-queued-surface-dark: "#17213a"
+  status-claimed-surface: "#f0edff"
+  status-claimed-surface-dark: "#221d38"
+  status-retrying-surface: "#f9f0df"
+  status-retrying-surface-dark: "#2d2317"
+  status-completed-surface: "#e9f5f0"
+  status-completed-surface-dark: "#152620"
+  alert-stale-bg-dark: "#432321"
+  alert-stale-text-dark: "#ffb199"
+  focus-ring: "#b45837"
+  selection-bg: "#f3ddd4"
+  selection-text: "#5d2a1c"
+typography:
+  display:
+    fontFamily: Space Grotesk, system-ui, sans-serif
+    fontSize: 44px
+    fontWeight: 700
+    lineHeight: 52px
+    letterSpacing: -0.03em
+    fontFeature: '"kern" 1, "liga" 1, "tnum" 1, "lnum" 1'
+  page-title:
+    fontFamily: Space Grotesk, system-ui, sans-serif
+    fontSize: 32px
+    fontWeight: 700
+    lineHeight: 38px
+    letterSpacing: -0.02em
+    fontFeature: '"kern" 1, "liga" 1, "calt" 1'
+  section-title:
+    fontFamily: Space Grotesk, system-ui, sans-serif
+    fontSize: 24px
+    fontWeight: 600
+    lineHeight: 32px
+    letterSpacing: -0.02em
+  card-title:
+    fontFamily: Space Grotesk, system-ui, sans-serif
+    fontSize: 18px
+    fontWeight: 600
+    lineHeight: 24px
+    letterSpacing: -0.01em
+  body-lg:
+    fontFamily: Manrope, system-ui, sans-serif
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 26px
+    letterSpacing: 0em
+  body-md:
+    fontFamily: Manrope, system-ui, sans-serif
+    fontSize: 15px
+    fontWeight: 400
+    lineHeight: 24px
+    letterSpacing: 0em
+  body-sm:
+    fontFamily: Manrope, system-ui, sans-serif
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 22px
+    letterSpacing: 0em
+  action:
+    fontFamily: Manrope, system-ui, sans-serif
+    fontSize: 15px
+    fontWeight: 500
+    lineHeight: 20px
+    letterSpacing: -0.01em
+  label-caps:
+    fontFamily: IBM Plex Mono, ui-monospace, monospace
+    fontSize: 12px
+    fontWeight: 600
+    lineHeight: 16px
+    letterSpacing: 0.04em
+    fontFeature: '"tnum" 1, "lnum" 1, "zero" 1'
+  label-micro:
+    fontFamily: IBM Plex Mono, ui-monospace, monospace
+    fontSize: 11px
+    fontWeight: 600
+    lineHeight: 14px
+    letterSpacing: 0.1em
+    fontFeature: '"tnum" 1, "lnum" 1, "zero" 1'
+  mono:
+    fontFamily: IBM Plex Mono, ui-monospace, monospace
+    fontSize: 14px
+    fontWeight: 500
+    lineHeight: 22px
+    letterSpacing: 0.02em
+    fontFeature: '"tnum" 1, "lnum" 1, "zero" 1'
+  mono-log:
+    fontFamily: IBM Plex Mono, ui-monospace, monospace
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 22px
+    letterSpacing: 0em
+    fontFeature: '"tnum" 1, "lnum" 1, "zero" 1'
+rounded:
+  none: 0px
+  sm: 2px
+  md: 2px
+  lg: 0px
+  xl: 0px
+  full: 9999px
+spacing:
+  base: 4px
+  xs: 4px
+  sm: 8px
+  md: 12px
+  lg: 16px
+  xl: 20px
+  2xl: 24px
+  3xl: 32px
+  4xl: 40px
+  5xl: 48px
+  6xl: 64px
+  7xl: 80px
+  control-xs: 28px
+  control-sm: 32px
+  control-md: 36px
+  control-lg: 40px
+  control-xl: 44px
+  sidebar-collapsed: 56px
+  sidebar-expanded: 220px
+  header-height: 48px
+  icon-sm: 14px
+  icon-md: 16px
+  icon-lg: 20px
+shadows:
+  none: "none"
+  sm-light: "0 1px 2px 0 rgb(0 0 0 / 0.04)"
+  md-light: "0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05)"
+  lg-light: "0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05)"
+  sm-dark: "0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.3)"
+  md-dark: "0 4px 8px -2px rgb(0 0 0 / 0.55), 0 2px 4px -2px rgb(0 0 0 / 0.4)"
+  glow-copper-light: "0 0 6px -1px rgb(180 88 55 / 0.15)"
+  glow-copper-dark: "0 0 8px -1px rgb(212 121 90 / 0.2)"
+elevation:
+  flat:
+    shadow: "{shadows.none}"
+    borderWidth: 1px
+  primary:
+    shadow: "{shadows.sm-dark}"
+    borderWidth: 1px
+    accentWidth: 3px
+  overlay:
+    shadow: "{shadows.md-dark}"
+    borderWidth: 1px
+motion:
+  instant:
+    duration: "120ms"
+    easing: "cubic-bezier(0.25, 1, 0.5, 1)"
+  fast:
+    duration: "180ms"
+    easing: "cubic-bezier(0.25, 1, 0.5, 1)"
+  medium:
+    duration: "260ms"
+    easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+  slow:
+    duration: "420ms"
+    easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+  live-pulse:
+    duration: "2000ms"
+    easing: "ease-in-out"
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.action}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 16px
+  button-primary-hover:
+    backgroundColor: "{colors.copper-700}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.sm}"
+  button-primary-dark:
+    backgroundColor: "{colors.primary-dark}"
+    textColor: "{colors.on-primary-dark}"
+    typography: "{typography.action}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 16px
+  button-ghost:
+    backgroundColor: "{colors.surface-light-base}"
+    textColor: "{colors.text-light-primary}"
+    typography: "{typography.action}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 16px
+  button-ghost-dark:
+    backgroundColor: "{colors.surface-dark-base}"
+    textColor: "{colors.text-dark-primary}"
+    typography: "{typography.action}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 16px
+  icon-button:
+    backgroundColor: "{colors.surface-dark-base}"
+    textColor: "{colors.text-dark-secondary}"
+    rounded: "{rounded.sm}"
+    width: "{spacing.control-md}"
+    height: "{spacing.control-md}"
+    padding: 0px
+  panel-standard:
+    backgroundColor: "{colors.surface-dark-base}"
+    textColor: "{colors.text-dark-primary}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.lg}"
+  panel-primary:
+    backgroundColor: "{colors.surface-dark-elevated}"
+    textColor: "{colors.text-dark-primary}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.xl}"
+  panel-quiet:
+    backgroundColor: "{colors.surface-dark-muted}"
+    textColor: "{colors.text-dark-secondary}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.lg}"
+  input-field:
+    backgroundColor: "{colors.surface-light-base}"
+    textColor: "{colors.text-light-primary}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 12px
+  input-field-dark:
+    backgroundColor: "{colors.surface-dark-base}"
+    textColor: "{colors.text-dark-primary}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.sm}"
+    height: "{spacing.control-md}"
+    padding: 8px 12px
+  status-chip-running:
+    backgroundColor: "{colors.status-running-surface}"
+    textColor: "{colors.status-running}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  status-chip-blocked:
+    backgroundColor: "{colors.status-blocked-surface}"
+    textColor: "{colors.status-blocked-text}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  status-chip-queued:
+    backgroundColor: "{colors.status-queued-surface}"
+    textColor: "{colors.status-queued}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  status-chip-claimed:
+    backgroundColor: "{colors.status-claimed-surface}"
+    textColor: "{colors.status-claimed-text}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  status-chip-retrying:
+    backgroundColor: "{colors.status-retrying-surface}"
+    textColor: "{colors.status-retrying-text}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  status-chip-completed:
+    backgroundColor: "{colors.status-completed-surface}"
+    textColor: "{colors.status-completed}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.sm}"
+    padding: 3px 8px
+  log-panel:
+    backgroundColor: "{colors.surface-dark-canvas}"
+    textColor: "{colors.text-dark-secondary}"
+    typography: "{typography.mono-log}"
+    rounded: "{rounded.none}"
+    padding: "{spacing.lg}"
+  metadata:
+    backgroundColor: "{colors.surface-dark-muted}"
+    textColor: "{colors.text-dark-muted}"
+    typography: "{typography.label-caps}"
+    rounded: "{rounded.none}"
+    padding: 4px 8px
+  stale-alert:
+    backgroundColor: "{colors.alert-stale-bg-dark}"
+    textColor: "{colors.alert-stale-text-dark}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.none}"
+    padding: 12px 16px
+  divider:
+    backgroundColor: "{colors.border-dark-default}"
+    rounded: "{rounded.none}"
+    height: 1px
+  palette-copper-50:
+    backgroundColor: "{colors.copper-50}"
+  palette-copper-100:
+    backgroundColor: "{colors.copper-100}"
+  palette-copper-200:
+    backgroundColor: "{colors.copper-200}"
+  palette-copper-300:
+    backgroundColor: "{colors.copper-300}"
+  palette-copper-400:
+    backgroundColor: "{colors.copper-400}"
+  palette-copper-500:
+    backgroundColor: "{colors.copper-500}"
+  palette-copper-600:
+    backgroundColor: "{colors.copper-600}"
+  palette-copper-800:
+    backgroundColor: "{colors.copper-800}"
+  palette-surface-light-canvas:
+    backgroundColor: "{colors.surface-light-canvas}"
+  palette-surface-light-elevated:
+    backgroundColor: "{colors.surface-light-elevated}"
+  palette-surface-light-muted:
+    backgroundColor: "{colors.surface-light-muted}"
+  palette-surface-light-subtle:
+    backgroundColor: "{colors.surface-light-subtle}"
+  palette-surface-dark-subtle:
+    backgroundColor: "{colors.surface-dark-subtle}"
+  palette-text-light-secondary:
+    backgroundColor: "{colors.text-light-secondary}"
+  palette-text-light-muted:
+    backgroundColor: "{colors.text-light-muted}"
+  palette-text-light-subtle:
+    backgroundColor: "{colors.text-light-subtle}"
+  palette-text-light-accent:
+    backgroundColor: "{colors.text-light-accent}"
+  palette-text-dark-subtle:
+    backgroundColor: "{colors.text-dark-subtle}"
+  palette-text-dark-accent:
+    backgroundColor: "{colors.text-dark-accent}"
+  palette-border-light-default:
+    backgroundColor: "{colors.border-light-default}"
+  palette-border-light-subtle:
+    backgroundColor: "{colors.border-light-subtle}"
+  palette-border-light-muted:
+    backgroundColor: "{colors.border-light-muted}"
+  palette-border-light-strong:
+    backgroundColor: "{colors.border-light-strong}"
+  palette-border-dark-subtle:
+    backgroundColor: "{colors.border-dark-subtle}"
+  palette-border-dark-muted:
+    backgroundColor: "{colors.border-dark-muted}"
+  palette-border-dark-strong:
+    backgroundColor: "{colors.border-dark-strong}"
+  palette-status-backlog:
+    backgroundColor: "{colors.status-backlog}"
+  palette-status-triage:
+    backgroundColor: "{colors.status-triage}"
+  palette-status-queued-dark:
+    backgroundColor: "{colors.status-queued-dark}"
+  palette-status-claimed:
+    backgroundColor: "{colors.status-claimed}"
+  palette-status-claimed-dark:
+    backgroundColor: "{colors.status-claimed-dark}"
+  palette-status-running-dark:
+    backgroundColor: "{colors.status-running-dark}"
+  palette-status-retrying:
+    backgroundColor: "{colors.status-retrying}"
+  palette-status-retrying-dark:
+    backgroundColor: "{colors.status-retrying-dark}"
+  palette-status-blocked:
+    backgroundColor: "{colors.status-blocked}"
+  palette-status-blocked-dark:
+    backgroundColor: "{colors.status-blocked-dark}"
+  palette-status-completed-dark:
+    backgroundColor: "{colors.status-completed-dark}"
+  palette-status-closed:
+    backgroundColor: "{colors.status-closed}"
+  palette-status-cancelled:
+    backgroundColor: "{colors.status-cancelled}"
+  palette-status-duplicate:
+    backgroundColor: "{colors.status-duplicate}"
+  palette-status-pending-change:
+    backgroundColor: "{colors.status-pending-change}"
+  palette-status-gate:
+    backgroundColor: "{colors.status-gate}"
+  palette-status-gate-dark:
+    backgroundColor: "{colors.status-gate-dark}"
+  palette-status-running-surface-dark:
+    backgroundColor: "{colors.status-running-surface-dark}"
+  palette-status-blocked-surface-dark:
+    backgroundColor: "{colors.status-blocked-surface-dark}"
+  palette-status-queued-surface-dark:
+    backgroundColor: "{colors.status-queued-surface-dark}"
+  palette-status-claimed-surface-dark:
+    backgroundColor: "{colors.status-claimed-surface-dark}"
+  palette-status-retrying-surface-dark:
+    backgroundColor: "{colors.status-retrying-surface-dark}"
+  palette-status-completed-surface-dark:
+    backgroundColor: "{colors.status-completed-surface-dark}"
+  palette-focus-ring:
+    backgroundColor: "{colors.focus-ring}"
+  palette-selection-bg:
+    backgroundColor: "{colors.selection-bg}"
+  palette-selection-text:
+    backgroundColor: "{colors.selection-text}"
+---
+
+# Design System: Risoluto
+
+## Overview
+
+Risoluto is a co-pilot's console for autonomous engineering work. It should feel like a serious operator surface where an expert can sit with active agent runs, read what is happening, and intervene without the interface getting in the way. The visual identity is dark-first, exact, dense, and calm: more mission control than analytics dashboard, more terminal companion than generic AI product.
+
+The rendered product reads as a slate-black control room with copper signals. The interface uses rectangular bands, sharp panel boundaries, compact buttons, mono labels, and quiet live-state indicators. It is not soft, bubbly, or decorative. Its confidence comes from precision: one warm accent, strong hierarchy, crisp borders, and motion that proves work is alive.
+
+The system has three design promises:
+
+- **Transparent:** agent work, status, risk, and system health are visible rather than hidden behind cheerful abstractions.
+- **Partnered:** the UI sits next to the operator. It is intimate through shared context, not through friendly mascot language.
+- **Alive:** active runs show proof of life through streaming content, pulses, counters, and timely alerts. Idle surfaces are still.
+
+The target user is CLI-native and comfortable with dense technical systems. They are willing to read, but they should not have to decode. A non-developer should still be able to understand the broad state of the system at a glance: what is running, what is blocked, what needs review, and where action is needed.
+
+## Colors
+
+The palette is copper-anchored with strict semantic separation. Copper carries brand and primary action. Status colors carry runtime meaning. Slate and warm off-white neutrals carry the product's composed console atmosphere.
+
+- **Copper brand:** the copper scale runs from pale `#f9eee9` through active copper `#b45837` to deep copper `#5d2a1c`. Copper is the only brand accent. It belongs on the product mark, active navigation, focus treatment, primary actions, and narrow command emphasis.
+- **Dark console neutrals:** dark mode starts at near-black slate `#0c1016`, lifts panels to `#121824` and `#182131`, and uses blue-slate borders like `#344658`. This is the primary emotional register: quiet, inhabited, and technical.
+- **Light operational neutrals:** light mode uses a warm paper canvas `#f7f5f1` with white and stone surfaces. It should feel hand-tuned, not a flipped dark theme.
+- **Runtime status:** green, red, blue, purple, amber, and teal are reserved for state. They should never become brand colors or decorative accents.
+- **Text:** dark mode text is bright but not neon. Light mode text is ink-like and softened by warm neutrals. Secondary text must remain readable because much of the product is metadata.
+
+Use color sparingly. A typical viewport should have mostly slate or warm-neutral structure, one copper focal signal, and status color only where runtime state is being communicated. If a status is important, do not rely on hue alone; pair the color with a label, icon, and surface treatment.
+
+Avoid purple-blue gradients, cyan-on-black AI styling, glowing neon accents, gradient text, and generic dark dashboard palettes. Risoluto's warmth comes from copper restraint, not from decorative color.
 
 ## Typography
 
-### Font Families
+Risoluto uses a three-spine type system with a visible handoff between interface chrome and agent output.
 
-Fonts are loaded in `frontend/index.html` via `<link rel="preload" as="style">` with `font-display: swap`:
+- **Display spine:** Space Grotesk handles page titles, section titles, card titles, large numbers, and high-level hierarchy. It gives the interface a product-engineering voice without becoming editorial.
+- **Body spine:** Manrope handles navigation, buttons, descriptions, form labels, empty states, and normal reading. It should feel calm and durable during long sessions.
+- **Mono spine:** IBM Plex Mono handles logs, identifiers, counters, status chips, structured data, table headers, and code-like material. This is the agent's territory.
 
-- **Heading:** Space Grotesk (400, 500, 600, 700)
-- **Body/UI:** Manrope (400, 500, 600)
-- **Monospace:** IBM Plex Mono (400, 500)
+The boundary between proportional and mono text is intentional. When the operator's eye moves from navigation into a run ID, log row, cost counter, or status chip, the typographic shift should say: you are now looking at facts produced by the system.
 
-Tokenized stacks:
+Use tabular numbers anywhere digits stack, align, or identify something. Use slashed zero forms for identifiers and runtime data. Tight negative tracking belongs only to display and heading text; body copy stays at `0em`, and mono labels get positive tracking.
 
-- `--font-heading`: Space Grotesk + system fallback
-- `--font-body`: Manrope + system fallback
-- `--font-sans`: Manrope + system fallback (alias)
-- `--font-mono`: IBM Plex Mono + system fallback
+## Layout
 
-### Font Weights
+The layout is based on a compact 4px grid. The product is dense by design, but density must be organized. Related controls sit close together; unrelated groups get clear separation; primary operator surfaces receive enough room for scanning.
 
-- `--font-normal`: 400
-- `--font-medium`: 500
-- `--font-semibold`: 600
-- `--font-bold`: 700
+The rendered shell establishes the rhythm:
 
-### Type Scale
+- A narrow left navigation rail expands into grouped sections.
+- A 48px top bar carries search, refresh, documentation, and theme controls.
+- Page bodies use strong horizontal and vertical alignment, not loose card scattering.
+- Panels are rectangular, bordered, and arranged in grid-like command zones.
+- Empty and loading states occupy the same geometry as real content so the layout stays stable.
 
-Two layers define the type scale:
+Default spacing is tight: 8px between small control parts, 12px between related rows, 16px to 24px inside panels, and 32px or more only for major page breaks. Do not use oversized landing-page spacing. This is a repeated-use operator UI, not a marketing site.
 
-**`design-system.css` — base Major Third (1.25) ratio:**
+Controls should be stable in size. Buttons and inputs are typically 36px high; compact toolbar controls can be 28px to 32px; important targets can rise to 40px or 44px. Iconography should mostly sit at 16px, with 20px reserved for stronger affordances.
 
-| Token | Size | Use |
-| --- | --- | --- |
-| `--text-xs` | 12px | Labels |
-| `--text-sm` | 14px | Base UI |
-| `--text-base` | 16px | Body |
-| `--text-md` | 20px | Section titles |
-| `--text-lg` | 24px | Lane titles |
-| `--text-xl` | 30px | KPI |
-| `--text-2xl` | 36px | Display |
+## Elevation & Depth
 
-**`tokens.css` — app-specific overrides for dashboard density:**
+Risoluto is flat by default. It creates depth through tonal layers, borders, top accents, and information hierarchy rather than decorative shadow.
 
-| Token | Size | Use |
-| --- | --- | --- |
-| `--text-2xs` | 10px | Group headers, type badges |
-| `--text-xxs` | 11px | Toolbar labels, table headers |
-| `--text-xs` | 12px | Secondary labels |
-| `--text-ui` | 13px | Secondary UI text, descriptions |
-| `--text-sm` | 14px | Base UI text |
-| `--text-sm-plus` | 15px | Subsection headings |
-| `--text-base` | 16px | Default body |
-| `--text-md` | 18px | Section titles |
-| `--text-lg` | 20px | Lane titles |
-| `--text-xl` | 24px | KPI numbers |
-| `--text-2xl` | 24–30px | Fluid display |
-| `--text-hero` | 30–44px | Fluid hero |
+There are three surface tiers:
 
-The `tokens.css` overrides take precedence in the app. The tighter values are tuned for operational dashboard density.
+- **Primary surfaces:** command areas, live panels, active status regions, and important review zones. They use elevated slate, a stronger border, and often a thin copper top accent. They should draw the eye first.
+- **Standard surfaces:** panels, lists, rows, stat cards, and toolbars. They use a 1px border and a calm surface fill. This is the default treatment.
+- **Quiet surfaces:** metadata, empty states, secondary drawers, and support copy. They recede through muted backgrounds and lower-contrast text.
 
-### Tracking And Leading
+Shadows are allowed only where a layer genuinely floats above the main workspace: popovers, drawers, modals, toasts, and rare command surfaces. Even then, shadows stay diffused and understated. Persistent cards and lists should not depend on shadow for visual weight.
 
-Tracking:
+Live state may use a subtle copper or status-colored glow, but only as proof of activity. A running status pulse is a semantic signal, not decoration.
 
-- `--tracking-tightest`: -0.03em (hero/KPI, 22px+ headings)
-- `--tracking-tight`: -0.02em (headings 20–28px)
-- `--tracking-snug`: -0.01em (medium headings 16-20px)
-- `--tracking-normal`: 0em (body)
-- `--tracking-wide`: 0.02em (mono badges)
-- `--tracking-wider`: 0.04em (uppercase mono labels)
-- `--tracking-widest`: 0.08em (uppercase identifiers)
-- `--tracking-caps`: 0.1em (sidebar headers, all-caps micro)
+## Shapes
 
-Leading:
+The geometry is a zero-radius stitch. Major surfaces are squared off. Panels, drawers, logs, large containers, and command regions use 0px corners. Compact controls use a 2px radius to stay usable without becoming soft. Fully rounded shapes are reserved for dots, tiny counters, and circular status indicators.
 
-- `--leading-none`: 1 (badges, buttons)
-- `--leading-tight`: 1.2 (display numbers, hero)
-- `--leading-snug`: 1.35 (card titles)
-- `--leading-normal`: 1.5 (body)
-- `--leading-relaxed`: 1.6 (code panels, logs)
-- `--leading-loose`: 1.65 (long-form reading)
+This sharpness is part of the brand. It keeps the console architectural and technical. Do not globally soften the UI to chase a friendlier SaaS feel. The product should look engineered and composed.
 
-### Font Feature Tokens
+Strokes do much of the visual work:
 
-- `--font-features-default`: kern, liga, calt
-- `--font-features-tabular`: kern, tnum, lnum
-- `--font-features-mono-num`: tnum, lnum, zero (slashed zero)
-- `--font-features-heading`: kern, liga, calt, ss01
+- 1px for default panel borders, table dividers, and control outlines.
+- 2px for focus treatment and stronger separators.
+- 3px for rare emphasis accents on primary command surfaces.
 
-### Typography Hierarchy Classes
+Avoid persistent side-stripe accents. If a surface needs stronger meaning, use a full border, a top accent, a status chip, or a tinted background.
 
-`design-system.css` defines a hierarchy of typography utility classes:
-
-**Headings:**
-
-- `.heading-display` — Hero numbers, large metrics (Space Grotesk, hero size, bold, tightest tracking, tabular figures)
-- `.heading-section` — Page/section titles (Space Grotesk, xl size, semibold, tight tracking)
-- `.heading-card` — Card titles, list headings (Space Grotesk, md size, semibold, snug tracking)
-- `.heading-label` — Small section labels (IBM Plex Mono, xs, semibold, uppercase, wider tracking)
-
-**Body:**
-
-- `.text-tertiary` — Metadata, timestamps (xs, muted)
-- `.text-identifier` — Issue IDs, code snippets (mono, sm, medium, accent color)
-- `.text-metric` — KPI numbers (Space Grotesk, xl, bold, tabular figures)
-- `.text-action` — Button text, CTAs (Manrope, base, medium)
-
-### Typography Guidance
-
-- Use Space Grotesk for page titles, section titles, and high-level metrics.
-- Use Manrope for most descriptive copy, form labels, and body content.
-- Use IBM Plex Mono for issue identifiers, status labels, timestamps, token counts, commands, and log output.
-- Use tracking and font-feature tokens for compact, technical UI rather than ad-hoc letter-spacing or numeric styling.
-
-## Spacing, Shape, And Motion
-
-### Spacing
-
-The system uses a 4px base grid:
-
-- `--space-1`: 4px
-- `--space-2`: 8px
-- `--space-3`: 12px
-- `--space-4`: 16px
-- `--space-5`: 20px
-- `--space-6`: 24px
-- `--space-8`: 32px
-- `--space-10`: 40px
-- `--space-12`: 48px
-- `--space-16`: 64px
-- `--space-20`: 80px
-
-### Radius
-
-Live radius tokens are intentionally tight:
-
-- `--radius-sm`: 2px
-- `--radius-md`: 2px
-- `--radius-lg`: 0px
-- `--radius-xl`: 0px
-- `--radius-full`: 9999px
-
-The visual language should therefore feel sharp and stitched, even when compact controls use slight rounding.
-
-### Control Heights And Icons
-
-- `--control-height-xs`: 28px
-- `--control-height-sm`: 32px
-- `--control-height-md`: 36px
-- `--control-height-lg`: 40px
-- `--control-height-xl`: 44px
-
-- `--icon-size-xs`: 12px
-- `--icon-size-sm`: 14px
-- `--icon-size-md`: 16px
-- `--icon-size-lg`: 20px
-- `--icon-size-xl`: 24px
-
-### Badge And Chip Dimensions
-
-- `--badge-dot-size`: 6px
-- `--badge-padding-default`: 3px 8px
-- `--badge-padding-sm`: 2px 6px
-- `--badge-padding-lg`: 4px 10px
-
-### Shell Dimensions
-
-- `--sidebar-width-collapsed`: 56px
-- `--sidebar-width-expanded`: 220px
-- `--header-height`: 48px
-- `--dashboard-h2-size`: 18px (maps to `--text-md`)
-- `--dashboard-h3-size`: 15px (maps to `--text-sm-plus`)
-- `--dashboard-number-lg`: 32–44px fluid
-- `--dashboard-panel-min-height`: 15rem
-
-### Stroke Widths, Shadows, And Motion
-
-- `--stroke-default`: 1px
-- `--stroke-accent`: 2px
-- `--stroke-emphasis`: 3px
-
-Shadows (light / dark have distinct values for appropriate depth perception):
-
-- `--shadow-sm`
-- `--shadow-md`
-- `--shadow-lg`
-- `--shadow-xl`
-
-Motion durations:
-
-- `--motion-instant`: 120ms
-- `--motion-fast`: 180ms
-- `--motion-medium`: 260ms
-- `--motion-slow`: 420ms
-
-Easing curves:
-
-- `--ease-out-quart`: `cubic-bezier(0.25, 1, 0.5, 1)`
-- `--ease-out-quint`: `cubic-bezier(0.22, 1, 0.36, 1)`
-- `--ease-out-expo`: `cubic-bezier(0.16, 1, 0.3, 1)`
-
-Motion should support hierarchy, feedback, and live-state awareness. Avoid decorative animation patterns that compete with operational data.
-
-## Surface Hierarchy
-
-The design system defines a three-tier surface hierarchy:
-
-### Primary Surface — Commanding Presence
-
-Used for command panels, live data displays, and primary actions. Highest visual weight with copper accent border and subtle elevation.
-
-- `--surface-primary-bg`: `--bg-surface` (light) / blended elevated-surface (dark)
-- `--surface-primary-border`: `--border-strong`
-- `--surface-primary-border-accent`: `--text-accent`
-- `--surface-primary-accent-width`: 3px
-- `--surface-primary-shadow`: `--shadow-sm` (light) / deeper shadow (dark)
-
-### Standard Surface — Default Containers
-
-Used for list items, content cards, toolbars. Balanced, readable, no accent.
-
-- `--surface-standard-bg`: `--bg-surface`
-- `--surface-standard-border`: `--border-default`
-- `--surface-standard-shadow`: none
-
-### Quiet Surface — Supporting Content
-
-Used for metadata, secondary info, empty states. Minimal visual presence.
-
-- `--surface-quiet-bg`: `--bg-muted`
-- `--surface-quiet-border`: transparent
-- `--surface-quiet-shadow`: none
-
-**Hierarchy rules:**
-
-1. Primary surfaces should draw the eye first.
-2. Standard surfaces provide the main content structure.
-3. Quiet surfaces should never compete for attention.
-4. Never nest same-tier surfaces (e.g., primary within primary).
-
-## Shared Component Vocabulary
-
-### Surface Classes
-
-**Primary commanding surfaces:**
-
-- `.mc-command`
-- `.mc-live-panel`
-- `.mc-status-primary`
-
-**Standard containers:**
-
-- `.mc-panel`
-- `.mc-stat-card`
-- `.mc-toolbar`
-- `.mc-strip`
-
-**Quiet support surfaces:**
-
-- `.mc-drawer`
-- `.mc-empty-state`
-- `.mc-metadata`
-- `.mc-sunken`
-- `.mc-elevated`
-
-**Status-aware containers:**
-
-- `.mc-container`
-- status variants like `.is-status-running`, `.is-status-blocked`, `.is-status-retrying`, `.is-status-claimed`
+## Components
 
 ### Buttons
 
-**Canonical button base:**
+Buttons are compact, rectangular, and purposeful. Primary buttons use deep copper in light mode and brighter copper in dark mode. There should usually be one primary action per surface. Ghost buttons are common and should look like quiet operator controls rather than marketing CTAs.
 
-- `.mc-button`
+Hover states shift color or border contrast. Avoid scale, bounce, glow-heavy treatment, or decorative transforms. Focus rings use copper and must be visible.
 
-**Variants:**
+### Navigation
 
-- `.is-primary`
-- `.is-ghost`
-- `.is-danger`
+Navigation is grouped by operator intent: operate, configure, observe, and system. Active navigation uses copper as a positional signal. Section headers use uppercase mono text and tight spacing. The nav should feel like a command sidebar, not a consumer app menu.
 
-**Size modifiers:**
+### Panels And Cards
 
-- `.is-sm`
-- `.is-lg`
+Panels are not soft cards. They are operational containers with clear borders, square corners, and stable internal rhythm. Primary panels may use a thin copper top accent; standard panels use slate borders; quiet panels recede.
 
-**Interaction modifiers and helpers:**
+Do not nest visually equivalent panels inside one another. If nested information is necessary, reduce the child to a row, strip, table, or quiet metadata block.
 
-- `.is-icon-only`
-- `.is-command`
-- `.mc-button-icon`
-- `.mc-button-hint`
-- `.mc-button-segment`
+### Status Chips And Badges
 
-Legacy button class names like `mc-button-ghost`, `mc-button-secondary`, `mc-btn`, `.btn`, `.btn-primary`, `.btn-ghost`, and `.btn-icon` should not be introduced in new code. Existing deprecated classes remain in `design-system.css` for backward compatibility.
+Status chips use mono text, compact padding, 2px corners, and redundant meaning. Running, blocked, queued, claimed, retrying, completed, gate, and stale states each need a consistent color relationship. The strongest statuses are running, blocked, and retrying; queued and completed should be calmer.
 
-### Badges And Chips
+Prefer tinted status surfaces with colored text over saturated badges when the chip sits inside dense UI. Saturated fills are reserved for moments where the state must be unmistakable.
 
-**Canonical classes:**
+### Inputs And Forms
 
-- `.mc-badge`
-- `.mc-chip`
+Inputs are utilitarian: 1px border, surface fill, 2px radius, and copper focus. Form density is acceptable as long as sections are grouped and labels remain legible. Error treatment uses blocked-state color plus explicit text, not color alone.
 
-**Modifiers:**
+### Logs And Runtime Output
 
-- size: `.is-sm`, `.is-lg`
-- status: `.is-status-*`
-- priority: `.is-priority-*`
-- event: `.is-event-*`
-- interactive: `.is-interactive`, `.is-active`
+Logs and runtime output are mono-first. They should feel sunken, factual, and durable. Use dark canvas or muted surfaces, tabular numbers, stable row heights, and restrained event tints. Streaming output is allowed to feel alive, but it must remain readable during long sessions.
 
-Mono typography is expected for identifiers, compact labels, and operational chips.
+### Alerts And Toasts
 
-Legacy badge classes (`.badge`, `.pill`, `.badge-success`, `.badge-warning`, `.badge-danger`, `.badge-info`) are deprecated in `design-system.css`. Use `.mc-badge` with `.is-status-*` modifiers instead.
+Alerts are direct and specific. A stale feed, blocked run, or failed worker should use warm warning or blocked colors with high contrast. Toasts may slide in quickly, but the animation should feel like a system notification rather than delight.
 
-### Layout And Page Rhythm
+## Do's and Don'ts
 
-**Page-level primitives:**
+Do use copper for brand, active navigation, focus, and the single most important action.
 
-- `.page`
-- `.page-section`
-- `.page-body`
-- `.page-header`
-- `.page-title`
-- `.page-subtitle`
+Do use status colors only for runtime state, and always pair color with a label or icon.
 
-**Action/layout helpers:**
+Do keep major surfaces square and controls minimally rounded.
 
-- `.mc-actions`
-- `.mc-inline`
-- `.mc-toolbar-group`
-- `.mc-toolbar-section`
-- `.mc-toolbar-label`
+Do use mono typography for logs, IDs, counters, chips, tables, and other system facts.
 
-### Code, Logs, And Empty States
+Do use tabular numerals and slashed zero forms for operational data.
 
-- `.mc-code-panel`
-- `.mc-log-panel`
-- `.mc-raw-panel`
-- `.mc-log-row`
-- `.mc-empty-state`
+Do keep dark and light themes equally considered.
 
-Logs, timestamps, identifiers, and counters should lean on mono typography and semantic runtime color rather than brand accent.
+Do make activity visible when work is happening and stillness visible when the system is idle.
 
-## Usage In Templates
+Do preserve compact density while keeping alignment, grouping, and hierarchy clear.
 
-For inline or template-driven styling, always prefer the shared token layer:
+Don't use purple gradients, cyan neon, glassmorphism, gradient text, or generic AI-product decoration.
 
-```css
-background: var(--bg-surface);
-color: var(--text-primary);
-border: 1px solid var(--border-default);
-border-left: var(--stroke-emphasis) solid var(--text-accent);
-font-family: var(--font-body);
-```
+Don't use copper to mean running, success, warning, or failure.
 
-For buttons and chips, prefer shared classes over page-local reinvention:
+Don't make persistent surfaces depend on drop shadows.
 
-```html
-<button class="mc-button is-primary">Save</button>
-<button class="mc-button is-ghost is-sm">Cancel</button>
-<button class="mc-button is-ghost is-icon-only is-sm" aria-label="Refresh"></button>
-<span class="mc-chip is-status-running">Running</span>
-```
+Don't soften panels into rounded SaaS cards.
 
-For typography hierarchy, use the predefined classes:
+Don't add decorative motion to idle UI.
 
-```html
-<h1 class="heading-section">Dashboard</h1>
-<h2 class="heading-card">Active Runs</h2>
-<span class="heading-label">Status</span>
-<span class="text-identifier">NIN-42</span>
-<span class="text-metric">1,247</span>
-```
+Don't create landing-page hero treatments inside the operator product.
 
-## Theme And Runtime Behavior
+Don't hide operational risk behind friendly copy.
 
-- Theme is controlled via `data-theme` and CSS custom properties.
-- Dark mode is the default starting theme (set on `<html>` in `index.html`).
-- Theme-specific behavior should be implemented by token overrides, not duplicate component rules whenever possible.
-- Operator-facing pages should maintain parity across light and dark themes.
-- Shadows have distinct light/dark values — dark mode uses heavier shadows to maintain depth perception against dark backgrounds.
-
-## Migration Notes
-
-When updating existing templates or refactoring UI:
-
-1. Replace hard-coded colors with CSS variables.
-2. Replace legacy button classes (`.btn`, `.btn-primary`) with the shared `mc-button` + modifier system.
-3. Replace legacy badge classes (`.badge`, `.pill`) with `mc-badge` / `mc-chip`.
-4. Prefer semantic status tokens for runtime meaning instead of copper.
-5. Use shared surface classes instead of inventing near-duplicate panel patterns.
-6. Preserve dark mode parity by using theme tokens instead of absolute colors.
-7. Keep command surfaces sharp, information-dense, and operational.
-8. Use status tint percentage tokens instead of hard-coded `color-mix()` percentages.
-9. Use typography hierarchy classes (`.heading-section`, `.text-identifier`, etc.) instead of ad-hoc font styling.
-10. Update this document whenever the live token system materially changes.
+Don't introduce new visual patterns when an existing surface tier, status chip, or command control can express the same idea.

@@ -30,26 +30,20 @@ export function createConfigPage(options: ConfigPageOptions = {}): HTMLElement {
   const helpContent = document.createElement("div");
   helpContent.className = "config-help-content";
 
-  const helpIcon = document.createElement("div");
-  helpIcon.className = "config-help-icon";
-  helpIcon.textContent = "\uD83D\uDCA1";
-
   const helpText = document.createElement("div");
   helpText.className = "config-help-text";
-  const helpStrong = document.createElement("strong");
-  helpStrong.textContent = "New to config overrides?";
-  const helpDescription = document.createTextNode(" Use dotted paths like ");
+  const helpDescription = document.createTextNode("Override defaults with dotted paths like ");
   const helpCode = document.createElement("code");
   helpCode.textContent = "tracker.project_slug";
-  const helpSuffix = document.createTextNode(" to override specific settings. ");
+  const helpSuffix = document.createTextNode(". ");
   const helpLink = document.createElement("a");
   helpLink.href = "#";
   helpLink.className = "config-help-link";
   helpLink.dataset.action = "show-schema";
   helpLink.textContent = "Browse available paths \u2192";
-  helpText.append(helpStrong, helpDescription, helpCode, helpSuffix, helpLink);
+  helpText.append(helpDescription, helpCode, helpSuffix, helpLink);
 
-  helpContent.append(helpIcon, helpText);
+  helpContent.append(helpText);
 
   const helpDismiss = document.createElement("button");
   helpDismiss.className = "config-help-dismiss";

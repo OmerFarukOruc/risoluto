@@ -103,6 +103,15 @@ export function createCodexAdminSection(): HTMLElement {
   const runtimeClient = getRuntimeClient();
   const root = document.createElement("section");
   root.className = "codex-admin-root";
+  const headingId = `codex-admin-heading-${crypto.randomUUID().slice(0, 8)}`;
+  root.setAttribute("aria-labelledby", headingId);
+  const heading = document.createElement("h2");
+  heading.id = headingId;
+  heading.className = "codex-admin-heading";
+  heading.textContent = "Codex admin";
+  const body = document.createElement("div");
+  body.className = "codex-admin-body";
+  root.append(heading, body);
   const state = createAsyncState<CodexAdminData>();
   let refreshTimer: number | null = null;
   let pendingLoginId: string | null = null;
@@ -178,16 +187,22 @@ export function createCodexAdminSection(): HTMLElement {
   }
 
   function render(): void {
-    renderAsyncState(root, state, {
+    renderAsyncState(body, state, {
       renderLoading: () => skeletonBlock("240px"),
       renderError: (error) =>
-        createEmptyState("Codex admin unavailable", error, "Retry", () => {
-          void load();
-        }),
+        createEmptyState(
+          "Codex control plane unreachable",
+          `${error}\n\nCheck the control-plane process is running, then tail \`./risoluto-logs\` from the repo root for the failed request.`,
+          "Retry",
+          () => {
+            void load();
+          },
+          "serverError",
+        ),
       renderEmpty: () =>
         createEmptyState(
           "No Codex admin data",
-          "The control plane did not return any admin metadata yet.",
+          "The control plane is reachable but returned no admin metadata yet. This usually clears on the next tick.",
           "Retry",
           () => {
             void load();

@@ -125,6 +125,15 @@
   --tone-warning-border: var(--status-retrying);
   --tone-danger-border: var(--status-blocked);
 
+  /* Accent surface tints (used by config-view and codex-admin tags) */
+  --bg-accent: color-mix(in srgb, var(--interactive-primary) 8%, var(--bg-surface));
+  --bg-accent-subtle: color-mix(in srgb, var(--interactive-primary) 4%, var(--bg-surface));
+  --border-accent: color-mix(in srgb, var(--interactive-primary) 30%, var(--border-default));
+  --text-success: var(--status-running);
+  --bg-success-subtle: color-mix(in srgb, var(--status-running) 6%, var(--bg-surface));
+  --accent-success: var(--status-running);
+  --accent-warning: var(--status-retrying);
+
   --brand-signal-seam: repeating-linear-gradient(
     90deg,
     transparent 0 10px,

@@ -628,12 +628,7 @@
    * sized independently of the body text scale. */
   height: 12px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    var(--bg-muted) 0%,
-    var(--bg-elevated) 50%,
-    var(--bg-muted) 100%
-  );
+  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--bg-elevated) 50%, var(--bg-muted) 100%);
   background-size: 200% 100%;
   animation: skeletonShimmer 1.4s ease-in-out infinite;
 }
@@ -644,12 +639,7 @@
   display: inline-block;
   height: 11px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    var(--bg-muted) 0%,
-    var(--bg-elevated) 50%,
-    var(--bg-muted) 100%
-  );
+  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--bg-elevated) 50%, var(--bg-muted) 100%);
   background-size: 200% 100%;
   animation: skeletonShimmer 1.4s ease-in-out infinite;
 }

@@ -408,23 +408,26 @@ describe("SqliteWebhookInbox", () => {
     await expect(inbox.insertVerified(createDelivery({ deliveryId: "delivery-error" }))).rejects.toThrow("disk full");
   });
 
-  it("treats lowercase unique-constraint errors as duplicates", async () => {
+  it("treats SQLITE_CONSTRAINT_PRIMARYKEY errors as duplicates", async () => {
     const logger = createMockLogger();
     const db = {
       insert: () => ({
         values: () => ({
           run: () => {
-            throw new Error("sqlite unique constraint violation");
+            const error = Object.assign(new Error("sqlite primary key constraint"), {
+              code: "SQLITE_CONSTRAINT_PRIMARYKEY",
+            });
+            throw error;
           },
         }),
       }),
     } as unknown as RisolutoDatabase;
     const inbox = new SqliteWebhookInbox(db, logger);
 
-    await expect(inbox.insertVerified(createDelivery({ deliveryId: "delivery-lowercase-duplicate" }))).resolves.toEqual(
-      {
-        isNew: false,
-      },
-    );
+    await expect(
+      inbox.insertVerified(createDelivery({ deliveryId: "delivery-primary-key-duplicate" })),
+    ).resolves.toEqual({
+      isNew: false,
+    });
   });
 });

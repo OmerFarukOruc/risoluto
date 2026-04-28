@@ -88,21 +88,60 @@ async function loadArchiveFiles(
   eventFiles: string[],
   logger: RisolutoLogger,
 ): Promise<{ ac: number; ec: number }> {
+  // Stage 1: read and parse all archive files asynchronously into memory.
+  // We can't await inside a better-sqlite3 transaction (it commits
+  // synchronously), so file I/O must finish before the DB write phase.
+  // Attempt and event reads run concurrently — they have no ordering
+  // dependency and the transaction below sees both batches together.
+  const [attemptRows, eventRows] = await Promise.all([
+    readAttemptArchive(attemptsDir, attemptFiles, logger),
+    readEventArchive(eventsDir, eventFiles, logger),
+  ]);
+
+  // Stage 2: insert in a single transaction so a crash mid-migration can't
+  // leave the DB partly populated. Re-running the migration is then safe:
+  // attempt inserts use ON CONFLICT DO NOTHING, and the transaction
+  // boundary guarantees event inserts don't repeat against partial state.
   let ac = 0;
   let ec = 0;
+  db.transaction((tx) => {
+    for (const row of attemptRows) {
+      tx.insert(attempts).values(row).onConflictDoNothing().run();
+      ac += 1;
+    }
+    for (const row of eventRows) {
+      tx.insert(attemptEvents).values(row).run();
+      ec += 1;
+    }
+  });
 
+  return { ac, ec };
+}
+
+async function readAttemptArchive(
+  attemptsDir: string,
+  attemptFiles: string[],
+  logger: RisolutoLogger,
+): Promise<ReturnType<typeof attemptRecordToRow>[]> {
+  const rows: ReturnType<typeof attemptRecordToRow>[] = [];
   for (const file of attemptFiles) {
     if (!file.endsWith(".json")) continue;
     try {
       const content = await readFile(path.join(attemptsDir, file), "utf8");
-      const record = JSON.parse(content) as AttemptRecord;
-      db.insert(attempts).values(attemptRecordToRow(record)).onConflictDoNothing().run();
-      ac += 1;
+      rows.push(attemptRecordToRow(JSON.parse(content) as AttemptRecord));
     } catch (error) {
       logger.warn({ file, error: toErrorString(error) }, "skipped corrupt attempt file during migration");
     }
   }
+  return rows;
+}
 
+async function readEventArchive(
+  eventsDir: string,
+  eventFiles: string[],
+  logger: RisolutoLogger,
+): Promise<ReturnType<typeof attemptEventToRow>[]> {
+  const rows: ReturnType<typeof attemptEventToRow>[] = [];
   for (const file of eventFiles) {
     if (!file.endsWith(".jsonl")) continue;
     try {
@@ -111,16 +150,13 @@ async function loadArchiveFiles(
         .split("\n")
         .map((l) => l.trim())
         .filter(Boolean)) {
-        const event = JSON.parse(line) as AttemptEvent;
-        db.insert(attemptEvents).values(attemptEventToRow(event)).run();
-        ec += 1;
+        rows.push(attemptEventToRow(JSON.parse(line) as AttemptEvent));
       }
     } catch (error) {
       logger.warn({ file, error: toErrorString(error) }, "skipped corrupt event file during migration");
     }
   }
-
-  return { ac, ec };
+  return rows;
 }
 
 async function safeReaddir(dir: string): Promise<string[]> {

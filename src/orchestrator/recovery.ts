@@ -324,7 +324,7 @@ function emptyRecoveryReport(dryRun: boolean, startedAtMs: number): RecoveryRepo
   };
 }
 
-function buildRecoveryReport(totalScanned: number, dryRun: boolean): RecoveryReport {
+function buildRecoveryReport(totalScanned: number, dryRun: boolean, startedAtMs: number): RecoveryReport {
   return {
     generatedAt: new Date().toISOString(),
     dryRun,
@@ -335,7 +335,7 @@ function buildRecoveryReport(totalScanned: number, dryRun: boolean): RecoveryRep
     skipped: [],
     errors: [],
     results: [],
-    durationMs: 0,
+    durationMs: Date.now() - startedAtMs,
   };
 }
 
@@ -406,7 +406,7 @@ export async function runStartupRecovery(
     ...new Set(runningAttempts.map((attempt) => attempt.issueId)),
   ]);
   const issuesById = new Map(issues.map((issue) => [issue.id, issue]));
-  const report = buildRecoveryReport(runningAttempts.length, dryRun);
+  const report = buildRecoveryReport(runningAttempts.length, dryRun, startedAtMs);
 
   for (const attempt of runningAttempts) {
     await processAttempt(ctx, attempt, issuesById, report, dryRun);

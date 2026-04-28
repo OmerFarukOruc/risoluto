@@ -165,8 +165,10 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
       resolveModelSelection: (identifier) =>
         resolveModelSelectionFromConfig(this.state.issueModelOverrides, this.deps.configStore.getConfig(), identifier),
       releaseIssueClaim: (issueId) => void releaseIssueClaimInState(this.state, issueId),
-      suppressIssueDispatch: (issue) =>
-        (this.state.operatorAbortSuppressions ??= new Map()).set(issue.id, buildIssueDispatchFingerprint(issue)),
+      suppressIssueDispatch: (issue) => {
+        (this.state.operatorAbortSuppressions ??= new Map()).set(issue.id, buildIssueDispatchFingerprint(issue));
+        this.state.markDirty();
+      },
       claimIssue: (issueId) => claimIssueInState(this.state, issueId),
       markDirty: () => this.state.markDirty(),
       notify: (event) => this.notifyChannel(event),
@@ -201,6 +203,7 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
           this.deps.configStore.getConfig(),
           this.state.claimedIssueIds,
           this.state.operatorAbortSuppressions ?? undefined,
+          () => this.state.markDirty(),
         ),
       hasAvailableStateSlot: (issue, pendingStateCounts, runningStateCounts) =>
         hasAvailableStateSlotState(

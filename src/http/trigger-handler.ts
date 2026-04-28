@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { tokensMatch } from "./token-compare.js";
 import type { Request, Response } from "express";
 
 import type { ConfigStore } from "../config/store.js";
@@ -72,16 +72,9 @@ function requireTriggerConfig(
   return null;
 }
 
-function safeStringEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-
 function authorizeTriggerRequest(request: Request, response: Response, apiKey: string): boolean {
   const provided = extractApiKey(request);
-  if (provided && safeStringEquals(provided, apiKey)) {
+  if (tokensMatch(provided, apiKey)) {
     return true;
   }
 

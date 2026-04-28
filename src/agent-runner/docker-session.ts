@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { asRecord, asString } from "./helpers.js";
 import { handleNotification } from "./notification-handler.js";
-import { composeSessionId } from "./turn-state.js";
+import { clearAllStreamingBuffers, composeSessionId } from "./turn-state.js";
 import type { TurnState } from "./turn-state.js";
 import { createSuccessResponse, type JsonRpcRequest } from "../codex/protocol.js";
 import { JsonRpcConnection } from "../agent/json-rpc-connection.js";
@@ -151,10 +151,13 @@ function buildDockerSessionObject(
     inspectRunning: () => Promise<boolean | null>;
   },
 ): DockerSession & { abortHandler: () => void; statsInterval: ReturnType<typeof setInterval> | null } {
-  const fatalFailure: { code: string; message: string } | null = null;
   const containerName = docker.containerName;
   const cacheVolumeName = docker.cacheVolumeName;
 
+  // Placeholder getter — setupConnection replaces this with one that closes
+  // over the real mutable fatalFailure inside the connection's request
+  // handler. It runs synchronously after this factory returns and before any
+  // caller observes the session.
   const session: DockerSession & { abortHandler: () => void; statsInterval: ReturnType<typeof setInterval> | null } = {
     child,
     connection: null as unknown as JsonRpcConnection,
@@ -164,7 +167,7 @@ function buildDockerSessionObject(
     exitPromise: new Promise((resolve) => {
       child.once("exit", (code, sig) => resolve({ code, signal: sig }));
     }),
-    getFatalFailure: () => fatalFailure,
+    getFatalFailure: () => null,
     inspectRunning: helpers.inspectRunning,
     abortHandler: () => {
       void (async () => {
@@ -269,9 +272,19 @@ function setupConnection(
     },
   );
 
-  // Attach the fatalFailure getter to the session
-  const originalGetFatalFailure = session.getFatalFailure;
-  session.getFatalFailure = () => fatalFailure ?? originalGetFatalFailure();
+  // Attach the real fatalFailure getter, which closes over the mutable
+  // fatalFailure tracked by the JsonRpcConnection request handler above.
+  session.getFatalFailure = () => fatalFailure;
+
+  // Wrap cleanup so any pending streaming-buffer flush timers are cancelled
+  // on session teardown. Otherwise scheduled flushes can fire after the
+  // session is gone and invoke onEvent against a dead context. cleanup runs
+  // in both normal-exit and abort paths.
+  const originalCleanup = session.cleanup;
+  session.cleanup = async (cfg, signal) => {
+    clearAllStreamingBuffers(turnState);
+    await originalCleanup(cfg, signal);
+  };
 }
 
 function startStatsPolling(

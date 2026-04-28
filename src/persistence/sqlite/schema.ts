@@ -173,12 +173,19 @@ export const configHistory = sqliteTable("config_history", {
  * - `terminal_completion` — when the attempt reaches a terminal state.
  * - `pr_merged` — when the associated PR is merged.
  *
+ * `attempt_id` references `attempts.attempt_id` (matching `attempt_events`
+ * and `issue_index`). The reference is declarative only on existing
+ * databases — SQLite doesn't retrofit FKs without a migration — but it
+ * enforces the relationship for any newly-created DB.
+ *
  * `event_cursor` is a loose integer high-water mark into `attempt_events.id`
  * at the time of the write — not a FK constraint.
  */
 export const attemptCheckpoints = sqliteTable("attempt_checkpoints", {
   checkpointId: integer("checkpoint_id").primaryKey({ autoIncrement: true }),
-  attemptId: text("attempt_id").notNull(),
+  attemptId: text("attempt_id")
+    .notNull()
+    .references(() => attempts.attemptId),
   ordinal: integer("ordinal").notNull(),
   trigger: text("trigger").notNull(),
   eventCursor: integer("event_cursor"),

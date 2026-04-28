@@ -124,13 +124,15 @@ export class SqliteWebhookInbox implements WebhookInboxStore {
         })
         .run();
       return { isNew: true };
-    } catch (error_) {
-      const error = error_ as Error;
-      // UNIQUE constraint violation on delivery_id — this is a duplicate
-      if (error.message.includes("UNIQUE constraint failed") || error.message.includes("unique constraint")) {
+    } catch (error) {
+      // UNIQUE constraint violation on delivery_id — this is a duplicate.
+      // Use better-sqlite3's structured error.code instead of matching on
+      // error.message text, which is not a stable API across driver versions.
+      const code = (error as { code?: string }).code;
+      if (code === "SQLITE_CONSTRAINT_UNIQUE" || code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
         return { isNew: false };
       }
-      throw error_;
+      throw error;
     }
   }
 

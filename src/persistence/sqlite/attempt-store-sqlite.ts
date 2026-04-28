@@ -120,30 +120,36 @@ export class SqliteAttemptStore {
   }
 
   async appendCheckpoint(checkpoint: Omit<AttemptCheckpointRecord, "checkpointId" | "ordinal">): Promise<void> {
-    const lastRow = this.getDb()
-      .select()
-      .from(attemptCheckpoints)
-      .where(eq(attemptCheckpoints.attemptId, checkpoint.attemptId))
-      .orderBy(desc(attemptCheckpoints.ordinal))
-      .limit(1)
-      .get();
+    // Wrap MAX(ordinal) lookup + insert in a transaction so the next-ordinal
+    // computation is atomic. better-sqlite3 is synchronous and Node is
+    // single-threaded, so this is currently defence-in-depth rather than a
+    // live race fix, but it keeps the invariant intact for any future
+    // multi-process or async-driver deployment.
+    this.getDb().transaction((tx) => {
+      const lastRow = tx
+        .select()
+        .from(attemptCheckpoints)
+        .where(eq(attemptCheckpoints.attemptId, checkpoint.attemptId))
+        .orderBy(desc(attemptCheckpoints.ordinal))
+        .limit(1)
+        .get();
 
-    const nextOrdinal = lastRow ? lastRow.ordinal + 1 : 1;
-
-    // Deduplication: skip write when last checkpoint is identical on key fields.
-    if (lastRow) {
-      const sameStatus = lastRow.status === checkpoint.status;
-      const sameThread = (lastRow.threadId ?? null) === checkpoint.threadId;
-      const sameTurn = (lastRow.turnId ?? null) === checkpoint.turnId;
-      const sameTurnCount = lastRow.turnCount === checkpoint.turnCount;
-      const sameTrigger = (lastRow.trigger ?? null) === checkpoint.trigger;
-      if (sameStatus && sameThread && sameTurn && sameTurnCount && sameTrigger) {
-        return;
+      // Deduplication: skip write when last checkpoint is identical on key fields.
+      if (lastRow) {
+        const sameStatus = lastRow.status === checkpoint.status;
+        const sameThread = (lastRow.threadId ?? null) === checkpoint.threadId;
+        const sameTurn = (lastRow.turnId ?? null) === checkpoint.turnId;
+        const sameTurnCount = lastRow.turnCount === checkpoint.turnCount;
+        const sameTrigger = (lastRow.trigger ?? null) === checkpoint.trigger;
+        if (sameStatus && sameThread && sameTurn && sameTurnCount && sameTrigger) {
+          return;
+        }
       }
-    }
 
-    const row = fromAttemptCheckpointRecord({ ...checkpoint, ordinal: nextOrdinal });
-    this.getDb().insert(attemptCheckpoints).values(row).run();
+      const nextOrdinal = lastRow ? lastRow.ordinal + 1 : 1;
+      const row = fromAttemptCheckpointRecord({ ...checkpoint, ordinal: nextOrdinal });
+      tx.insert(attemptCheckpoints).values(row).run();
+    });
   }
 
   async listCheckpoints(attemptId: string): Promise<AttemptCheckpointRecord[]> {

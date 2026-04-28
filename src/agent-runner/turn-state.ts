@@ -56,6 +56,20 @@ export function clearStreamingBuffer(buffers: Map<string, StreamingBuffer>, item
   buffers.delete(itemId);
 }
 
+/**
+ * Cancel every pending flush timer across all streaming-buffer maps in the
+ * turn state and drop the entries. Called from session cleanup so timers
+ * scheduled by scheduleStreamEmit can't fire after the session is torn
+ * down (which would invoke onEvent against a dead session context).
+ */
+export function clearAllStreamingBuffers(state: TurnState): void {
+  for (const buffers of [state.commandOutputBuffers, state.agentMessageBuffers, state.reasoningDeltaBuffers]) {
+    for (const itemId of [...buffers.keys()]) {
+      clearStreamingBuffer(buffers, itemId);
+    }
+  }
+}
+
 export function composeSessionId(threadId: string | null, turnId: string | null): string | null {
   if (!threadId || !turnId) {
     return threadId;

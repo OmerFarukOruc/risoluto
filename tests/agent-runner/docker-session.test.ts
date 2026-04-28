@@ -125,6 +125,7 @@ vi.mock("../../src/observability/metrics.js", () => ({
 
 vi.mock("../../src/agent-runner/turn-state.js", () => ({
   composeSessionId: vi.fn().mockReturnValue("thread:turn"),
+  clearAllStreamingBuffers: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({

@@ -261,7 +261,9 @@ export async function finalizeStopSignal(
   if (transitionedState) {
     const view = ctx.completedViews.get(issue.identifier);
     if (view) {
-      view.state = transitionedState;
+      // Re-set via setCompletedView so the snapshot cache is invalidated;
+      // direct mutation of the in-Map view would bypass markDirty().
+      ctx.setCompletedView(issue.identifier, { ...view, state: transitionedState });
     }
   }
 }

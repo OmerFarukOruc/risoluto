@@ -174,24 +174,29 @@ export class DbConfigStore implements ConfigOverlayPort {
     const now = new Date().toISOString();
     const mapKeys = new Set<string>();
 
-    for (const [key, value] of Object.entries(map)) {
-      if (isDangerousKey(key)) continue;
-      mapKeys.add(key);
-      const serialized = JSON.stringify(value);
-      const existing = this.db.select().from(config).where(eq(config.key, key)).get();
-      if (existing) {
-        this.db.update(config).set({ value: serialized, updatedAt: now }).where(eq(config.key, key)).run();
-      } else {
-        this.db.insert(config).values({ key, value: serialized, updatedAt: now }).run();
+    // Wrap upsert + prune in a single transaction so a crash mid-write
+    // can't leave config in a partial state with some sections updated and
+    // others holding stale (or missing) values.
+    this.db.transaction((tx) => {
+      for (const [key, value] of Object.entries(map)) {
+        if (isDangerousKey(key)) continue;
+        mapKeys.add(key);
+        const serialized = JSON.stringify(value);
+        const existing = tx.select().from(config).where(eq(config.key, key)).get();
+        if (existing) {
+          tx.update(config).set({ value: serialized, updatedAt: now }).where(eq(config.key, key)).run();
+        } else {
+          tx.insert(config).values({ key, value: serialized, updatedAt: now }).run();
+        }
       }
-    }
 
-    const allRows = this.db.select({ key: config.key }).from(config).all();
-    for (const row of allRows) {
-      if (!mapKeys.has(row.key)) {
-        this.db.delete(config).where(eq(config.key, row.key)).run();
+      const allRows = tx.select({ key: config.key }).from(config).all();
+      for (const row of allRows) {
+        if (!mapKeys.has(row.key)) {
+          tx.delete(config).where(eq(config.key, row.key)).run();
+        }
       }
-    }
+    });
   }
 
   private notify(): void {

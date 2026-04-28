@@ -36,6 +36,11 @@ export function canDispatchIssue(
   config: ServiceConfig,
   claimedIssueIds: Set<string>,
   operatorAbortSuppressions?: Map<string, string>,
+  // Called when canDispatchIssue prunes a stale suppression entry, so the
+  // caller can invalidate the snapshot cache. Optional because some test
+  // contexts pass an empty suppressions map and don't care about dirty
+  // tracking.
+  markDirty?: () => void,
 ): boolean {
   const suppressionFingerprint = operatorAbortSuppressions?.get(issue.id);
   if (suppressionFingerprint !== undefined) {
@@ -43,6 +48,7 @@ export function canDispatchIssue(
       return false;
     }
     operatorAbortSuppressions?.delete(issue.id);
+    markDirty?.();
   }
   if (!isActiveState(issue.state, config)) {
     return false;
@@ -171,7 +177,7 @@ function buildRunningEntry(
   attempt: number | null,
   modelSelection: ModelSelection,
   recoveredAttempt?: AttemptRecord | null,
-): RunningEntry {
+): { entry: RunningEntry; resolveLifecycle: () => void } {
   const recoveredStartedAt = recoveredAttempt ? Date.parse(recoveredAttempt.startedAt) : Number.NaN;
   const runId = recoveredAttempt?.attemptId ?? randomUUID();
   let persistenceQueue = Promise.resolve();
@@ -188,25 +194,36 @@ function buildRunningEntry(
       );
     });
   };
+  // Use a deferred so entry.promise is a stable pending promise from the
+  // moment the entry is added to runningEntries. Awaiting it (e.g. from
+  // stop() via Promise.allSettled) only resolves when the worker promise
+  // settles or when the launch fails before the worker promise is bound.
+  let resolveLifecycle: () => void = () => undefined;
+  const promise = new Promise<void>((resolve) => {
+    resolveLifecycle = resolve;
+  });
   return {
-    runId,
-    issue,
-    workspace,
-    startedAtMs: Number.isFinite(recoveredStartedAt) ? recoveredStartedAt : Date.now(),
-    lastEventAtMs: Date.now(),
-    attempt: recoveredAttempt?.attemptNumber ?? attempt,
-    abortController: new AbortController(),
-    promise: Promise.resolve(),
-    cleanupOnExit: false,
-    status: "running",
-    sessionId: recoveredAttempt?.threadId ?? null,
-    tokenUsage: recoveredAttempt?.tokenUsage ?? null,
-    modelSelection,
-    lastAgentMessageContent: null,
-    lastStopSignal: null,
-    repoMatch: ctx.deps.repoRouter?.matchIssue(issue) ?? null,
-    queuePersistence,
-    flushPersistence: () => persistenceQueue,
+    entry: {
+      runId,
+      issue,
+      workspace,
+      startedAtMs: Number.isFinite(recoveredStartedAt) ? recoveredStartedAt : Date.now(),
+      lastEventAtMs: Date.now(),
+      attempt: recoveredAttempt?.attemptNumber ?? attempt,
+      abortController: new AbortController(),
+      promise,
+      cleanupOnExit: false,
+      status: "running",
+      sessionId: recoveredAttempt?.threadId ?? null,
+      tokenUsage: recoveredAttempt?.tokenUsage ?? null,
+      modelSelection,
+      lastAgentMessageContent: null,
+      lastStopSignal: null,
+      repoMatch: ctx.deps.repoRouter?.matchIssue(issue) ?? null,
+      queuePersistence,
+      flushPersistence: () => persistenceQueue,
+    },
+    resolveLifecycle,
   };
 }
 
@@ -427,79 +444,104 @@ export async function launchWorker(
     ctx.claimIssue(issue.id);
   }
 
-  await ctx.deps.workspaceManager.withLock(sanitizeIdentifier(issue.identifier), async () => {
-    const workspace = await prepareWorkspace(ctx, issue);
-    const modelSelection = options?.modelSelectionOverride ?? ctx.resolveModelSelection(issue.identifier);
-    const entry = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection, options?.recoveredAttempt);
+  // Tracks whether handleWorkerPromise has taken ownership of cleanup.
+  // Until that hand-off, this function owns the claim and any partially-added
+  // running entry — both must be released on exception so the issue is
+  // re-dispatchable on the next tick instead of stranded in claimedIssueIds.
+  let promiseHandedOff = false;
+  // Hoisted so the outer catch can settle the deferred entry.promise on
+  // early failure, unblocking any observer (e.g. stop()) that captured the
+  // entry between runningEntries.set and the worker-promise hand-off.
+  let resolveLifecycle: (() => void) | undefined;
+  try {
+    await ctx.deps.workspaceManager.withLock(sanitizeIdentifier(issue.identifier), async () => {
+      const workspace = await prepareWorkspace(ctx, issue);
+      const modelSelection = options?.modelSelectionOverride ?? ctx.resolveModelSelection(issue.identifier);
+      const built = buildRunningEntry(ctx, issue, workspace, attempt, modelSelection, options?.recoveredAttempt);
+      const entry = built.entry;
+      resolveLifecycle = built.resolveLifecycle;
 
-    ctx.runningEntries.set(issue.id, entry);
-    ctx.completedViews.delete(issue.identifier);
-    ctx.markDirty();
-    ctx.setQueuedViews(ctx.getQueuedViews().filter((view) => view.issueId !== issue.id));
+      ctx.runningEntries.set(issue.id, entry);
+      ctx.completedViews.delete(issue.identifier);
+      ctx.markDirty();
+      ctx.setQueuedViews(ctx.getQueuedViews().filter((view) => view.issueId !== issue.id));
 
-    if (options?.recoveredAttempt) {
-      await persistRecoveredAttempt(ctx, entry, issue, workspace, options.recoveredAttempt, modelSelection);
-    } else {
-      await persistInitialAttempt(ctx, entry, issue, workspace, attempt, modelSelection);
-    }
-    ctx.detailViews.set(
-      issue.identifier,
-      issueView(issue, {
-        workspaceKey: workspace.workspaceKey,
+      if (options?.recoveredAttempt) {
+        await persistRecoveredAttempt(ctx, entry, issue, workspace, options.recoveredAttempt, modelSelection);
+      } else {
+        await persistInitialAttempt(ctx, entry, issue, workspace, attempt, modelSelection);
+      }
+      ctx.detailViews.set(
+        issue.identifier,
+        issueView(issue, {
+          workspaceKey: workspace.workspaceKey,
+          status: "running",
+          attempt,
+          configuredModel: modelSelection.model,
+          configuredReasoningEffort: modelSelection.reasoningEffort,
+          configuredModelSource: modelSelection.source,
+          modelChangePending: false,
+          model: modelSelection.model,
+          reasoningEffort: modelSelection.reasoningEffort,
+          modelSource: modelSelection.source,
+        }),
+      );
+      ctx.markDirty();
+      emitLaunchNotifications(ctx, issue, workspace, attempt, modelSelection);
+
+      const promptTemplate = await ctx.deps.resolveTemplate(issue.identifier);
+      observer?.setSession(issue.id, {
         status: "running",
+        correlationId: entry.runId,
+        metadata: {
+          issueId: issue.id,
+          issueIdentifier: issue.identifier,
+          attempt,
+        },
+      });
+      const runAttemptInput = {
+        issue,
         attempt,
-        configuredModel: modelSelection.model,
-        configuredReasoningEffort: modelSelection.reasoningEffort,
-        configuredModelSource: modelSelection.source,
-        modelChangePending: false,
-        model: modelSelection.model,
-        reasoningEffort: modelSelection.reasoningEffort,
-        modelSource: modelSelection.source,
-      }),
-    );
-    ctx.markDirty();
-    emitLaunchNotifications(ctx, issue, workspace, attempt, modelSelection);
-
-    const promptTemplate = await ctx.deps.resolveTemplate(issue.identifier);
-    observer?.setSession(issue.id, {
-      status: "running",
-      correlationId: entry.runId,
-      metadata: {
-        issueId: issue.id,
-        issueIdentifier: issue.identifier,
-        attempt,
-      },
-    });
-    const runAttemptInput = {
-      issue,
-      attempt,
-      modelSelection,
-      promptTemplate,
-      workspace,
-      signal: entry.abortController.signal,
-      onEvent: buildOnEventHandler(ctx, entry),
-      previousThreadId: options?.previousThreadId ?? options?.recoveredAttempt?.threadId ?? null,
-      onSteerReady: (steerFn: (message: string) => Promise<boolean>) => {
-        entry.steerTurn = steerFn;
-      },
-    };
-    let promise: Promise<RunOutcome>;
-    try {
-      promise = ctx.deps.agentRunner.runAttempt(runAttemptInput);
-      recordLaunchObserverState(observer, issue, entry.runId, attempt, "success");
-    } catch (error) {
-      recordLaunchObserverState(observer, issue, entry.runId, attempt, "failure", toErrorString(error));
-      throw error;
-    }
-    const workerPromise = ctx.handleWorkerPromise(promise, issue, workspace, entry, attempt);
-    // Write a terminal_completion checkpoint once the worker promise settles,
-    // regardless of outcome. Errors are swallowed — this must not block cleanup.
-    entry.promise = workerPromise.finally(() => {
-      writeCheckpoint(ctx, entry, "terminal_completion").catch(() => {
-        /* intentionally ignored */
+        modelSelection,
+        promptTemplate,
+        workspace,
+        signal: entry.abortController.signal,
+        onEvent: buildOnEventHandler(ctx, entry),
+        previousThreadId: options?.previousThreadId ?? options?.recoveredAttempt?.threadId ?? null,
+        onSteerReady: (steerFn: (message: string) => Promise<boolean>) => {
+          entry.steerTurn = steerFn;
+        },
+      };
+      let promise: Promise<RunOutcome>;
+      try {
+        promise = ctx.deps.agentRunner.runAttempt(runAttemptInput);
+        recordLaunchObserverState(observer, issue, entry.runId, attempt, "success");
+      } catch (error) {
+        recordLaunchObserverState(observer, issue, entry.runId, attempt, "failure", toErrorString(error));
+        throw error;
+      }
+      const workerPromise = ctx.handleWorkerPromise(promise, issue, workspace, entry, attempt);
+      promiseHandedOff = true;
+      // Resolve the deferred entry.promise once the worker promise settles
+      // and the terminal checkpoint write has been kicked off. Both errors
+      // are swallowed — checkpoint failure must not block cleanup, and the
+      // deferred is signal-only (no rejection path).
+      workerPromise.finally(() => {
+        writeCheckpoint(ctx, entry, "terminal_completion").catch(() => {
+          /* intentionally ignored */
+        });
+        built.resolveLifecycle();
       });
     });
-  });
+  } catch (error) {
+    if (!promiseHandedOff) {
+      ctx.runningEntries.delete(issue.id);
+      ctx.releaseIssueClaim(issue.id);
+      ctx.markDirty();
+      resolveLifecycle?.();
+    }
+    throw error;
+  }
 }
 
 function recordLaunchObserverState(

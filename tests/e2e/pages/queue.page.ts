@@ -48,11 +48,77 @@ export class QueuePage extends BasePage {
     );
   }
 
+  async shiftClickIssue(identifier: string): Promise<void> {
+    await this.issueCardByIdentifier(identifier).click({ modifiers: ["Shift"] });
+  }
+
   // ── Column Counts ────────────────────────────────────────────────────
 
   async getColumnCount(label: string): Promise<number> {
     const column = this.columnByLabel(label);
     const cards = column.locator(".kanban-card, .issue-card, [class*='kanban-card']");
     return cards.count();
+  }
+
+  // ── Toolbar (redesign) ───────────────────────────────────────────────
+
+  get search(): Locator {
+    return this.page.locator(".queue-toolbar-search input.mc-input");
+  }
+
+  get priorityFilterButton(): Locator {
+    return this.page.locator(".queue-toolbar-filters button", { hasText: "Priority" });
+  }
+
+  get modelFilterButton(): Locator {
+    return this.page.locator(".queue-toolbar-filters button", { hasText: "Model" });
+  }
+
+  get repoFilterButton(): Locator {
+    return this.page.locator(".queue-toolbar-filters button", { hasText: "Repo" });
+  }
+
+  get labelsFilterButton(): Locator {
+    return this.page.locator(".queue-toolbar-filters button", { hasText: "Labels" });
+  }
+
+  get groupByButton(): Locator {
+    return this.page.locator(".queue-toolbar-utility button", { hasText: "Group" });
+  }
+
+  get newIssueAnchor(): Locator {
+    return this.page.locator("a.queue-toolbar-newissue");
+  }
+
+  get popover(): Locator {
+    return this.page.locator(".mc-popover");
+  }
+
+  get filterChips(): Locator {
+    return this.page.locator(".mc-filter-chip");
+  }
+
+  // ── Tweaks panel ─────────────────────────────────────────────────────
+
+  get tweaksFab(): Locator {
+    return this.page.locator(".mc-tweaks-fab");
+  }
+
+  get tweaksPanel(): Locator {
+    return this.page.locator(".mc-tweaks");
+  }
+
+  tweaksRow(label: string): Locator {
+    return this.tweaksPanel.locator(".mc-tweak-row").filter({ hasText: label });
+  }
+
+  // ── Bulk action toolbar ──────────────────────────────────────────────
+
+  get bulkToolbar(): Locator {
+    return this.page.locator(".mc-bulk");
+  }
+
+  bulkAction(label: string): Locator {
+    return this.bulkToolbar.locator(".mc-bulk-action", { hasText: label });
   }
 }

@@ -7,22 +7,24 @@ import {
   setDropAllowed,
   type KanbanColumnHandle,
 } from "../components/kanban-column";
-import type { RecentEvent, WorkflowColumn } from "../types/runtime.js";
+import type { RuntimeIssueView, WorkflowColumn } from "../types/runtime.js";
 import { skeletonColumn } from "../ui/skeleton";
-import { filterColumn, type QueueFilters, type QueueUiState } from "./queue-state";
+import { filterColumn, hasActiveFilters, type QueueFilters, type QueueUiState } from "./queue-state";
+import type { BoardTweaks } from "../state/tweaks";
 import type { DragStateManager } from "./drag-state";
 
 interface QueueBoardRendererOptions {
   board: HTMLElement;
   filters: QueueFilters;
   getUi: () => QueueUiState;
+  getTweaks: () => BoardTweaks;
   getRouteId: () => string;
-  getRecentEvents: () => RecentEvent[];
   clearFilters: () => void;
   requestRender: () => void;
   onOpenIssue: (issueId: string, fullPage: boolean) => void;
   onToggleColumnCollapse: (columnKey: string) => void;
   onFocusCard: (columnIndex: number, cardIndex: number) => void;
+  onToggleSelect: (issueId: string, additive: boolean) => void;
   dragManager?: DragStateManager;
 }
 
@@ -39,6 +41,10 @@ function makeMoveHandler(
   return (direction: -1 | 1) => {
     options.dragManager!.moveByOffset(issueId, columnKey, direction, getCurrentColumns()).catch(() => {});
   };
+}
+
+function hasRunningIssue(issues: readonly RuntimeIssueView[]): boolean {
+  return issues.some((issue) => issue.status?.toLowerCase() === "running");
 }
 
 export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
@@ -107,10 +113,11 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
       renderLoading();
       return;
     }
-    options.board.classList.toggle("is-compact", options.filters.density === "compact");
-    options.board.classList.toggle("is-comfortable", options.filters.density === "comfortable");
-    /* Even when no issues match, render all columns with their per-column
-       empty states so the Kanban board structure stays visible. */
+    const tweaks = options.getTweaks();
+    options.board.classList.toggle("is-compact", tweaks.density === "compact");
+    options.board.classList.toggle("is-default", tweaks.density === "default");
+    options.board.classList.toggle("is-comfortable", tweaks.density === "comfortable");
+    options.board.classList.toggle("is-nolifecycle", !tweaks.showLifecycle);
 
     currentColumns = columns;
     const nextIssueIds = new Set<string>();
@@ -119,6 +126,9 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
       const list = filterColumn(column, options.filters);
       const handle = getColumnHandle(column.key);
       applyColumnStage(handle, column.key);
+      handle.section.dataset.kind = column.kind;
+      handle.section.dataset.headerStyle = tweaks.headerStyle;
+      handle.section.dataset.hasRunning = String(hasRunningIssue(column.issues ?? []));
       handle.section.classList.toggle("is-collapsed", ui.collapsed.has(column.key));
       handle.section.classList.toggle("is-empty", list.length === 0 && !ui.collapsed.has(column.key));
       handle.section.classList.toggle("is-focused", ui.focusedColumn === columnIndex);
@@ -146,21 +156,14 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
               ? "Active work appears here while agents are running."
               : "Issues will appear here as Linear syncs new work.";
         const emptyVariant = column.terminal ? "terminal" : ATTENTION_LANE_KEYS.has(column.key) ? "attention" : "queue";
-        const hasFilters =
-          options.filters.search.trim().length > 0 ||
-          options.filters.stages.size > 0 ||
-          options.filters.priority !== "all" ||
-          !options.filters.showCompleted;
+        const filtersActive = hasActiveFilters(options.filters);
         handle.body.replaceChildren(
           createEmptyState(
             `No issues in ${column.label}`,
-            hasFilters ? `${emptyHint} Try clearing filters to see the full board.` : emptyHint,
-            hasFilters ? "Clear filters" : "Open overview",
-            hasFilters ? options.clearFilters : () => router.navigate("/"),
+            filtersActive ? `${emptyHint} Try clearing filters to see the full board.` : emptyHint,
+            filtersActive ? "Clear filters" : "Open overview",
+            filtersActive ? options.clearFilters : () => router.navigate("/"),
             emptyVariant,
-            // Per-lane CTAs render up to one per column — rendering them all as
-            // copper primaries would dilute the "one primary action per view"
-            // signal, so demote these to ghost buttons.
             { headingLevel: "h2", actionVariant: "ghost" },
           ),
         );
@@ -174,18 +177,19 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
           existing ??
           createKanbanCard({
             issue,
-            recentEvents: [],
             selected: false,
             focused: false,
+            variant: tweaks.cardVariant,
             onOpen: () => undefined,
             onFullPage: () => undefined,
             onFocus: () => undefined,
+            onToggleSelect: () => undefined,
           });
         card.update({
           issue,
-          recentEvents: options.getRecentEvents(),
           selected: options.getRouteId() === issue.identifier,
           focused: ui.focusedColumn === columnIndex && ui.focusedCard === cardIndex,
+          variant: tweaks.cardVariant,
           onOpen: () => options.onOpenIssue(issue.identifier, false),
           onFullPage: () => options.onOpenIssue(issue.identifier, true),
           onMove: options.dragManager
@@ -194,7 +198,9 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
           onFocus: () => {
             options.onFocusCard(columnIndex, cardIndex);
           },
+          onToggleSelect: options.onToggleSelect,
         });
+        card.element.classList.toggle("is-multi-select", ui.selected.has(issue.identifier));
         if (!existing) {
           cardHandles.set(issue.identifier, card);
         }

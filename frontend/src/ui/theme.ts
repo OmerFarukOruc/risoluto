@@ -65,3 +65,7 @@ export function toggleTheme(): Theme {
   const nextPreference: Theme = currentPreference === "dark" ? "light" : "dark";
   return applyThemePreference(nextPreference);
 }
+
+export function setTheme(preference: ThemePreference): Theme {
+  return applyThemePreference(preference);
+}

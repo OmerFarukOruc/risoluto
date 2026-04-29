@@ -1,337 +1,353 @@
-import type { WorkflowColumn } from "../types/runtime.js";
-import { getStageDescription } from "../components/state-guide.js";
-import { hasActiveFilters, type QueueFilters } from "./queue-state";
-import { createIcon } from "../ui/icons.js";
-import { createIconButton } from "../ui/buttons.js";
-
-interface ChipOptions {
-  ariaLabel?: string;
-  classNames?: string[];
-  count?: number;
-  title?: string;
-}
-
-function chip(label: string, onClick: () => void, options: ChipOptions = {}): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.classList.add("mc-chip", "is-interactive", ...(options.classNames ?? []));
-  if (options.ariaLabel) {
-    button.setAttribute("aria-label", options.ariaLabel);
-  }
-  if (options.title) {
-    button.title = options.title;
-  }
-  const labelSpan = document.createElement("span");
-  labelSpan.className = "queue-chip-label";
-  labelSpan.textContent = label;
-  button.append(labelSpan);
-  if (options.count !== undefined) {
-    const count = document.createElement("span");
-    count.className = "queue-chip-count";
-    count.textContent = String(options.count);
-    button.append(count);
-  }
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-function iconButton(
-  iconName: Parameters<typeof createIcon>[0],
-  tooltip: string,
-  onClick: () => void,
-): HTMLButtonElement {
-  const button = createIconButton({
-    iconName,
-    label: tooltip,
-    className: "toolbar-icon-btn",
-  });
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-function createCompletedToggleButton(active: boolean, onClick: () => void): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "mc-button is-ghost is-sm queue-completed-toggle";
-  button.append(
-    createIcon(active ? "eye" : "eyeOff", { size: 16 }),
-    Object.assign(document.createElement("span"), {
-      className: "queue-completed-toggle-label",
-      textContent: "Completed",
-    }),
-  );
-  button.title = active ? "Hide completed work" : "Show completed work";
-  button.setAttribute("aria-label", button.title);
-  button.classList.toggle("is-active", active);
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-function createDensityToggleButton(density: string, onClick: () => void): HTMLButtonElement {
-  const comfy = density === "comfortable";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "mc-button is-ghost is-sm queue-density-toggle";
-  const label = Object.assign(document.createElement("span"), {
-    className: "queue-density-toggle-label",
-    textContent: comfy ? "Comfortable" : "Compact",
-  });
-  label.setAttribute("aria-hidden", "true");
-  button.append(createIcon(comfy ? "unfold" : "dense", { size: 16 }), label);
-  button.title = comfy ? "Switch to compact view" : "Switch to comfortable view";
-  button.setAttribute("aria-label", button.title);
-  button.classList.toggle("is-active", comfy);
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-/**
- * Normalize stage keys for deduplication.
- * "canceled" and "cancelled" are treated as the same stage.
- */
-function normalizeStageKey(key: string): string {
-  const lower = key.toLowerCase();
-  if (lower === "cancelled" || lower === "canceled") return "cancelled";
-  return key.toLowerCase().replaceAll(" ", "_");
-}
-
-/**
- * Normalize stage label for display.
- */
-function normalizeStageLabel(key: string): string {
-  const lower = key.toLowerCase();
-  if (lower === "cancelled" || lower === "canceled") return "Canceled";
-  return key;
-}
-
-/**
- * Merge columns with the same normalized key.
- */
-function mergeColumns(columns: WorkflowColumn[]): WorkflowColumn[] {
-  const merged = new Map<string, WorkflowColumn>();
-  for (const column of columns) {
-    const normalized = normalizeStageKey(column.key);
-    const existing = merged.get(normalized);
-    if (existing) {
-      existing.issues = [...(existing.issues ?? []), ...(column.issues ?? [])];
-      existing.count = (existing.count ?? 0) + (column.count ?? 0);
-    } else {
-      merged.set(normalized, {
-        ...column,
-        key: normalized,
-        label: normalizeStageLabel(column.label),
-      });
-    }
-  }
-  return Array.from(merged.values());
-}
+import type { RuntimeIssueView, WorkflowColumn } from "../types/runtime.js";
+import { type QueueFilters, repoOf } from "./queue-state";
+import type { BoardGroupBy, BoardTweaks } from "../state/tweaks";
 
 interface QueueToolbarOptions {
   toolbar: HTMLElement;
   filters: QueueFilters;
+  tweaks: BoardTweaks;
   columns: WorkflowColumn[];
-  onRefresh: () => void;
-  onReset: () => void;
+  runningCount: number;
+  filteredCount: number;
+  newIssueUrl?: string | null;
   onSearchChange: (value: string) => void;
-  onToggleStage: (stageKey: string) => void;
   onSetPriority: (priority: string) => void;
-  onSetSort: (sort: string) => void;
-  onToggleDensity: () => void;
-  onToggleCompleted: () => void;
+  onSetModel: (model: string) => void;
+  onSetRepo: (repo: string) => void;
+  onToggleLabel: (label: string) => void;
+  onClearFilters: () => void;
+  onSetGroupBy: (groupBy: BoardGroupBy) => void;
 }
 
-export function buildQueueToolbar(options: QueueToolbarOptions): {
+interface BuiltToolbar {
   search: HTMLInputElement;
   firstStageChip: () => HTMLButtonElement | null;
-} {
+}
+
+const PRIORITY_OPTIONS: ReadonlyArray<readonly [string, string]> = [
+  ["all", "All priorities"],
+  ["urgent", "Urgent"],
+  ["high", "High"],
+  ["medium", "Medium"],
+  ["low", "Low"],
+];
+
+const GROUP_BY_OPTIONS: ReadonlyArray<readonly [BoardGroupBy, string]> = [
+  ["none", "No grouping"],
+  ["priority", "By priority"],
+  ["model", "By model"],
+  ["repo", "By repo"],
+];
+
+function uniqueIssues(columns: readonly WorkflowColumn[]): RuntimeIssueView[] {
+  const seen = new Set<string>();
+  const list: RuntimeIssueView[] = [];
+  for (const column of columns) {
+    for (const issue of column.issues ?? []) {
+      if (seen.has(issue.identifier)) continue;
+      seen.add(issue.identifier);
+      list.push(issue);
+    }
+  }
+  return list;
+}
+
+function uniqueValues<T>(
+  items: readonly RuntimeIssueView[],
+  extract: (issue: RuntimeIssueView) => T | T[] | null | undefined,
+): T[] {
+  const set = new Set<T>();
+  for (const issue of items) {
+    const value = extract(issue);
+    if (value === null || value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) set.add(entry);
+    } else {
+      set.add(value);
+    }
+  }
+  return [...set].sort((left, right) => String(left).localeCompare(String(right)));
+}
+
+function popoverButton(label: string, active: boolean, onOpen: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "mc-button is-ghost is-sm";
+  button.setAttribute("aria-haspopup", "menu");
+  button.setAttribute("aria-pressed", String(active));
+  button.classList.toggle("is-active", active);
+  const labelEl = document.createElement("span");
+  labelEl.textContent = `${label} ▾`;
+  button.append(labelEl);
+  button.addEventListener("click", () => onOpen());
+  return button;
+}
+
+function dismissPopover(node: HTMLElement | null): void {
+  if (!node) return;
+  node.remove();
+}
+
+function openPopover(
+  anchor: HTMLElement,
+  items: ReadonlyArray<{ label: string; active: boolean; onSelect: () => void }>,
+): HTMLElement {
+  const existing = document.querySelector<HTMLElement>(".mc-popover");
+  dismissPopover(existing);
+  const popover = document.createElement("div");
+  popover.className = "mc-popover";
+  popover.setAttribute("role", "menu");
+  for (const item of items) {
+    const entry = document.createElement("button");
+    entry.type = "button";
+    entry.className = "mc-popover-item";
+    entry.classList.toggle("is-active", item.active);
+    entry.setAttribute("role", "menuitemradio");
+    entry.setAttribute("aria-checked", String(item.active));
+    const tick = document.createElement("span");
+    tick.className = "mc-popover-item-tick";
+    tick.textContent = item.active ? "✓" : "";
+    const text = document.createElement("span");
+    text.textContent = item.label;
+    entry.append(tick, text);
+    entry.addEventListener("click", (event) => {
+      event.stopPropagation();
+      item.onSelect();
+      dismissPopover(popover);
+    });
+    popover.append(entry);
+  }
+  document.body.append(popover);
+  const rect = anchor.getBoundingClientRect();
+  popover.style.left = `${rect.left}px`;
+  popover.style.top = `${rect.bottom + 4}px`;
+  const closeOutside = (event: MouseEvent): void => {
+    if (popover.contains(event.target as Node) || anchor.contains(event.target as Node)) return;
+    dismissPopover(popover);
+    document.removeEventListener("mousedown", closeOutside);
+    document.removeEventListener("keydown", closeOnEsc);
+  };
+  const closeOnEsc = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      dismissPopover(popover);
+      document.removeEventListener("mousedown", closeOutside);
+      document.removeEventListener("keydown", closeOnEsc);
+    }
+  };
+  document.addEventListener("mousedown", closeOutside);
+  document.addEventListener("keydown", closeOnEsc);
+  return popover;
+}
+
+function buildFilterChips(
+  filters: QueueFilters,
+  onClear: (token: { kind: "priority" | "model" | "repo" | "label"; value: string }) => void,
+): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "queue-toolbar-filterchips";
+  const tokens: { kind: "priority" | "model" | "repo" | "label"; value: string; label: string }[] = [];
+  if (filters.priority !== "all") {
+    tokens.push({ kind: "priority", value: filters.priority, label: `priority: ${filters.priority}` });
+  }
+  if (filters.model !== "all") {
+    tokens.push({ kind: "model", value: filters.model, label: `model: ${filters.model}` });
+  }
+  if (filters.repo !== "all") {
+    tokens.push({ kind: "repo", value: filters.repo, label: `repo: ${filters.repo}` });
+  }
+  for (const label of filters.labels) {
+    tokens.push({ kind: "label", value: label, label: `#${label}` });
+  }
+  for (const token of tokens) {
+    const chip = document.createElement("span");
+    chip.className = "mc-filter-chip";
+    const text = document.createElement("span");
+    text.textContent = token.label;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "mc-filter-chip-clear";
+    close.setAttribute("aria-label", `Clear ${token.label}`);
+    close.textContent = "✕";
+    close.addEventListener("click", () => onClear({ kind: token.kind, value: token.value }));
+    chip.append(text, close);
+    wrap.append(chip);
+  }
+  return wrap;
+}
+
+export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
   const {
     toolbar,
     filters,
+    tweaks,
     columns,
-    onRefresh,
-    onReset,
+    runningCount,
+    filteredCount,
+    newIssueUrl,
     onSearchChange,
-    onToggleStage,
     onSetPriority,
-    onSetSort,
-    onToggleDensity,
-    onToggleCompleted,
+    onSetModel,
+    onSetRepo,
+    onToggleLabel,
+    onClearFilters,
+    onSetGroupBy,
   } = options;
   toolbar.replaceChildren();
 
+  const allIssues = uniqueIssues(columns);
+  const models = uniqueValues(allIssues, (issue) => issue.model);
+  const repos = uniqueValues(allIssues, (issue) => repoOf(issue));
+  const labels = uniqueValues(allIssues, (issue) => issue.labels ?? []);
+
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "queue-toolbar-title";
+  const titleMain = document.createElement("span");
+  titleMain.className = "queue-toolbar-title-primary";
+  titleMain.textContent = "Board";
+  const titleMeta = document.createElement("span");
+  titleMeta.className = "queue-toolbar-title-meta";
+  titleMeta.textContent = `${filteredCount} ${filteredCount === 1 ? "issue" : "issues"} · ${runningCount} running`;
+  titleBlock.append(titleMain, titleMeta);
+
   const search = Object.assign(document.createElement("input"), {
     className: "mc-input",
-    placeholder: "Search issues, titles, or IDs\u2026",
+    placeholder: "Search issues, labels, descriptions…",
   });
   search.setAttribute("aria-label", "Search issues");
   search.value = filters.search;
 
   const searchHint = document.createElement("kbd");
   searchHint.className = "mc-button-hint queue-search-hint";
-  searchHint.textContent = "/";
-  searchHint.title = "Press / to focus search";
+  searchHint.textContent = "⌘K";
+  searchHint.title = "Press ⌘K or / to focus search";
   searchHint.setAttribute("aria-hidden", "true");
 
   const searchWrap = document.createElement("div");
   searchWrap.className = "queue-toolbar-search";
   searchWrap.append(search, searchHint);
+  search.addEventListener("input", () => onSearchChange(search.value));
 
-  const resetBtn = document.createElement("button");
-  resetBtn.type = "button";
-  resetBtn.className = "mc-button is-ghost is-sm queue-toolbar-reset";
-  resetBtn.textContent = "Reset";
-  resetBtn.title = "Clear all filters (Esc)";
-  resetBtn.hidden = !hasActiveFilters(filters);
-  resetBtn.addEventListener("click", () => {
-    onReset();
-    search.value = filters.search;
-    sort.value = filters.sort;
-    renderStages();
-    renderPriorities();
-    updateResetVisibility();
-    syncControls();
-  });
+  const filtersGroup = document.createElement("div");
+  filtersGroup.className = "queue-toolbar-filters";
 
-  function updateResetVisibility(): void {
-    resetBtn.hidden = !hasActiveFilters(filters);
-  }
-
-  const stageBar = document.createElement("div");
-  stageBar.className = "mc-toolbar-group queue-toolbar-stages";
-  stageBar.setAttribute("role", "group");
-  stageBar.setAttribute("aria-label", "Workflow stages");
-
-  const priorityBar = document.createElement("div");
-  priorityBar.className = "mc-toolbar-group queue-toolbar-priority";
-  priorityBar.setAttribute("role", "group");
-  priorityBar.setAttribute("aria-label", "Priority");
-
-  const mergedColumns = mergeColumns(columns);
-
-  function renderStages(): void {
-    stageBar.replaceChildren(
-      ...mergedColumns.map((column) => {
-        const active = filters.stages.has(column.key);
-        const normalizedKey = normalizeStageKey(column.key);
-        const button = chip(
-          column.label,
-          () => {
-            onToggleStage(column.key);
-            renderStages();
-            updateResetVisibility();
-          },
-          {
-            ariaLabel: column.count > 0 ? `${column.label}, ${column.count} issues` : `${column.label}, no issues`,
-            classNames: ["queue-stage-chip", `queue-stage-chip-${normalizedKey}`],
-            count: column.count > 0 ? column.count : undefined,
-            title: getStageDescription(column.key),
-          },
-        );
-        button.classList.toggle("is-active", active);
-        button.setAttribute("aria-pressed", String(active));
-        button.dataset.stage = normalizedKey;
-        return button;
-      }),
-    );
-  }
-
-  function renderPriorities(): void {
-    priorityBar.replaceChildren(
-      ...[
-        ["urgent", "Urgent"],
-        ["high", "High"],
-        ["medium", "Medium"],
-        ["low", "Low"],
-      ].map(([value, label]) => {
-        const active = filters.priority === value;
-        const button = chip(
+  const priorityBtn = popoverButton(
+    `Priority${filters.priority !== "all" ? `: ${filters.priority}` : ""}`,
+    filters.priority !== "all",
+    () => {
+      openPopover(
+        priorityBtn,
+        PRIORITY_OPTIONS.map(([value, label]) => ({
           label,
-          () => {
-            onSetPriority(active ? "all" : value);
-            renderPriorities();
-            updateResetVisibility();
-          },
-          {
-            classNames: ["queue-priority-chip", `queue-priority-chip-${value}`],
-            title: active ? "Click to clear priority filter" : `Filter: ${label} priority`,
-          },
-        );
-        button.classList.toggle("is-active", active);
-        button.setAttribute("aria-pressed", String(active));
-        return button;
-      }),
-    );
+          active: filters.priority === value,
+          onSelect: () => onSetPriority(value),
+        })),
+      );
+    },
+  );
+
+  const modelBtn = popoverButton(
+    `Model${filters.model !== "all" ? `: ${filters.model}` : ""}`,
+    filters.model !== "all",
+    () => {
+      const items = [
+        { label: "All models", active: filters.model === "all", onSelect: () => onSetModel("all") },
+        ...models.map((model) => ({
+          label: model,
+          active: filters.model === model,
+          onSelect: () => onSetModel(model),
+        })),
+      ];
+      openPopover(modelBtn, items);
+    },
+  );
+
+  const repoBtn =
+    repos.length > 0 || filters.repo !== "all"
+      ? popoverButton(`Repo${filters.repo !== "all" ? `: ${filters.repo}` : ""}`, filters.repo !== "all", () => {
+          const items = [
+            { label: "All repos", active: filters.repo === "all", onSelect: () => onSetRepo("all") },
+            ...repos.map((repo) => ({
+              label: repo,
+              active: filters.repo === repo,
+              onSelect: () => onSetRepo(repo),
+            })),
+          ];
+          // The ternary above guarantees repoBtn is the very button this
+          // closure was attached to — non-null at call time.
+          openPopover(repoBtn as HTMLButtonElement, items);
+        })
+      : null;
+
+  const labelsBtn = popoverButton(
+    `Labels${filters.labels.size > 0 ? ` (${filters.labels.size})` : ""}`,
+    filters.labels.size > 0,
+    () => {
+      const items = labels.map((label) => ({
+        label: `#${label}`,
+        active: filters.labels.has(label),
+        onSelect: () => onToggleLabel(label),
+      }));
+      if (items.length === 0) {
+        items.push({ label: "No labels in snapshot", active: false, onSelect: () => undefined });
+      }
+      openPopover(labelsBtn, items);
+    },
+  );
+
+  filtersGroup.append(priorityBtn, modelBtn);
+  if (repoBtn) {
+    filtersGroup.append(repoBtn);
+  }
+  filtersGroup.append(labelsBtn);
+
+  const chipsWrap = buildFilterChips(filters, ({ kind, value }) => {
+    if (kind === "priority") onSetPriority("all");
+    else if (kind === "model") onSetModel("all");
+    else if (kind === "repo") onSetRepo("all");
+    else if (kind === "label") onToggleLabel(value);
+  });
+  if (chipsWrap.children.length > 0) {
+    const clearAll = document.createElement("button");
+    clearAll.type = "button";
+    clearAll.className = "mc-button is-ghost is-sm";
+    clearAll.textContent = "Clear";
+    clearAll.addEventListener("click", () => onClearFilters());
+    chipsWrap.append(clearAll);
   }
 
-  const sort = document.createElement("select");
-  sort.className = "mc-select";
-  sort.classList.add("toolbar-sort-select");
-  sort.setAttribute("aria-label", "Board order");
-  [
-    ["updated", "Recently updated"],
-    ["priority", "Priority first"],
-    ["tokens", "Highest token usage"],
-  ].forEach(([value, label]) => {
-    const option = Object.assign(document.createElement("option"), { value, textContent: label });
-    option.selected = filters.sort === value;
-    sort.append(option);
-  });
+  const utility = document.createElement("div");
+  utility.className = "queue-toolbar-utility";
 
-  const densityBtn = createDensityToggleButton(filters.density, () => {
-    onToggleDensity();
-    syncControls();
-  });
+  const groupBtn = popoverButton(
+    `Group: ${tweaks.groupBy === "none" ? "none" : tweaks.groupBy}`,
+    tweaks.groupBy !== "none",
+    () => {
+      openPopover(
+        groupBtn,
+        GROUP_BY_OPTIONS.map(([value, label]) => ({
+          label,
+          active: tweaks.groupBy === value,
+          onSelect: () => onSetGroupBy(value),
+        })),
+      );
+    },
+  );
 
-  const completedBtn = createCompletedToggleButton(filters.showCompleted, () => {
-    onToggleCompleted();
-    syncControls();
-  });
+  utility.append(groupBtn);
 
-  const refreshBtn = iconButton("refresh", "Refresh queue", onRefresh);
-
-  const utilityCluster = document.createElement("div");
-  utilityCluster.className = "queue-toolbar-utility";
-  utilityCluster.append(sort, densityBtn, completedBtn, resetBtn, refreshBtn);
-
-  function syncControls(): void {
-    /* density */
-    const comfy = filters.density === "comfortable";
-    const densityLabel = Object.assign(document.createElement("span"), {
-      className: "queue-density-toggle-label",
-      textContent: comfy ? "Comfortable" : "Compact",
-    });
-    densityLabel.setAttribute("aria-hidden", "true");
-    densityBtn.replaceChildren(createIcon(comfy ? "unfold" : "dense", { size: 16 }), densityLabel);
-    densityBtn.title = comfy ? "Switch to compact view" : "Switch to comfortable view";
-    densityBtn.setAttribute("aria-label", densityBtn.title);
-    densityBtn.classList.toggle("is-active", comfy);
-
-    /* completed */
-    completedBtn.replaceChildren(
-      createIcon(filters.showCompleted ? "eye" : "eyeOff", { size: 16 }),
-      Object.assign(document.createElement("span"), {
-        className: "queue-completed-toggle-label",
-        textContent: "Completed",
-      }),
-    );
-    completedBtn.title = filters.showCompleted ? "Hide completed work" : "Show completed work";
-    completedBtn.setAttribute("aria-label", completedBtn.title);
-    completedBtn.classList.toggle("is-active", filters.showCompleted);
+  if (newIssueUrl) {
+    const newIssue = document.createElement("a");
+    newIssue.className = "mc-button is-primary is-sm queue-toolbar-newissue";
+    newIssue.href = newIssueUrl;
+    newIssue.target = "_blank";
+    newIssue.rel = "noopener noreferrer";
+    newIssue.textContent = "+ New issue";
+    utility.append(newIssue);
   }
 
-  search.addEventListener("input", () => {
-    onSearchChange(search.value);
-    updateResetVisibility();
-  });
-  sort.addEventListener("change", () => {
-    onSetSort(sort.value);
-  });
-  renderStages();
-  renderPriorities();
-
-  toolbar.append(searchWrap, stageBar, priorityBar, utilityCluster);
+  toolbar.append(titleBlock, searchWrap, filtersGroup, chipsWrap, utility);
   return {
     search,
-    firstStageChip: () => stageBar.querySelector<HTMLButtonElement>(".mc-chip"),
+    firstStageChip: () => filtersGroup.querySelector<HTMLButtonElement>("button"),
   };
 }

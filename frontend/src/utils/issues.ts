@@ -53,12 +53,61 @@ export function priorityRank(priority: string | number | null | undefined): numb
   return PRIORITY_ORDER[normalizePriority(priority)] ?? PRIORITY_ORDER.low;
 }
 
+export function normalizeStatus(status: string): string {
+  return status.toLowerCase().replaceAll(" ", "_");
+}
+
 export function matchesIssueSearch(issue: RuntimeIssueView, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) {
     return true;
   }
-  return `${issue.identifier} ${issue.title}`.toLowerCase().includes(needle);
+  const haystack = [
+    issue.identifier,
+    issue.title,
+    issue.description ?? "",
+    issue.message ?? "",
+    (issue.labels ?? []).join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
+function cleanRepoFacet(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+export function repoOf(issue: RuntimeIssueView): string | null {
+  const candidate = issue as RuntimeIssueView & Record<string, unknown>;
+  return (
+    cleanRepoFacet(candidate.repositoryName) ??
+    cleanRepoFacet(candidate.repoName) ??
+    cleanRepoFacet(candidate.repository) ??
+    cleanRepoFacet(candidate.repo) ??
+    cleanRepoFacet(candidate.sourceRepository)
+  );
+}
+
+export function retryCountOf(issue: RuntimeIssueView): number {
+  return Math.max(0, (issue.attempt ?? 0) - 1);
+}
+
+/**
+ * Two-letter avatar label for a model id. Recognizes the Anthropic family
+ * explicitly so the common cases stay legible; falls back to the first two
+ * alpha characters of the id (uppercased) for everything else.
+ */
+export function modelInitials(model: string | null): string {
+  if (!model) return "··";
+  const lower = model.toLowerCase();
+  if (lower.includes("opus")) return "OP";
+  if (lower.includes("sonnet")) return "SO";
+  if (lower.includes("haiku")) return "HK";
+  const letters = lower.replaceAll(/[^a-z]/gu, "");
+  return (letters.slice(0, 2) || "??").toUpperCase();
 }
 
 export function getRetryLabel(issue: RuntimeIssueView): string | null {

@@ -2,7 +2,8 @@ import { api } from "../../api.js";
 import { router, type RouterNavigateDetail } from "../../router.js";
 import { getRuntimeClient, type RuntimeClient } from "../../state/runtime-client.js";
 import type { AppState } from "../../state/store.js";
-import type { RecentEvent, WorkflowColumn } from "../../types/runtime.js";
+import type { RecentEvent, RuntimeIssueView, WorkflowColumn } from "../../types/runtime.js";
+import { repoOf } from "../../utils/issues.js";
 import { handleQueueKeyboard } from "../../pages/queue-keyboard.js";
 import { createFilters, createUiState, type QueueFilters, type QueueUiState } from "../../pages/queue-state.js";
 
@@ -16,6 +17,7 @@ interface QueueWorkbenchDeps {
   runtimeClient: QueueRuntimeClient;
   setTimeout: typeof globalThis.setTimeout;
   clearTimeout: typeof globalThis.clearTimeout;
+  onBulkMove?: (targetColumnKey: string, identifiers: readonly string[]) => void;
 }
 
 export interface QueueWorkbenchState {
@@ -46,11 +48,13 @@ export interface QueueWorkbench {
   refresh(): Promise<void>;
   clearFilters(): void;
   setSearchText(value: string): void;
-  toggleStage(stageKey: string): void;
   setPriority(priority: string): void;
-  setSort(sort: string): void;
-  toggleDensity(): void;
-  toggleCompleted(): void;
+  setModel(model: string): void;
+  setRepo(repo: string): void;
+  toggleLabel(label: string): void;
+  toggleSelect(issueId: string, additive: boolean): void;
+  clearSelection(): void;
+  bulkMove(targetColumnKey: string): void;
   focusCard(columnIndex: number, cardIndex: number): void;
   toggleColumnCollapse(columnKey: string): void;
   openIssue(issueId: string, fullPage?: boolean): void;
@@ -58,14 +62,42 @@ export interface QueueWorkbench {
   getToolbarKey(): string;
 }
 
-function issueFingerprint(issue: { identifier: string; status: string; priority: string | number | null }): string {
-  return `${issue.identifier}:${issue.status}:${String(issue.priority)}`;
+function issueFingerprint(issue: RuntimeIssueView): string {
+  return [
+    issue.identifier,
+    issue.status,
+    String(issue.priority),
+    issue.model ?? "",
+    issue.workspaceKey ?? "",
+    repoOf(issue) ?? "",
+    [...(issue.labels ?? [])].sort().join(","),
+  ].join(":");
 }
 
 function getColumnsFingerprint(columns: WorkflowColumn[]): string {
   return columns
     .map((column) => `${column.key}:${column.count ?? 0}:${(column.issues ?? []).map(issueFingerprint).join(",")}`)
     .join("|");
+}
+
+function getAvailableRepos(columns: WorkflowColumn[]): Set<string> {
+  const repos = new Set<string>();
+  for (const column of columns) {
+    for (const issue of column.issues ?? []) {
+      const repo = repoOf(issue);
+      if (repo) repos.add(repo);
+    }
+  }
+  return repos;
+}
+
+function preserveSelected(next: QueueUiState, previous: QueueUiState, columns: WorkflowColumn[]): void {
+  const currentIssueIds = new Set(columns.flatMap((column) => (column.issues ?? []).map((issue) => issue.identifier)));
+  for (const issueId of previous.selected) {
+    if (currentIssueIds.has(issueId)) {
+      next.selected.add(issueId);
+    }
+  }
 }
 
 function createQueueWorkbenchState(routeId = ""): QueueWorkbenchState {
@@ -105,7 +137,12 @@ export function createQueueWorkbench(options: CreateQueueWorkbenchOptions = {}):
     state.recentEvents = appState.snapshot?.recent_events ?? [];
     state.hasSnapshot = Boolean(appState.snapshot);
     if (state.ui.collapsed.size === 0 && columns.length > 0) {
-      state.ui = createUiState(columns);
+      const nextUi = createUiState(columns);
+      preserveSelected(nextUi, state.ui, columns);
+      state.ui = nextUi;
+    }
+    if (state.filters.repo !== "all" && !getAvailableRepos(columns).has(state.filters.repo)) {
+      state.filters.repo = "all";
     }
     emitChange();
   };
@@ -165,35 +202,65 @@ export function createQueueWorkbench(options: CreateQueueWorkbenchOptions = {}):
     clearFilters(): void {
       state.filters.search = "";
       state.filters.priority = "all";
-      state.filters.stages.clear();
+      state.filters.model = "all";
+      state.filters.repo = "all";
+      state.filters.labels.clear();
       emitChange();
     },
     setSearchText(value: string): void {
+      if (state.filters.search === value) return;
       state.filters.search = value;
       emitChange();
     },
-    toggleStage(stageKey: string): void {
-      if (state.filters.stages.has(stageKey)) {
-        state.filters.stages.delete(stageKey);
-      } else {
-        state.filters.stages.add(stageKey);
-      }
-      emitChange();
-    },
     setPriority(priority: string): void {
+      if (state.filters.priority === priority) return;
       state.filters.priority = priority;
       emitChange();
     },
-    setSort(sort: string): void {
-      state.filters.sort = sort;
+    setModel(model: string): void {
+      if (state.filters.model === model) return;
+      state.filters.model = model;
       emitChange();
     },
-    toggleDensity(): void {
-      state.filters.density = state.filters.density === "comfortable" ? "compact" : "comfortable";
+    setRepo(repo: string): void {
+      if (state.filters.repo === repo) return;
+      state.filters.repo = repo;
       emitChange();
     },
-    toggleCompleted(): void {
-      state.filters.showCompleted = !state.filters.showCompleted;
+    toggleLabel(label: string): void {
+      if (state.filters.labels.has(label)) {
+        state.filters.labels.delete(label);
+      } else {
+        state.filters.labels.add(label);
+      }
+      emitChange();
+    },
+    toggleSelect(issueId: string, additive: boolean): void {
+      if (!issueId) return;
+      if (!additive) {
+        const onlyThis = state.ui.selected.size === 1 && state.ui.selected.has(issueId);
+        state.ui.selected.clear();
+        if (!onlyThis) state.ui.selected.add(issueId);
+        emitChange();
+        return;
+      }
+      if (state.ui.selected.has(issueId)) {
+        state.ui.selected.delete(issueId);
+      } else {
+        state.ui.selected.add(issueId);
+      }
+      emitChange();
+    },
+    clearSelection(): void {
+      if (state.ui.selected.size === 0) return;
+      state.ui.selected.clear();
+      emitChange();
+    },
+    bulkMove(targetColumnKey: string): void {
+      const identifiers = [...state.ui.selected];
+      if (identifiers.length === 0 || !targetColumnKey) return;
+      deps.onBulkMove?.(targetColumnKey, identifiers);
+      state.ui.selected.clear();
       emitChange();
     },
     focusCard(columnIndex: number, cardIndex: number): void {
@@ -235,10 +302,9 @@ export function createQueueWorkbench(options: CreateQueueWorkbenchOptions = {}):
       return JSON.stringify({
         columns: getColumnsFingerprint(state.columns),
         priority: state.filters.priority,
-        stages: [...state.filters.stages].sort(),
-        density: state.filters.density,
-        sort: state.filters.sort,
-        showCompleted: state.filters.showCompleted,
+        model: state.filters.model,
+        repo: state.filters.repo,
+        labels: [...state.filters.labels].sort(),
       });
     },
   };

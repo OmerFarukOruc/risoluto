@@ -5,6 +5,7 @@ interface KanbanColumnHandle {
   dot: HTMLElement;
   toggle: HTMLButtonElement;
   body: HTMLElement;
+  pulse: HTMLElement;
 }
 
 function normalizeStageKey(key: string): string {
@@ -36,6 +37,11 @@ export function createKanbanColumn(onToggle: () => void): KanbanColumnHandle {
   const count = document.createElement("span");
   count.className = "kanban-column-count";
 
+  const pulse = document.createElement("span");
+  pulse.className = "kanban-column-pulse";
+  pulse.setAttribute("aria-hidden", "true");
+  pulse.textContent = "● live";
+
   const actions = document.createElement("div");
   actions.className = "kanban-column-actions";
 
@@ -45,7 +51,7 @@ export function createKanbanColumn(onToggle: () => void): KanbanColumnHandle {
   toggle.addEventListener("click", onToggle);
   actions.append(toggle);
 
-  header.append(dot, label, count, actions);
+  header.append(dot, label, count, pulse, actions);
 
   const body = document.createElement("div");
   body.className = "kanban-column-body";
@@ -99,7 +105,7 @@ export function createKanbanColumn(onToggle: () => void): KanbanColumnHandle {
   });
 
   section.append(header, body);
-  return { section, label, count, dot, toggle, body };
+  return { section, label, count, dot, toggle, body, pulse };
 }
 
 export function applyColumnStage(column: KanbanColumnHandle, key: string): void {

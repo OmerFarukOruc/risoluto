@@ -220,12 +220,14 @@ describe("queue-workbench", () => {
 
     workbench.initialize();
     workbench.setSearchText("auth");
-    workbench.toggleStage("todo");
+    workbench.toggleLabel("bug");
     workbench.setPriority("high");
+    workbench.setModel("claude-opus-4-7");
 
     expect(workbench.state.filters.search).toBe("auth");
-    expect(workbench.state.filters.stages.has("todo")).toBe(true);
+    expect(workbench.state.filters.labels.has("bug")).toBe(true);
     expect(workbench.state.filters.priority).toBe("high");
+    expect(workbench.state.filters.model).toBe("claude-opus-4-7");
 
     const searchEvent = createKeyEvent("/");
     workbench.handleKeyboard(searchEvent, { search });
@@ -234,8 +236,9 @@ describe("queue-workbench", () => {
 
     workbench.handleKeyboard(createKeyEvent("Escape"), { search });
     expect(workbench.state.filters.search).toBe("");
-    expect(workbench.state.filters.stages.size).toBe(0);
+    expect(workbench.state.filters.labels.size).toBe(0);
     expect(workbench.state.filters.priority).toBe("all");
+    expect(workbench.state.filters.model).toBe("all");
     expect(harness.router.navigate).not.toHaveBeenCalled();
 
     workbench.handleKeyboard(createKeyEvent("Enter", { shiftKey: true }), { search });
@@ -243,5 +246,97 @@ describe("queue-workbench", () => {
 
     workbench.handleKeyboard(createKeyEvent("Escape"), { search });
     expect(harness.router.navigate).toHaveBeenLastCalledWith("/queue");
+  });
+
+  it("manages multi-select state and invokes the onBulkMove callback on bulkMove", () => {
+    const captured: { targetColumnKey: string; identifiers: readonly string[] }[] = [];
+    const harness = createHarness();
+    const workbench = createQueueWorkbench({
+      deps: {
+        api: harness.api,
+        router: harness.router,
+        runtimeClient: harness.runtimeClient,
+        setTimeout: globalThis.setTimeout.bind(globalThis),
+        clearTimeout: globalThis.clearTimeout.bind(globalThis),
+        onBulkMove: (targetColumnKey, identifiers) => {
+          captured.push({ targetColumnKey, identifiers: [...identifiers] });
+        },
+      },
+    });
+    workbench.initialize();
+
+    workbench.toggleSelect("ENG-1", true);
+    workbench.toggleSelect("ENG-2", true);
+    expect([...workbench.state.ui.selected]).toEqual(["ENG-1", "ENG-2"]);
+
+    workbench.toggleSelect("ENG-1", true);
+    expect([...workbench.state.ui.selected]).toEqual(["ENG-2"]);
+
+    workbench.toggleSelect("ENG-9", false);
+    expect([...workbench.state.ui.selected]).toEqual(["ENG-9"]);
+
+    workbench.toggleSelect("ENG-3", true);
+    workbench.bulkMove("done");
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].targetColumnKey).toBe("done");
+    expect([...captured[0].identifiers].sort()).toEqual(["ENG-3", "ENG-9"]);
+    expect(workbench.state.ui.selected.size).toBe(0);
+  });
+
+  it("preserves multi-selection across runtime snapshot refreshes", () => {
+    const harness = createHarness();
+    const workbench = createQueueWorkbench({
+      deps: {
+        api: harness.api,
+        router: harness.router,
+        runtimeClient: harness.runtimeClient,
+        setTimeout: globalThis.setTimeout.bind(globalThis),
+        clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      },
+    });
+    workbench.initialize();
+
+    workbench.toggleSelect("ENG-1", true);
+    workbench.toggleSelect("ENG-2", true);
+    harness.emitState(createQueueSnapshot());
+
+    expect([...workbench.state.ui.selected]).toEqual(["ENG-1", "ENG-2"]);
+  });
+
+  it("refreshes the toolbar key when issue facets change", () => {
+    const harness = createHarness();
+    const workbench = createQueueWorkbench({
+      deps: {
+        api: harness.api,
+        router: harness.router,
+        runtimeClient: harness.runtimeClient,
+        setTimeout: globalThis.setTimeout.bind(globalThis),
+        clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      },
+    });
+    workbench.initialize();
+    const before = workbench.getToolbarKey();
+
+    harness.emitState(
+      createQueueSnapshot({
+        workflow_columns: [
+          {
+            ...createColumn("todo", "Todo", []),
+            count: 1,
+            issues: [
+              createIssue("ENG-1", {
+                labels: ["bug"],
+                model: "claude-sonnet-4-6",
+                repositoryName: "risoluto-web",
+              }),
+            ],
+          },
+          createColumn("in_progress", "In Progress", ["ENG-2"]),
+        ],
+      }),
+    );
+
+    expect(workbench.getToolbarKey()).not.toBe(before);
   });
 });

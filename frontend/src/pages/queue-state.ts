@@ -1,45 +1,51 @@
 import type { RuntimeIssueView, WorkflowColumn } from "../types";
-import { matchesIssueSearch, normalizePriority, sortIssues } from "../utils/issues";
+import { matchesIssueSearch, modelInitials, normalizePriority, repoOf, retryCountOf } from "../utils/issues";
+
+export { modelInitials, repoOf, retryCountOf };
 
 export interface QueueFilters {
   search: string;
-  stages: Set<string>;
   priority: string;
-  density: "compact" | "comfortable";
-  sort: string;
-  showCompleted: boolean;
+  model: string;
+  repo: string;
+  labels: Set<string>;
 }
 
 export interface QueueUiState {
   focusedColumn: number;
   focusedCard: number;
   collapsed: Set<string>;
+  selected: Set<string>;
 }
 
 export function createFilters(): QueueFilters {
   return {
     search: "",
-    stages: new Set<string>(),
     priority: "all",
-    density: "comfortable",
-    sort: "updated",
-    showCompleted: true,
+    model: "all",
+    repo: "all",
+    labels: new Set<string>(),
   };
 }
 
 export function isDefaultFilters(filters: QueueFilters): boolean {
   return (
     filters.search === "" &&
-    filters.stages.size === 0 &&
     filters.priority === "all" &&
-    filters.sort === "updated" &&
-    filters.density === "comfortable" &&
-    filters.showCompleted === true
+    filters.model === "all" &&
+    filters.repo === "all" &&
+    filters.labels.size === 0
   );
 }
 
 export function hasActiveFilters(filters: QueueFilters): boolean {
-  return filters.search !== "" || filters.stages.size > 0 || filters.priority !== "all";
+  return (
+    filters.search !== "" ||
+    filters.priority !== "all" ||
+    filters.model !== "all" ||
+    filters.repo !== "all" ||
+    filters.labels.size > 0
+  );
 }
 
 export function createUiState(_columns: WorkflowColumn[]): QueueUiState {
@@ -47,25 +53,27 @@ export function createUiState(_columns: WorkflowColumn[]): QueueUiState {
     focusedColumn: 0,
     focusedCard: 0,
     collapsed: new Set<string>(),
+    selected: new Set<string>(),
   };
 }
 
-function normalizeStageKey(key: string): string {
-  const lower = key.toLowerCase();
-  if (lower === "cancelled" || lower === "canceled") return "cancelled";
-  return lower.replaceAll(" ", "_");
-}
-
 export function filterColumn(column: WorkflowColumn, filters: QueueFilters): RuntimeIssueView[] {
-  if (!filters.showCompleted && column.terminal) {
-    return [];
-  }
-  if (filters.stages.size > 0 && !filters.stages.has(normalizeStageKey(column.key))) {
-    return [];
-  }
-  return sortIssues(column.issues ?? [], filters.sort).filter((issue) => {
+  const issues = column.issues ?? [];
+  return issues.filter((issue) => {
     if (filters.priority !== "all" && normalizePriority(issue.priority) !== filters.priority) {
       return false;
+    }
+    if (filters.model !== "all" && (issue.model ?? "") !== filters.model) {
+      return false;
+    }
+    if (filters.repo !== "all" && repoOf(issue) !== filters.repo) {
+      return false;
+    }
+    if (filters.labels.size > 0) {
+      const issueLabels = new Set(issue.labels ?? []);
+      for (const wanted of filters.labels) {
+        if (!issueLabels.has(wanted)) return false;
+      }
     }
     return matchesIssueSearch(issue, filters.search);
   });

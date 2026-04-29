@@ -14,7 +14,22 @@ export type {
   RecentEvent,
 } from "./types/attempt.js";
 
-export type { RuntimeSnapshot, RuntimeIssueView, WorkflowColumnView, StallEventView } from "./types/runtime.js";
+export type {
+  CostSampleView,
+  RuntimeSnapshot,
+  RuntimeIssueView,
+  WorkflowColumnView,
+  StallEventView,
+} from "./types/runtime.js";
+
+export type {
+  HealthChecks,
+  HealthCheckStatus,
+  HealthFailureKind,
+  HealthProbeId,
+  HealthProbeResult,
+  HealthSubprobe,
+} from "./types/health.js";
 
 export type {
   ServiceConfig,

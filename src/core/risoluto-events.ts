@@ -48,6 +48,20 @@ export interface RisolutoEventMap {
   /** A model selection was updated at runtime. */
   "model.updated": { identifier: string; model: string; source: string };
 
+  /**
+   * A per-subsystem health probe transitioned between status levels
+   * (ok ↔ slow ↔ degraded ↔ down). Subscribers can use this to alert
+   * operators or persist forensic transitions outside the snapshot.
+   */
+  "health.transition": {
+    probe: import("./types/health.js").HealthProbeId;
+    previousStatus: import("./types/health.js").HealthCheckStatus | "unknown";
+    currentStatus: import("./types/health.js").HealthCheckStatus;
+    failureKind: import("./types/health.js").HealthFailureKind;
+    detail: string;
+    checkedAt: string;
+  };
+
   /** A workspace lifecycle event (preparing, ready, failed). */
   "workspace.event": { issueId: string; identifier: string; status: string };
 

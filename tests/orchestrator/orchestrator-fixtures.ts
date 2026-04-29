@@ -7,6 +7,7 @@ import type { TrackerPort } from "../../src/tracker/port.js";
 import { WorkspaceManager } from "../../src/workspace/manager.js";
 import { AgentRunner } from "../../src/agent-runner/index.js";
 import type { AttemptStorePort } from "../../src/core/attempt-store-port.js";
+import type { CostSampleStorePort } from "../../src/core/cost-sample-port.js";
 import type { IssueConfigStore } from "../../src/persistence/sqlite/issue-config-store.js";
 
 export function createIssue(state = "In Progress"): Issue {
@@ -132,6 +133,13 @@ export function createAttemptStore(): AttemptStorePort {
  * to keep them small and contract-correct.
  */
 export const passThroughWithLock = async <T>(_workspaceKey: string, task: () => Promise<T>): Promise<T> => task();
+
+export function createCostSampleStore(): CostSampleStorePort {
+  return {
+    append: vi.fn(),
+    recentSamples: vi.fn(() => []),
+  };
+}
 
 export function createIssueConfigStore(): IssueConfigStore {
   return {

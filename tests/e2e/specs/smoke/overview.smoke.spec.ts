@@ -45,7 +45,8 @@ test.describe("Overview Smoke", () => {
   });
 
   test("shows recently finished section", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Finished recently" })).toBeVisible({ timeout: 5000 });
+    // Finished is now a tab in the lower section, not a separate heading.
+    await expect(page.getByRole("tab", { name: "Finished recently" })).toBeVisible({ timeout: 5000 });
   });
 
   test("sidebar shows correct active state for overview", async ({ page }) => {

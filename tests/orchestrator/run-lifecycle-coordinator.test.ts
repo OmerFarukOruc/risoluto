@@ -11,6 +11,7 @@ import {
   createConfig,
   createConfigStore,
   createAttemptStore,
+  createCostSampleStore,
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
@@ -48,6 +49,7 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): OrchestratorDeps {
   const config = createConfig();
   return {
     attemptStore: createAttemptStore(),
+    costSampleStore: createCostSampleStore(),
     configStore: createConfigStore(config),
     tracker: {
       fetchCandidateIssues: vi.fn(async () => []),

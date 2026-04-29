@@ -103,6 +103,16 @@ class RunLifecycleCoordinatorImpl implements RunLifecycleCoordinator {
             lastEventType: health.lastEventType,
           };
         },
+        getCostSamples: () =>
+          this.deps.costSampleStore.recentSamples().map((row) => ({
+            atMs: row.atMs,
+            costUsd: row.costUsd,
+            inputTokens: row.inputTokens,
+            outputTokens: row.outputTokens,
+            secondsRunning: row.secondsRunning,
+            headroomPct: row.headroomPct,
+          })),
+        getHealthChecks: () => this.deps.healthRunner?.getChecks(),
       },
     );
     this.ctx.retryCoordinator = createRetryCoordinator(

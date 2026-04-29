@@ -9,7 +9,9 @@ export type NotificationEventType =
   | "worker_failed"
   | "automation_completed"
   | "automation_failed"
-  | "alert_fired";
+  | "alert_fired"
+  | "health_down"
+  | "health_recovered";
 
 export interface NotificationIssueContext {
   id: string | null;

@@ -12,10 +12,13 @@ import path from "node:path";
 
 import type { RisolutoLogger } from "../../core/types.js";
 import type { AttemptStorePort } from "../../core/attempt-store-port.js";
+import type { CostSampleStorePort } from "../../core/cost-sample-port.js";
 import { closeDatabase, openDatabase, type RisolutoDatabase } from "./database.js";
 import { createOperatorPersistence, type OperatorPersistence } from "./operator-persistence.js";
 import { createWebhookPersistence, type WebhookPersistence } from "./webhook-persistence.js";
 import { SqliteAttemptStore } from "./attempt-store-sqlite.js";
+import { SqliteCostSampleStore } from "./cost-sample-store.js";
+import { SqliteHealthProbeStore, type HealthProbeStorePort } from "./health-probe-store.js";
 import { eq } from "drizzle-orm";
 
 import { migrateFromJsonl } from "./migrator.js";
@@ -27,6 +30,10 @@ export interface PersistenceRuntime {
   db: RisolutoDatabase;
   /** Attempt store — backed by SQLite. */
   attemptStore: AttemptStorePort;
+  /** Cost-sample time-series store for the dashboard sparkline. */
+  costSampleStore: CostSampleStorePort;
+  /** Per-subsystem health probe sample store — 7d ring buffer. */
+  healthProbeStore: HealthProbeStorePort;
   /** Operator-facing SQLite stores grouped by domain instead of by table. */
   operator: OperatorPersistence;
   /** Webhook-facing SQLite stores grouped by delivery workflow instead of raw table access. */
@@ -116,12 +123,16 @@ export async function initPersistenceRuntime(options: PersistenceRuntimeOptions)
   seedDefaults(db);
 
   const attemptStore = new SqliteAttemptStore(db, storeLogger);
+  const costSampleStore = SqliteCostSampleStore.create(db);
+  const healthProbeStore = SqliteHealthProbeStore.create(db);
   const operator = createOperatorPersistence(db);
   const webhook = createWebhookPersistence(db, logger.child({ component: "webhook" }));
 
   return {
     db,
     attemptStore,
+    costSampleStore,
+    healthProbeStore,
     operator,
     webhook,
     close() {

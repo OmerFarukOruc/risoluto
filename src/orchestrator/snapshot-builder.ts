@@ -10,6 +10,8 @@ import {
 import { type IssueLocatorCallbacks, resolveIssue, toIssueView } from "./issue-locator.js";
 import type {
   AttemptRecord,
+  CostSampleView,
+  HealthChecks,
   Issue,
   RecentEvent,
   RuntimeIssueView,
@@ -122,6 +124,21 @@ export function serializeSnapshot(snapshot: RuntimeSnapshot): Record<string, unk
       silent_ms: event.silentMs,
       timeout_ms: event.timeoutMs,
     })),
+    cost_samples: snapshot.costSamples?.map((sample) => ({
+      at_ms: sample.atMs,
+      cost_usd: sample.costUsd,
+      input_tokens: sample.inputTokens,
+      output_tokens: sample.outputTokens,
+      seconds_running: sample.secondsRunning,
+      headroom_pct: sample.headroomPct,
+    })),
+    health_checks: snapshot.healthChecks
+      ? {
+          github: serializeHealthProbe(snapshot.healthChecks.github),
+          linear: serializeHealthProbe(snapshot.healthChecks.linear),
+          docker: serializeHealthProbe(snapshot.healthChecks.docker),
+        }
+      : undefined,
     system_health: snapshot.systemHealth
       ? {
           status: snapshot.systemHealth.status,
@@ -222,6 +239,8 @@ export interface SnapshotBuilderCallbacks {
   getWebhookHealth?: () => RuntimeSnapshot["webhookHealth"] | undefined;
   getTemplateOverride?: (identifier: string) => string | null;
   getTemplateName?: (templateId: string) => string | null;
+  getCostSamples?: () => CostSampleView[];
+  getHealthChecks?: () => HealthChecks | undefined;
 }
 
 export interface RuntimeReadModel {
@@ -249,6 +268,8 @@ export interface RuntimeReadModelStateInput {
   getSystemHealth?: () => SystemHealth | null;
   getWebhookHealth?: () => RuntimeSnapshot["webhookHealth"] | undefined;
   getTemplateName?: (templateId: string) => string | null;
+  getCostSamples?: () => CostSampleView[];
+  getHealthChecks?: () => HealthChecks | undefined;
 }
 
 export function createRuntimeReadModel(
@@ -282,6 +303,8 @@ export function createRuntimeReadModelFromState(
     getWebhookHealth: input.getWebhookHealth,
     getTemplateOverride: (identifier: string) => input.state.issueTemplateOverrides.get(identifier) ?? null,
     getTemplateName: input.getTemplateName,
+    getCostSamples: input.getCostSamples,
+    getHealthChecks: input.getHealthChecks,
   });
 }
 
@@ -328,6 +351,29 @@ function buildSnapshotInternal(deps: SnapshotBuilderDeps, callbacks: SnapshotBui
     stallEvents: callbacks.getStallEvents ? [...callbacks.getStallEvents()] : undefined,
     systemHealth: callbacks.getSystemHealth ? (callbacks.getSystemHealth() ?? undefined) : undefined,
     webhookHealth: callbacks.getWebhookHealth ? callbacks.getWebhookHealth() : undefined,
+    costSamples: callbacks.getCostSamples ? [...callbacks.getCostSamples()] : undefined,
+    healthChecks: callbacks.getHealthChecks ? callbacks.getHealthChecks() : undefined,
+  };
+}
+
+function serializeHealthProbe(probe: import("../core/types/health.js").HealthProbeResult): Record<string, unknown> {
+  return {
+    status: probe.status,
+    failure_kind: probe.failureKind,
+    checked_at: probe.checkedAt,
+    last_success_at: probe.lastSuccessAt,
+    last_failure_at: probe.lastFailureAt,
+    latency_ms: probe.latencyMs,
+    detail: probe.detail,
+    subprobes: probe.subprobes.map((sub) => ({
+      name: sub.name,
+      status: sub.status,
+      failure_kind: sub.failureKind,
+      latency_ms: sub.latencyMs,
+      detail: sub.detail,
+    })),
+    window_ok: probe.windowOk,
+    window_failed: probe.windowFailed,
   };
 }
 

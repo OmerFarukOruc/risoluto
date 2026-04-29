@@ -9,6 +9,7 @@ import {
   createConfig,
   createConfigStore,
   createAttemptStore,
+  createCostSampleStore,
   createIssueConfigStore,
   createResolveTemplate,
 } from "./orchestrator-fixtures.js";
@@ -72,6 +73,7 @@ function createOrchestrator(options: { webhookHealthTracker?: WebhookHealthTrack
 
   const orchestrator = new Orchestrator({
     attemptStore: createAttemptStore(),
+    costSampleStore: createCostSampleStore(),
     configStore,
     tracker: makeTracker() as never,
     workspaceManager: makeWorkspaceManager() as never,

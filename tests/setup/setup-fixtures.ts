@@ -118,6 +118,7 @@ export function createOrchestratorMock(): Orchestrator {
   const logger = createMockLogger();
   const orchestrator = new Orchestrator({
     attemptStore: createAttemptStoreMock(),
+    costSampleStore: { append: () => undefined, recentSamples: () => [] },
     configStore: new ConfigStore(logger),
     tracker: new LinearTrackerAdapter(
       new LinearClient(() => {

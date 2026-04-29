@@ -6,7 +6,7 @@
  * cost tracking, trend analysis, and crash recovery.
  */
 
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * Stores attempt records — one row per agent execution attempt.
@@ -289,6 +289,37 @@ export const alertHistory = sqliteTable("alert_history", {
   failedChannels: text("failed_channels").notNull(),
   message: text("message").notNull(),
   createdAt: text("created_at").notNull(),
+});
+
+/**
+ * Time-series of per-subsystem health probe outcomes. One row per
+ * sub-probe per probe tick. Used to render reliability sparklines and
+ * post-incident review. Truncated to a 7-day window on every append.
+ */
+export const healthProbeSamples = sqliteTable("health_probe_samples", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sampledAt: integer("sampled_at").notNull(),
+  probe: text("probe").notNull(),
+  subprobe: text("subprobe").notNull(),
+  status: text("status").notNull(),
+  failureKind: text("failure_kind").notNull(),
+  latencyMs: real("latency_ms").notNull().default(0),
+  detail: text("detail").notNull().default(""),
+});
+
+/**
+ * Time-series of orchestrator cost / token / headroom samples. One row per
+ * tick. Used to render the dashboard cost sparkline. Truncated to a 7-day
+ * window on every append.
+ */
+export const costSamples = sqliteTable("cost_samples", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sampledAt: integer("sampled_at").notNull(),
+  costUsd: real("cost_usd"),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  secondsRunning: real("seconds_running").notNull().default(0),
+  headroomPct: real("headroom_pct"),
 });
 
 export const webhookInbox = sqliteTable("webhook_inbox", {

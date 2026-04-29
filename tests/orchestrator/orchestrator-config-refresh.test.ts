@@ -96,6 +96,7 @@ describe("Orchestrator config refresh", () => {
         sumCostUsd: () => 0,
         sumArchivedTokens: () => ({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
       },
+      costSampleStore: { append: () => undefined, recentSamples: () => [] },
       configStore: {
         getConfig: () => config,
         subscribe: (listener: () => void) => {

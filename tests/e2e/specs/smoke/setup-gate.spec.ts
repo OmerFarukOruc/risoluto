@@ -74,7 +74,8 @@ test.describe("Setup Gate", () => {
     });
 
     // Wait for metric card content to render from mocked state data
-    // The snapshot factory provides 1 running, 0 retrying
-    await expect(page.locator(".overview-live-label").filter({ hasText: "Running" })).toBeVisible({ timeout: 5000 });
+    // The snapshot factory provides 1 running, 0 retrying.
+    // Hero now uses a KPI strip; the running tile carries data-kpi="running".
+    await expect(page.locator(".overview-kpi-tile[data-kpi='running']")).toBeVisible({ timeout: 5000 });
   });
 });

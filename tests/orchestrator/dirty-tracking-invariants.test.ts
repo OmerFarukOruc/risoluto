@@ -15,6 +15,7 @@ import { Orchestrator } from "../../src/orchestrator/orchestrator.js";
 import type { Issue, RunOutcome, AgentRunner, TrackerPort, WorkspaceManager } from "./orchestrator-fixtures.js";
 import {
   createAttemptStore,
+  createCostSampleStore,
   createConfig,
   createConfigStore,
   createIssue,
@@ -85,6 +86,7 @@ function makeOrchestrator(
   const agentRunner = makeBlockingRunner();
   const orchestrator = new Orchestrator({
     attemptStore: createAttemptStore(),
+    costSampleStore: createCostSampleStore(),
     configStore: createConfigStore(config),
     tracker: makeTracker(issues),
     workspaceManager: makeWorkspaceManager(),
@@ -139,6 +141,7 @@ describe("running entries invalidation", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),
@@ -184,6 +187,7 @@ describe("retry entries invalidation", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),
@@ -236,6 +240,7 @@ describe("retry entries invalidation", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),
@@ -284,6 +289,7 @@ describe("retry entries invalidation", () => {
     config.agent.maxConcurrentAgents = 2;
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(config),
       tracker: makeTracker([issueA, issueB]),
       workspaceManager: makeWorkspaceManager(),
@@ -356,6 +362,7 @@ describe("claimedIssueIds invalidation", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),
@@ -506,6 +513,7 @@ describe("clearTrackedCollection optimization", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),
@@ -553,6 +561,7 @@ describe("clearTrackedCollection optimization", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker: makeTracker([issue]),
       workspaceManager: makeWorkspaceManager(),

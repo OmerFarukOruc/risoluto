@@ -109,4 +109,61 @@ export interface RuntimeSnapshot {
   stall_events?: StallEventView[];
   system_health?: SystemHealth;
   webhook_health?: WebhookHealth;
+  cost_samples?: CostSample[];
+  health_checks?: HealthChecks;
+}
+
+// ── Per-subsystem health probes ────────────────────────────────────────
+
+export type HealthCheckStatus = "ok" | "slow" | "degraded" | "down" | "unknown";
+
+export type HealthFailureKind =
+  | "ok"
+  | "auth_failure"
+  | "rate_limited"
+  | "remote_error"
+  | "unreachable"
+  | "config_drift"
+  | "resource"
+  | "image_missing";
+
+export interface HealthSubprobe {
+  name: string;
+  status: HealthCheckStatus;
+  failure_kind: HealthFailureKind;
+  latency_ms: number;
+  detail: string;
+}
+
+export interface HealthProbeResult {
+  status: HealthCheckStatus;
+  failure_kind: HealthFailureKind;
+  checked_at: string;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  latency_ms: number;
+  detail: string;
+  subprobes: HealthSubprobe[];
+  window_ok: number;
+  window_failed: number;
+}
+
+export interface HealthChecks {
+  github: HealthProbeResult;
+  linear: HealthProbeResult;
+  docker: HealthProbeResult;
+}
+
+/**
+ * One point in the orchestrator cost / headroom time-series. The dashboard
+ * sparkline reads the most recent ~64 entries; older rows are pruned by the
+ * backend on a 7-day rolling window.
+ */
+export interface CostSample {
+  at_ms: number;
+  cost_usd: number | null;
+  input_tokens: number;
+  output_tokens: number;
+  seconds_running: number;
+  headroom_pct: number | null;
 }

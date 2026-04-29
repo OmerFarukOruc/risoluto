@@ -7,6 +7,7 @@ import {
   createConfig,
   createConfigStore,
   createAttemptStore,
+  createCostSampleStore,
   createIssueConfigStore,
   createLogger,
   createResolveTemplate,
@@ -37,6 +38,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -94,6 +96,7 @@ describe("Orchestrator — advanced scenarios", () => {
     const config = createConfig();
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(config),
       tracker,
       workspaceManager,
@@ -172,6 +175,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore,
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -259,6 +263,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -317,6 +322,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -383,6 +389,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -491,6 +498,7 @@ describe("Orchestrator — advanced scenarios", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager,
@@ -529,6 +537,7 @@ describe("Orchestrator — eventBus emissions", () => {
 
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager: {
@@ -564,6 +573,7 @@ describe("Orchestrator — eventBus emissions", () => {
     } as unknown as TrackerPort;
     const orchestrator = new Orchestrator({
       attemptStore: createAttemptStore(),
+      costSampleStore: createCostSampleStore(),
       configStore: createConfigStore(createConfig()),
       tracker,
       workspaceManager: {

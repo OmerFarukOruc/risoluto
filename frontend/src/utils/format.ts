@@ -58,6 +58,40 @@ export function formatRunDuration(start: string | null | undefined, end: string 
   return formatDuration(Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 1000)));
 }
 
+/**
+ * Compact `mm:ss` since `startedAt`. Returns `null` for missing/unparseable
+ * input so callers can choose their own fallback ("—", "live", etc.).
+ */
+export function formatElapsedMmSs(startedAt: string | null | undefined): string | null {
+  if (!startedAt) return null;
+  const startMs = Date.parse(startedAt);
+  if (Number.isNaN(startMs)) return null;
+  const seconds = Math.max(0, Math.round((Date.now() - startMs) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Compact "Nm Ms" / "Hh Mm" duration matching the prototype's Session usage
+ * row. Falls back to `0s` for genuinely zero durations and `—` for unknown.
+ *
+ * Mirrors `formatDurationCompact` in `outcome-badge` but takes seconds
+ * (not ms) — they're separate because `outcome-badge` is the canonical
+ * home for ms-based attempt durations.
+ */
+export function formatRuntimeShort(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || Number.isNaN(seconds)) return "—";
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole === 0) return "0s";
+  if (whole < 60) return `${whole}s`;
+  const minutes = Math.floor(whole / 60);
+  const remainingSeconds = whole % 60;
+  if (minutes < 60) return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
 /** Convert milliseconds to a human-readable duration string (e.g. "5 minutes", "30 seconds"). */
 export function formatDurationHuman(ms: number): string {
   if (ms < 1000) return `${ms}ms`;

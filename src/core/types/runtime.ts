@@ -1,7 +1,7 @@
 import type { IssueBlockerRef } from "./issue.js";
 import type { TokenUsageSnapshot, ReasoningEffort } from "./model.js";
 import type { RecentEvent } from "./attempt.js";
-import type { SystemHealth } from "./health.js";
+import type { HealthChecks, SystemHealth } from "./health.js";
 import type { WebhookHealthState } from "../../webhook/types.js";
 
 export interface RuntimeIssueView {
@@ -56,6 +56,21 @@ export interface StallEventView {
   timeoutMs: number;
 }
 
+/**
+ * Single point in the orchestrator cost / headroom time-series.
+ *
+ * `atMs` is epoch milliseconds. `costUsd` and `headroomPct` are nullable
+ * — null means unknown at the time of sampling, not zero.
+ */
+export interface CostSampleView {
+  atMs: number;
+  costUsd: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  secondsRunning: number;
+  headroomPct: number | null;
+}
+
 export interface RuntimeSnapshot {
   generatedAt: string;
   counts: { running: number; retrying: number };
@@ -77,4 +92,8 @@ export interface RuntimeSnapshot {
   systemHealth?: SystemHealth;
   webhookHealth?: WebhookHealthState;
   availableModels?: string[] | null;
+  /** Most-recent cost / headroom samples in chronological order. */
+  costSamples?: CostSampleView[];
+  /** Per-subsystem real-signal health probe results. */
+  healthChecks?: HealthChecks;
 }

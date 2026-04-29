@@ -20,6 +20,13 @@ import { NotificationManager } from "../notification/manager.js";
 import { NotificationCenter } from "../notification/notification-center.js";
 import { Orchestrator } from "../orchestrator/orchestrator.js";
 import { initPersistenceRuntime, type PersistenceRuntime } from "../persistence/sqlite/runtime.js";
+import { HealthRunner } from "../health/health-runner.js";
+import { GithubProbe, type GithubRepoRef } from "../health/probes/github-probe.js";
+import { LinearProbe } from "../health/probes/linear-probe.js";
+import { DockerProbe } from "../health/probes/docker-probe.js";
+import { createGithubHttpAdapter } from "../health/runtime/github-http.js";
+import { createDockerRuntime } from "../health/runtime/docker-runtime.js";
+import { attachHealthNotificationBridge } from "../health/health-notification-bridge.js";
 import { IssueConfigStore } from "../persistence/sqlite/issue-config-store.js";
 import type { AutomationStorePort } from "../automation/port.js";
 import type { NotificationStorePort } from "../notification/port.js";
@@ -216,8 +223,24 @@ function createRuntimeServices(
   const { eventBus, automationStore, alertHistoryStore, notificationManager } = events;
   const { templateStore, issueConfigStore, resolveTemplate } = templateAudit;
 
+  const healthRunner = createHealthRunner({
+    configStore,
+    persistence,
+    tracker,
+    eventBus,
+    logger,
+  });
+
+  attachHealthNotificationBridge({
+    eventBus,
+    notificationManager,
+    logger: logger.child({ component: "health-notification-bridge" }),
+  });
+
   const orchestrator = new Orchestrator({
     attemptStore: persistence.attemptStore,
+    costSampleStore: persistence.costSampleStore,
+    healthRunner,
     configStore,
     tracker,
     workspaceManager,
@@ -271,6 +294,60 @@ function createRuntimeServices(
   });
 
   return { orchestrator, automationRunner, automationScheduler, alertEngine, prMonitor };
+}
+
+/**
+ * Construct the per-subsystem health runner with concrete probe + runtime
+ * adapters. The runner is opt-in: probes that can't be configured (e.g.
+ * no GitHub token) silently degrade to "unreachable" results inside the
+ * probe — they don't prevent the runner from running other probes.
+ */
+function createHealthRunner(deps: {
+  configStore: ConfigStore;
+  persistence: PersistenceRuntime;
+  tracker: ReturnType<typeof createTracker>["tracker"];
+  eventBus: TypedEventBus<RisolutoEventMap>;
+  logger: RisolutoLogger;
+}): HealthRunner {
+  const { configStore, persistence, tracker, eventBus, logger } = deps;
+
+  const githubProbe = new GithubProbe({
+    http: createGithubHttpAdapter({
+      resolveToken: () => {
+        const cfg = configStore.getConfig();
+        if (cfg.github?.token) return cfg.github.token;
+        const envName = cfg.repos?.[0]?.githubTokenEnv ?? "GITHUB_TOKEN";
+        return process.env[envName] ?? null;
+      },
+    }),
+    recentRepos: () => [],
+    configuredRepo: () => parseRepoUrl(configStore.getConfig().repos?.[0]?.repoUrl ?? null),
+  });
+
+  const linearProbe = new LinearProbe({
+    tracker,
+    activeStateName: () => configStore.getConfig().tracker?.activeStates?.[0] ?? null,
+  });
+
+  const dockerProbe = new DockerProbe({
+    runtime: createDockerRuntime(),
+    codexImageRef: () => configStore.getConfig().codex?.sandbox?.image ?? "",
+    workspaceRoot: () => configStore.getConfig().workspace?.root ?? "",
+  });
+
+  return new HealthRunner({
+    probes: [githubProbe, linearProbe, dockerProbe],
+    store: persistence.healthProbeStore,
+    logger: logger.child({ component: "health-runner" }),
+    eventBus,
+  });
+}
+
+function parseRepoUrl(repoUrl: string | null): GithubRepoRef | null {
+  if (!repoUrl) return null;
+  const match = /github\.com[/:]([^/]+)\/([^/.]+)/.exec(repoUrl);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2] };
 }
 
 // ---------------------------------------------------------------------------

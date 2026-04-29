@@ -241,6 +241,30 @@ const CREATE_TABLES_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_alert_history_created_at ON alert_history(created_at);
   CREATE INDEX IF NOT EXISTS idx_alert_history_rule_created_at ON alert_history(rule_name, created_at);
+
+  CREATE TABLE IF NOT EXISTS cost_samples (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    sampled_at      INTEGER NOT NULL,
+    cost_usd        REAL,
+    input_tokens    INTEGER NOT NULL DEFAULT 0,
+    output_tokens   INTEGER NOT NULL DEFAULT 0,
+    seconds_running REAL    NOT NULL DEFAULT 0,
+    headroom_pct    REAL
+  );
+  CREATE INDEX IF NOT EXISTS idx_cost_samples_sampled_at ON cost_samples(sampled_at);
+
+  CREATE TABLE IF NOT EXISTS health_probe_samples (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sampled_at   INTEGER NOT NULL,
+    probe        TEXT    NOT NULL,
+    subprobe     TEXT    NOT NULL,
+    status       TEXT    NOT NULL,
+    failure_kind TEXT    NOT NULL,
+    latency_ms   REAL    NOT NULL DEFAULT 0,
+    detail       TEXT    NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_health_probe_samples_sampled_at ON health_probe_samples(sampled_at);
+  CREATE INDEX IF NOT EXISTS idx_health_probe_samples_probe ON health_probe_samples(probe, sampled_at);
 `;
 
 type SqliteDb = InstanceType<typeof BetterSqlite3>;
@@ -485,6 +509,50 @@ function applyV8Migration(sqlite: SqliteDb): void {
 }
 
 /**
+ * v9 migration: add `cost_samples` time-series table.
+ * Fresh installs already have it from CREATE_TABLES_SQL.
+ */
+function applyV9Migration(sqlite: SqliteDb): void {
+  if (hasSchemaVersion(sqlite, 9)) return;
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS cost_samples (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      sampled_at      INTEGER NOT NULL,
+      cost_usd        REAL,
+      input_tokens    INTEGER NOT NULL DEFAULT 0,
+      output_tokens   INTEGER NOT NULL DEFAULT 0,
+      seconds_running REAL    NOT NULL DEFAULT 0,
+      headroom_pct    REAL
+    )
+  `);
+  sqlite.exec("CREATE INDEX IF NOT EXISTS idx_cost_samples_sampled_at ON cost_samples(sampled_at)");
+  bumpSchemaVersion(sqlite, 9);
+}
+
+/**
+ * v10 migration: add `health_probe_samples` time-series table.
+ * Fresh installs already have it from CREATE_TABLES_SQL.
+ */
+function applyV10Migration(sqlite: SqliteDb): void {
+  if (hasSchemaVersion(sqlite, 10)) return;
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS health_probe_samples (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      sampled_at   INTEGER NOT NULL,
+      probe        TEXT    NOT NULL,
+      subprobe     TEXT    NOT NULL,
+      status       TEXT    NOT NULL,
+      failure_kind TEXT    NOT NULL,
+      latency_ms   REAL    NOT NULL DEFAULT 0,
+      detail       TEXT    NOT NULL DEFAULT ''
+    )
+  `);
+  sqlite.exec("CREATE INDEX IF NOT EXISTS idx_health_probe_samples_sampled_at ON health_probe_samples(sampled_at)");
+  sqlite.exec("CREATE INDEX IF NOT EXISTS idx_health_probe_samples_probe ON health_probe_samples(probe, sampled_at)");
+  bumpSchemaVersion(sqlite, 10);
+}
+
+/**
  * Opens (or creates) a SQLite database at the given path,
  * enables WAL journal mode, and ensures the schema tables exist.
  *
@@ -514,6 +582,8 @@ export function openDatabase(dbPath: string): RisolutoDatabase {
   applyV6Migration(sqlite);
   applyV7Migration(sqlite);
   applyV8Migration(sqlite);
+  applyV9Migration(sqlite);
+  applyV10Migration(sqlite);
 
   return drizzle(sqlite, { schema });
 }

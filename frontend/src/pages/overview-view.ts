@@ -1,19 +1,27 @@
 import { router } from "../router";
 import { getRuntimeClient } from "../state/runtime-client";
 import type { AppState } from "../state/store";
-import type { WebhookHealth } from "../types/runtime.js";
+import type { RuntimeIssueView, WebhookHealth } from "../types/runtime.js";
 import { createEventRow } from "../components/event-row";
-import { createSystemHealthBadge } from "../components/system-health-badge";
+import { createSystemHealthChecklist } from "../components/system-health-checklist";
 import { createWebhookHealthPanel } from "../components/webhook-health-panel";
 import { createStallEventsTable } from "../components/stall-events-table";
 import { buildAttentionList, latestTerminalIssues } from "../utils/issues";
-import { formatCompactNumber, formatCostUsd, formatDuration, formatRateLimitHeadroom } from "../utils/format";
+import {
+  formatCompactNumber,
+  formatCostUsd,
+  formatDuration,
+  formatElapsedMmSs,
+  formatRateLimitHeadroom,
+  formatRuntimeShort,
+} from "../utils/format";
 import { setTextWithDiff } from "../utils/diff";
 import { registerPageCleanup } from "../utils/page";
-import { describeCurrentMoment } from "./overview-descriptions.js";
-import { createHeroMetricsBand, createLiveMetric } from "./overview-hero.js";
-import { readCollapsedSections, createSectionHeader, createCollapsibleSection } from "./overview-sections.js";
-import { issueRow, fillList } from "./overview-rows.js";
+import { createHeroBand, setRunningPulse, setSparklineSlot } from "./overview-hero.js";
+import { readCollapsedSections, createCollapsibleSection } from "./overview-sections.js";
+import { issueRow, finishedPeekRow, fillList } from "./overview-rows.js";
+import { createLiveAttemptPanel } from "./overview-live-attempt.js";
+import { createTabbedActivitySection } from "./overview-tabs.js";
 import { isGettingStartedDismissed, createTeachingEmptyState, createGettingStartedCard } from "./overview-empty.js";
 
 export function createOverviewPage(): HTMLElement {
@@ -21,9 +29,8 @@ export function createOverviewPage(): HTMLElement {
   const page = document.createElement("div");
   page.className = "page overview-page fade-in";
 
-  // Hero metrics band - the strong top "Now" strip
-  const { band: heroBand, state: heroState, detail: heroDetail, metrics: heroMetrics } = createHeroMetricsBand();
-  page.append(heroBand);
+  const hero = createHeroBand();
+  page.append(hero.band);
 
   // Getting started card (shown when dashboard is empty)
   const gettingStartedContainer = document.createElement("div");
@@ -47,103 +54,96 @@ export function createOverviewPage(): HTMLElement {
 
   page.append(gettingStartedContainer);
 
-  // Main content grid: Primary attention zone + secondary sidebar
+  // Main 2-col grid: [attention zone + live attempt] left, [collapsible sidebar] right
   const mainGrid = document.createElement("section");
   mainGrid.className = "overview-main-grid";
 
-  // Primary attention zone - dominant area
+  const leftStack = document.createElement("div");
+  leftStack.className = "overview-left-stack";
+
   const attentionZone = document.createElement("article");
   attentionZone.className = "overview-attention-zone";
-  const attentionHeader = createSectionHeader("Needs review", "Review first");
+
+  const attentionHeader = document.createElement("header");
+  attentionHeader.className = "overview-attention-header";
+  const attentionTitle = document.createElement("h2");
+  attentionTitle.className = "overview-section-title";
+  attentionTitle.textContent = "Needs review";
   const attentionCount = document.createElement("span");
   attentionCount.className = "overview-attention-count";
   attentionCount.hidden = true;
-  attentionHeader.append(attentionCount);
+  attentionHeader.append(attentionTitle, attentionCount);
   attentionZone.append(attentionHeader);
 
   const attentionList = document.createElement("div");
   attentionList.className = "overview-attention-list";
   attentionZone.append(attentionList);
 
+  const liveAttempt = createLiveAttemptPanel();
+
+  leftStack.append(attentionZone, liveAttempt.root);
+
   const secondary = document.createElement("aside");
   secondary.className = "overview-secondary";
 
-  // Read persisted collapse state once
   const collapsedSections = readCollapsedSections();
 
-  // System health section — collapsible
-  const healthCollapsible = createCollapsibleSection("health", "System health", "Live checks", collapsedSections);
+  const healthCollapsible = createCollapsibleSection("health", "System health", "Live", collapsedSections);
   healthCollapsible.section.classList.add("overview-health-section");
-  const { root: healthBadge, update: updateHealthBadge } = createSystemHealthBadge();
+  const { root: healthChecklist, update: updateHealthChecklist } = createSystemHealthChecklist();
   const { root: webhookPanel, update: updateWebhookPanel } = createWebhookHealthPanel();
-  healthCollapsible.body.append(healthBadge, webhookPanel);
+  healthCollapsible.body.append(healthChecklist, webhookPanel);
   secondary.append(healthCollapsible.section);
 
-  // Token burn section — collapsible
   const tokenCollapsible = createCollapsibleSection("tokens", "Session usage", "This session", collapsedSections);
   tokenCollapsible.section.classList.add("overview-token-section");
 
   const tokenGrid = document.createElement("div");
   tokenGrid.className = "overview-token-grid";
 
-  const inputTokens = createLiveMetric("Input");
-  const outputTokens = createLiveMetric("Output");
-  const runtime = createLiveMetric("Runtime");
-  const cost = createLiveMetric("Cost");
+  const inputTokens = createTokenStat("Input tokens");
+  const outputTokens = createTokenStat("Output tokens");
+  const runtimeStat = createTokenStat("Runtime");
+  const costSidebar = createTokenStat("Cost", { copperEmphasis: true });
 
-  tokenGrid.append(inputTokens.root, outputTokens.root, runtime.root, cost.root);
+  tokenGrid.append(inputTokens.root, outputTokens.root, runtimeStat.root, costSidebar.root);
   tokenCollapsible.body.append(tokenGrid);
   secondary.append(tokenCollapsible.section);
 
-  // Stall events section — collapsible
   const stallCollapsible = createCollapsibleSection("stalls", "Recovered stalls", "Recovery log", collapsedSections);
   stallCollapsible.section.classList.add("overview-stall-section");
   const { root: stallList, update: updateStallEvents } = createStallEventsTable();
   stallCollapsible.body.append(stallList);
   secondary.append(stallCollapsible.section);
 
-  // Recent events section — collapsible
-  const recentCollapsible = createCollapsibleSection("recent", "Latest activity", "Live feed", collapsedSections);
-  recentCollapsible.section.classList.add("overview-recent-section");
+  // Finished recently — compact peek list in the sidebar (full list lives
+  // in the lower tabbed section).
+  const finishedCollapsible = createCollapsibleSection("finished", "Finished recently", "", collapsedSections);
+  finishedCollapsible.section.classList.add("overview-finished-section");
+  const finishedList = document.createElement("div");
+  finishedList.className = "overview-finished-peek";
+  finishedCollapsible.body.append(finishedList);
+  secondary.append(finishedCollapsible.section);
 
-  const recentList = document.createElement("div");
-  recentList.className = "overview-events";
-  recentList.tabIndex = 0;
-  recentList.setAttribute("role", "log");
-  recentList.setAttribute("aria-label", "Latest activity events");
-  recentCollapsible.body.append(recentList);
-
-  // Terminal issues section — collapsible
-  const terminalCollapsible = createCollapsibleSection("terminal", "Finished recently", "Last runs", collapsedSections);
-  terminalCollapsible.section.classList.add("overview-terminal-section");
-
-  const terminalList = document.createElement("div");
-  terminalList.className = "overview-list";
-  terminalCollapsible.body.append(terminalList);
-
-  // Assemble main grid
-  mainGrid.append(attentionZone, secondary);
+  mainGrid.append(leftStack, secondary);
   page.append(mainGrid);
 
-  const lowerGrid = document.createElement("section");
-  lowerGrid.className = "overview-lower-grid";
-  lowerGrid.append(recentCollapsible.section, terminalCollapsible.section);
-  page.append(lowerGrid);
+  // Tabbed lower: Latest activity / Finished recently
+  const tabbed = createTabbedActivitySection("activity");
+  page.append(tabbed.root);
 
-  // Loading state
   const loadingSections = [
     attentionZone,
     tokenCollapsible.section,
-    recentCollapsible.section,
-    terminalCollapsible.section,
+    tabbed.root,
     healthCollapsible.section,
     stallCollapsible.section,
+    finishedCollapsible.section,
   ];
   for (const section of loadingSections) {
     section.setAttribute("aria-busy", "true");
   }
 
-  /** Updates the one-line summary text on each collapsible section header. */
   function updateCollapsibleSummaries(snapshot: NonNullable<AppState["snapshot"]>, terminalCount?: number): void {
     const healthStatus = snapshot.system_health ? snapshot.system_health.status : "healthy";
     healthCollapsible.summary.textContent = healthStatus;
@@ -151,20 +151,15 @@ export function createOverviewPage(): HTMLElement {
     const totalCost = formatCostUsd(snapshot.codex_totals.cost_usd);
     const totalRuntime = formatDuration(snapshot.codex_totals.seconds_running);
     tokenCollapsible.summary.textContent =
-      (snapshot.codex_totals.cost_usd ?? 0) > 0 ? `${totalCost} \u00B7 ${totalRuntime}` : "no usage";
+      (snapshot.codex_totals.cost_usd ?? 0) > 0 ? `${totalCost} · ${totalRuntime}` : "no usage";
 
     const stallCount = snapshot.stall_events?.length ?? 0;
     stallCollapsible.summary.textContent =
       stallCount > 0 ? `${stallCount} event${stallCount === 1 ? "" : "s"}` : "none";
 
-    const eventCount = (snapshot.recent_events ?? []).length;
-    recentCollapsible.summary.textContent = eventCount > 0 ? `${eventCount} recent` : "none";
-
-    const tc = terminalCount ?? latestTerminalIssues(snapshot.completed ?? []).length;
-    terminalCollapsible.summary.textContent = tc > 0 ? `${tc} issue${tc === 1 ? "" : "s"}` : "none";
+    void terminalCount;
   }
 
-  /** Fills empty list containers with teaching empty-state cards. */
   function renderEmptyStates(): void {
     if (attentionList.childElementCount === 0) {
       attentionList.replaceChildren(
@@ -177,8 +172,8 @@ export function createOverviewPage(): HTMLElement {
       );
     }
 
-    if (recentList.childElementCount === 0) {
-      recentList.replaceChildren(
+    if (tabbed.bodies.activity.childElementCount === 0) {
+      tabbed.bodies.activity.replaceChildren(
         createTeachingEmptyState(
           "No activity yet",
           "Workflow events will stream in here once Risoluto starts processing work.",
@@ -186,8 +181,8 @@ export function createOverviewPage(): HTMLElement {
       );
     }
 
-    if (terminalList.childElementCount === 0) {
-      terminalList.replaceChildren(
+    if (tabbed.bodies.finished.childElementCount === 0) {
+      tabbed.bodies.finished.replaceChildren(
         createTeachingEmptyState(
           "No finished runs yet",
           "Completed and failed runs will appear here after the first issue finishes.",
@@ -199,7 +194,6 @@ export function createOverviewPage(): HTMLElement {
   function renderSnapshot(state: AppState): void {
     const snapshot = state.snapshot;
     if (!snapshot) {
-      // Show skeletons while loading
       for (const section of loadingSections) {
         if (section.childElementCount <= 1) {
           const skeleton = document.createElement("div");
@@ -210,20 +204,55 @@ export function createOverviewPage(): HTMLElement {
       return;
     }
 
-    // Clear loading state
     for (const section of loadingSections) {
       section.setAttribute("aria-busy", "false");
     }
 
-    // Hero metrics - the "Now" band
-    setTextWithDiff(heroMetrics.running, String(snapshot.counts.running));
-    setTextWithDiff(heroMetrics.queued, String((snapshot.queued ?? []).length));
-    setTextWithDiff(heroMetrics.headroom, formatRateLimitHeadroom(snapshot.rate_limits));
+    setTextWithDiff(hero.countValues.running, String(snapshot.counts.running));
+    setTextWithDiff(hero.countValues.queued, String((snapshot.queued ?? []).length));
+    setTextWithDiff(
+      hero.countValues.blocked,
+      String(snapshot.workflow_columns?.find((c) => c.key === "blocked")?.count ?? 0),
+    );
+    setTextWithDiff(hero.countValues.done, String((snapshot.completed ?? []).length));
+    setRunningPulse(hero.runningPulseSlot, snapshot.counts.running > 0);
+
+    const costUsd = snapshot.codex_totals.cost_usd ?? null;
+    setTextWithDiff(hero.cost.value, costUsd === null ? "—" : formatCostUsd(costUsd).replace("$", "$"));
+    setTextWithDiff(hero.cost.runtime, formatDuration(snapshot.codex_totals.seconds_running));
+
+    const successRate = computeSuccessRate(snapshot.completed ?? []);
+    if (successRate === null) {
+      hero.cost.successRate.hidden = true;
+    } else {
+      hero.cost.successRate.hidden = false;
+      hero.cost.successRate.textContent = `${successRate}% success rate`;
+    }
+
+    // Sparklines hide automatically when fewer than 2 finite samples are present.
+    const samples = snapshot.cost_samples ?? [];
+    setSparklineSlot(
+      hero.cost.sparklineSlot,
+      samples.map((s) => s.cost_usd),
+      { color: "var(--color-copper-400)", width: 80, height: 28, filled: true, label: "Session cost trend" },
+    );
+    setSparklineSlot(
+      hero.headroom.sparklineSlot,
+      samples.map((s) => s.headroom_pct),
+      { color: "var(--text-accent)", width: 52, height: 20, label: "API headroom trend" },
+    );
+
+    setTextWithDiff(hero.headroom.value, formatRateLimitHeadroom(snapshot.rate_limits));
+
+    setTextWithDiff(hero.pageKicker, "Updated just now · SSE connected");
+
+    setTextWithDiff(inputTokens.value, formatCompactNumber(snapshot.codex_totals.input_tokens));
+    setTextWithDiff(outputTokens.value, formatCompactNumber(snapshot.codex_totals.output_tokens));
+    setTextWithDiff(runtimeStat.value, formatRuntimeShort(snapshot.codex_totals.seconds_running));
+    setTextWithDiff(costSidebar.value, formatCostUsd(costUsd));
 
     const attentionIssues = buildAttentionList(snapshot.workflow_columns ?? []);
-    const currentMoment = describeCurrentMoment(snapshot, attentionIssues.length);
-    setTextWithDiff(heroState, currentMoment.state);
-    setTextWithDiff(heroDetail, currentMoment.detail);
+    attentionZone.classList.toggle("is-all-clear", attentionIssues.length === 0);
     if (attentionIssues.length === 0) {
       attentionCount.hidden = true;
       attentionCount.textContent = "";
@@ -231,21 +260,18 @@ export function createOverviewPage(): HTMLElement {
       attentionCount.hidden = false;
       setTextWithDiff(attentionCount, `${attentionIssues.length} waiting`);
     }
-
-    // Token burn metrics
-    setTextWithDiff(inputTokens.value, formatCompactNumber(snapshot.codex_totals.input_tokens));
-    setTextWithDiff(outputTokens.value, formatCompactNumber(snapshot.codex_totals.output_tokens));
-    setTextWithDiff(runtime.value, formatDuration(snapshot.codex_totals.seconds_running));
-    setTextWithDiff(cost.value, formatCostUsd(snapshot.codex_totals.cost_usd));
-
-    // Attention list - primary zone
-    attentionZone.classList.toggle("is-all-clear", attentionIssues.length === 0);
     fillList(
       attentionList,
       attentionIssues.map((issue) => issueRow(issue, "attention")),
     );
 
-    // Getting started card — show when dashboard is completely empty
+    const active = pickActiveIssue(snapshot);
+    liveAttempt.update({
+      active,
+      events: snapshot.recent_events ?? [],
+      elapsedLabel: active ? (formatElapsedMmSs(active.startedAt) ?? "—") : undefined,
+    });
+
     const isEmpty =
       snapshot.counts.running === 0 &&
       snapshot.counts.retrying === 0 &&
@@ -258,33 +284,28 @@ export function createOverviewPage(): HTMLElement {
       hideGettingStarted();
     }
 
-    // Recent events
     fillList(
-      recentList,
-      (snapshot.recent_events ?? []).slice(-4).map((event) => createEventRow(event, true)),
+      tabbed.bodies.activity,
+      (snapshot.recent_events ?? []).slice(-12).map((event) => createEventRow(event, true)),
     );
 
-    // Terminal issues — compute once, reuse for summary + rows
     const terminalIssues = latestTerminalIssues(snapshot.completed ?? []);
-    const terminalRows = terminalIssues.slice(0, 4).map((issue) => {
-      const row = issueRow(issue, "terminal");
-      if (issue.status === "completed" || issue.status === "closed") {
-        row.classList.add("delight-entered");
-      }
-      return row;
-    });
-    fillList(terminalList, terminalRows);
+    fillList(
+      tabbed.bodies.finished,
+      terminalIssues.slice(0, 12).map((issue) => issueRow(issue, "terminal")),
+    );
 
-    // System health badge
-    updateHealthBadge(snapshot.system_health);
+    // Compact peek rows in the sidebar — full list lives in the lower tab.
+    fillList(
+      finishedList,
+      terminalIssues.slice(0, 4).map((issue) => finishedPeekRow(issue)),
+    );
+    finishedCollapsible.summary.textContent = terminalIssues.length === 0 ? "none" : `${terminalIssues.length}`;
 
-    // Webhook health panel
+    updateHealthChecklist(snapshot);
     updateWebhookPanel(snapshot.webhook_health);
-
-    // Stall events table
     updateStallEvents(snapshot.stall_events);
 
-    // Update collapsible summaries and empty states
     updateCollapsibleSummaries(snapshot, terminalIssues.length);
     renderEmptyStates();
   }
@@ -309,4 +330,33 @@ export function createOverviewPage(): HTMLElement {
   });
 
   return page;
+}
+
+function createTokenStat(
+  label: string,
+  options: { copperEmphasis?: boolean } = {},
+): { root: HTMLElement; value: HTMLElement } {
+  const root = document.createElement("div");
+  root.className = "overview-token-stat" + (options.copperEmphasis ? " is-copper" : "");
+  const labelEl = document.createElement("span");
+  labelEl.className = "overview-token-label";
+  labelEl.textContent = label;
+  const value = document.createElement("strong");
+  value.className = "overview-token-value";
+  value.textContent = "—";
+  root.append(labelEl, value);
+  return { root, value };
+}
+
+function pickActiveIssue(snapshot: NonNullable<AppState["snapshot"]>): RuntimeIssueView | null {
+  const running = snapshot.running ?? [];
+  const live = running.find((issue) => issue.status === "running" || issue.status === "retrying");
+  if (live) return live;
+  return running.length > 0 ? running[0] : null;
+}
+
+function computeSuccessRate(completed: ReadonlyArray<{ status: string }>): number | null {
+  if (completed.length === 0) return null;
+  const succeeded = completed.filter((issue) => issue.status === "completed" || issue.status === "closed").length;
+  return Math.round((succeeded / completed.length) * 100);
 }

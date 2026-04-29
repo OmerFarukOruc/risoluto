@@ -28,12 +28,12 @@ import type {
   UpdateIssueModelSelectionResult,
 } from "./port.js";
 import type { OrchestratorDeps, RunningEntry } from "./runtime-types.js";
-import { serializeSnapshot } from "./snapshot-builder.js";
+import { computeCostUsd, computeSecondsRunning, serializeSnapshot } from "./snapshot-builder.js";
 import { nowIso } from "./views.js";
 import type { ReasoningEffort, RuntimeSnapshot } from "../core/types.js";
 import type { RecoveryReport } from "./recovery-types.js";
 import { toErrorString } from "../utils/type-guards.js";
-import { createMetricsCollector } from "../observability/metrics.js";
+import { createMetricsCollector, type MetricsCollector } from "../observability/metrics.js";
 import type { ObservabilityHealthStatus } from "../observability/health.js";
 
 export class Orchestrator implements OrchestratorPort {
@@ -82,6 +82,11 @@ export class Orchestrator implements OrchestratorPort {
     this.deps.configStore.subscribe(() => {
       this.markStateDirty();
     });
+    if (typeof this.deps.eventBus?.on === "function") {
+      this.deps.eventBus.on("health.transition", () => {
+        this.markStateDirty();
+      });
+    }
   }
 
   private markStateDirty(): void {
@@ -461,56 +466,16 @@ export class Orchestrator implements OrchestratorPort {
     const observer = this.deps.observability?.getComponent("orchestrator");
     this.deps.metrics = metrics;
     const startedAt = Date.now();
+    // Fire health probes in parallel with the lifecycle body so a slow
+    // GitHub probe never delays issue dispatch.
+    const healthTickPromise = this.runHealthTick();
     try {
-      if (this._ctx.detectAndKillStalled().killed > 0) {
-        this.markStateDirty();
-      }
-      if (await this.runtimeCoordinator.reconcileRunningAndRetrying()) {
-        this.markStateDirty();
-      }
-      const candidateIssues = sortIssuesForDispatch(await this.deps.tracker.fetchCandidateIssues());
-      await this.runtimeCoordinator.refreshQueueViews(candidateIssues);
-      await this.runtimeCoordinator.launchAvailableWorkers(candidateIssues);
-      metrics.orchestratorPollsTotal.increment({ status: "ok" });
-      observer?.recordOperation({
-        metric: "lifecycle_poll",
-        operation: "orchestrator_tick",
-        outcome: "success",
-        durationMs: Date.now() - startedAt,
-        data: {
-          running: this._state.runningEntries.size,
-          queued: this._state.queuedViews.length,
-        },
-      });
-      const health = this.watchdog.getHealth();
-      observer?.setHealth({
-        surface: "orchestrator",
-        status: mapWatchdogStatus(health.status),
-        reason: health.message,
-        details: {
-          runningCount: health.runningCount,
-          recentStalls: health.recentStalls.length,
-        },
-      });
-      this.deps.eventBus?.emit("poll.complete", {
-        timestamp: nowIso(),
-        issueCount: this._state.queuedViews.length + this._state.runningEntries.size,
-      });
+      await this.runLifecycleBody();
+      this.recordSuccessfulTick(observer, metrics, startedAt);
+      this.recordCostSample();
+      await healthTickPromise;
     } catch (error) {
-      metrics.orchestratorPollsTotal.increment({ status: "error" });
-      observer?.recordOperation({
-        metric: "lifecycle_poll",
-        operation: "orchestrator_tick",
-        outcome: "failure",
-        durationMs: Date.now() - startedAt,
-        reason: toErrorString(error),
-      });
-      observer?.setHealth({
-        surface: "orchestrator",
-        status: "error",
-        reason: toErrorString(error),
-      });
-      this.deps.logger.error({ error: toErrorString(error) }, "orchestrator tick failed");
+      this.recordFailedTick(observer, metrics, startedAt, error);
     } finally {
       this.tickInFlight = false;
       const delayMs = this.refreshQueued ? 0 : this.getEffectivePollingInterval();
@@ -518,6 +483,97 @@ export class Orchestrator implements OrchestratorPort {
       if (this._state.running) this.scheduleTick(delayMs);
     }
   }
+
+  private runHealthTick(): Promise<void> {
+    return (
+      this.deps.healthRunner?.tick().catch((error: unknown) => {
+        this.deps.logger.warn({ error: toErrorString(error) }, "health runner tick failed");
+      }) ?? Promise.resolve()
+    );
+  }
+
+  private async runLifecycleBody(): Promise<void> {
+    if (this._ctx.detectAndKillStalled().killed > 0) this.markStateDirty();
+    if (await this.runtimeCoordinator.reconcileRunningAndRetrying()) this.markStateDirty();
+    const candidateIssues = sortIssuesForDispatch(await this.deps.tracker.fetchCandidateIssues());
+    await this.runtimeCoordinator.refreshQueueViews(candidateIssues);
+    await this.runtimeCoordinator.launchAvailableWorkers(candidateIssues);
+  }
+
+  private recordSuccessfulTick(
+    observer: ReturnType<NonNullable<OrchestratorDeps["observability"]>["getComponent"]> | undefined,
+    metrics: MetricsCollector,
+    startedAt: number,
+  ): void {
+    metrics.orchestratorPollsTotal.increment({ status: "ok" });
+    observer?.recordOperation({
+      metric: "lifecycle_poll",
+      operation: "orchestrator_tick",
+      outcome: "success",
+      durationMs: Date.now() - startedAt,
+      data: { running: this._state.runningEntries.size, queued: this._state.queuedViews.length },
+    });
+    const health = this.watchdog.getHealth();
+    observer?.setHealth({
+      surface: "orchestrator",
+      status: mapWatchdogStatus(health.status),
+      reason: health.message,
+      details: { runningCount: health.runningCount, recentStalls: health.recentStalls.length },
+    });
+    this.deps.eventBus?.emit("poll.complete", {
+      timestamp: nowIso(),
+      issueCount: this._state.queuedViews.length + this._state.runningEntries.size,
+    });
+  }
+
+  private recordFailedTick(
+    observer: ReturnType<NonNullable<OrchestratorDeps["observability"]>["getComponent"]> | undefined,
+    metrics: MetricsCollector,
+    startedAt: number,
+    error: unknown,
+  ): void {
+    metrics.orchestratorPollsTotal.increment({ status: "error" });
+    observer?.recordOperation({
+      metric: "lifecycle_poll",
+      operation: "orchestrator_tick",
+      outcome: "failure",
+      durationMs: Date.now() - startedAt,
+      reason: toErrorString(error),
+    });
+    observer?.setHealth({ surface: "orchestrator", status: "error", reason: toErrorString(error) });
+    this.deps.logger.error({ error: toErrorString(error) }, "orchestrator tick failed");
+  }
+
+  // Failures are caught so a transient SQLite hiccup never aborts the tick.
+  private recordCostSample(): void {
+    try {
+      const getRunningEntries = () => this._state.runningEntries;
+      this.deps.costSampleStore.append({
+        atMs: Date.now(),
+        costUsd: computeCostUsd(this.deps.attemptStore, getRunningEntries),
+        inputTokens: this._state.codexTotals.inputTokens,
+        outputTokens: this._state.codexTotals.outputTokens,
+        secondsRunning: computeSecondsRunning(this.deps.attemptStore, getRunningEntries),
+        headroomPct: extractHeadroomPct(this._state.rateLimits),
+      });
+    } catch (error) {
+      this.deps.logger.warn({ error: toErrorString(error) }, "cost sample append failed");
+    }
+  }
+}
+
+/**
+ * Reads `remaining / limit` from the loosely-typed rateLimits record and
+ * returns the headroom as a 0–100 percentage. Mirrors the frontend's
+ * `formatRateLimitHeadroom` logic so the sample matches what the UI shows.
+ */
+function extractHeadroomPct(rateLimits: unknown): number | null {
+  if (!rateLimits || typeof rateLimits !== "object") return null;
+  const record = rateLimits as Record<string, unknown>;
+  const limit = Number(record.limit ?? record.total ?? 0);
+  const remaining = Number(record.remaining ?? 0);
+  if (!limit || Number.isNaN(limit) || Number.isNaN(remaining)) return null;
+  return (remaining / limit) * 100;
 }
 
 function mapWatchdogStatus(status: "healthy" | "degraded" | "critical"): ObservabilityHealthStatus {

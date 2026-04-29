@@ -1,5 +1,7 @@
 import type { RunAttemptDispatcher } from "../dispatch/types.js";
 import type { AttemptStorePort } from "../core/attempt-store-port.js";
+import type { CostSampleStorePort } from "../core/cost-sample-port.js";
+import type { HealthRunner } from "../health/health-runner.js";
 import { ConfigStore } from "../config/store.js";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
@@ -58,6 +60,9 @@ export type RetryRuntimeEntry = RetryEntry & { issue: Issue; workspaceKey: strin
 
 export interface OrchestratorDeps {
   attemptStore: AttemptStorePort;
+  costSampleStore: CostSampleStorePort;
+  /** Real-signal per-subsystem health prober. Optional — orchestrator skips probe ticks when absent. */
+  healthRunner?: HealthRunner;
   configStore: ConfigStore;
   tracker: TrackerPort;
   workspaceManager: WorkspacePort;

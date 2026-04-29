@@ -16,17 +16,17 @@ export class OverviewPage extends BasePage {
 
   // ── Metric Cards ─────────────────────────────────────────────────────
 
-  /** The "NOW" status bar with running/queue/rate-limit/attention counts. */
+  /** The KPI strip across the top of the page. */
   get statusBar(): Locator {
-    return this.page.locator(".overview-status, .status-bar, .metric-row").first();
+    return this.page.locator(".overview-kpi-strip");
   }
 
   get runningCount(): Locator {
-    return this.page.locator(".overview-live-label").filter({ hasText: "Running" });
+    return this.page.locator(".overview-kpi-tile[data-kpi='running']");
   }
 
   get queueCount(): Locator {
-    return this.page.locator(".overview-live-label").filter({ hasText: "Queued" });
+    return this.page.locator(".overview-kpi-tile[data-kpi='queued']");
   }
 
   // ── Attention Queue ──────────────────────────────────────────────────

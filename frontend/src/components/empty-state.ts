@@ -77,10 +77,16 @@ function appendDetailWithCode(target: HTMLElement, detail: string): void {
   }
 }
 
+const LIVE_REGION_VARIANTS = new Set<EmptyStateVariant>(["error", "serverError", "timeout", "network", "notFound"]);
+
 function buildStateBox(config: StateBoxConfig): HTMLElement {
   const box = document.createElement("div");
   box.className = config.containerClass;
   box.dataset.emptyVariant = config.variant;
+  if (LIVE_REGION_VARIANTS.has(config.variant)) {
+    box.setAttribute("role", "status");
+    box.setAttribute("aria-live", "polite");
+  }
 
   const icon = document.createElement("div");
   icon.className = config.iconClass;

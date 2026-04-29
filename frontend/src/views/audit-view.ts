@@ -144,6 +144,7 @@ export function createAuditPage(): HTMLElement {
     undefined,
     undefined,
     "events",
+    { headingLevel: "h2" },
   );
   emptyEl.hidden = true;
   page.append(emptyEl);

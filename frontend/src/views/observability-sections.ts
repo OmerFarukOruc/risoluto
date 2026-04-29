@@ -412,6 +412,8 @@ function renderTraceTape(summary: ObservabilitySummary | null): HTMLElement {
 
   const tape = document.createElement("ol");
   tape.className = "obs-tape-rows";
+  tape.tabIndex = 0;
+  tape.setAttribute("aria-label", "Recent traces");
   traces.slice(0, shown).forEach((trace) => {
     tape.append(renderTraceRow(trace));
   });

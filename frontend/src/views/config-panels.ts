@@ -315,6 +315,8 @@ export function renderDiffPanel(container: HTMLElement, state: ConfigState): voi
 
     const diff = document.createElement("pre");
     diff.className = "config-diff-code";
+    diff.tabIndex = 0;
+    diff.setAttribute("aria-label", "Modified values diff");
     diff.textContent = buildDiffText(state.effective, state.overlay);
     diffSection.append(diff);
     content.append(diffSection);
@@ -328,6 +330,8 @@ export function renderDiffPanel(container: HTMLElement, state: ConfigState): voi
 
     const redacted = document.createElement("pre");
     redacted.className = "config-effective-code";
+    redacted.tabIndex = 0;
+    redacted.setAttribute("aria-label", "Full effective config (sensitive values hidden)");
     redacted.textContent = prettyJson(redactValue(state.effective));
     effectiveSection.append(redacted);
     content.append(effectiveSection);

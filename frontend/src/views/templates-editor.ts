@@ -62,10 +62,21 @@ const jinja2Theme = EditorView.baseTheme({
   },
 });
 
+const accessibilityOverrides = EditorView.theme({
+  "&.cm-editor.cm-focused": {
+    outline: "2px solid var(--border-accent)",
+    outlineOffset: "0",
+  },
+  ".cm-gutterElement": {
+    color: "var(--text-secondary)",
+  },
+});
+
 export interface TemplateEditorOptions {
   parent: HTMLElement;
   initialValue: string;
   onChange: (value: string) => void;
+  ariaLabel?: string;
 }
 
 export interface TemplateEditor {
@@ -87,7 +98,9 @@ export function createTemplateEditor(options: TemplateEditorOptions): TemplateEd
     html(),
     jinja2Highlight,
     jinja2Theme,
+    accessibilityOverrides,
     EditorView.lineWrapping,
+    EditorView.contentAttributes.of({ "aria-label": options.ariaLabel ?? "Template editor" }),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         options.onChange(update.state.doc.toString());

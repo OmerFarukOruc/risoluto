@@ -8,6 +8,7 @@ test.describe("Settings Codex Admin Smoke", () => {
 
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
+    await settings.openCodexAdmin();
 
     await expect(page.getByRole("heading", { name: "Account" })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText("operator@example.com")).toBeVisible();
@@ -117,6 +118,7 @@ test.describe("Settings Codex Admin Smoke", () => {
 
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
+    await settings.openCodexAdmin();
 
     await expect(page.getByRole("heading", { name: "Pending prompts" })).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("button", { name: "Answer" })).toBeVisible();

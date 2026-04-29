@@ -74,7 +74,7 @@ test.describe("Settings Interaction Smoke", () => {
 
   // ── Credentials: Add Credential ───────────────────────────────────
 
-  test("add credential: accepting prompt dialogs sends POST with value", async ({ page }) => {
+  test("add credential: filling the modal sends POST with value", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
 
@@ -83,19 +83,6 @@ test.describe("Settings Interaction Smoke", () => {
 
     const postPromise = page.waitForRequest((req) => {
       return req.url().includes("/api/v1/secrets/MY_NEW_KEY") && req.method() === "POST";
-    });
-
-    // Set up prompt dialog handlers in order: first for key, second for value
-    let promptCount = 0;
-    page.on("dialog", async (dialog) => {
-      if (dialog.type() === "prompt") {
-        promptCount++;
-        if (promptCount === 1) {
-          await dialog.accept("MY_NEW_KEY");
-        } else {
-          await dialog.accept("super-secret-value-123");
-        }
-      }
     });
 
     await page.route("**/api/v1/secrets/MY_NEW_KEY", (route) => {
@@ -111,6 +98,12 @@ test.describe("Settings Interaction Smoke", () => {
 
     await settings.addCredentialButton.click();
 
+    // Fill the in-page modal (replaces the legacy window.prompt flow)
+    const modal = page.locator(".confirm-modal-shell");
+    await modal.getByLabel("Credential key").fill("MY_NEW_KEY");
+    await modal.getByLabel("Value", { exact: true }).fill("super-secret-value-123");
+    await page.getByRole("button", { name: "Save credential" }).click();
+
     const postRequest = await postPromise;
     const body = postRequest.postDataJSON() as Record<string, unknown>;
     expect(body).toHaveProperty("value", "super-secret-value-123");
@@ -118,7 +111,7 @@ test.describe("Settings Interaction Smoke", () => {
 
   // ── Credentials: Delete Credential ─────────────────────────────────
 
-  test("delete credential: confirming deletion sends DELETE request", async ({ page }) => {
+  test("delete credential: confirming the modal sends DELETE request", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
 
@@ -126,13 +119,6 @@ test.describe("Settings Interaction Smoke", () => {
 
     const deletePromise = page.waitForRequest((req) => {
       return req.url().includes("/api/v1/secrets/LINEAR_API_KEY") && req.method() === "DELETE";
-    });
-
-    // Accept the confirm dialog for deletion
-    page.on("dialog", async (dialog) => {
-      if (dialog.type() === "confirm") {
-        await dialog.accept();
-      }
     });
 
     await page.route("**/api/v1/secrets/LINEAR_API_KEY", (route) => {
@@ -146,17 +132,19 @@ test.describe("Settings Interaction Smoke", () => {
       return route.fallback();
     });
 
-    // Click the delete button (×) on the LINEAR_API_KEY credential pill
+    // Click the delete button (×) on the LINEAR_API_KEY credential pill,
+    // then confirm in the in-page modal (replaces the legacy window.confirm flow).
     await settings.credentialDeleteButton("LINEAR_API_KEY").click();
+    await page.getByRole("button", { name: "Delete credential" }).click();
 
     const deleteRequest = await deletePromise;
     expect(deleteRequest.method()).toBe("DELETE");
     expect(deleteRequest.url()).toContain("/api/v1/secrets/LINEAR_API_KEY");
   });
 
-  // ── Credentials: Empty Key Validation ──────────────────────────────
+  // ── Credentials: Cancel ───────────────────────────────────────────
 
-  test("add credential: dismissing key prompt does not send POST", async ({ page }) => {
+  test("add credential: cancelling the modal does not send POST", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSecrets();
 
@@ -169,14 +157,11 @@ test.describe("Settings Interaction Smoke", () => {
       }
     });
 
-    // Dismiss the key prompt (cancel) — should prevent POST
-    page.on("dialog", async (dialog) => {
-      if (dialog.type() === "prompt") {
-        await dialog.dismiss();
-      }
-    });
-
     await settings.addCredentialButton.click();
+    const modal = page.locator(".confirm-modal-shell");
+    await expect(modal.getByLabel("Credential key")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+
     await page.waitForTimeout(300);
     expect(postSent).toBe(false);
   });

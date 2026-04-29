@@ -24,8 +24,9 @@ test.describe("Settings Unified View Smoke", () => {
   test("settings page renders the Codex Admin operator block", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
+    await settings.openCodexAdmin();
 
-    await expect(page.getByRole("heading", { name: "Codex Admin" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "Codex Admin", exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Model catalog" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();

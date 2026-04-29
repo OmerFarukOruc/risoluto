@@ -35,6 +35,20 @@ export class ConfigPage extends BasePage {
     await this.credentialsSection.waitFor({ state: "attached" });
   }
 
+  /**
+   * Codex admin lives inside a collapsible <details> on the settings page.
+   * Open it before asserting on its inner headings or interacting with controls.
+   */
+  async openCodexAdmin(): Promise<void> {
+    const summary = this.codexAdminSection.locator("summary");
+    await summary.waitFor({ state: "attached" });
+    await summary.click();
+    await this.page.waitForFunction(() => {
+      const details = document.querySelector<HTMLDetailsElement>(".settings-codex-admin-section");
+      return details?.open === true;
+    });
+  }
+
   // ── Rail Navigation ─────────────────────────────────────────────────
 
   get settingsRail(): Locator {
@@ -57,6 +71,10 @@ export class ConfigPage extends BasePage {
 
   get devToolsSection(): Locator {
     return this.page.locator(".settings-devtools-section");
+  }
+
+  get codexAdminSection(): Locator {
+    return this.page.locator(".settings-codex-admin-section");
   }
 
   // ── Config View ──────────────────────────────────────────────────────

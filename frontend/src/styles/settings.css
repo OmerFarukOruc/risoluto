@@ -829,11 +829,11 @@
 .settings-field-reset {
   font-size: var(--text-xs);
   padding: var(--badge-padding-sm);
-  opacity: 0.7;
+  color: var(--text-secondary);
 }
 
 .settings-field-reset:hover {
-  opacity: 1;
+  color: var(--text-primary);
 }
 
 /* Duration suffix for ms fields */

@@ -219,6 +219,7 @@ export function createTemplatesPage(): HTMLElement {
       editor = createTemplateEditor({
         parent: cmContainer,
         initialValue: state.editorBody,
+        ariaLabel: "Prompt template body editor",
         onChange: (value) => {
           if (suppressEditorChange) return;
           state.editorBody = value;

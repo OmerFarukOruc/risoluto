@@ -4,7 +4,7 @@ import { WebhookDeliveryWorkflow } from "../../src/webhook/delivery-workflow.js"
 import { createMockLogger, makeMockResponse } from "../helpers.js";
 
 describe("WebhookDeliveryWorkflow", () => {
-  it("responds immediately, records accepted deliveries, and runs the processor for new deliveries", async () => {
+  it("records new deliveries before acknowledging and runs the processor", async () => {
     const logger = createMockLogger();
     const insertVerified = vi.fn().mockResolvedValue({ isNew: true });
     const recordVerifiedDelivery = vi.fn();
@@ -28,12 +28,11 @@ describe("WebhookDeliveryWorkflow", () => {
       process,
     });
 
-    expect(res._status).toBe(200);
-    expect(res._body).toEqual({ ok: true });
-
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(insertVerified).toHaveBeenCalledOnce();
+    expect(res._status).toBe(200);
+    expect(res._body).toEqual({ ok: true });
     expect(recordVerifiedDelivery).toHaveBeenCalledWith("Issue:update");
     expect(process).toHaveBeenCalledOnce();
   });
@@ -89,14 +88,21 @@ describe("WebhookDeliveryWorkflow", () => {
     ).resolves.toBe(true);
   });
 
-  it("ensureNew logs and proceeds when durable inbox insert fails", async () => {
+  it("returns 503 before acknowledgement when durable inbox insert fails", async () => {
     const logger = createMockLogger();
-    const workflow = new WebhookDeliveryWorkflow(logger, {
-      insertVerified: vi.fn().mockRejectedValue(new Error("sqlite busy")),
-    });
+    const eventBus = { emit: vi.fn() };
+    const process = vi.fn();
+    const res = makeMockResponse();
+    const workflow = new WebhookDeliveryWorkflow(
+      logger,
+      {
+        insertVerified: vi.fn().mockRejectedValue(new Error("sqlite busy")),
+      },
+      eventBus,
+    );
 
-    await expect(
-      workflow.ensureNew({
+    workflow.respondAccepted(res, {
+      delivery: {
         deliveryId: "delivery-error",
         type: "Issue",
         action: "update",
@@ -105,9 +111,20 @@ describe("WebhookDeliveryWorkflow", () => {
         issueIdentifier: "ENG-1",
         webhookTimestamp: Date.now(),
         payloadJson: '{"ok":true}',
-      }),
-    ).resolves.toBe(true);
+      },
+      process,
+    });
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(res._status).toBe(503);
+    expect(res._body).toEqual({
+      error: {
+        code: "webhook_inbox_unavailable",
+        message: "Webhook inbox persistence is unavailable",
+      },
+    });
+    expect(process).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith(
       {
         deliveryId: "delivery-error",
@@ -115,7 +132,14 @@ describe("WebhookDeliveryWorkflow", () => {
         action: "update",
         error: "sqlite busy",
       },
-      "webhook inbox insert failed — proceeding without durable dedupe",
+      "webhook inbox insert failed — dropping delivery to preserve durable dedupe",
+    );
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      "system.error",
+      expect.objectContaining({
+        message: expect.stringContaining("Webhook inbox insert failed"),
+        context: expect.objectContaining({ deliveryId: "delivery-error", error: "sqlite busy" }),
+      }),
     );
   });
 });

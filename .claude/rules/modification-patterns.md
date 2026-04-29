@@ -28,7 +28,7 @@ paths:
 1. **Add to `OrchestratorDeps`** in `src/orchestrator/runtime-types.ts` if new dependency
 2. **Wire in `createServices()`** in `src/cli/services.ts`
 3. **Tick behavior** → modify `lifecycle.ts` (reconcile/queue) or `worker-launcher.ts` (launch)
-4. **New state** → add to `OrchestratorState` in `orchestrator-delegates.ts`
+4. **New state** → add to `LifecycleState` in `src/orchestrator/core/lifecycle-state.ts`
 5. **New snapshot data** → update `snapshot-builder.ts` and `src/http/route-helpers.ts`
 6. **Test** — use `tests/orchestrator/orchestrator-fixtures.ts` factories
 

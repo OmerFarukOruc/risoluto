@@ -1,5 +1,7 @@
 import type { Response } from "express";
 
+import type { TypedEventBus } from "../core/event-bus.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { RisolutoLogger } from "../core/types.js";
 import { toErrorString } from "../utils/type-guards.js";
 
@@ -24,6 +26,12 @@ interface DeliveryLogContext {
   action: string;
 }
 
+class WebhookInboxUnavailableError extends Error {
+  constructor() {
+    super("webhook inbox persistence is unavailable");
+  }
+}
+
 function deliveryLogContext(delivery: VerifiedWebhookDelivery): DeliveryLogContext {
   return {
     deliveryId: delivery.deliveryId,
@@ -36,6 +44,7 @@ export class WebhookDeliveryWorkflow {
   constructor(
     private readonly logger: RisolutoLogger,
     private readonly store?: VerifiedWebhookDeliveryStore,
+    private readonly eventBus?: Pick<TypedEventBus<RisolutoEventMap>, "emit">,
   ) {}
 
   respondAccepted(
@@ -51,17 +60,18 @@ export class WebhookDeliveryWorkflow {
       errorMessage?: string;
     },
   ): void {
-    res.status(options.status ?? 200).json(options.body ?? { ok: true });
-
     void this.ensureNew(options.delivery)
       .then((isNew) => {
         if (!isNew) {
+          res.status(options.status ?? 200).json(options.body ?? { ok: true });
           this.logger.debug(
             deliveryLogContext(options.delivery),
             options.duplicateMessage ?? "duplicate webhook delivery skipped",
           );
           return;
         }
+
+        res.status(options.status ?? 200).json(options.body ?? { ok: true });
 
         if (options.eventType && options.recordVerifiedDelivery) {
           options.recordVerifiedDelivery(options.eventType);
@@ -70,6 +80,16 @@ export class WebhookDeliveryWorkflow {
         return options.process();
       })
       .catch((error) => {
+        if (error instanceof WebhookInboxUnavailableError && !res.headersSent) {
+          res.status(503).json({
+            error: {
+              code: "webhook_inbox_unavailable",
+              message: "Webhook inbox persistence is unavailable",
+            },
+          });
+          return;
+        }
+
         this.logger.error(
           {
             ...deliveryLogContext(options.delivery),
@@ -94,9 +114,16 @@ export class WebhookDeliveryWorkflow {
           ...deliveryLogContext(delivery),
           error: toErrorString(error),
         },
-        "webhook inbox insert failed — proceeding without durable dedupe",
+        "webhook inbox insert failed — dropping delivery to preserve durable dedupe",
       );
-      return true;
+      this.eventBus?.emit("system.error", {
+        message: "Webhook inbox insert failed; delivery was dropped to preserve durable dedupe.",
+        context: {
+          ...deliveryLogContext(delivery),
+          error: toErrorString(error),
+        },
+      });
+      throw new WebhookInboxUnavailableError();
     }
   }
 }

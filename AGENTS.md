@@ -107,7 +107,7 @@ Each extracted directory should have an `index.ts` barrel file that re-exports t
 
 Add or update Vitest coverage for every behavior change. Prefer deterministic unit tests in `tests/*.test.ts`; use fixtures in `tests/fixtures/` instead of live services where possible. Reserve `tests/live.integration.test.ts` for environment-dependent checks that should skip cleanly when credentials are absent.
 
-**MANDATORY after UI changes:** You MUST invoke `/visual-verify` after editing `dashboard-template.ts`, `logs-template.ts`, any CSS, or any file that affects the Risoluto web UI. Visual verification is part of the definition of done for UI work — do not mark a UI task complete without it.
+**MANDATORY after UI changes:** You MUST run browser verification after editing `dashboard-template.ts`, `logs-template.ts`, any CSS, or any file that affects the Risoluto web UI. Use `agent-browser` to open the changed route, capture an accessibility snapshot, exercise the affected interaction, and take screenshots when layout changed. Use DevTools console/network inspection when errors, requests, timing, or CSS debugging are part of the risk. Visual verification is part of the definition of done for UI work — do not mark a UI task complete without listing the route, interaction, and result.
 
 ### Playwright E2E Tests
 

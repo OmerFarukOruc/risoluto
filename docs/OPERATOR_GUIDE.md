@@ -820,11 +820,15 @@ curl -s -X PUT http://127.0.0.1:4000/api/v1/config/overlay \
 
 The webhook endpoint validates every request:
 
-| Check                 | Header                 | Failure Response               |
-| --------------------- | ---------------------- | ------------------------------ |
-| **HMAC-SHA256**       | `Linear-Signature`     | `401 signature_invalid`        |
-| **Replay protection** | Timestamp in signature | `401 replay_rejected` (>5 min) |
-| **Missing signature** | —                      | `401 signature_missing`        |
+| Check                   | Header                         | Failure Response               |
+| ----------------------- | ------------------------------ | ------------------------------ |
+| **HMAC-SHA256**         | `Linear-Signature`             | `401 signature_invalid`        |
+| **Replay window**       | `webhookTimestamp` payload     | `401 replay_rejected` (>60s)   |
+| **Delivery dedupe key** | `Linear-Delivery`              | `400 delivery_missing`         |
+| **Missing signature**   | —                              | `401 signature_missing`        |
+| **GitHub delivery key** | `X-GitHub-Delivery` plus inbox | `400` or `503` when unavailable |
+
+GitHub webhook registration is manual-only today: configure the webhook in GitHub, set `triggers.github_secret`, and point it at `/webhooks/github`. Risoluto verifies signatures and durable delivery IDs, but it does not provision GitHub webhooks or run provider-side GitHub subscription health checks.
 
 → See **[Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL.md)** for full tunnel configuration and troubleshooting.
 → See **[Trust and Auth](TRUST_AND_AUTH.md#-inbound-webhook-auth)** for webhook security details.
@@ -1568,13 +1572,14 @@ node dist/cli/index.js --port 4000 2>&1 | tee risoluto.log
 
 ## 🔭 Visual Verification of Dashboard UI
 
-Risoluto includes a `visual-verify` skill and project-level `agent-browser` configuration for visually verifying dashboard UI changes using bundled Chromium in headed mode.
+Risoluto no longer uses a `/visual-verify` slash command. Dashboard UI verification is a runnable browser workflow: use `agent-browser` for navigation, snapshots, interactions, and screenshots; use DevTools when you need console, network, CSS, or performance evidence.
 
 ### Prerequisites
 
 | Requirement       | Details                                              |
 | ----------------- | ---------------------------------------------------- |
 | **agent-browser** | `pnpm add -g agent-browser && agent-browser install` |
+| **DevTools**      | Use the local DevTools MCP for console/network/CSS/performance inspection when the UI risk requires it |
 
 ### Project Configuration
 
@@ -1618,10 +1623,15 @@ agent-browser close
 
 ### Full QA Workflow
 
-For comprehensive testing (before releases, after major UI changes), the `visual-verify` skill in `skills/visual-verify/SKILL.md` teaches a structured exploration workflow with video recording, annotated screenshots, console error checking, and a report template.
+For comprehensive testing before releases or after major UI changes:
 
-> [!TIP]
-> Read `skills/visual-verify/SKILL.md` for the full workflow. Reference docs in `skills/visual-verify/references/` cover the dashboard element map, command reference, and issue severity taxonomy.
+1. Run `pnpm run build` and the relevant unit/E2E tests.
+2. Start the built service or the Vite/dev-server pair needed by the changed surface.
+3. Use `agent-browser open <url>` and `agent-browser snapshot -i` to confirm the route, landmark structure, controls, and affected state.
+4. Exercise the changed workflow with `agent-browser click`, `fill`, keyboard input, and route changes. Re-snapshot after each state transition that could regress.
+5. Capture screenshots for layout/CSS changes and compare before/after manually or with `agent-browser diff` when you have a stable baseline.
+6. Use DevTools console/network inspection for request failures, runtime errors, CSS cascade questions, or performance-sensitive UI.
+7. Record the verified routes, interactions, screenshots, and console/network result in the handoff or PR description.
 
 ---
 

@@ -251,11 +251,12 @@ Risoluto now exposes three ingress surfaces with distinct trust boundaries:
 
 Risoluto accepts inbound Linear webhooks at `/webhooks/linear`. This endpoint is **publicly exposed** via Cloudflare Tunnel and uses HMAC signature verification:
 
-| Mechanism             | Header                 | How it works                                                                              |
-| --------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **HMAC-SHA256**       | `Linear-Signature`     | Risoluto computes `HMAC-SHA256(webhook_secret, raw_body)` and compares against the header |
-| **Replay protection** | Timestamp in signature | Signatures older than 5 minutes are rejected as `replay_rejected`                         |
-| **Missing signature** | —                      | Returns `401 signature_missing`                                                           |
+| Mechanism               | Header                         | How it works                                                                              |
+| ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| **HMAC-SHA256**         | `Linear-Signature`             | Risoluto computes `HMAC-SHA256(webhook_secret, raw_body)` and compares against the header |
+| **Replay window**       | `webhookTimestamp` payload     | Deliveries outside the 60 second acceptance window are rejected as `replay_rejected`      |
+| **Delivery dedupe key** | `Linear-Delivery`              | Required after signature verification; missing delivery ids return `400 delivery_missing` |
+| **Missing signature**   | —                              | Returns `401 signature_missing`                                                           |
 
 The webhook secret comes from one of two sources:
 
@@ -268,9 +269,11 @@ GitHub webhook deliveries arrive at `/webhooks/github` and must include:
 
 - `X-Hub-Signature-256` — HMAC-SHA256 signature of the raw request body using `triggers.github_secret`
 - `X-GitHub-Event` — source event name
-- `X-GitHub-Delivery` — dedupe-friendly delivery id (recommended)
+- `X-GitHub-Delivery` — required durable delivery id
 
-Risoluto only acts on the narrow GitHub issue-event subset needed for push-based issue ingestion and tracker truthfulness. Signature failures return `401`; missing event metadata returns `400`.
+Risoluto only acts on the narrow GitHub issue-event subset needed for push-based issue ingestion and tracker truthfulness. Signature failures return `401`; missing event or delivery metadata returns `400`. GitHub webhook delivery also requires the SQLite webhook inbox; if inbox persistence is unavailable, `/webhooks/github` returns `503 webhook_inbox_unavailable` instead of processing without replay protection.
+
+GitHub webhook registration is manual-only today. Operators configure the webhook in GitHub and provide `triggers.github_secret`; Risoluto verifies inbound deliveries but does not create, delete, or provider-health-check GitHub webhook subscriptions.
 
 ### Generic trigger API
 

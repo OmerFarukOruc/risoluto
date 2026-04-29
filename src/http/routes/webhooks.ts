@@ -1,6 +1,6 @@
 import type { Express } from "express";
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 import type { HttpRouteDeps } from "../route-types.js";
 import { triggerSchema } from "../request-schemas.js";
@@ -52,6 +52,11 @@ export function registerWebhookRoutes(app: Express, deps: HttpRouteDeps): void {
   const webhookLimiter = rateLimit({
     windowMs: 60_000,
     limit: 600,
+    keyGenerator: (req) => {
+      const deliveryId = req.get("x-github-delivery") ?? req.get("linear-delivery");
+      const senderKey = ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
+      return deliveryId?.trim() ? `${senderKey}:${deliveryId.trim()}` : senderKey;
+    },
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -62,6 +67,7 @@ export function registerWebhookRoutes(app: Express, deps: HttpRouteDeps): void {
     requestTargetedRefresh: deps.orchestrator.requestTargetedRefresh.bind(deps.orchestrator),
     stopWorkerForIssue: deps.orchestrator.stopWorkerForIssue.bind(deps.orchestrator),
     webhookInbox: webhookDeps.webhookInbox,
+    eventBus: webhookDeps.eventBus,
     logger: webhookDeps.logger,
   };
 

@@ -44,8 +44,8 @@ export function parseCliArgs(argv: string[]): {
   const dataDir = path.resolve(parsed.values["data-dir"] ?? process.env.DATA_DIR ?? path.join(homedir(), ".risoluto"));
   const archiveDir = path.resolve(path.join(dataDir, "archives"));
   // Precedence: explicit --port CLI flag > ANVIL_BACKEND_PORT env var > config.server.port.
-  // The ANVIL_BACKEND_PORT env var is set by oh-my-anvil for parallel factory
-  // runs so each run binds a unique backend port (same offset as the frontend).
+  // External orchestrators may set ANVIL_BACKEND_PORT on the parent process
+  // so parallel child runs bind unique backend ports.
   const selectedPort = parsePortValue(parsed.values.port) ?? parsePortValue(process.env.ANVIL_BACKEND_PORT);
   return { dataDir, archiveDir, selectedPort, logger };
 }

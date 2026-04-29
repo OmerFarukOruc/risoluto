@@ -141,7 +141,7 @@ describe("createReadGuard", () => {
     expect(response.status).toHaveBeenCalledWith(401);
   });
 
-  it("skips public runtime and setup reads", () => {
+  it("skips public runtime reads", () => {
     const next = vi.fn();
     const response = createResponse();
     const request = {
@@ -156,5 +156,32 @@ describe("createReadGuard", () => {
 
     expect(next).toHaveBeenCalledOnce();
     expect(response.status).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/api/v1/prs",
+    "/api/v1/observability",
+    "/api/v1/recovery",
+    "/api/v1/notifications",
+    "/api/v1/automations",
+    "/api/v1/alerts/history",
+    "/api/v1/setup/status",
+    "/api/v1/codex/admin",
+  ])("protects sensitive operator read route %s", (path) => {
+    vi.stubEnv("RISOLUTO_READ_TOKEN", "read-secret");
+    const next = vi.fn();
+    const response = createResponse();
+    const request = {
+      method: "GET",
+      path,
+      socket: { remoteAddress: "203.0.113.10" },
+      get: vi.fn().mockReturnValue(undefined),
+      query: {},
+    };
+
+    createReadGuard()(request as never, response as never, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(401);
   });
 });

@@ -98,6 +98,7 @@ export function createWebhookService(input: {
           orchestrator.stopWorkerForIssue(issueIdentifier, reason),
         recordVerifiedDelivery: (eventType: string) => webhookHealthTracker?.recordVerifiedDelivery(eventType),
         webhookInbox,
+        eventBus: input.eventBus,
         logger: logger.child({ component: "webhook-handler" }),
       };
     },

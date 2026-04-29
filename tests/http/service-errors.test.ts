@@ -70,7 +70,7 @@ describe("serviceErrorHandler", () => {
     expect(response.status).toBe(500);
     const body = (await response.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe("service_error");
-    expect(body.error.message).toBe("database connection failed");
+    expect(body.error.message).toBe("Internal server error");
 
     await closeServer(s);
     server = null;

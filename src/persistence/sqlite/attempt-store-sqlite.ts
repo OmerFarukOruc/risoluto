@@ -1,8 +1,8 @@
 /**
  * SQLite-backed implementation of the AttemptStore interface.
  *
- * Provides the same public API as the JSONL-based `AttemptStore` but
- * persists data in a SQLite database for queryable, durable storage.
+ * Provides queryable, durable attempt and event storage on the shared
+ * SQLite persistence runtime.
  */
 
 import { asc, desc, eq, isNotNull, sql } from "drizzle-orm";

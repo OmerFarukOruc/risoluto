@@ -20,7 +20,7 @@ Touch only what the task requires. A bug fix is not a refactor; a refactor is no
 
 ### 4. Goal-Driven Execution
 
-Validate against the real user-visible outcome, not the task description. A green test suite is not proof the feature works — for UI changes, that means `/visual-verify` in the browser; for orchestrator changes, that means confirming the event actually reaches the dashboard; for Linear integration changes, that means the round-trip comment/state-transition lands. If you can't verify end-to-end, say so explicitly instead of claiming success.
+Validate against the real user-visible outcome, not the task description. A green test suite is not proof the feature works — for UI changes, that means a real browser pass with `agent-browser` plus DevTools console/network inspection when debugging is needed; for orchestrator changes, that means confirming the event actually reaches the dashboard; for Linear integration changes, that means the round-trip comment/state-transition lands. If you can't verify end-to-end, say so explicitly instead of claiming success.
 
 ## Strategy Context
 
@@ -140,7 +140,7 @@ Recurring fixes — write the good form first time:
 
 - Every behavior change ships with Vitest coverage. Prefer deterministic unit tests with fixtures in `tests/fixtures/` over live services.
 - `tests/live.integration.test.ts` is reserved for credential-dependent checks; it must skip cleanly when secrets are absent.
-- **UI changes are not done until `/visual-verify` runs.** Trigger after any edit under `frontend/src/**` or any backend file that changes HTML / API responses rendered by the UI. Part of DoD, not optional.
+- **UI changes are not done until browser verification runs.** After any edit under `frontend/src/**` or any backend file that changes HTML / API responses rendered by the UI, run the changed surface in a browser with `agent-browser`: navigate, take a snapshot, exercise the affected interaction, capture screenshots when layout changed, and inspect console/network output with DevTools when errors or request behavior are part of the risk. Record the routes, interactions, and any screenshots in the handoff. Part of DoD, not optional.
 - Dashboard changes also need Playwright E2E coverage: POMs in `tests/e2e/pages/` (extend `BasePage`), mocks via `ApiMock` + `ScenarioBuilder` in `tests/e2e/mocks/`, fixtures in `tests/e2e/fixtures/test.ts`. Use `freezeClock(page)` before visual tests for deterministic timestamps.
 - Visual snapshot regeneration is explicit (`--update-snapshots`) — never auto-accept diffs.
 
@@ -158,9 +158,9 @@ This is a quality check, not a gate. It does not run in CI or pre-push. Reach fo
 | `docs/OPERATOR_GUIDE.md` | Setup, runtime behavior, common ops |
 | `docs/ROADMAP_AND_STATUS.md` | Issue-linked feature roadmap |
 | `docs/CONFORMANCE_AUDIT.md` | Shipped capabilities vs. spec vs. verified gaps |
-| `docs/RELEASING.md` | Release checklist |
+| `docs/reference/RELEASING.md` | Release checklist |
 | `docs/TRUST_AND_AUTH.md` | Trust boundaries, auth posture |
-| `EXECPLAN.md` | Implementation log — factual, never aspirational |
+| `.agents/archive/` | Completed or stale planning snapshots retained for historical reference |
 
 Changes to auth, trust, workflow examples, or sandbox behavior must update `docs/TRUST_AND_AUTH.md` (and any affected operator docs) in the same PR.
 

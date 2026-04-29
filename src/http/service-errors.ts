@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 
+import { getRequestId } from "../observability/tracing.js";
+import { toErrorString } from "../utils/type-guards.js";
+
 /**
  * Explicit service failure contracts for the HTTP API layer.
  *
@@ -25,7 +28,7 @@ export interface ApiErrorResponse {
  *
  * Mount after all route registration to act as the last-resort handler.
  */
-export function serviceErrorHandler(error: Error, _req: Request, res: Response, next: NextFunction): void {
+export function serviceErrorHandler(error: Error, req: Request, res: Response, next: NextFunction): void {
   if (res.headersSent) {
     next(error);
     return;
@@ -41,10 +44,17 @@ export function serviceErrorHandler(error: Error, _req: Request, res: Response, 
     return;
   }
 
+  req.app.emit("risoluto:server_error", {
+    requestId: getRequestId(req),
+    method: req.method,
+    path: req.path,
+    error: toErrorString(error),
+  });
+
   res.status(500).json({
     error: {
       code: "service_error",
-      message: error.message,
+      message: "Internal server error",
     },
   } satisfies ApiErrorResponse);
 }

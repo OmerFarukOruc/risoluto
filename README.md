@@ -452,9 +452,10 @@ Runs 12 phases: preflight, start, setup wizard, issue creation, agent monitoring
 
 ### 📖 Reference
 
-| Document                                                 | What it covers                               |
-| -------------------------------------------------------- | -------------------------------------------- |
-| **[Visual Verify Skill](skills/visual-verify/SKILL.md)** | Dashboard screenshot diffing and QA workflow |
+| Document                                      | What it covers                   |
+| --------------------------------------------- | -------------------------------- |
+| **[Releasing](docs/reference/RELEASING.md)**  | Release preparation checklist    |
+| **[Browser QA](docs/OPERATOR_GUIDE.md#visual-verification-of-dashboard-ui)** | Dashboard browser verification workflow |
 
 ---
 

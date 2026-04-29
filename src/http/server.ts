@@ -18,6 +18,15 @@ function isLoopbackBindHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
 }
 
+function sanitizeRequestPath(pathname: string): string {
+  return [...pathname]
+    .filter((char) => {
+      const codePoint = char.codePointAt(0) ?? 0;
+      return codePoint >= 0x20 && codePoint !== 0x7f;
+    })
+    .join("");
+}
+
 export class HttpServer {
   private readonly app: Express;
   private readonly observability: ObservabilityHub;
@@ -31,12 +40,19 @@ export class HttpServer {
     const metrics = this.deps.metrics ?? createMetricsCollector();
     this.observability = this.deps.observability ?? createObservabilityHub({ archiveDir: this.deps.archiveDir });
     const httpObserver = this.observability.getComponent("http");
+    (this.app as unknown as { on(eventName: string, listener: (event: unknown) => void): void }).on(
+      "risoluto:server_error",
+      (event: unknown) => {
+        this.deps.logger.error(event, "unhandled service error");
+      },
+    );
     this.app.use((request, response, next) => {
       const startedAt = process.hrtime.bigint();
       response.once("finish", () => {
         const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
         const durationMs = durationSeconds * 1000;
         const requestId = getRequestId(request);
+        const path = sanitizeRequestPath(request.route?.path?.toString() ?? request.path);
         metrics.httpRequestsTotal.increment({
           method: request.method,
           status: String(response.statusCode),
@@ -54,7 +70,7 @@ export class HttpServer {
           reason: response.statusCode >= 500 ? `HTTP ${response.statusCode}` : null,
           data: {
             method: request.method,
-            path: request.path,
+            path,
             statusCode: response.statusCode,
           },
         });
@@ -69,7 +85,7 @@ export class HttpServer {
                 : "request handling healthy",
           details: {
             method: request.method,
-            path: request.path,
+            path,
             statusCode: response.statusCode,
           },
         });

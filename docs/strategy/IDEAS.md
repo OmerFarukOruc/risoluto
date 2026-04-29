@@ -34,7 +34,7 @@ Every item here was extracted directly from operator interviews. Nothing is inve
 **Unresolved.** Who authors the custom rules — operator, Risoluto config, issue body, or the reviewer agent? How is rule drift avoided?
 
 ### Visual + e2e verification loop
-**What.** For UI changes, agent must round-trip through `/visual-verify` + Playwright and read the output before declaring DONE. For backend, agent calls the real endpoint. Enforces CLAUDE.md principle #4 (goal-driven execution) machine-side.
+**What.** For UI changes, agent must round-trip through a real `agent-browser` workflow plus Playwright and read the output before declaring DONE. Use DevTools when console, network, CSS, or performance evidence matters. For backend, agent calls the real endpoint. Enforces CLAUDE.md principle #4 (goal-driven execution) machine-side.
 **Why for overnight-solo.** Most "finished" PRs today are finished by test-green, not feature-green. The browser / endpoint is the ground truth.
 **Unresolved.** For overnight runs with no operator eyes, how does visual regression triage ambiguous diffs (e.g., a font-rendering shift)? Can a reviewer agent adjudicate?
 

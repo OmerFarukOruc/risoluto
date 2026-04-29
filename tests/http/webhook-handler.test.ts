@@ -49,10 +49,17 @@ function makeDeps(overrides: Partial<WebhookHandlerDeps> = {}): WebhookHandlerDe
 
 function makeRequest(
   body: Record<string, unknown>,
-  headers: Record<string, string> = {},
+  headers: Record<string, string | undefined> = {},
   rawBody?: Buffer,
 ): WebhookRequest {
-  const headerMap: Record<string, string> = { ...headers };
+  const headerMap: Record<string, string> = { "linear-delivery": "linear-delivery-1" };
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) {
+      delete headerMap[key.toLowerCase()];
+    } else {
+      headerMap[key.toLowerCase()] = value;
+    }
+  }
 
   return {
     body,
@@ -225,6 +232,22 @@ describe("handleWebhookLinear", () => {
     expect(deps.requestRefresh).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when Linear-Delivery header is missing", () => {
+    const deps = makeDeps();
+    const payload = makePayload();
+    const bodyStr = JSON.stringify(payload);
+    const rawBody = Buffer.from(bodyStr);
+    const req = makeRequest(payload, { "linear-signature": sign(bodyStr), "linear-delivery": undefined }, rawBody);
+    const res = makeResponse();
+
+    handleWebhookLinear(deps, req, res);
+
+    expect(res._status).toBe(400);
+    expect((res._body as { error: { code: string } }).error.code).toBe("delivery_missing");
+    expect(deps.requestRefresh).not.toHaveBeenCalled();
+    expect(deps.requestTargetedRefresh).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when timestamp is in the far future (replay rejection)", () => {
     const deps = makeDeps();
     const futureTimestamp = Date.now() + 120_000; // 2 minutes from now
@@ -367,6 +390,7 @@ function postWebhook(port: number, body: string, secret: string = TEST_SECRET): 
         headers: {
           "Content-Type": "application/json",
           "Linear-Signature": sig,
+          "Linear-Delivery": `delivery-${Date.now()}-${Math.random()}`,
         },
       },
       (res) => resolve({ status: res.statusCode! }),

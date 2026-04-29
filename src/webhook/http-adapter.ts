@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import type { Response } from "express";
 
 import type { ConfigStore } from "../config/store.js";
+import type { TypedEventBus } from "../core/event-bus.js";
+import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { RisolutoLogger } from "../core/types.js";
 import { asRecord, asStringOrNull, toErrorString } from "../utils/type-guards.js";
 import type { VerifiedWebhookDeliveryStore } from "./delivery-workflow.js";
@@ -28,6 +28,7 @@ export interface WebhookHandlerDeps {
   stopWorkerForIssue?: (issueIdentifier: string, reason: string) => void;
   recordVerifiedDelivery: (eventType: string) => void;
   webhookInbox?: VerifiedWebhookDeliveryStore;
+  eventBus?: Pick<TypedEventBus<RisolutoEventMap>, "emit">;
   logger: RisolutoLogger;
 }
 
@@ -36,6 +37,7 @@ export interface GitHubWebhookHandlerDeps {
   requestTargetedRefresh?: (issueId: string, issueIdentifier: string, reason: string) => void;
   stopWorkerForIssue?: (issueIdentifier: string, reason: string) => void;
   webhookInbox?: VerifiedWebhookDeliveryStore;
+  eventBus?: Pick<TypedEventBus<RisolutoEventMap>, "emit">;
   logger: RisolutoLogger;
 }
 
@@ -132,15 +134,19 @@ export function handleWebhookLinear(deps: WebhookHandlerDeps, req: WebhookReques
   }
 
   const deliveryId = extractDeliveryId(req);
+  if (!deliveryId) {
+    sendError(res, 400, "delivery_missing", "Missing Linear delivery header");
+    return;
+  }
   const action = body.action;
   const type = body.type;
   const eventType = `${type}:${action}`;
   const { issueId, issueIdentifier } = extractIssueInfo(body.data, type);
-  const workflow = new WebhookDeliveryWorkflow(deps.logger, deps.webhookInbox);
+  const workflow = new WebhookDeliveryWorkflow(deps.logger, deps.webhookInbox, deps.eventBus);
 
   workflow.respondAccepted(res, {
     delivery: {
-      deliveryId: deliveryId ?? `fallback-${Date.now()}-${randomUUID().slice(0, 8)}`,
+      deliveryId,
       type,
       action,
       entityId: typeof body.data.id === "string" ? body.data.id : null,
@@ -273,6 +279,17 @@ function validateGitHubWebhookRequest(
     return null;
   }
 
+  const deliveryId = req.get("x-github-delivery")?.trim();
+  if (!deliveryId) {
+    sendError(res, 400, "delivery_missing", "Missing X-GitHub-Delivery header");
+    return null;
+  }
+
+  if (!deps.webhookInbox) {
+    sendError(res, 503, "webhook_inbox_unavailable", "GitHub webhook inbox persistence is unavailable");
+    return null;
+  }
+
   return { config, event };
 }
 
@@ -293,7 +310,7 @@ function buildGitHubWebhookContext(
   return {
     action,
     config: validated.config,
-    deliveryId: req.get("x-github-delivery") ?? `github-${Date.now()}`,
+    deliveryId: req.get("x-github-delivery")?.trim() ?? "",
     event: validated.event,
     issueId,
     issueIdentifier,
@@ -309,7 +326,7 @@ export function handleWebhookGitHub(deps: GitHubWebhookHandlerDeps, req: Webhook
   }
 
   const context = buildGitHubWebhookContext(req, validated);
-  const workflow = new WebhookDeliveryWorkflow(deps.logger, deps.webhookInbox);
+  const workflow = new WebhookDeliveryWorkflow(deps.logger, deps.webhookInbox, deps.eventBus);
   workflow.respondAccepted(res, {
     delivery: {
       deliveryId: context.deliveryId,

@@ -38,12 +38,16 @@ function makeDeps(overrides: Partial<GitHubWebhookHandlerDeps> = {}): GitHubWebh
 
 function makeRequest(
   body: Record<string, unknown>,
-  headers: Record<string, string> = {},
+  headers: Record<string, string | undefined> = {},
   rawBody?: Buffer,
 ): WebhookRequest {
-  const headerMap: Record<string, string> = {};
+  const headerMap: Record<string, string> = { "x-github-delivery": "github-delivery-1" };
   for (const [key, value] of Object.entries(headers)) {
-    headerMap[key.toLowerCase()] = value;
+    if (value === undefined) {
+      delete headerMap[key.toLowerCase()];
+    } else {
+      headerMap[key.toLowerCase()] = value;
+    }
   }
   return {
     body,
@@ -186,6 +190,50 @@ describe("handleWebhookGitHub", () => {
     handleWebhookGitHub(deps, req, res);
 
     expect(res._status).toBe(401);
+    expect(deps.requestTargetedRefresh).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when X-GitHub-Delivery header is missing", () => {
+    const deps = makeDeps();
+    const payload = makeIssuePayload();
+    const rawBody = Buffer.from(JSON.stringify(payload));
+    const req = makeRequest(
+      payload,
+      {
+        "x-hub-signature-256": `sha256=${sign(rawBody.toString())}`,
+        "x-github-event": "issues",
+        "x-github-delivery": undefined,
+      },
+      rawBody,
+    );
+    const res = makeResponse();
+
+    handleWebhookGitHub(deps, req, res);
+
+    expect(res._status).toBe(400);
+    expect((res._body as { error: { code: string } }).error.code).toBe("delivery_missing");
+    expect(deps.requestTargetedRefresh).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when GitHub webhook inbox persistence is unavailable", () => {
+    const deps = makeDeps({ webhookInbox: undefined });
+    const payload = makeIssuePayload();
+    const rawBody = Buffer.from(JSON.stringify(payload));
+    const req = makeRequest(
+      payload,
+      {
+        "x-hub-signature-256": `sha256=${sign(rawBody.toString())}`,
+        "x-github-event": "issues",
+        "x-github-delivery": "delivery-no-inbox",
+      },
+      rawBody,
+    );
+    const res = makeResponse();
+
+    handleWebhookGitHub(deps, req, res);
+
+    expect(res._status).toBe(503);
+    expect((res._body as { error: { code: string } }).error.code).toBe("webhook_inbox_unavailable");
     expect(deps.requestTargetedRefresh).not.toHaveBeenCalled();
   });
 

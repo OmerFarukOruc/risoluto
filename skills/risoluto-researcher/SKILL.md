@@ -1,11 +1,13 @@
 ---
 name: risoluto-researcher
-description: Research one or more competitor or reference projects (GitHub repo URLs, blog posts, product websites) and extract every observable behavior into a durable, evidence-backed ledger under `research/`. Spine-free — this skill records what the target does, not how it compares to Risoluto. Comparison and roadmap synthesis happen in a separate harmonization skill once the corpus is large enough. Accepts multiple URLs at once and fans out to up to 5 parallel parent subagents. Produces one Markdown artifact per target plus a flat-ledger update to `research/INDEX.md`. **Invoke explicitly** via the `/risoluto-researcher` slash command or by saying "use the risoluto-researcher skill on <url(s)>" — auto-triggering on generic research prompts is unreliable because Claude can often do shallow research without a skill.
+description: Research one or more projects of any flavor — direct competitors, reference implementations, adjacent ideas (e.g. long-horizon agent memory, novel sandbox shapes, kanban UIs), or anything the operator finds interesting on GitHub or in a blog post — and extract every observable behavior into a durable, evidence-backed ledger under `research/`. Spine-free — this skill records what the target does, not how it compares to Risoluto. Comparison and roadmap synthesis happen in a separate harmonization skill once the corpus is large enough. Accepts multiple URLs at once and fans out to up to 5 parallel parent subagents. Produces one Markdown artifact per target plus a flat-ledger update to `research/INDEX.md`. **Invoke explicitly** via the `/risoluto-researcher` slash command or by saying "use the risoluto-researcher skill on <url(s)>" — auto-triggering on generic research prompts is unreliable because Claude can often do shallow research without a skill.
 ---
 
 # Risoluto Researcher
 
 Use this skill to turn one or more URLs — GitHub repositories, blog posts, or product websites — into durable, evidence-backed feature ledgers under the private `research/` submodule. Each ledger enumerates every observable behavior of the target with file/line evidence and a verbatim quote, plus a stable revision (git SHA for repos, content hash for blog posts) so re-runs are reproducible.
+
+The corpus is intentionally **broad**. Direct competitors (other agent orchestrators) belong here, but so does anything the operator considers signal-worthy — adjacent ideas like long-horizon agent memory, sandbox isolation patterns, kanban-shaped agent UIs, training-loop machinery, vector-memory libraries. The scope filter is "interesting to look at later," not "Risoluto-adjacent today." First-target bias is the failure mode this skill is designed to avoid.
 
 This skill **does not compare** the target to Risoluto. The comparison join — "what we have, what they have, what neither has" — is deferred to a future harmonization skill that reads `research/targets/*.md` together with `RISOLUTO_FEATURES.md`. Per-target runs that pre-judge the comparison bias the corpus toward whichever target was analyzed first; collecting raw target facts now lets the harmonization skill weigh signal across many peers later.
 
@@ -13,10 +15,10 @@ This skill **does not compare** the target to Risoluto. The comparison join — 
 
 Use this skill when the user wants to:
 
-- Pull one or more new target projects into Risoluto's research corpus.
+- Pull one or more new target projects into Risoluto's research corpus, regardless of category.
+- Capture an interesting non-competitor — a library, a tool, a research artifact, an architecture-deep blog post — that might inform Risoluto later even if it isn't a direct peer today.
 - Refresh an existing per-target file because the upstream has shipped new features.
-- Capture an architecture-deep blog post into the corpus alongside source-backed repos.
-- Document a competitor or reference project's full behavior surface for later cross-target synthesis.
+- Document a project's full behavior surface for later cross-target synthesis, without pre-judging whether it's "in scope" for Risoluto.
 
 Do NOT use this skill when:
 

@@ -1,70 +1,46 @@
 # INDEX.md template
 
-`research/INDEX.md` is the master cross-project view. On every skill run it's updated in place — **never rewritten from scratch**.
+`research/INDEX.md` is the flat ledger of every researched target. Every skill run updates it in place — **never rewritten from scratch**. Per-target detail lives in `targets/<slug>.md` next to it.
+
+The ledger is **spine-free**. Cross-target alignment, "what we have / what they have", and roadmap synthesis happen in a separate harmonization skill that reads this ledger plus `RISOLUTO_FEATURES.md` and computes the join itself. Do not aggregate spine-relative columns here.
 
 ## Structure
 
 ```markdown
-# Research Index
+# Research Ledger
 
-> Cross-project feature alignment snapshot. Every row is a target analyzed by the `risoluto-researcher` skill. Rows are updated in place, never destructively rewritten. Per-target detail lives in `<slug>.md` next to this file.
+> Flat ledger of every project researched by the `/risoluto-researcher` skill. Each row points at a per-target artifact under `targets/`. Rows are appended or updated in place — never destructively rewritten.
+>
+> This ledger is **spine-free**. No comparison with Risoluto's own feature spine (`RISOLUTO_FEATURES.md`) lives here. Cross-target alignment, "what we have / what they have / what neither has", and roadmap synthesis are deferred to a separate harmonization skill that reads this ledger plus the spine and computes the join itself.
+>
+> Targets researched under the older spine-aligned schema are preserved untouched in `legacy/`.
 
-- **Spine file:** `RISOLUTO_FEATURES.md` (maintained manually; this skill reads, never writes)
-- **Last run:** YYYY-MM-DD
-- **Targets tracked:** <n>
+## Status enum
 
-## Legend
-
-| Symbol | Code | Meaning |
-|--------|------|---------|
-| ⚖️ | `[=]` | Parity |
-| 🟢 | `[R+]` | Risoluto stronger |
-| 🔴 | `[T+]` | Target stronger |
-| ⭐ | `[R!]` | Risoluto-only |
-| ✨ | `[NEW]` | Target-novel (not on spine) |
-| ❓ | `[?]` | Unclear |
+- `researched` — first run for this URL, artifact written.
+- `refreshed` — re-run via `--refresh`; artifact updated; revision bumped.
+- `failed` — run terminated before the artifact was written; reason recorded in the footnotes section below.
+- `superseded` — target was renamed/moved upstream; artifact retained but new row points at the canonical URL.
 
 ## Targets
 
-| Target | Type | Version | Last run | [=] | [R+] | [T+] | [R!] | [NEW] | [?] | Candidate flags | Notes |
-|--------|------|---------|----------|-----|------|------|------|-------|-----|-----------------|-------|
-| [symphony](symphony.md) | github-repo | v1.4.0 @ abc1234 | 2026-04-18 | 28 | 6 | 9 | 4 | 11 | 2 | 20 | Elixir reference impl; spec-source |
-| [aider](aider.md) | github-repo | v0.54 @ def5678 | 2026-04-18 | 8 | 2 | 4 | 18 | 14 | 3 | 18 | Interactive CLI, not orchestrator — many `[R!]` expected |
-| [sweep](sweep-dev.md) | website | fetched 2026-04-18 | 2026-04-18 | 6 | 1 | 8 | 12 | 9 | 7 | 17 | SaaS; website-only analysis, confidence capped |
+| slug | type | source | revision | captured | features | artifact | status |
+|------|------|--------|----------|----------|----------|----------|--------|
+| openhands | repo | github.com/All-Hands-AI/OpenHands | a3f2c1e | 2026-04-30 | 297 | targets/openhands.md | researched |
+| amp | repo | github.com/sourcegraph/amp | 8b7d4f2 | 2026-04-30 | 184 | targets/amp.md | researched |
+| replit-agent | website | blog.replit.com/agent-architecture | sha256:9f12abcd34ef | 2026-04-30 | 31 | targets/blog-replit-com-agent-architecture.md | researched |
 
-## Spine sections × targets (matrix view)
+## Failure footnotes
 
-For each spine section, which targets are weakest/strongest. Fill on every run.
+One line per `failed` row above. Format: `<slug> · <date> · <reason>`.
 
-| Spine section | symphony | aider | sweep | … |
-|---------------|----------|-------|-------|---|
-| Polling & ingestion | 🟢 4/🔴 2/⭐ 1 | ⭐ 6/❓ 1 | 🔴 3/✨ 2 | … |
-| Tracker integration | ⚖️ 5/🔴 1 | ⭐ 5 | 🔴 4/✨ 1 | … |
-| Agent runtime | 🔴 3/⚖️ 2/🟢 1 | ⚖️ 2/🔴 4 | ❓ 4/🔴 2 | … |
-| PR / CI | ⚖️ 4/🟢 2 | ⭐ 6 | 🔴 5/✨ 3 | … |
-| Dashboard / UI | ⭐ 3/🔴 1 | ⭐ 4 | 🔴 6/✨ 2 | … |
-| Notifications / alerts | 🟢 3/⚖️ 2 | ⭐ 5 | ⚖️ 3/🔴 1 | … |
-| Sandbox / security | 🟢 2/🔴 1 | ⭐ 3 | ❓ 3 | … |
-| Persistence / state | 🟢 4 | ⭐ 4 | ❓ 4 | … |
-| … | … | … | … | … |
-
-## Negative space — what no target has that Risoluto ships
-
-Features where Risoluto is `[R!]` (no target implements). These are our differentiators as of the last run.
-
-- **Hot-reload workflow config via Chokidar** — no analyzed target reloads config without restart.
-- **Cross-platform desktop notifications via one channel adapter** — most targets do Slack only.
-- **Signed GitHub + Linear webhooks on a single ingress with replay window** — most targets do one or the other.
-- …
+- example-broken · 2026-04-30 · clone failed: HTTP 404 on `git clone`
 
 ## Run history
 
-One row per skill execution.
-
-| Run date | Target(s) updated | Spine SHA | Notes |
-|----------|-------------------|-----------|-------|
-| 2026-04-18 | symphony (initial), aider (initial), sweep (initial) | abc1234 | First batch for v0.6.0 roadmap planning |
-| … | … | … | … |
+| Run date | URLs invoked | Outcome |
+|----------|--------------|---------|
+| 2026-04-30 | https://github.com/All-Hands-AI/OpenHands, https://github.com/sourcegraph/amp, https://blog.replit.com/agent-architecture | 3 researched, 0 refreshed, 0 skipped, 0 failed |
 ```
 
 ---
@@ -73,29 +49,24 @@ One row per skill execution.
 
 The skill must update INDEX.md surgically.
 
-1. **Never rewrite the file whole.** Parse the existing file, find the target's row (or the relevant cell), and update only that. Any other approach risks erasing prior runs' data.
+1. **Never rewrite the file whole.** Parse the existing file, find or create the target's row, and update only that row plus the run history row. Any other approach risks erasing prior runs' data.
 
-2. **Adding a new target** means:
-   - Append a row to `## Targets`.
-   - Add a new column to `## Spine sections × targets` under every section row, with the target's per-section code counts.
-   - Recompute and append entries to `## Negative space` if the new target's `[R!]` rows intersect with other targets' `[R!]` rows on the same spine item.
-   - Append a run to `## Run history`.
+2. **Adding a new target** means: append a row to `## Targets`, append a row to `## Run history`. Do not touch existing rows.
 
-3. **Refreshing an existing target** means:
-   - Update the target's row in `## Targets` in place.
-   - Update the target's column in the matrix in place.
-   - Recompute negative space.
-   - Append a run to `## Run history`.
+3. **Refreshing an existing target** (`--refresh`) means: update the target's row in `## Targets` in place — flip `status` to `refreshed`, bump `revision`, bump `captured`, recompute `features`. Append a row to `## Run history`. Do not duplicate the target row.
 
-4. **Negative space recomputation** must look at intersections: a feature is in negative space only if **every** tracked target has coded it `[R!]`. If even one target has `[=]`, `[R+]`, or `[T+]` for that spine item, remove it from negative space.
+4. **Marking a target failed** means: append a row to `## Targets` with `status: failed`, `revision: -`, `features: 0`, and `artifact: -`. Append a footnote to `## Failure footnotes`. Append a run history row.
 
-5. **Spine section names** come from `RISOLUTO_FEATURES.md`'s top-level section headings. If the spine adds a new section, the matrix gets a new row on the next run. If the spine renames a section, re-key in place rather than duplicating.
+5. **Marking a target superseded** is rare — used when the upstream URL has moved. Update the existing row's `status` to `superseded`, leave the `artifact` and `revision` as they were, and append a new row for the canonical URL with `status: researched`. Both rows coexist.
 
-6. **No roadmap synthesis here.** Do not aggregate `[T+]` or `[NEW]` items across targets into a top-roadmap table, assign bundles, or draft issues. Cross-target roadmap synthesis is a separate skill that runs once the research corpus is large enough (~10–15 targets). This INDEX is a *data* surface only.
+6. **The `source` column** drops the `https://` scheme and any trailing `.git` so rows stay scannable. Use `github.com/<org>/<repo>` for repos and `<hostname>[/<path>]` for websites/blogs.
+
+7. **The `features` column** must match the artifact's coverage manifest total. If they drift, the artifact is the source of truth — fix the row.
 
 ## Anti-patterns to avoid
 
-- ❌ Regenerating `INDEX.md` from only the current target. Prior rows will be lost.
-- ❌ Computing totals by summing markdown cells instead of re-reading per-target files. Totals drift.
-- ❌ Silently dropping stale targets. If a per-target file no longer exists, leave the row with a `(stale)` marker rather than deleting it.
-- ❌ Adding a roadmap / bundle / effort-estimate table here. That synthesis belongs to a later, separate skill that reads the whole corpus at once.
+- ❌ Regenerating `INDEX.md` from only the current run's URLs. Prior rows will be lost.
+- ❌ Computing per-target totals by summing markdown cells instead of re-reading the artifact's coverage manifest. Totals drift.
+- ❌ Silently dropping stale targets. If a `targets/<slug>.md` no longer exists, leave the row with `status: superseded` rather than deleting it.
+- ❌ Adding a spine-section matrix or negative-space table here. That synthesis belongs to the future harmonization skill that reads the whole corpus at once.
+- ❌ Re-numbering or re-sorting rows. Append-only ordering preserves audit trail; sorts can be done at read time by the harmonization skill.

@@ -100,10 +100,10 @@ Every item here was extracted directly from operator interviews. Nothing is inve
 **Why for overnight-solo.** Different issue types want different pipelines. A one-line typo fix doesn't need the full fanout+review ceremony; a data-migration PR absolutely does. Hardcoded pipelines force the wrong tradeoff.
 **Unresolved — all of it.** Replaces or augments `turn-executor.ts` + `worker-outcome/*`? YAML-defined phases, TypeScript DSL, or skill-composed? How does it interact with the existing `anvil-*` factory? Full design deferred to its own ExecPlan.
 
-### Research synthesizer skill → user-story bundles
-**What.** New skill that consumes the research corpus (every `research/<slug>.md` ledger + the feature spine) and emits implementation bundles grouped by **user-story arcs** — "I can fan out an issue to 3 models and pick the best" — not by code seams, peer-gaps, or risk tiers.
-**Why for overnight-solo.** As the corpus grows to 20–30 targets, the operator cannot manually triage every [T+] / [NEW] into a coherent implementation slice. The synthesizer bridges intel to buildable backlog.
-**Unresolved.** How does it overlap with `update-feature-spine`? Does it file GitHub issues or just propose a markdown bundle? How does it avoid hallucinated bundles?
+### Research synthesizer / harmonization skill → user-story bundles
+**What.** New skill that consumes the research corpus (every `research/targets/<slug>.md` ledger plus the feature spine) and emits implementation bundles grouped by **user-story arcs** — "I can fan out an issue to 3 models and pick the best" — not by code seams, peer-gaps, or risk tiers. This skill owns the **comparison join**: target ledgers are now spine-free (each one records what the target does, not how it differs from Risoluto), so the synthesizer is what reads `RISOLUTO_FEATURES.md` together with the targets and computes "what we have / what they have / what neither has."
+**Why for overnight-solo.** As the corpus grows to 20–30 targets, the operator cannot manually triage every cross-target signal into a coherent implementation slice. The synthesizer bridges intel to buildable backlog and is the only place that needs to reason about Risoluto-vs-target deltas — keeping per-target research raw avoids first-target bias.
+**Unresolved.** How does it overlap with `update-feature-spine`? Does it file GitHub issues or just propose a markdown bundle? How does it avoid hallucinated bundles? Does it persist its prior reasoning so re-runs don't re-discover the same deltas?
 
 ### qmd embeddings over research/ + docs/ + vault
 **What.** Run `qmd embed` over `research/`, `docs/`, and eventually the operator's Obsidian vault. Claude Code uses `qmd` MCP `query` with lex+vec blend to surface relevant past intel per turn.

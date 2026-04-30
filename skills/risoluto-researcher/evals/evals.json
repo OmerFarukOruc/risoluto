@@ -3,23 +3,72 @@
   "evals": [
     {
       "id": 1,
-      "name": "symphony-repo-extraction",
-      "prompt": "Research the OpenAI Symphony reference implementation at https://github.com/openai/symphony — it's the Elixir project Risoluto is patterned after, so I want to know feature-by-feature where we align, where we've diverged, and what's in Symphony that isn't on our spine yet.",
-      "expected_output": "A per-target markdown file at research/openai-symphony.md containing a metadata block with commit SHA + repo health, spine-alignment section with one entry per mock-spine feature (legend code + evidence), target-novel features section with [NEW] entries, candidate flags section, coverage manifest, and a run-history row. INDEX.md also updated.",
+      "name": "small-ts-repo-with-non-main-default-branch",
+      "prompt": "Research https://github.com/code-yeongyu/oh-my-openagent — small TS-heavy agent harness whose default branch is `dev` (not main). Capture every observable behavior with full evidence.",
+      "expected_output": "research/targets/code-yeongyu-oh-my-openagent.md exists. Source manifest records target_type=github-repo, default_branch=dev, revision is a 7-char SHA, fetched_at is today UTC. Pass 1 broad map enumerates ~10 surfaces with estimated counts. Behaviors section has one subsection per Pass 1 surface, with at least 1 behavior per subsection that has all four evidence fields (source/quote/confidence). Coverage manifest populated. Run history row appended. Artifact contains zero occurrences of 'Risoluto', 'Comparison vs', '[R+]', '[T+]', '[R!]', '[=]', or 'Spine version used'. INDEX.md gains one row with status=researched.",
       "files": []
     },
     {
       "id": 2,
-      "name": "aider-website-crawl",
-      "prompt": "Analyze the Aider project at https://aider.chat for feature alignment against the Risoluto spine. Follow links to /docs, /features, and any changelog you find. Aider is an interactive CLI rather than an orchestrator, so expect many Risoluto features to show as [R!] (Risoluto-only).",
-      "expected_output": "A per-target markdown file at research/aider-chat.md with website-crawl metadata (fetch date, pages visited), spine-alignment entries, [NEW] entries for interactive-CLI features not on our orchestrator-shaped spine, candidate flags, coverage manifest, and INDEX.md update.",
+      "name": "multi-url-parallel-spawn",
+      "prompt": "Research three repos in parallel: https://github.com/BloopAI/vibe-kanban https://github.com/letta-ai/letta https://github.com/agno-agi/agno. Verify multi-URL fan-out and ledger update.",
+      "expected_output": "Three artifacts in research/targets/: bloopai-vibe-kanban.md, letta-ai-letta.md, agno-agi-agno.md. Each is spine-free with no Risoluto references. INDEX.md gains exactly three rows. Run history gets one row covering all three URLs. Transcripts show three parent subagents launched in parallel (single assistant turn with 3 Agent tool uses). For vibe-kanban, the Module map sub-bullets call out Rust backend + TS frontend + PLpgSQL schema as separate sub-modules.",
       "files": []
     },
     {
       "id": 3,
-      "name": "composio-refresh-run",
-      "prompt": "Refresh the ComposioHQ/agent-orchestrator target — the upstream has shipped new changesets since the last run. I want to see the deltas recorded in ## Run history and the INDEX.md row updated in place, not rewritten.",
-      "expected_output": "research/composiohq-agent-orchestrator.md updated with a new row in ## Run history showing date + spine SHA + target SHA + delta (new [NEW] entries, [?] flips, etc.). INDEX.md target row updated in place; negative-space section recomputed. No prior rows destroyed.",
+      "name": "monorepo-handling",
+      "prompt": "Research https://github.com/langchain-ai/langchain. This is a Python mega-monorepo with libs/core, libs/langchain, libs/experimental, libs/community, plus the integrations/ tree. Make sure Pass 1 detects the workspace and Pass 2 fans out one child per sub-package on top of cross-cutting children.",
+      "expected_output": "research/targets/langchain-ai-langchain.md. Source manifest target_type=github-repo, default_branch=master (NOT main). Pass 1 broad map's Module map bullet enumerates each top-level libs/* sub-package as its own sub-bullet. Behaviors section includes per-sub-package subsections (in addition to the cross-cutting README/docs/tests/issues/etc.). Pass 2 transcripts show >5 children spawned with the parent's children-cap respected (queue behavior visible). Artifact ends up with several hundred behaviors. No spine references anywhere.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "skip-on-collision",
+      "prompt": "Run /risoluto-researcher https://github.com/code-yeongyu/oh-my-openagent twice — first invocation researches, second invocation skips with warning. Verify no duplicate row, no clobbered artifact.",
+      "expected_output": "First run: artifact created, INDEX row appended, status=researched. Second run: log line says '<slug> already researched on <date> at <revision>. Skipping. Pass --refresh <url> to re-run.' No artifact rewrite, no INDEX row mutation, no clone fetch. Run history gets a row noting the skip.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "refresh-path",
+      "prompt": "Refresh an already-researched target: /risoluto-researcher --refresh https://github.com/code-yeongyu/oh-my-openagent. Confirm in-place row update and Run history append in the artifact.",
+      "expected_output": "INDEX row for code-yeongyu-oh-my-openagent updated in place: status=refreshed, captured bumped to today, revision bumped to current HEAD, features recomputed. Artifact's Run history table gains a row 2 with the new revision and the delta column populated (added/updated/dropped). The clone in research/.cache/clones/<slug>/ was fetched + reset (not re-cloned). Artifact still has zero spine references.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "academic-content-noise-filter",
+      "prompt": "Research https://github.com/NousResearch/hermes-agent — this repo ships TeX papers and BibTeX style files alongside the Python+TS source. Confirm academic content is recorded in the source manifest but not enumerated as behaviors.",
+      "expected_output": "research/targets/nousresearch-hermes-agent.md. Source manifest's Summary mentions 'academic content present (X TeX files)'. Coverage manifest has a row for 'paper / TeX' with status=skipped and reason 'academic content — not a behavior surface'. The Behaviors section does NOT include a 'TeX' or 'BibTeX' subsection. Pass 2 child spawned for academic content was skipped, not failed.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "mdx-mintlify-docs",
+      "prompt": "Research https://github.com/bytedance/deer-flow — modern docs site that uses MDX (Mintlify-shaped). Confirm Pass 1 detects the docs generator and Pass 2 enumerates behaviors from .mdx files.",
+      "expected_output": "research/targets/bytedance-deer-flow.md. Pass 1 broad map's docs/ bullet identifies the generator (Mintlify or Docusaurus or similar). Behaviors section's docs/ subsection includes entries sourced from .mdx files (not just .md). Coverage manifest's docs/ row counts both .md and .mdx files.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "name": "mixed-known-and-new-with-refresh",
+      "prompt": "Run /risoluto-researcher with 4 URLs where 2 are already in INDEX.md and the user passes --refresh on one of them: --refresh <known-1> <known-2-no-refresh> <new-1> <new-2>. Verify per-URL routing.",
+      "expected_output": "<known-1> takes the refresh path (status=refreshed). <known-2-no-refresh> is skipped with warning. <new-1> and <new-2> take the new path (status=researched). One Run history row covers all four URLs with the four outcomes. Three parent subagents spawn in parallel (one each for known-1, new-1, new-2); the skipped URL spawns nothing.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "blog-post-with-content-hash",
+      "prompt": "Research a single blog post URL — e.g. https://lilianweng.github.io/posts/2023-06-23-agent/. Verify the artifact uses sha256:<12hex> as revision and target_type=website.",
+      "expected_output": "research/targets/lilianweng-github-io-posts-2023-06-23-agent.md (or similar slug). Source manifest target_type=website, revision starts with 'sha256:' and is exactly 19 chars (sha256: + 12 hex). No clone created in research/.cache/clones/. Behaviors are scoped to the rendered markdown content of the post; the docs/ surface row is absent or marked skipped (not applicable for a single blog post).",
+      "files": []
+    },
+    {
+      "id": 10,
+      "name": "failure-surfacing",
+      "prompt": "Research a non-existent repo: /risoluto-researcher https://github.com/nonexistent-org-xyz/nonexistent-repo-xyz. Verify failure handling.",
+      "expected_output": "INDEX.md gains a row with status=failed, revision='-', features=0, artifact='-'. ## Failure footnotes section gains a one-line entry: '<slug> · <date> · clone failed: HTTP 404 on gh repo view'. No artifact written under research/targets/. Final report's 'Failed:' section lists the URL with the reason.",
       "files": []
     }
   ]

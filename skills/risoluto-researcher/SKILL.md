@@ -1,259 +1,234 @@
 ---
 name: risoluto-researcher
-description: Research a competitor or reference project (GitHub repo URL or website URL) and extract its atomic, behavior-level features into a private ledger under `research/`, aligned feature-by-feature against Risoluto's own feature spine. Produces a per-target Markdown file plus updates to the master INDEX.md. Pure research — builds the corpus that later enables cross-target roadmap synthesis. Does NOT draft roadmap issues or assign effort/bundle estimates; that synthesis happens in a separate skill once ~10–15 targets are in the ledger. **Invoke explicitly** via the `/risoluto-researcher` slash command or by saying "use the risoluto-researcher skill on X" — auto-triggering on generic research prompts is not reliable because Claude can often do shallow research without a skill.
+description: Research one or more competitor or reference projects (GitHub repo URLs, blog posts, product websites) and extract every observable behavior into a durable, evidence-backed ledger under `research/`. Spine-free — this skill records what the target does, not how it compares to Risoluto. Comparison and roadmap synthesis happen in a separate harmonization skill once the corpus is large enough. Accepts multiple URLs at once and fans out to up to 5 parallel parent subagents. Produces one Markdown artifact per target plus a flat-ledger update to `research/INDEX.md`. **Invoke explicitly** via the `/risoluto-researcher` slash command or by saying "use the risoluto-researcher skill on <url(s)>" — auto-triggering on generic research prompts is unreliable because Claude can often do shallow research without a skill.
 ---
 
 # Risoluto Researcher
 
-Use this skill to turn a single URL — a GitHub repository or a product website — into a durable, evidence-backed feature ledger that aligns the target project against Risoluto's own feature spine. The output is private (lives under the `research/` git submodule) and is the raw material for roadmap planning and competitive decisions.
+Use this skill to turn one or more URLs — GitHub repositories, blog posts, or product websites — into durable, evidence-backed feature ledgers under the private `research/` submodule. Each ledger enumerates every observable behavior of the target with file/line evidence and a verbatim quote, plus a stable revision (git SHA for repos, content hash for blog posts) so re-runs are reproducible.
 
-The spine lives at `research/RISOLUTO_FEATURES.md` and is **maintained manually** by Omer / a separate PR-gated skill. This skill **reads the spine** and **never rewrites it**. If the spine file is missing, stop and surface that — do not invent a spine.
+This skill **does not compare** the target to Risoluto. The comparison join — "what we have, what they have, what neither has" — is deferred to a future harmonization skill that reads `research/targets/*.md` together with `RISOLUTO_FEATURES.md`. Per-target runs that pre-judge the comparison bias the corpus toward whichever target was analyzed first; collecting raw target facts now lets the harmonization skill weigh signal across many peers later.
 
 ## When to use
 
 Use this skill when the user wants to:
 
-- Pull a new target project into Risoluto's competitive research set.
+- Pull one or more new target projects into Risoluto's research corpus.
 - Refresh an existing per-target file because the upstream has shipped new features.
-- Compare Risoluto to a reference implementation (Symphony, Aider, Sweep, Devin-style, etc.).
-- Turn a roadmap intuition ("they do X better than us") into a documented, cite-able claim.
+- Capture an architecture-deep blog post into the corpus alongside source-backed repos.
+- Document a competitor or reference project's full behavior surface for later cross-target synthesis.
 
 Do NOT use this skill when:
 
 - The user is debugging Risoluto's own runtime — use `risoluto-logs`.
-- The user wants to read or summarize a repo without alignment to Risoluto — a plain Explore run suffices.
-- The repo being analyzed IS Risoluto itself — that belongs in the spine-maintenance workflow, not here.
+- The user wants comparison or roadmap drafting — that's the future harmonization skill, not this one.
+- The repo being analyzed IS Risoluto itself — that belongs in `update-feature-spine`, not here.
 
 ## Prerequisites
 
 Before running the skill body, verify these preconditions. If any fails, stop and tell the user what to set up first — **never fabricate an answer**.
 
-1. `research/` exists at the repo root and is a git submodule (or a sibling private working copy). If it's missing or empty, report that and ask the user to initialize it.
-2. `research/RISOLUTO_FEATURES.md` exists and is non-empty. If it's missing or empty, report that and ask the user to populate the spine before any target alignment can be meaningful.
-3. Required tools available: `git`, `gh`, `defuddle` (for website clean-markdown extraction), plus standard Unix utilities.
-4. For website targets in a crawl-heavy run, `agent-browser` is available; if not, fall back to `defuddle` + `WebFetch` per page.
+1. `research/` exists at the repo root and is a git submodule. If it's missing or empty, report that and ask the user to initialize it.
+2. `research/INDEX.md` exists. If it's missing, the submodule was reorganized incorrectly — stop and surface that.
+3. `research/targets/` exists (per-target artifacts go here).
+4. Required tools available: `git`, `gh`, `defuddle` (for clean-markdown extraction from websites), plus standard Unix utilities.
+5. For website / blog targets in a crawl-heavy run, `agent-browser` is available; if not, fall back to `defuddle` + `WebFetch` per page.
 
 ## Inputs
 
-- **Required:** one of
-  - a GitHub repo URL (e.g., `https://github.com/openai/symphony`)
-  - a website URL (e.g., `https://aider.chat`)
-  - a local path to an already-cloned repo
-- **Optional:** a specific version, tag, or commit SHA to pin the analysis to.
-- **Optional:** a `--refresh` hint from the user to update an existing per-target file rather than create a new one.
+- **Required:** one or more URLs (whitespace- or newline-separated). Each may be:
+  - a GitHub repo URL — e.g. `https://github.com/All-Hands-AI/OpenHands`
+  - a GitHub sub-package URL — e.g. `https://github.com/langchain-ai/langchain/tree/master/libs/core` (treated as a separate target slugged from owner-repo-path-tail)
+  - a blog post URL — e.g. `https://blog.replit.com/agent-architecture`
+  - a product website URL — e.g. `https://aider.chat`
+- **Optional:** `--refresh <url> [<url> ...]` to force re-research on URLs already present in `INDEX.md`. Without this flag, known URLs are skipped with a warning.
+
+The skill detects type per URL: `github.com/<org>/<repo>` → repo (full); `github.com/<org>/<repo>/tree/<branch>/<path>` → sub-package of a monorepo (cloned as the parent repo, but Pass 1/2 scoped to `<path>`); everything else → website/blog (treated identically — both go through web extraction).
+
+For monorepos, the default is **one artifact per top-level URL** covering the whole repo. Pass 1 lists each sub-package in the Module map; Pass 2 fans out one child per sub-package on top of the cross-cutting surfaces. If you want each sub-package as its own ledger row (separate `targets/<slug>.md`), pass each sub-package URL explicitly via the `tree/<branch>/<path>` form. See `references/extraction-methods.md` § "Monorepo with many sub-packages".
 
 ## Outputs
 
-1. `research/<slug>.md` — the per-target ledger (created or updated).
-2. `research/INDEX.md` — master cross-project index (updated).
-3. A short terminal report to the user (see §8 for the exact structured block) — covers target identity, files written, legend totals, confidence mix, coverage, ambiguity-pass stats, top 3 candidate flags, and any blockers.
+1. `research/targets/<slug>.md` — per-target ledger (created or appended-to). One file per URL.
+2. `research/INDEX.md` — flat ledger row appended (or updated, on `--refresh`). Status enum: `researched`, `refreshed`, `failed`, `superseded`.
+3. `research/.cache/clones/<slug>/` — local clone of repo targets. Persistent across runs; gitignored. Blog/website targets do not produce a clone.
+4. A short structured terminal report — one row per URL with slug, behaviors found, time taken, status, and any failure reason.
 
 Slug rules:
-- GitHub: `<org>-<repo>`, lowercased, hyphen-separated. Strip `.git`.
-  - `github.com/openai/symphony` → `openai-symphony.md`
-- Website: primary hostname, lowercased, dots → hyphens, strip `www.`.
-  - `https://aider.chat/docs` → `aider-chat.md`
+
+- GitHub repo (full): `<org>-<repo>`, lowercased, hyphen-separated. Strip `.git`.
+  `github.com/All-Hands-AI/OpenHands` → `all-hands-ai-openhands.md`
+- GitHub sub-package (`tree/<branch>/<path>` form): `<org>-<repo>-<path-with-slashes-as-hyphens>`, lowercased.
+  `github.com/langchain-ai/langchain/tree/master/libs/core` → `langchain-ai-langchain-libs-core.md`
+- Website / blog: primary hostname, lowercased, dots → hyphens, strip `www.`, plus a slugified path tail.
+  `https://blog.replit.com/agent-architecture` → `blog-replit-com-agent-architecture.md`
 - On collision, append `-v2`, `-v3` rather than overwriting.
 
-## Legend
+## Coverage strategy — why exhaustive extraction is hard and how this skill approaches it
 
-Every alignment entry carries exactly one code. Evidence must support the choice.
+No single LLM pass guarantees full feature extraction from a non-trivial repo. Coverage is approached through four mechanisms — skipping any one of them compounds misses.
 
-| Symbol | Code | Meaning |
-|--------|------|---------|
-| ⚖️ | `[=]` | **Parity.** Both implement the capability at comparable fidelity and behavior. Small naming differences don't downgrade parity. |
-| 🟢 | `[R+]` | **Risoluto stronger.** Both implement it, but Risoluto ships more behavior, better defaults, deeper UX, or stricter guarantees. |
-| 🔴 | `[T+]` | **Target stronger.** Both implement it, but the target does it better — deeper, faster, more ergonomic, or covers cases Risoluto doesn't. **These are prime roadmap-study candidates.** |
-| ⭐ | `[R!]` | **Risoluto-only.** Risoluto implements it; the target does not. Differentiator. Worth noting in positioning, not in roadmap. |
-| ✨ | `[NEW]` | **Target-novel.** Target has a feature that is **not on Risoluto's spine at all.** Every `[NEW]` is a roadmap-candidate unless explicitly rejected. |
-| ❓ | `[?]` | **Unclear.** Evidence is ambiguous, thin, or contradictory. Flag for human follow-up — never silently assume parity or a gap. |
+1. **Two-pass design.** Pass 1 builds a surface inventory (broad map of where features live). Pass 2 fans out one subagent per surface to enumerate every behavior on that surface. Pass 1 is a fast structural read; Pass 2 is the depth pass. Both run autonomously in the same skill invocation — no human gate between them.
 
-**Important:** `[R!]` applies to items on the spine that the target lacks. `[NEW]` applies to items off the spine entirely. The distinction matters — the first is a win to defend, the second is a gap to consider filling.
+2. **Surface enumeration, not free-form exploration.** Before deep extraction, every source surface that could reveal a behavior is enumerated. The full surface taxonomy lives in `references/two-pass.md`. Surfaces include README, docs/ tree, CLI `--help` for every subcommand, HTTP/RPC route tables, OpenAPI/schema files, config schema, test `describe`/`it` blocks, public exports, top dependencies, issue labels, recent issue titles, changelog, and (for hybrid/website targets) blog posts.
 
-## Evidence bar — non-negotiable
+3. **Parallel subagents.** Pass 2 spawns one subagent per surface listed in Pass 1. Each subagent owns a disjoint slice; merging is straightforward — no dedup needed. Inside a single target, child subagents are capped at 5 concurrent. Across targets in a multi-URL run, parent subagents are also capped at 5 concurrent. Worst-case 25 nested in flight; if a run wobbles, dial children to 3 and re-run.
 
-Every feature entry — both spine-aligned and target-novel — MUST carry all four evidence fields. If any field cannot be filled, drop the entry's confidence to `low` and mark the legend code `[?]`. Never silently ship a claim without evidence.
+4. **`colgrep` everywhere.** Every Pass 1 reader and every Pass 2 surface subagent must use `colgrep` as its primary search tool — semantic + hybrid search beats keyword grep at locating behavior signals. The colgrep reminder block lives in one place (`references/extraction-methods.md` § "Subagent prompt template") and is pasted verbatim into every subagent prompt.
 
-1. **Source location** — file path + line range, or URL + section anchor. Must be specific enough that a reader can verify in ≤30 seconds.
-2. **Direct quote** — 1–3 line verbatim excerpt from the source (README line, doc paragraph, code comment, commit message). Quote faithfully; do not paraphrase inside the quote block.
-3. **Version / commit / fetch date**
-   - Repo: git commit SHA (short, 7+ chars) + human-readable version (tag, release, or "default branch @ YYYY-MM-DD").
-   - Website: fetch date + Archive.org snapshot URL when available.
-4. **Confidence** — `high` / `medium` / `low`.
-   - `high` — evidence is direct, unambiguous, and recent.
-   - `medium` — evidence implies the feature but doesn't nail every detail.
-   - `low` — evidence is indirect (e.g., issue discussion, marketing copy). These entries MUST appear in the target file's `## Needs follow-up` section.
-
-## Coverage strategy — why 100% extraction is a fiction and how we approach it
-
-No single LLM pass can guarantee full feature extraction from a non-trivial repo. The skill approaches completeness through five mechanisms. If any one of them is skipped, misses compound.
-
-1. **Two-pass design.** Pass 1 is spine-driven (walk Risoluto's spine, hunt in target). Pass 2 is target-first (walk the target's own structure and enumerate everything, ignoring spine). Features only found in Pass 2 become `[NEW]`. Skipping Pass 2 is the #1 cause of `[NEW]` under-reporting.
-
-2. **Surface enumeration, not free-form exploration.** Before feature extraction, enumerate every source surface that could reveal a feature, then hit each systematically. The full surface list lives in `references/extraction-methods.md`. At minimum, for repos: README headings, docs/ tree, CHANGELOG, release notes, CLI `--help` for every subcommand, HTTP/GraphQL route tables, OpenAPI/schema files, config schema (env vars + YAML + flags), test `describe`/`it` blocks, public API exports, top 20 production dependencies, issue labels, open-issue titles (≤100).
-
-3. **Parallel subagents.** Pass 1 (spine-driven) spawns one subagent per spine section; Pass 2 (target-novel) spawns one subagent per target surface. Each returns a structured list with evidence. Main agent merges and dedups. See `references/extraction-methods.md` §"Subagent delegation pattern" for the full chunking strategy.
-
-   **Every subagent prompt MUST include the colgrep reminder block from `references/extraction-methods.md` §"Subagent prompt template".** Without it, subagents default to Grep/Glob and miss semantic matches. The reminder block lives in one place so it stays consistent — paste it verbatim, don't paraphrase.
-
-4. **Coverage manifest as a first-class output.** Every target file ends with `## Coverage manifest`: a table of every surface scanned (with file count / byte size / fetch status) and every surface skipped (with reason — "private", "404", "paywalled", "too-large-for-single-pass"). Under-coverage becomes visible and you can re-run with targeted refreshes.
-
-5. **Inversion test for `[R!]`.** Never mark a spine item `[R!]` from silence. The skill must actively search the target (record grep queries, docs pages read, etc.) and note what was searched before concluding absence. Silence + no search = `[?]`, not `[R!]`.
-
-Treat these as hard requirements. If any mechanism is skipped or impossible (e.g., subagents unavailable in the environment), say so explicitly in the report so the user can calibrate trust in the result.
+Treat these as hard requirements. If any is skipped or impossible (e.g. subagents unavailable in the environment), say so explicitly in the report so the user can calibrate trust in the result.
 
 ## Workflow
 
-### 1) Detect input type and resolve the source
+### 1) Parse inputs
 
-Branch on the URL:
+Tokenize the args by whitespace and newlines. For each URL:
 
-- Looks like `github.com/<org>/<repo>`: treat as GitHub repo.
-- Anything else with a hostname: treat as website.
-- Absolute path on disk that is a git repo: treat as pre-cloned local repo.
+- If it matches `^https?://github\.com/[^/]+/[^/]+/?$`, mark `target_type=repo`.
+- Anything else with a hostname → `target_type=website`. Blog posts and product sites are handled identically here.
+- Compute `slug` per the rules above.
+- Record whether the URL appears in the `--refresh` set.
 
-For **GitHub repos**, clone shallowly into a scratch dir:
+If the args look malformed (no parseable URLs), stop and surface the parse error with the first offending token.
+
+### 2) Filter against the ledger
+
+Read `research/INDEX.md`. For each URL:
+
+- If `slug` already has a row AND the URL is not in the `--refresh` set → mark `skip`. Log: `<slug> already researched on <captured_at> at <revision>. Skipping. Pass --refresh <url> to re-run.`
+- If `slug` has a row AND `--refresh` was passed → mark `refresh`.
+- If no row exists → mark `new`.
+
+After the filter, if every URL was skipped, exit cleanly with a one-line summary. No subagents to spawn.
+
+### 3) Queue and spawn parent subagents
+
+Spawn up to 5 parent subagents in parallel — one per `new` or `refresh` URL. Queue the rest. As each parent completes, dequeue the next.
+
+Each parent runs the per-target workflow (steps 4–7 below) end-to-end and returns a structured result. Parents do **not** share context; they're independent.
+
+In a single Agent tool call you may spawn multiple parents (up to 5). To launch parallel work in the same turn, send all `Agent` tool uses in one assistant message.
+
+### 4) Per-target: clone or fetch
+
+**For repos** — shallow clone into the persistent cache:
 
 ```bash
-mkdir -p /tmp/risoluto-research
-git clone --depth 1 <repo-url> /tmp/risoluto-research/<slug>
-# Capture commit + tag for the evidence block:
-( cd /tmp/risoluto-research/<slug> && git rev-parse --short HEAD && git describe --tags --always )
+mkdir -p research/.cache/clones
+DEFAULT_BRANCH=$(gh repo view <owner>/<repo> --json defaultBranchRef --jq '.defaultBranchRef.name')
+
+# If clone already exists from a prior run, reuse it but pull to the latest of the default branch.
+if [ -d research/.cache/clones/<slug>/.git ]; then
+  git -C research/.cache/clones/<slug> fetch --depth 1 origin "$DEFAULT_BRANCH"
+  git -C research/.cache/clones/<slug> reset --hard "origin/$DEFAULT_BRANCH"
+else
+  git clone --depth 1 --branch "$DEFAULT_BRANCH" <repo-url> research/.cache/clones/<slug>
+fi
+
+REVISION=$(git -C research/.cache/clones/<slug> rev-parse --short HEAD)
 ```
 
-If the user pinned a version, use `--branch <tag>` or fetch and checkout the tag explicitly.
+If the user pinned a version/tag/SHA, fetch that instead.
 
-For **websites**, do a depth-limited crawl starting from the URL:
+**For websites and blog posts** — fetch with `defuddle` (primary) or `WebFetch` (fallback). For interactive / heavily-scripted pages where content renders client-side, use `agent-browser`. Compute the revision as the first 12 hex chars of `sha256(rendered_markdown)`:
 
-- Fetch the landing page.
-- Follow links matching: `/features`, `/pricing`, `/docs*`, `/changelog*`, `/blog*`, `/product*`, `/roadmap*`, `/compare*`, `/security*`.
-- Cap at ~15 pages. Prefer `defuddle` for clean markdown extraction; fall back to `WebFetch` per page.
-- If the site links to a GitHub repo, also pull that repo's README + CHANGELOG (not a full clone).
-- Record the fetch date on every evidence line.
+```bash
+# Pseudo-code: actual implementation uses Read on a temp file written by the fetcher.
+REVISION="sha256:$(sha256sum <fetched-markdown> | cut -c1-12)"
+```
 
-**Delegate this step to an `Explore` subagent when the target is large** — you don't want the crawl or the clone's tree walking to pollute the main context. Instruct the subagent to return a structured brief listing surfaces it found (docs pages, README sections, top-level code directories) rather than raw dumps. Tell it to use `colgrep` as its primary search tool.
+Record `target_type`, `primary_url`, `revision`, and `fetched_at` (UTC date) for the artifact's source manifest.
 
-### 2) Load and normalize the spine
+### 5) Pass 1 — broad map
 
-**Prefer briefs over re-parsing the spine.** If `research/.briefs/` contains `NN-*.md` files (one per Risoluto subsystem — orchestrator, agent-runner, http, persistence, etc.), load those as the per-section spine index. Each brief is already behavior-focused, chunked by subsystem, and includes symbol/file/line citations. Using briefs cuts context cost and makes the spine-section subagent chunking in Pass 1 land cleanly.
+Run a single subagent per target that reads top-level signals and emits a surface inventory. The exact format and the list of surfaces to enumerate live in `references/two-pass.md` § "Pass 1: surface inventory". The output is bullet-list-with-counts, not detailed behavior records.
 
-Staleness check: if any brief's mtime is older than `research/RISOLUTO_FEATURES.md` by more than 14 days, the brief may lag the spine — report that in the run report so the operator knows to regenerate briefs, but keep going (briefs are rarely wrong about the shape of a subsystem, only about the newest features).
+For repos, top-level signals include README + CHANGELOG + ROADMAP + package manifest + `docs/` directory listing + entry-point detection + route-file detection + config-schema detection + test discovery + issue label list + open-issue title list + branch metadata. For websites/blogs, surfaces are the page itself plus any directly linked subpages (`/docs`, `/changelog`, `/blog`, `/features`, `/pricing`, `/security`).
 
-**Fallback: parse the spine directly.** If `research/.briefs/` is missing, empty, or absent from this project, read `research/RISOLUTO_FEATURES.md` and parse it into a flat list of spine entries. The spine format is user-controlled, so be tolerant — expect headings at `##` or `###` level with a short description under each. Capture:
+Pass 1 must use `colgrep` as its primary search tool. The skill's subagent prompt template enforces this — see `references/extraction-methods.md` § "Subagent prompt template" and paste verbatim.
 
-- `spine_id` — a stable identifier (use the heading slug if present, otherwise the lowercased heading text).
-- `title` — the human-readable feature name.
-- `description` — whatever sits under the heading, trimmed.
+### 6) Pass 2 — per-surface deep dive
 
-If the spine is very large (>200 entries), group entries by the top-level section headings before going feature-by-feature.
+For each surface listed in Pass 1, spawn one Pass 2 subagent. Cap at 5 children concurrent per parent; queue the rest. Each child enumerates every behavior on its surface with full evidence.
 
-**Never write to the briefs or the spine from this skill.** Both are owned by the `update-feature-spine` workflow. If a brief looks wrong, flag it in `## Analyst notes`, don't edit it.
+The child returns a structured Markdown block with the schema in `references/template-target.md` § "Behaviors". The merge step is mechanical — each child owns a disjoint surface, so no dedup is needed.
 
-### 3) Align target → spine
+Every Pass 2 child must:
 
-For each spine entry, go hunt in the target's extracted material (README, docs, code, changelog). For each feature, you are asking two questions:
+- Use `colgrep` as the primary search tool.
+- Produce a list of behaviors where each has: `behavior-id`, description, source (file:line or url#anchor), verbatim 1–3 line quote, confidence (high/medium/low), and status (shipped/in-flight/experimental/deprecated) when discoverable.
+- Return a structured report under 500 lines — long lists are compressed into surface sub-tables when needed.
 
-1. Does the target have this feature at all?
-2. If yes, is their implementation weaker, comparable, or stronger than Risoluto's?
+If a Pass 2 child fails (timeout, crash, no signal), record the surface as `status: failed` in the artifact's coverage manifest and continue with the others.
 
-Output exactly one `[=]` / `[R+]` / `[T+]` / `[R!]` / `[?]` per spine entry. Fill the full record (see template below). A spine entry with zero signal in the target is `[R!]` — but only after you've actually searched. A spine entry with partial-but-unclear signal is `[?]`, not `[R!]` — the difference matters for roadmap decisions.
+### 7) Write the per-target artifact
 
-### 4) Discover target-novel features
+Use the template in `references/template-target.md` verbatim. Fill every section: source manifest, Pass 1 broad map, Behaviors (one subsection per surface), Coverage manifest, Run history.
 
-Now walk the target's own surface with fresh eyes — not cross-referenced to the spine. Look for capabilities the target documents or implements that don't appear anywhere in the spine. Each one becomes a `[NEW]` entry. These are the single most valuable outputs of this skill because they expand the question space for the roadmap.
+Key rules:
 
-Be aggressive here. "They have CLI completion and we don't" counts. "They expose a Prometheus histogram for X and we only have a counter" counts. Every observable difference that isn't already on the spine is potentially `[NEW]`.
+- Every behavior has all four evidence fields: source location, verbatim quote, version/fetch date, confidence. Missing any → drop confidence to `low` and surface in `## Needs follow-up`.
+- The artifact does **not** carry any Risoluto-relative information. No comparison field, no legend codes beyond confidence/status. If the target ships something Risoluto doesn't, just record what the target does.
+- The Coverage manifest reflects reality: every surface attempted, every surface skipped with reason. Failed Pass 2 children show as `failed` not `skipped`.
+- Run history preserves deltas. On `--refresh`, append a row — do not overwrite prior rows.
 
-### 4.5) Resolve high-signal ambiguities before writing
+### 8) Update the ledger
 
-After passes 1 and 2, before filling the template, scan the running `[?]` list. For each entry ask: **"if this flipped to `[R+]`, `[T+]`, or `[R!]`, would it change the `## Candidate flags` list?"** If yes, it's high-signal — spend one targeted read to resolve it (a single file, a single doc page, a single `colgrep`/grep query). If no, it stays `[?]` and moves to `## Needs follow-up` for later.
+Read `research/INDEX.md`. Append or update the target's row in `## Targets` per the schema in `references/template-index.md`:
 
-The reason this step exists: research runs routinely produce `[?]` entries that a 5-minute direct read would resolve. Leaving them ambiguous hides real signal and creates noise in the cross-target synthesis downstream. But resolving all of them is unbounded work, so cap tightly.
+```
+| <slug> | repo|website | <hostname-and-path> | <revision> | <YYYY-MM-DD> | <feature-count> | targets/<slug>.md | researched|refreshed|failed|superseded |
+```
 
-**Budget:** ≤5 resolutions per run, capped at ~10 minutes total. Stop early at diminishing returns (2 consecutive resolutions that don't change the flag list).
+If the row already exists (refresh path), update in place — never destructively rewrite the file. Append a one-line entry to `## Run history` covering all URLs in this invocation.
 
-**Log contract:** every resolution gets a sub-row in `## Run history`. Use the pattern `1a` under run `1`, `2a` under run `2`, etc. Record the transition (`[?]→[R+]`), the evidence read, and a one-line reason. This preserves the audit trail — later runs see what was actively resolved vs what stayed ambiguous, and can skip re-resolving the same entries.
+For `failed` rows, append a one-line entry to `## Failure footnotes` with the failure reason.
 
-**What not to do here:** don't re-crawl the target, don't re-run subagents, don't add new spine-alignment items. This is a closer, not a second pass.
+### 9) Report back
 
-### 5) Write the per-target file
-
-Use the template in `references/template-target.md` verbatim as the skeleton, then fill every section. Key rules:
-
-- One heading per feature (spine-aligned features under `## Spine alignment`, novel features under `## Target-novel features`).
-- The observable-behaviors list is not optional. If you can't list at least 2 observable behaviors, the entry isn't detailed enough yet — go dig further.
-- The comparison-vs-Risoluto field must name the specific Risoluto surface you're comparing against (e.g., `src/orchestrator/worker-launcher.ts` or "the webhook health panel at `/settings`"), not generic hand-waving.
-
-### 6) Flag candidate signal (do NOT draft roadmap)
-
-Roadmap synthesis is deliberately deferred until the corpus has ~10–15 targets. A `[T+]` seen in one target is weak signal; the same `[T+]` seen across many targets is strong signal. Per-target roadmap drafting biases toward whichever target was analyzed first and produces noise.
-
-Instead, add a lightweight `## Candidate flags` section at the bottom of the per-target file. One line per `[T+]` and `[NEW]` entry:
+Produce this structured block. The operator reads it at a glance, and it diffs cleanly across runs. Keep the shape, fill every field. If a field has nothing to say, write `none` rather than omitting the line.
 
 ```markdown
-## Candidate flags
-
-Light triage signal. Not a roadmap. Roadmap synthesis happens in a separate skill once the research corpus is large enough (~10–15 targets). Do NOT draft effort estimates, bundle assignments, or Risoluto touch points here.
-
-- **<title>** (`[T+]` | `[NEW]`) — signal: **interesting** | **noise** | **out-of-scope** — <1 sentence on why>
+**Run:** <YYYY-MM-DD> · <N> URLs invoked · <N> researched · <N> refreshed · <N> skipped · <N> failed
+**Per-target results:**
+- <slug> (<repo|website>) · <feature-count> behaviors · <revision> · <duration> · <status>
+- ...
+**Skipped (already in ledger; pass --refresh to re-run):**
+- <slug> · <captured-at> · <revision>
+- ...
+**Failed:**
+- <slug> · <reason>
+- ...
+**Files written:** <count> artifact(s) in research/targets/, INDEX.md updated.
 ```
 
-Flags map as follows:
-
-- **interesting** — worth remembering for future cross-target synthesis. The feature solves a real user problem that maps to Risoluto's positioning.
-- **noise** — the target does this because of their specific architecture/stack; adopting it would be cargo-culting. Low signal for Risoluto.
-- **out-of-scope** — clearly outside Risoluto's problem space (e.g., a GUI-only feature when Risoluto is headless; billing for a SaaS when Risoluto is local-first).
-
-Do not filter by signal at this stage — record all entries. The synthesis skill will weight signals across the corpus.
-
-### 7) Update INDEX.md
-
-Read the current `research/INDEX.md`. Update or insert the row for this target. The index uses the template in `references/template-index.md`. It's essentially a matrix: rows = targets, columns = spine-section groupings, cells = counts of each legend code for that target × section.
-
-Do not rewrite the whole INDEX from scratch on every run — this is an append/update operation, and destructive rewrites will corrupt prior runs.
-
-### 8) Report back to the user
-
-Produce this structured block — the operator reads it at a glance, and it diffs cleanly across runs. Keep the shape, fill every field. If a field has nothing to say, write `none` rather than omitting the line.
-
-```markdown
-**Target:** `<slug>` (`github-repo | website | hybrid`) · `<version>` @ `<sha>` · fetched `<date>`
-**Files:** `research/<slug>.md` (created | updated, run N) · `research/INDEX.md` (updated)
-**Totals:** ⚖️ <n> · 🟢 <n> · 🔴 <n> · ⭐ <n> · ✨ <n> · ❓ <n> — total <n>
-**Confidence:** high <n> · medium <n> · low <n>
-**Coverage:** <n>/<n> surfaces scanned · skipped: <short list or "none">
-**Ambiguity pass:** <n> resolved, <n> remain in `## Needs follow-up` (or "skipped: <reason>")
-**Top candidate flags (≤3):**
-- <title> (`[T+]` | `[NEW]`, <signal>) — <one line>
-- <title> (`[T+]` | `[NEW]`, <signal>) — <one line>
-- <title> (`[T+]` | `[NEW]`, <signal>) — <one line>
-**Blockers / gaps:** <e.g., "paywalled docs on /compliance", "gh rate-limited on open issues", or "none">
-```
-
-The totals line must match `## Totals at a glance` in the per-target file exactly — if they drift, the per-target file is the source of truth, fix the report. The top-3 candidate flags are picked by signal (`interesting` first, then `out-of-scope` / `noise` only if fewer than 3 `interesting` exist); don't invent roadmap narrative here.
+The per-target row's `feature-count` must match the artifact's coverage manifest total; if they drift, the artifact is the source of truth.
 
 ## Quality self-check before declaring done
 
-Before you claim the ledger is written, verify:
+Before claiming the run is complete, verify:
 
-- [ ] `research/<slug>.md` exists and parses as valid Markdown.
-- [ ] Every legend entry has all four evidence fields populated (source, quote, version/date, confidence).
-- [ ] `## Coverage manifest` is populated with every surface attempted AND every surface skipped-with-reason.
-- [ ] Every `[R!]` entry has a `Searched for:` line listing ≥3 distinct search attempts (the inversion test). `[R!]` with no searches recorded = downgrade to `[?]`.
-- [ ] Ambiguity-resolution pass was run (or explicitly skipped with a one-line reason). Every resolution has a sub-row in `## Run history` (e.g., `1a` under run `1`) showing the `[?]→<code>` transition and the evidence read.
-- [ ] `## Target-novel features` is non-empty for a non-trivial target. If it IS empty, you almost certainly under-explored — re-run Pass 2 before shipping.
-- [ ] `research/INDEX.md` was updated in place (row parsed, row updated/appended) — NOT destructively rewritten.
-- [ ] No spine entry is silently dropped — each one gets a code or an explicit `[?]` with explanation.
-- [ ] Evidence links are specific (file:line or URL#anchor), not just a repo-root URL.
-- [ ] `## Candidate flags` section lists every `[T+]` and `[NEW]` with a single-line signal tag (`interesting` / `noise` / `out-of-scope`). No effort estimates, no bundle assignments, no Risoluto touch points — that synthesis is deferred.
-- [ ] Run history row appended to the per-target file (spine SHA + target SHA + delta from previous run).
+- [ ] Every URL passed in is accounted for: researched, refreshed, skipped, or failed. None silently dropped.
+- [ ] Each `targets/<slug>.md` exists and parses as valid Markdown.
+- [ ] Every behavior entry has all four evidence fields populated (source, quote, revision/fetched_at, confidence).
+- [ ] No artifact contains the strings `Risoluto`, `Comparison vs`, `[R+]`, `[T+]`, `[R!]`, `[=]`, `Spine version used`, or any other spine-relative legend code. If any does, the artifact came out wrong — re-run that target.
+- [ ] `## Coverage manifest` is populated with every surface attempted AND every surface skipped/failed with reason.
+- [ ] `research/INDEX.md` was updated in place — NOT destructively rewritten. Verify by diffing against the prior version: only the new row(s) and the Run history row should differ.
+- [ ] Each repo target has a clone in `research/.cache/clones/<slug>/` whose `git rev-parse HEAD` matches the artifact's `revision` field.
+- [ ] Each blog/website target's `revision` is `sha256:<12hex>`, computed from the fetched markdown.
+- [ ] Run history row appended to each per-target file (revision + fetched_at + behavior count + delta from previous run, if any).
+- [ ] Concurrency caps respected: at no point did more than 5 parent subagents run in parallel; at no point did any parent spawn more than 5 children.
 
 Treat this checklist as a hard gate. If any box can't be ticked, say so in the report instead of declaring success.
 
 ## Reference files
 
-For the exact shape of the per-target and index files, see:
+For exact shapes and procedures, see:
 
-- `references/template-target.md` — full template for `<slug>.md`, with every section, field, and example.
-- `references/template-index.md` — INDEX.md row format and legend-totals aggregation.
-- `references/extraction-methods.md` — detailed guidance on clone/crawl strategies, when to delegate to subagents, and how to handle large or weird targets (paywalled docs, monorepos, DX-heavy repos that hide features in `examples/`).
+- `references/template-target.md` — full template for `targets/<slug>.md`, with every section, field, and example.
+- `references/template-index.md` — INDEX.md flat-ledger row format and the in-place update contract.
+- `references/multi-url.md` — the parse → filter → queue → spawn sequence, the skip-on-collision policy, and the ledger-update protocol.
+- `references/two-pass.md` — Pass 1 surface inventory format + Pass 2 per-surface fan-out, surface taxonomy, child-cap policy, merge protocol.
+- `references/clone-cache.md` — `research/.cache/clones/<slug>/` contract: persistent across runs, gitignored, manual cleanup, `git rev-parse HEAD` for revision capture, when to unshallow.
+- `references/extraction-methods.md` — clone/crawl strategies, when to delegate to subagents, hard cases (paywalled docs, monorepos, dormant repos, closed-source targets), and the colgrep reminder block.
+- `references/legend.md` — confidence and status semantics. No spine-relative codes.

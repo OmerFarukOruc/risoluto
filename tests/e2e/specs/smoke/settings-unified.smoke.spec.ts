@@ -2,11 +2,11 @@ import { test, expect } from "../../fixtures/test";
 import { ConfigPage } from "../../pages/config.page";
 
 /**
- * Complements config-secrets.smoke.spec.ts and settings-interactions.smoke.spec.ts
- * by covering the unified page load, rail navigation, section rendering, and a11y.
- * Credential / Advanced / Legacy-redirect tests live in those sibling specs.
+ * Settings v2 page: page load, nav rail, section rendering, and a11y.
+ * Credential tests live in config-secrets.smoke.spec.ts.
+ * Overlay/raw-JSON tests live in settings-interactions.smoke.spec.ts.
  */
-test.describe("Settings Unified View Smoke", () => {
+test.describe("Settings v2 Smoke", () => {
   test.beforeEach(async ({ apiMock }) => {
     const scenario = apiMock.scenario().withSetupConfigured().build();
     await apiMock.install(scenario);
@@ -21,28 +21,12 @@ test.describe("Settings Unified View Smoke", () => {
     await expect(page.locator("h1, .page-title").first()).toContainText("Settings");
   });
 
-  test("settings page renders the Codex Admin operator block", async ({ page }) => {
-    const settings = new ConfigPage(page);
-    await settings.navigateToSettings();
-    await settings.openCodexAdmin();
-
-    await expect(page.getByRole("heading", { name: "Codex Admin", exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Model catalog" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Threads" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "MCP servers" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "gpt-5.4", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "github", exact: true })).toBeVisible();
-  });
-
   test("settings page renders sidebar rail with navigation items", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
     await expect(settings.settingsRail).toBeVisible({ timeout: 5000 });
 
-    // The rail should contain multiple navigation items (Tracker, Agent, etc.)
     const navItems = settings.railNavItems;
     const count = await navItems.count();
     expect(count).toBeGreaterThanOrEqual(3);
@@ -50,14 +34,13 @@ test.describe("Settings Unified View Smoke", () => {
 
   // ── Rail Section Content ──────────────────────────────────────────
 
-  test("first section is selected by default and shows Tracker section", async ({ page }) => {
+  test("first nav item is active by default and shows Agent section", async ({ page }) => {
     const settings = new ConfigPage(page);
     await settings.navigateToSettings();
 
-    // The first nav item in the rail should be selected
     const firstNavItem = settings.railNavItems.first();
-    await expect(firstNavItem).toHaveClass(/is-selected/);
-    await expect(page.getByText("Tracker").first()).toBeVisible({ timeout: 5000 });
+    await expect(firstNavItem).toHaveAttribute("aria-current", "true", { timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "Agent", level: 2 }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test("settings page renders section title elements", async ({ page }) => {
@@ -69,6 +52,14 @@ test.describe("Settings Unified View Smoke", () => {
 
     const count = await sectionTitles.count();
     expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("clicking a nav item swaps to the corresponding section", async ({ page }) => {
+    const settings = new ConfigPage(page);
+    await settings.navigateToSettings();
+
+    await settings.railNavItemByTitle("Templates").click();
+    await expect(page.locator("#section-templates")).toBeVisible({ timeout: 5000 });
   });
 
   // ── Accessibility ──────────────────────────────────────────────────

@@ -43,6 +43,9 @@ const ICONS = {
   refresh: filledIcon(
     "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z",
   ),
+  search: filledIcon(
+    "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+  ),
   theme: filledIcon(
     "M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z",
   ),
@@ -213,6 +216,45 @@ const ICONS = {
     { tag: "rect", attrs: { x: "9", y: "3", width: "6", height: "4", rx: "1" } },
     { tag: "line", attrs: { x1: "9", y1: "12", x2: "15", y2: "12" } },
     { tag: "line", attrs: { x1: "9", y1: "16", x2: "13", y2: "16" } },
+  ]),
+  settingsCodex: strokeIcon([
+    { tag: "polyline", attrs: { points: "8 7 3 12 8 17" } },
+    { tag: "polyline", attrs: { points: "16 7 21 12 16 17" } },
+    { tag: "line", attrs: { x1: "14", y1: "4", x2: "10", y2: "20" } },
+  ]),
+  settingsMerge: strokeIcon([
+    { tag: "circle", attrs: { cx: "6", cy: "6", r: "2" } },
+    { tag: "circle", attrs: { cx: "6", cy: "18", r: "2" } },
+    { tag: "circle", attrs: { cx: "18", cy: "12", r: "2" } },
+    { tag: "path", attrs: { d: "M6 8v8" } },
+    { tag: "path", attrs: { d: "M16 12c-5 0-7-2-10-6" } },
+  ]),
+  settingsSandbox: strokeIcon([
+    { tag: "path", attrs: { d: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" } },
+    { tag: "polyline", attrs: { points: "9 12 11 14 15 10" } },
+  ]),
+  viewKanban: strokeIcon([
+    { tag: "rect", attrs: { x: "3", y: "3", width: "5", height: "18", rx: "1" } },
+    { tag: "rect", attrs: { x: "10", y: "3", width: "5", height: "12", rx: "1" } },
+    { tag: "rect", attrs: { x: "17", y: "3", width: "4", height: "8", rx: "1" } },
+  ]),
+  viewSwimlane: strokeIcon([
+    { tag: "line", attrs: { x1: "3", y1: "12", x2: "21", y2: "12" } },
+    { tag: "rect", attrs: { x: "3", y: "5", width: "4", height: "4", rx: "1" } },
+    { tag: "rect", attrs: { x: "9", y: "5", width: "4", height: "4", rx: "1" } },
+    { tag: "rect", attrs: { x: "15", y: "5", width: "4", height: "4", rx: "1" } },
+    { tag: "rect", attrs: { x: "3", y: "15", width: "4", height: "4", rx: "1" } },
+    { tag: "rect", attrs: { x: "9", y: "15", width: "4", height: "4", rx: "1" } },
+    { tag: "rect", attrs: { x: "15", y: "15", width: "4", height: "4", rx: "1" } },
+  ]),
+  viewList: strokeIcon([
+    { tag: "line", attrs: { x1: "3", y1: "6", x2: "21", y2: "6" } },
+    { tag: "line", attrs: { x1: "3", y1: "12", x2: "21", y2: "12" } },
+    { tag: "line", attrs: { x1: "3", y1: "18", x2: "21", y2: "18" } },
+  ]),
+  viewFocus: strokeIcon([
+    { tag: "rect", attrs: { x: "3", y: "5", width: "18", height: "14", rx: "2" } },
+    { tag: "circle", attrs: { cx: "12", cy: "12", r: "3" } },
   ]),
 } as const satisfies Record<string, IconDefinition>;
 

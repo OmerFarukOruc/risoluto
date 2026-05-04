@@ -1,10 +1,7 @@
 import "../styles/settings.css";
-import "../styles/config.css";
-import "../styles/secrets.css";
-import "../styles/unified-settings.css";
 
-import { createUnifiedSettingsPage } from "../views/unified-settings-view";
+import { createSettingsPage } from "../features/settings/index.js";
 
 export function render(): HTMLElement {
-  return createUnifiedSettingsPage();
+  return createSettingsPage();
 }

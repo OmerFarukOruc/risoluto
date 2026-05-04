@@ -1,14 +1,35 @@
 import { api } from "../api";
+import { router } from "../router";
+import { getRuntimeClient } from "../state/runtime-client";
+import type { AppState } from "../state/store";
 import { createIcon } from "./icons";
 import { MOBILE_BREAKPOINT } from "./breakpoints.js";
 import { toggleTheme } from "./theme";
 import { toast } from "./toast";
 import { createIconButton } from "./buttons.js";
+import {
+  computeHeaderStatusCounts,
+  totalHeaderStatusCount,
+  type HeaderStatusCounts,
+  type HeaderStatusKey,
+} from "./header-status.js";
 
 type SidebarStateDetail = {
   mobile: boolean;
   mobileOpen: boolean;
 };
+
+interface HeaderStatusDescriptor {
+  key: HeaderStatusKey;
+  label: string;
+  modifier: string;
+}
+
+const STATUS_DESCRIPTORS: readonly HeaderStatusDescriptor[] = [
+  { key: "running", label: "Running", modifier: "is-running" },
+  { key: "queued", label: "Queued", modifier: "is-queued" },
+  { key: "retrying", label: "Retrying", modifier: "is-retrying" },
+];
 
 let sidebarStateHandler: ((event: Event) => void) | null = null;
 
@@ -45,6 +66,90 @@ function syncHeaderNavButton(headerEl: HTMLElement, navButton: HTMLButtonElement
   }
 
   navButton.remove();
+}
+
+function createHeaderStatusStrip(): {
+  element: HTMLElement;
+  update: (counts: HeaderStatusCounts) => void;
+} {
+  const strip = document.createElement("div");
+  strip.className = "header-status-strip";
+  strip.setAttribute("role", "group");
+  strip.setAttribute("aria-label", "Live queue counts");
+
+  const chips = new Map<HeaderStatusKey, { chip: HTMLButtonElement; count: HTMLElement }>();
+  for (const descriptor of STATUS_DESCRIPTORS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `header-status-chip ${descriptor.modifier}`;
+    const dot = document.createElement("span");
+    dot.className = "header-status-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const count = document.createElement("span");
+    count.className = "header-status-count";
+    count.textContent = "0";
+    chip.append(dot, count);
+    chip.addEventListener("click", () => {
+      router.navigate("/queue");
+    });
+    strip.append(chip);
+    chips.set(descriptor.key, { chip, count });
+  }
+
+  const update = (counts: HeaderStatusCounts): void => {
+    strip.hidden = totalHeaderStatusCount(counts) === 0;
+    for (const descriptor of STATUS_DESCRIPTORS) {
+      const entry = chips.get(descriptor.key);
+      if (!entry) continue;
+      const value = counts[descriptor.key];
+      entry.count.textContent = String(value);
+      entry.chip.classList.toggle("is-empty", value === 0);
+      entry.chip.title = `${descriptor.label}: ${value}`;
+      entry.chip.setAttribute("aria-label", `${descriptor.label}: ${value}`);
+    }
+  };
+
+  update({ running: 0, queued: 0, retrying: 0 });
+  return { element: strip, update };
+}
+
+function createNotificationBell(): {
+  element: HTMLButtonElement;
+  setUnread: (count: number) => void;
+} {
+  const bell = createIconButton({
+    iconName: "notifications",
+    label: "Notifications",
+    className: "header-action-btn header-bell",
+  });
+  const badge = document.createElement("span");
+  badge.className = "header-bell-badge";
+  badge.hidden = true;
+  bell.append(badge);
+  bell.addEventListener("click", () => {
+    router.navigate("/notifications");
+  });
+
+  const setUnread = (count: number): void => {
+    const safe = Math.max(0, Math.floor(count));
+    badge.hidden = safe === 0;
+    badge.textContent = safe > 99 ? "99+" : String(safe);
+    bell.classList.toggle("has-unread", safe > 0);
+    bell.title = safe === 0 ? "Notifications" : `Notifications (${safe} unread)`;
+    bell.setAttribute("aria-label", bell.title);
+  };
+
+  setUnread(0);
+  return { element: bell, setUnread };
+}
+
+async function refreshUnreadCount(setUnread: (count: number) => void): Promise<void> {
+  try {
+    const result = await api.getNotifications({ unread: true, limit: 1 });
+    setUnread(result.unreadCount ?? 0);
+  } catch {
+    // Silent — header should never crash on transient API failures.
+  }
 }
 
 export function initHeader(headerEl: HTMLElement): void {
@@ -84,10 +189,10 @@ export function initHeader(headerEl: HTMLElement): void {
   badgeSpan.className = "mc-badge header-env-badge";
   const dot = document.createElement("span");
   dot.className = "status-dot status-dot--local";
-  dot.textContent = "\u25CF";
+  dot.textContent = "●";
   const envLabel = document.createElement("span");
   envLabel.className = "header-env-label";
-  envLabel.textContent = "Local";
+  envLabel.textContent = "LOCAL";
   badgeSpan.append(dot, envLabel);
   badgeSpan.title =
     "Local mode — Risoluto is running on your machine. Issues are processed in sandboxed Docker containers for security.";
@@ -100,18 +205,20 @@ export function initHeader(headerEl: HTMLElement): void {
   commandButton.className = "mc-button is-command header-command-trigger";
   const searchIcon = document.createElement("span");
   searchIcon.className = "mc-button-icon header-command-icon";
-  searchIcon.append(createIcon("overview", { size: 14 }));
+  searchIcon.append(createIcon("search", { size: 16 }));
   const cmdLabel = document.createElement("span");
   cmdLabel.className = "header-command-label";
-  cmdLabel.textContent = "Search pages, issues, and actions\u2026";
+  cmdLabel.textContent = "Search pages, issues, actions…";
   const cmdHint = document.createElement("span");
   cmdHint.className = "mc-button-hint header-command-hint";
-  cmdHint.textContent = "Ctrl+K";
+  cmdHint.textContent = "Ctrl K";
   commandButton.append(searchIcon, cmdLabel, cmdHint);
   commandButton.addEventListener("click", () => {
     globalThis.dispatchEvent(new CustomEvent("palette:open"));
   });
   command.append(commandButton);
+
+  const status = createHeaderStatusStrip();
 
   const actions = document.createElement("div");
   actions.className = "header-actions";
@@ -121,6 +228,8 @@ export function initHeader(headerEl: HTMLElement): void {
     label: "Refresh orchestrator state",
     className: "header-action-btn",
   });
+
+  const bell = createNotificationBell();
 
   const themeButton = createIconButton({
     iconName: "theme",
@@ -143,22 +252,23 @@ export function initHeader(headerEl: HTMLElement): void {
     }, 500);
   });
 
-  const apiDocsButton = createIconButton({
-    iconName: "issueDetail",
-    label: "API documentation",
-    className: "header-action-btn",
-  });
-  apiDocsButton.addEventListener("click", () => {
-    globalThis.open("/api/docs", "_blank", "noopener");
-  });
-
   themeButton.addEventListener("click", () => {
     const next = toggleTheme();
     toast(`Theme: ${next}`, "info");
   });
 
-  actions.append(refreshButton, apiDocsButton, themeButton);
-  headerEl.append(brand, createZoneSeparator(), command, createZoneSeparator(), actions);
+  actions.append(refreshButton, bell.element, themeButton);
+  headerEl.append(brand, createZoneSeparator(), command, status.element, createZoneSeparator(), actions);
+
+  const runtimeClient = getRuntimeClient();
+  const onState = (appState: AppState): void => {
+    status.update(computeHeaderStatusCounts(appState.snapshot));
+    void refreshUnreadCount(bell.setUnread);
+  };
+  runtimeClient.subscribeState(onState);
+  status.update(computeHeaderStatusCounts(runtimeClient.getAppState().snapshot));
+  void refreshUnreadCount(bell.setUnread);
+
   syncHeaderNavButton(headerEl, navButton, {
     mobile: globalThis.matchMedia(MOBILE_BREAKPOINT).matches,
     mobileOpen: false,

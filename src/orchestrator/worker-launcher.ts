@@ -57,6 +57,9 @@ export function canDispatchIssue(
     return false;
   }
   if (isTodoState(issue.state, config)) {
+    if (config.agent.autoClaim === false) {
+      return false;
+    }
     return !isBlockedByNonTerminal(issue, config);
   }
   return true;

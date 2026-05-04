@@ -8,7 +8,7 @@ interface KanbanColumnHandle {
   pulse: HTMLElement;
 }
 
-function normalizeStageKey(key: string): string {
+export function normalizeStageKey(key: string): string {
   return key.toLowerCase().replaceAll(" ", "_");
 }
 

@@ -1,6 +1,7 @@
 import type { RuntimeIssueView, WorkflowColumn } from "../types/runtime.js";
-import { type QueueFilters, repoOf } from "./queue-state";
-import type { BoardGroupBy, BoardTweaks } from "../state/tweaks";
+import { type QueueFilters, repoOf, uniqueIssues } from "./queue-state";
+import type { BoardStatusFilter, BoardTweaks, BoardViewMode } from "../state/tweaks";
+import { createIcon, type IconName } from "../ui/icons";
 
 interface QueueToolbarOptions {
   toolbar: HTMLElement;
@@ -16,7 +17,8 @@ interface QueueToolbarOptions {
   onSetRepo: (repo: string) => void;
   onToggleLabel: (label: string) => void;
   onClearFilters: () => void;
-  onSetGroupBy: (groupBy: BoardGroupBy) => void;
+  onSetViewMode: (mode: BoardViewMode) => void;
+  onSetStatusFilter: (filter: BoardStatusFilter) => void;
 }
 
 interface BuiltToolbar {
@@ -32,25 +34,21 @@ const PRIORITY_OPTIONS: ReadonlyArray<readonly [string, string]> = [
   ["low", "Low"],
 ];
 
-const GROUP_BY_OPTIONS: ReadonlyArray<readonly [BoardGroupBy, string]> = [
-  ["none", "No grouping"],
-  ["priority", "By priority"],
-  ["model", "By model"],
-  ["repo", "By repo"],
+const VIEW_MODES: ReadonlyArray<{ value: BoardViewMode; label: string; icon: IconName }> = [
+  { value: "kanban", label: "Kanban board", icon: "viewKanban" },
+  { value: "swimlane", label: "Swimlane (status × repo)", icon: "viewSwimlane" },
+  { value: "list", label: "List", icon: "viewList" },
+  { value: "focus", label: "Focus on running", icon: "viewFocus" },
 ];
 
-function uniqueIssues(columns: readonly WorkflowColumn[]): RuntimeIssueView[] {
-  const seen = new Set<string>();
-  const list: RuntimeIssueView[] = [];
-  for (const column of columns) {
-    for (const issue of column.issues ?? []) {
-      if (seen.has(issue.identifier)) continue;
-      seen.add(issue.identifier);
-      list.push(issue);
-    }
-  }
-  return list;
-}
+const STATUS_PILLS: ReadonlyArray<{ value: BoardStatusFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "running", label: "Running" },
+  { value: "queued", label: "Queued" },
+  { value: "claimed", label: "Claimed" },
+  { value: "blocked", label: "Blocked" },
+  { value: "done", label: "Done" },
+];
 
 function uniqueValues<T>(
   items: readonly RuntimeIssueView[],
@@ -175,6 +173,48 @@ function buildFilterChips(
   return wrap;
 }
 
+function buildViewModeSegmented(current: BoardViewMode, onSelect: (mode: BoardViewMode) => void): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "mc-viewmode-seg";
+  wrap.setAttribute("role", "tablist");
+  wrap.setAttribute("aria-label", "Board view mode");
+  for (const option of VIEW_MODES) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mc-viewmode-seg-btn";
+    button.dataset.mode = option.value;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(option.value === current));
+    button.setAttribute("aria-label", option.label);
+    button.title = option.label;
+    button.classList.toggle("is-active", option.value === current);
+    button.append(createIcon(option.icon, { size: 16 }));
+    button.addEventListener("click", () => onSelect(option.value));
+    wrap.append(button);
+  }
+  return wrap;
+}
+
+function buildStatusPills(current: BoardStatusFilter, onSelect: (filter: BoardStatusFilter) => void): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "mc-status-pills";
+  wrap.setAttribute("role", "tablist");
+  wrap.setAttribute("aria-label", "Status filter");
+  for (const pill of STATUS_PILLS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mc-status-pill";
+    button.dataset.value = pill.value;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(pill.value === current));
+    button.classList.toggle("is-active", pill.value === current);
+    button.textContent = pill.label;
+    button.addEventListener("click", () => onSelect(pill.value));
+    wrap.append(button);
+  }
+  return wrap;
+}
+
 export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
   const {
     toolbar,
@@ -190,7 +230,8 @@ export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
     onSetRepo,
     onToggleLabel,
     onClearFilters,
-    onSetGroupBy,
+    onSetViewMode,
+    onSetStatusFilter,
   } = options;
   toolbar.replaceChildren();
 
@@ -198,6 +239,8 @@ export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
   const models = uniqueValues(allIssues, (issue) => issue.model);
   const repos = uniqueValues(allIssues, (issue) => repoOf(issue));
   const labels = uniqueValues(allIssues, (issue) => issue.labels ?? []);
+
+  const viewModeSeg = buildViewModeSegmented(tweaks.viewMode, onSetViewMode);
 
   const titleBlock = document.createElement("div");
   titleBlock.className = "queue-toolbar-title";
@@ -318,22 +361,7 @@ export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
   const utility = document.createElement("div");
   utility.className = "queue-toolbar-utility";
 
-  const groupBtn = popoverButton(
-    `Group: ${tweaks.groupBy === "none" ? "none" : tweaks.groupBy}`,
-    tweaks.groupBy !== "none",
-    () => {
-      openPopover(
-        groupBtn,
-        GROUP_BY_OPTIONS.map(([value, label]) => ({
-          label,
-          active: tweaks.groupBy === value,
-          onSelect: () => onSetGroupBy(value),
-        })),
-      );
-    },
-  );
-
-  utility.append(groupBtn);
+  const statusPills = tweaks.viewMode === "focus" ? null : buildStatusPills(tweaks.statusFilter, onSetStatusFilter);
 
   if (newIssueUrl) {
     const newIssue = document.createElement("a");
@@ -345,7 +373,11 @@ export function buildQueueToolbar(options: QueueToolbarOptions): BuiltToolbar {
     utility.append(newIssue);
   }
 
-  toolbar.append(titleBlock, searchWrap, filtersGroup, chipsWrap, utility);
+  toolbar.append(viewModeSeg, titleBlock, searchWrap, filtersGroup, chipsWrap);
+  if (statusPills) {
+    toolbar.append(statusPills);
+  }
+  toolbar.append(utility);
   return {
     search,
     firstStageChip: () => filtersGroup.querySelector<HTMLButtonElement>("button"),

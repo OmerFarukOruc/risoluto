@@ -551,8 +551,10 @@
 }
 
 .header-env-label {
-  font-weight: var(--font-medium);
-  text-transform: capitalize;
+  font-weight: var(--font-bold, 700);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide, 0.05em);
+  font-size: var(--text-2xs);
 }
 
 /* Header zone separators */
@@ -587,7 +589,34 @@
 
 /* Shell overrides for mc-button command trigger */
 .header-command-trigger {
+  width: 100%;
   max-width: 420px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  gap: var(--space-2);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-stitch);
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-muted);
+  font-size: var(--text-ui);
+  font-weight: var(--font-medium);
+  transition:
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.header-command-trigger:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+.header-command-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .header-command-label {
@@ -596,6 +625,121 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-weight: var(--font-regular, 400);
+}
+
+.header-command-hint {
+  margin-left: auto;
+  padding: 2px var(--space-2);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-stitch);
+  border-radius: var(--radius-sm, 4px);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-snug);
+  flex-shrink: 0;
+}
+
+/* Header status strip — inline live queue counts ────────── */
+
+.header-status-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
+  flex-shrink: 0;
+}
+
+.header-status-strip[hidden] {
+  display: none;
+}
+
+.header-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  font-weight: var(--font-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity var(--motion-fast) var(--ease-out-quart);
+}
+
+.header-status-chip:hover {
+  opacity: 0.75;
+}
+
+.header-status-chip:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.header-status-chip.is-empty {
+  opacity: 0.45;
+}
+
+.header-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+
+.header-status-chip.is-running {
+  color: var(--status-running);
+}
+
+.header-status-chip.is-queued {
+  color: var(--status-queued, #4d7eff);
+}
+
+.header-status-chip.is-retrying {
+  color: var(--status-retrying, var(--status-error));
+}
+
+.header-status-count {
+  color: var(--text-secondary);
+}
+
+/* Notification bell — unread count badge ───────────────── */
+
+.header-bell {
+  position: relative;
+}
+
+.header-bell-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--status-error);
+  color: var(--color-white, #fff);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold, 700);
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--bg-surface);
+}
+
+.header-bell-badge[hidden] {
+  display: none;
 }
 
 /* ============================================
@@ -629,6 +773,10 @@
   .header-command-label {
     display: none;
   }
+
+  .header-status-chip .header-status-count {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -641,6 +789,10 @@
   }
 
   .header-env-badge {
+    display: none;
+  }
+
+  .header-status-strip {
     display: none;
   }
 

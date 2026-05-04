@@ -33,6 +33,7 @@ interface CreateQueueWorkbenchOptions {
   routeId?: string;
   state?: QueueWorkbenchState;
   deps?: Partial<QueueWorkbenchDeps>;
+  initialCollapsedColumns?: readonly string[];
 }
 
 interface QueueKeyboardBindings {
@@ -113,6 +114,9 @@ function createQueueWorkbenchState(routeId = ""): QueueWorkbenchState {
 
 export function createQueueWorkbench(options: CreateQueueWorkbenchOptions = {}): QueueWorkbench {
   const state = options.state ?? createQueueWorkbenchState(options.routeId ?? "");
+  if (options.initialCollapsedColumns) {
+    for (const key of options.initialCollapsedColumns) state.ui.collapsed.add(key);
+  }
   const deps: QueueWorkbenchDeps = {
     api,
     router,

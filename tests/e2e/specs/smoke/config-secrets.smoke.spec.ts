@@ -12,8 +12,7 @@ test.describe("Unified Settings Smoke", () => {
     await settings.navigateToSettings();
 
     await expect(page.locator("h1, .page-title").first()).toContainText("Settings");
-    // General settings rail should be visible
-    await expect(page.locator(".settings-rail")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".settings-page-nav")).toBeVisible({ timeout: 5000 });
   });
 
   test("configure nav is consolidated to a single Settings entry", async ({ page }) => {
@@ -25,33 +24,23 @@ test.describe("Unified Settings Smoke", () => {
     await expect(page.locator('.sidebar-item[data-path="/secrets"]')).toHaveCount(0);
   });
 
-  // ── Dev Tools / Legacy Config Alias ──────────────────────────────
+  // ── Config Overlay / Legacy Config Alias ─────────────────────────
 
-  test("legacy /config route redirects to Settings with devtools hash", async ({ page }) => {
+  test("legacy /config route redirects to Settings with overlay hash", async ({ page }) => {
     const config = new ConfigPage(page);
     await config.navigateToConfig();
 
     expect(new URL(page.url()).pathname).toBe("/settings");
-    expect(new URL(page.url()).hash).toBe("#devtools");
-    await expect(config.devToolsSection).toBeAttached();
+    expect(new URL(page.url()).hash).toBe("#overlay");
+    await expect(config.overlaySection).toBeVisible();
   });
 
-  test("devtools section shows overlay entries when opened", async ({ page }) => {
+  test("overlay section shows the editor when active", async ({ page }) => {
     const config = new ConfigPage(page);
     await config.navigateToConfig();
 
-    // Details is opened automatically by hash navigation
-    await expect(config.devToolsSection).toHaveAttribute("open", "");
-    await expect(page.getByText("codex.model").first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("orchestrator.max_concurrent").first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test("devtools section shows config editor mode buttons when opened", async ({ page }) => {
-    const config = new ConfigPage(page);
-    await config.navigateToConfig();
-
-    await expect(config.devToolsSection).toHaveAttribute("open", "");
-    await expect(page.locator(".config-mode-label").first()).toBeVisible({ timeout: 5000 });
+    await expect(config.overlaySection).toBeVisible();
+    await expect(page.locator(".settings-overlay-editor")).toBeVisible({ timeout: 5000 });
   });
 
   // ── Credentials / Legacy Secrets Alias ───────────────────────────
@@ -62,14 +51,13 @@ test.describe("Unified Settings Smoke", () => {
 
     expect(new URL(page.url()).pathname).toBe("/settings");
     expect(new URL(page.url()).hash).toBe("#credentials");
-    await expect(config.credentialsSection).toBeAttached();
+    await expect(config.credentialsSection).toBeVisible();
   });
 
   test("credentials section shows secret information", async ({ page }) => {
     const config = new ConfigPage(page);
     await config.navigateToSecrets();
 
-    // Credentials section should show stored credential keys
     await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -77,11 +65,10 @@ test.describe("Unified Settings Smoke", () => {
     const config = new ConfigPage(page);
     await config.navigateToSecrets();
 
-    // The button is now "+ Add credential" instead of "New secret"
     await expect(config.addCredentialButton).toBeVisible({ timeout: 5000 });
   });
 
-  test("global keyboard aliases open devtools and credentials sections", async ({ page }) => {
+  test("global keyboard aliases open overlay and credentials sections", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector("#main-content", { state: "attached" });
     await page.waitForFunction(() => {
@@ -92,7 +79,7 @@ test.describe("Unified Settings Smoke", () => {
     await page.keyboard.press("g");
     await page.keyboard.press("c");
     expect(new URL(page.url()).pathname).toBe("/settings");
-    expect(new URL(page.url()).hash).toBe("#devtools");
+    expect(new URL(page.url()).hash).toBe("#overlay");
 
     await page.keyboard.press("g");
     await page.keyboard.press("s");

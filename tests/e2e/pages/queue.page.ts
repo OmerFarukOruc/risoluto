@@ -82,12 +82,44 @@ export class QueuePage extends BasePage {
     return this.page.locator(".queue-toolbar-filters button", { hasText: "Labels" });
   }
 
-  get groupByButton(): Locator {
-    return this.page.locator(".queue-toolbar-utility button", { hasText: "Group" });
-  }
-
   get newIssueAnchor(): Locator {
     return this.page.locator("a.queue-toolbar-newissue");
+  }
+
+  // ── View mode segmented control + status pills ──────────────────────
+
+  get viewModeSegmented(): Locator {
+    return this.page.locator(".mc-viewmode-seg");
+  }
+
+  viewModeButton(mode: "kanban" | "swimlane" | "list" | "focus"): Locator {
+    return this.viewModeSegmented.locator(`button[data-mode="${mode}"]`);
+  }
+
+  get statusPills(): Locator {
+    return this.page.locator(".mc-status-pills");
+  }
+
+  statusPill(filter: "all" | "running" | "queued" | "claimed" | "blocked" | "done"): Locator {
+    return this.statusPills.locator(`button[data-value="${filter}"]`);
+  }
+
+  // ── Mode-specific containers ────────────────────────────────────────
+
+  get swimlaneGrid(): Locator {
+    return this.page.locator(".queue-swimlane-grid");
+  }
+
+  get listTable(): Locator {
+    return this.page.locator(".queue-list-table");
+  }
+
+  get focusStack(): Locator {
+    return this.page.locator(".queue-focus-stack");
+  }
+
+  get focusEmpty(): Locator {
+    return this.page.locator(".queue-focus-empty");
   }
 
   get popover(): Locator {

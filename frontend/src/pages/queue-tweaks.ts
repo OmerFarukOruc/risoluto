@@ -1,9 +1,9 @@
 import {
   type BoardCardVariant,
   type BoardDensity,
-  type BoardGroupBy,
   type BoardHeaderStyle,
   type BoardTweaks,
+  type BoardViewMode,
 } from "../state/tweaks";
 import { getThemePreference, setTheme, type ThemePreference } from "../ui/theme";
 
@@ -16,6 +16,7 @@ export interface TweaksPanelHandle {
   panel: HTMLElement;
   fab: HTMLButtonElement;
   setOpen(open: boolean): void;
+  refreshForMode(mode: BoardViewMode): void;
   destroy(): void;
 }
 
@@ -86,13 +87,6 @@ const DENSITY_OPTIONS: ReadonlyArray<SegOption<BoardDensity>> = [
   { value: "comfortable", label: "Comfy" },
 ];
 
-const GROUP_OPTIONS: ReadonlyArray<SegOption<BoardGroupBy>> = [
-  { value: "none", label: "None" },
-  { value: "priority", label: "Pri" },
-  { value: "model", label: "Model" },
-  { value: "repo", label: "Repo" },
-];
-
 const HEADER_OPTIONS: ReadonlyArray<SegOption<BoardHeaderStyle>> = [
   { value: "bar", label: "Bar" },
   { value: "accent", label: "Accent" },
@@ -110,13 +104,14 @@ const THEME_OPTIONS: ReadonlyArray<SegOption<"light" | "dark">> = [
   { value: "dark", label: "Dark" },
 ];
 
+const KANBAN_LIKE_MODES: ReadonlySet<BoardViewMode> = new Set<BoardViewMode>(["kanban", "swimlane"]);
+
 export function createTweaksPanel(options: TweaksPanelOptions): TweaksPanelHandle {
   const tweaks = options.getTweaks();
 
   const panel = document.createElement("aside");
   panel.className = "mc-tweaks";
   panel.setAttribute("aria-label", "Board tweaks");
-  panel.hidden = !tweaks.tweaksOpen;
 
   const head = document.createElement("div");
   head.className = "mc-tweaks-head";
@@ -131,32 +126,6 @@ export function createTweaksPanel(options: TweaksPanelOptions): TweaksPanelHandl
 
   const body = document.createElement("div");
   body.className = "mc-tweaks-body";
-
-  const themeRow = buildSeg<"light" | "dark">("Theme", THEME_OPTIONS, resolveCurrentTheme(), (value) => {
-    setTheme(value as ThemePreference);
-    syncSeg(themeRow, value);
-  });
-  const densityRow = buildSeg<BoardDensity>("Density", DENSITY_OPTIONS, tweaks.density, (value) => {
-    options.setTweaks({ density: value });
-    syncSeg(densityRow, value);
-  });
-  const groupRow = buildSeg<BoardGroupBy>("Group by", GROUP_OPTIONS, tweaks.groupBy, (value) => {
-    options.setTweaks({ groupBy: value });
-    syncSeg(groupRow, value);
-  });
-  const headerRow = buildSeg<BoardHeaderStyle>("Column header", HEADER_OPTIONS, tweaks.headerStyle, (value) => {
-    options.setTweaks({ headerStyle: value });
-    syncSeg(headerRow, value);
-  });
-  const variantRow = buildSeg<BoardCardVariant>("Card content", VARIANT_OPTIONS, tweaks.cardVariant, (value) => {
-    options.setTweaks({ cardVariant: value });
-    syncSeg(variantRow, value);
-  });
-  const lifecycleRow = buildToggle("Show lifecycle chip", tweaks.showLifecycle, (next) => {
-    options.setTweaks({ showLifecycle: next });
-  });
-
-  body.append(themeRow, densityRow, groupRow, headerRow, variantRow, lifecycleRow);
   panel.append(head, body);
 
   const fab = document.createElement("button");
@@ -164,19 +133,73 @@ export function createTweaksPanel(options: TweaksPanelOptions): TweaksPanelHandl
   fab.className = "mc-tweaks-fab";
   fab.setAttribute("aria-label", "Show tweaks");
   fab.innerHTML = "✦ Tweaks";
-  fab.hidden = tweaks.tweaksOpen;
 
-  function setOpen(open: boolean): void {
+  let lastMode: BoardViewMode = tweaks.viewMode;
+
+  function buildRowsForMode(mode: BoardViewMode): void {
+    body.replaceChildren();
+    const current = options.getTweaks();
+
+    const themeRow = buildSeg<"light" | "dark">("Theme", THEME_OPTIONS, resolveCurrentTheme(), (value) => {
+      setTheme(value as ThemePreference);
+      syncSeg(themeRow, value);
+    });
+    body.append(themeRow);
+
+    const densityRow = buildSeg<BoardDensity>("Density", DENSITY_OPTIONS, current.density, (value) => {
+      options.setTweaks({ density: value });
+      syncSeg(densityRow, value);
+    });
+    body.append(densityRow);
+
+    if (KANBAN_LIKE_MODES.has(mode)) {
+      const headerRow = buildSeg<BoardHeaderStyle>("Column header", HEADER_OPTIONS, current.headerStyle, (value) => {
+        options.setTweaks({ headerStyle: value });
+        syncSeg(headerRow, value);
+      });
+      const variantRow = buildSeg<BoardCardVariant>("Card content", VARIANT_OPTIONS, current.cardVariant, (value) => {
+        options.setTweaks({ cardVariant: value });
+        syncSeg(variantRow, value);
+      });
+      const lifecycleRow = buildToggle("Show lifecycle chip", current.showLifecycle, (next) => {
+        options.setTweaks({ showLifecycle: next });
+      });
+      body.append(headerRow, variantRow, lifecycleRow);
+    }
+  }
+
+  function applyVisibility(mode: BoardViewMode, open: boolean): void {
+    if (mode === "focus") {
+      panel.hidden = true;
+      fab.hidden = true;
+      return;
+    }
     panel.hidden = !open;
     fab.hidden = open;
+  }
+
+  function setOpen(open: boolean): void {
+    applyVisibility(lastMode, open);
     options.setTweaks({ tweaksOpen: open });
   }
+
+  function refreshForMode(mode: BoardViewMode): void {
+    if (mode !== lastMode) {
+      lastMode = mode;
+      buildRowsForMode(mode);
+    }
+    applyVisibility(mode, options.getTweaks().tweaksOpen);
+  }
+
+  buildRowsForMode(tweaks.viewMode);
+  applyVisibility(tweaks.viewMode, tweaks.tweaksOpen);
 
   close.addEventListener("click", () => setOpen(false));
   fab.addEventListener("click", () => setOpen(true));
 
   const onThemeChange = (): void => {
-    syncSeg(themeRow, resolveCurrentTheme());
+    const themeRow = body.querySelector<HTMLElement>(".mc-tweak-row");
+    if (themeRow) syncSeg(themeRow, resolveCurrentTheme());
   };
   globalThis.addEventListener("theme:change", onThemeChange);
 
@@ -184,6 +207,7 @@ export function createTweaksPanel(options: TweaksPanelOptions): TweaksPanelHandl
     panel,
     fab,
     setOpen,
+    refreshForMode,
     destroy(): void {
       globalThis.removeEventListener("theme:change", onThemeChange);
       panel.remove();

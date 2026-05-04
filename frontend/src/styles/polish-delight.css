@@ -255,26 +255,6 @@
   }
 }
 
-/* ── Settings mode toggle — satisfying slide ─────────── */
-/* Enhances the base transition in settings.css with
-   refined per-state timing. Uses background-color (not
-   the background shorthand) to avoid repainting gradients. */
-
-.settings-mode-btn.is-active {
-  transition:
-    background-color 200ms var(--ease-out-quart),
-    color 150ms var(--ease-out-quart),
-    box-shadow 200ms var(--ease-out-quart),
-    font-weight 0ms;
-}
-
-.settings-mode-btn:not(.is-active) {
-  transition:
-    background-color 150ms var(--ease-out-quart),
-    color 150ms var(--ease-out-quart),
-    box-shadow 150ms var(--ease-out-quart);
-}
-
 /* Chevron transition defined in overview.css */
 
 /* ── Getting-started step numbers — stagger entrance ─── */

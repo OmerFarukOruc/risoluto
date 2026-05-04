@@ -34,4 +34,5 @@ export interface MergePolicy {
   maxDiffLines?: number | null;
   requireLabels: string[];
   excludeLabels: string[];
+  mergeMethod: "merge" | "squash" | "rebase";
 }

@@ -133,7 +133,7 @@ router.register("/issues/:id/logs", logs);
 router.register("/logs/:id", logs);
 router.register("/attempts/:id", attempt);
 
-router.register("/config", aliasSettingsRoute("/settings#devtools", settings), "Settings");
+router.register("/config", aliasSettingsRoute("/settings#overlay", settings), "Settings");
 router.register("/secrets", aliasSettingsRoute("/settings#credentials", settings), "Settings");
 router.register("/observability", observability, "Observability");
 router.register("/settings", settings, "Settings");

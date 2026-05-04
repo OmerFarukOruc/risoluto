@@ -83,8 +83,11 @@ async function tryRequestAutoMerge(
   if (pullNumber === null || !owner || !repo) return;
 
   try {
-    await client.requestAutoMerge(owner, repo, pullNumber, "squash", repoMatch.githubTokenEnv ?? undefined);
-    logger.info({ issue_identifier: issueIdentifier, pull_request_url: pullRequestUrl }, "auto-merge requested");
+    await client.requestAutoMerge(owner, repo, pullNumber, policy.mergeMethod, repoMatch.githubTokenEnv ?? undefined);
+    logger.info(
+      { issue_identifier: issueIdentifier, pull_request_url: pullRequestUrl, merge_method: policy.mergeMethod },
+      "auto-merge requested",
+    );
   } catch (mergeError) {
     logger.warn(
       {

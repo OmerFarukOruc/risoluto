@@ -39,11 +39,16 @@ test.describe("Queue / Issue Smoke", () => {
     await expect(page.getByRole("button", { name: "Hide Backlog lane" })).toBeVisible();
   });
 
-  test("empty columns keep their empty-state content visible", async ({ page }) => {
+  test("empty columns render no empty-state block; header + count stay visible", async ({ page }) => {
     const queue = new QueuePage(page);
     await queue.navigate();
 
-    await expect(queue.columnByLabel("Backlog").getByText("No issues in Backlog")).toBeVisible({ timeout: 5000 });
+    const backlog = queue.columnByLabel("Backlog");
+    await expect(backlog).toBeVisible({ timeout: 5000 });
+    // Per-column "No issues in X" / "Open overview" text is intentionally gone in the redesign;
+    // the blank column body is the empty state. Header label + count must still render.
+    await expect(backlog.locator(".mc-empty-state")).toHaveCount(0);
+    await expect(backlog.locator(".kanban-column-label")).toContainText("Backlog");
   });
 
   test("kanban shows issue cards with identifiers", async ({ page }) => {

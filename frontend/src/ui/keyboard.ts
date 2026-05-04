@@ -30,7 +30,7 @@ function handlePrefixKey(event: KeyboardEvent, router: Router, options: Keyboard
   const destinations: Record<string, string> = {
     o: "/",
     q: "/queue",
-    c: "/settings#devtools",
+    c: "/settings#overlay",
     s: "/settings#credentials",
     m: "/observability",
     n: "/notifications",

@@ -30,6 +30,15 @@ export const agentConfigSchema = z.object({
   prMonitorIntervalMs: z.number().int().min(10000).default(60000),
 
   /**
+   * When true (the default — preserves the historical orchestrator
+   * behaviour), the orchestrator automatically claims actionable issues in
+   * `todo` workflow states and dispatches a worker. When false, todo-state
+   * issues are left untouched: the operator must transition them to a
+   * post-claim active state before the orchestrator will pick them up.
+   */
+  autoClaim: z.boolean().default(true),
+
+  /**
    * Auto-merge policy. When `enabled` is false (the default), the engine
    * never requests auto-merge regardless of other fields.
    */
@@ -38,6 +47,7 @@ export const agentConfigSchema = z.object({
     allowedPaths: [],
     requireLabels: [],
     excludeLabels: [],
+    mergeMethod: "squash",
   }),
 });
 

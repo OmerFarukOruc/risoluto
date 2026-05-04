@@ -24,7 +24,7 @@ test.describe("Settings Slack Test Button Smoke", () => {
     await settings.goto("/settings#notifications");
     await settings.waitForPageContent();
 
-    const notificationsSection = page.locator("#settings-notifications");
+    const notificationsSection = page.locator("#section-notifications");
     await expect(notificationsSection).toBeVisible();
 
     const sendTestButton = notificationsSection.getByRole("button", { name: /send test/i });
@@ -63,7 +63,7 @@ test.describe("Settings Slack Test Button Smoke", () => {
     await settings.goto("/settings#notifications");
     await settings.waitForPageContent();
 
-    const notificationsSection = page.locator("#settings-notifications");
+    const notificationsSection = page.locator("#section-notifications");
     const sendTestButton = notificationsSection.getByRole("button", { name: /send test/i });
     await sendTestButton.click();
 

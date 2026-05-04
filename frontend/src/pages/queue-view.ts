@@ -1,26 +1,34 @@
+import { createEmptyState } from "../components/empty-state";
 import { createIssueInspector } from "../components/issue-inspector.js";
 import { router } from "../router.js";
 import { registerPageCleanup } from "../utils/page.js";
 import { createQueueWorkbench } from "../features/queue/queue-workbench.js";
 import { createQueueBoardRenderer } from "./queue-board.js";
+import { createQueueSwimlaneRenderer } from "./queue-swimlane.js";
+import { createQueueListRenderer } from "./queue-list.js";
+import { createQueueFocusRenderer } from "./queue-focus.js";
 import { createDragStateManager, type DragStateManager } from "./drag-state.js";
 import { buildQueueToolbar } from "./queue-toolbar.js";
 import { createTweaksPanel } from "./queue-tweaks.js";
 import { createBulkToolbar } from "./queue-bulk-toolbar.js";
-import { type BoardTweaks, loadTweaks, saveTweaks } from "../state/tweaks";
+import { type BoardTweaks, type BoardViewMode, loadTweaks, saveTweaks } from "../state/tweaks";
 import { getRuntimeClient } from "../state/runtime-client.js";
-import { filterColumn } from "./queue-state.js";
+import { filterColumn, matchesStatusFilter } from "./queue-state.js";
 
 const DEFAULT_NEW_ISSUE_URL = "https://linear.app/";
 
+interface BoardRenderer {
+  renderLoading(): void;
+  render(columns: import("../types/runtime.js").WorkflowColumn[]): void;
+}
+
 export function createQueuePage(params?: Record<string, string>): HTMLElement {
   const dragManager: DragStateManager = createDragStateManager();
-  // The workbench's `onBulkMove` callback needs `state.columns`, but `state`
-  // is destructured from `workbench` *after* construction. Indirect through
-  // a getter so the closure resolves at call time, not at construction.
   let getColumns: () => readonly import("../types/runtime.js").WorkflowColumn[] = () => [];
+  let tweaks: BoardTweaks = loadTweaks();
   const workbench = createQueueWorkbench({
     routeId: params?.id,
+    initialCollapsedColumns: tweaks.collapsedColumns,
     deps: {
       onBulkMove: (targetColumnKey, identifiers) => {
         void Promise.all(identifiers.map((id) => dragManager.onDrop(id, targetColumnKey, [...getColumns()])));
@@ -29,7 +37,6 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   });
   const { state } = workbench;
   getColumns = () => state.columns;
-  let tweaks: BoardTweaks = loadTweaks();
   const page = document.createElement("div");
   page.className = "page queue-page fade-in";
   const mainPane = document.createElement("div");
@@ -62,26 +69,89 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   let lastToolbarKey = "";
   let lastToolbarSearch = state.filters.search;
   let lastInspectorId = "";
+  let activeRenderer: BoardRenderer | null = null;
 
   function applyTweaks(patch: Partial<BoardTweaks>): void {
     tweaks = saveTweaks(patch);
     render();
   }
 
-  const boardRenderer = createQueueBoardRenderer({
+  function persistCollapsed(): void {
+    const list = [...state.ui.collapsed].filter((value) => typeof value === "string");
+    if (list.length === tweaks.collapsedColumns.length && list.every((key) => tweaks.collapsedColumns.includes(key))) {
+      return;
+    }
+    applyTweaks({ collapsedColumns: list });
+  }
+
+  const kanbanRenderer = createQueueBoardRenderer({
     board,
     filters: state.filters,
     getUi: () => state.ui,
     getTweaks: () => tweaks,
     getRouteId: () => state.routeId,
-    clearFilters: () => workbench.clearFilters(),
     requestRender: renderBoard,
     onOpenIssue: (issueId, fullPage) => workbench.openIssue(issueId, fullPage),
-    onToggleColumnCollapse: (columnKey) => workbench.toggleColumnCollapse(columnKey),
+    onToggleColumnCollapse: (columnKey) => {
+      workbench.toggleColumnCollapse(columnKey);
+      persistCollapsed();
+    },
     onFocusCard: (columnIndex, cardIndex) => workbench.focusCard(columnIndex, cardIndex),
     onToggleSelect: (issueId, additive) => workbench.toggleSelect(issueId, additive),
     dragManager,
   });
+
+  const swimlaneRenderer = createQueueSwimlaneRenderer({
+    board,
+    filters: state.filters,
+    getUi: () => state.ui,
+    getTweaks: () => tweaks,
+    getRouteId: () => state.routeId,
+    onOpenIssue: (issueId, fullPage) => workbench.openIssue(issueId, fullPage),
+    onFocusCard: (columnIndex, cardIndex) => workbench.focusCard(columnIndex, cardIndex),
+    onToggleSelect: (issueId, additive) => workbench.toggleSelect(issueId, additive),
+    onSeenReposChanged: (next) => applyTweaks({ seenRepos: [...next] }),
+    dragManager,
+  });
+
+  const listRenderer = createQueueListRenderer({
+    board,
+    filters: state.filters,
+    getUi: () => state.ui,
+    getTweaks: () => tweaks,
+    getRouteId: () => state.routeId,
+    onOpenIssue: (issueId, fullPage) => workbench.openIssue(issueId, fullPage),
+  });
+
+  const focusRenderer = createQueueFocusRenderer({
+    board,
+    getRouteId: () => state.routeId,
+    onOpenIssue: (issueId, fullPage) => workbench.openIssue(issueId, fullPage),
+    getRecentEvents: () => state.recentEvents,
+    onSetStatusFilter: (filter) => applyTweaks({ statusFilter: filter }),
+  });
+
+  function pickRenderer(mode: BoardViewMode): BoardRenderer {
+    switch (mode) {
+      case "swimlane":
+        return swimlaneRenderer;
+      case "list":
+        return listRenderer;
+      case "focus":
+        return focusRenderer;
+      default:
+        return kanbanRenderer;
+    }
+  }
+
+  function setActiveMode(mode: BoardViewMode): void {
+    const next = pickRenderer(mode);
+    if (next === activeRenderer) return;
+    activeRenderer = next;
+    board.dataset.viewMode = mode;
+    boardWrap.dataset.viewMode = mode;
+    board.replaceChildren();
+  }
 
   const tweaksHandle = createTweaksPanel({
     getTweaks: () => tweaks,
@@ -103,15 +173,19 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
   }
 
   function getFilteredCount(): number {
+    const skipStatusFilter = tweaks.statusFilter === "all";
     let count = 0;
     for (const column of state.columns) {
-      count += filterColumn(column, state.filters).length;
+      const filtered = filterColumn(column, state.filters);
+      count += skipStatusFilter
+        ? filtered.length
+        : filtered.filter((issue) => matchesStatusFilter(issue, tweaks.statusFilter)).length;
     }
     return count;
   }
 
   function renderToolbar(force = false): void {
-    const nextToolbarKey = `${workbench.getToolbarKey()}|${tweaks.groupBy}|${tweaks.cardVariant}`;
+    const nextToolbarKey = `${workbench.getToolbarKey()}|${tweaks.viewMode}|${tweaks.statusFilter}|${tweaks.cardVariant}`;
     const nextSearch = state.filters.search;
     const searchIsFocused = document.activeElement === searchInput;
     const shouldRebuild =
@@ -137,7 +211,8 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
       onSetRepo: (repo) => workbench.setRepo(repo),
       onToggleLabel: (label) => workbench.toggleLabel(label),
       onClearFilters: () => workbench.clearFilters(),
-      onSetGroupBy: (groupBy) => applyTweaks({ groupBy }),
+      onSetViewMode: (mode) => applyTweaks({ viewMode: mode }),
+      onSetStatusFilter: (filter) => applyTweaks({ statusFilter: filter }),
     });
     searchInput = built.search;
     filterButton = built.firstStageChip();
@@ -153,15 +228,45 @@ export function createQueuePage(params?: Record<string, string>): HTMLElement {
     lastInspectorId = state.routeId;
   }
 
+  function snapshotIsTotallyEmpty(): boolean {
+    if (!state.hasSnapshot) return false;
+    for (const column of state.columns) {
+      if ((column.issues ?? []).length > 0) return false;
+    }
+    return true;
+  }
+
+  function renderWholeBoardEmpty(): void {
+    boardWrap.classList.add("is-board-empty");
+    board.replaceChildren(
+      createEmptyState(
+        "No issues yet",
+        "Connect a tracker to start syncing work to the board.",
+        "Open settings",
+        () => router.navigate("/settings"),
+        "queue",
+        { headingLevel: "h2", actionVariant: "primary" },
+      ),
+    );
+  }
+
   function renderBoard(): void {
     if (!state.hasSnapshot) {
-      boardRenderer.renderLoading();
+      setActiveMode(tweaks.viewMode);
+      activeRenderer?.renderLoading();
       return;
     }
-    boardRenderer.render(state.columns);
+    if (snapshotIsTotallyEmpty()) {
+      renderWholeBoardEmpty();
+      return;
+    }
+    boardWrap.classList.remove("is-board-empty");
+    setActiveMode(tweaks.viewMode);
+    activeRenderer?.render(state.columns);
   }
 
   function render(): void {
+    tweaksHandle.refreshForMode(tweaks.viewMode);
     renderToolbar();
     renderBoard();
     syncInspector();

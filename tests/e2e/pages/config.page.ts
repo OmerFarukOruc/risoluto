@@ -2,10 +2,11 @@ import type { Page, Locator } from "@playwright/test";
 import { BasePage } from "./base.page";
 
 /**
- * Page Object Model for the unified Settings page and its legacy aliases.
+ * Page Object Model for the Settings page and its legacy URL aliases.
  *
- * The settings page uses a scroll-synced sidebar rail with `.settings-nav-item`
- * buttons instead of tabs. Sections are rendered as cards in a scrollable area.
+ * The settings page uses a two-column layout: `.settings-page-nav` on the left
+ * and a scrollable `.settings-page-pane-body` on the right. Navigation items
+ * use `.settings-page-nav-item` with `aria-current="true"` for the active item.
  */
 export class ConfigPage extends BasePage {
   constructor(page: Page) {
@@ -18,114 +19,60 @@ export class ConfigPage extends BasePage {
   }
 
   async navigateToConfig(): Promise<void> {
-    await this.goto("/settings#devtools");
+    await this.goto("/settings#overlay");
     await this.waitForPageContent();
-    await this.devToolsSection.waitFor({ state: "attached" });
-    // Wait for the details element to open (triggered by hash navigation)
-    await this.page.waitForFunction(() => {
-      const details = document.querySelector<HTMLDetailsElement>(".settings-devtools-section");
-      return details?.open === true;
-    });
+    await this.overlaySection.waitFor({ state: "attached" });
   }
 
   async navigateToSecrets(): Promise<void> {
     await this.goto("/settings#credentials");
     await this.waitForPageContent();
-    // Wait for the credentials section card to be visible
     await this.credentialsSection.waitFor({ state: "attached" });
-  }
-
-  /**
-   * Codex admin lives inside a collapsible <details> on the settings page.
-   * Open it before asserting on its inner headings or interacting with controls.
-   */
-  async openCodexAdmin(): Promise<void> {
-    const summary = this.codexAdminSection.locator("summary");
-    await summary.waitFor({ state: "attached" });
-    await summary.click();
-    await this.page.waitForFunction(() => {
-      const details = document.querySelector<HTMLDetailsElement>(".settings-codex-admin-section");
-      return details?.open === true;
-    });
   }
 
   // ── Rail Navigation ─────────────────────────────────────────────────
 
   get settingsRail(): Locator {
-    return this.page.locator(".settings-rail");
+    return this.page.locator(".settings-page-nav");
   }
 
   get railNavItems(): Locator {
-    return this.page.locator(".settings-nav-item");
+    return this.page.locator(".settings-page-nav-item");
   }
 
   railNavItemByTitle(title: string): Locator {
-    return this.page.locator(".settings-nav-item").filter({ hasText: title });
+    return this.page.locator(".settings-page-nav-item").filter({ hasText: title });
   }
 
   // ── Sections ────────────────────────────────────────────────────────
 
   get credentialsSection(): Locator {
-    return this.page.locator("#settings-credentials");
-  }
-
-  get devToolsSection(): Locator {
-    return this.page.locator(".settings-devtools-section");
-  }
-
-  get codexAdminSection(): Locator {
-    return this.page.locator(".settings-codex-admin-section");
-  }
-
-  // ── Config View ──────────────────────────────────────────────────────
-
-  get configTable(): Locator {
-    return this.page.locator("table, .config-table, [class*='config']").first();
-  }
-
-  get configRows(): Locator {
-    return this.page.locator("tr, .config-row, [class*='config-row']");
+    return this.page.locator("#section-credentials");
   }
 
   get overlaySection(): Locator {
-    return this.page.locator("[class*='overlay'], [class*='override']").first();
+    return this.page.locator("#section-overlay");
+  }
+
+  get agentSection(): Locator {
+    return this.page.locator("#section-agent");
   }
 
   // ── Credentials ─────────────────────────────────────────────────────
 
   get credentialPills(): Locator {
-    return this.page.locator(".settings-credential-pill");
+    return this.page.locator(".settings-list-row");
   }
 
   get addCredentialButton(): Locator {
-    return this.page.getByRole("button", { name: /add credential/i });
+    return this.page.getByRole("button", { name: /add secret/i });
   }
 
   credentialByKey(key: string): Locator {
-    return this.page.locator(".settings-credential-pill").filter({ hasText: key });
+    return this.page.locator(".settings-list-row").filter({ hasText: key });
   }
 
   credentialDeleteButton(key: string): Locator {
-    return this.credentialByKey(key).locator(".settings-credential-delete");
-  }
-
-  // ── Legacy Aliases (kept for backward compat) ───────────────────────
-
-  get secretsList(): Locator {
-    return this.page.locator(".settings-credential-list, .secrets-list, table, [class*='secret']").first();
-  }
-
-  get secretRows(): Locator {
-    return this.page
-      .locator(".settings-credential-pill, .secret-row, tr")
-      .filter({ has: this.page.locator("span, td, .secret-key") });
-  }
-
-  get addSecretButton(): Locator {
-    return this.addCredentialButton;
-  }
-
-  secretByKey(key: string): Locator {
-    return this.credentialByKey(key);
+    return this.credentialByKey(key).locator("button");
   }
 }

@@ -39,4 +39,12 @@ export const mergePolicyConfigSchema = z.object({
    * An empty array means no excluded labels.
    */
   excludeLabels: z.array(z.string()).default([]),
+
+  /**
+   * GitHub merge strategy used when auto-merge fires. `squash` keeps `main`
+   * linear and is the historical Risoluto default. `merge` and `rebase` are
+   * accepted but require the corresponding repository merge setting to be
+   * enabled in GitHub.
+   */
+  mergeMethod: z.enum(["merge", "squash", "rebase"]).default("squash"),
 });

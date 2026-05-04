@@ -13,7 +13,6 @@ test.describe("Settings Tabs Visual Regression", () => {
     await config.navigateToSecrets();
 
     await expect(config.credentialsSection).toBeVisible();
-    await expect(page.getByText("Stored credentials").first()).toBeVisible();
     await expect(page.getByText("LINEAR_API_KEY").first()).toBeVisible();
     await expect(config.addCredentialButton).toBeVisible();
     await applyScreenshotStyles(page);
@@ -22,31 +21,19 @@ test.describe("Settings Tabs Visual Regression", () => {
     await expect(config.credentialsSection).toHaveScreenshot("settings-credentials-tab.png");
   });
 
-  test("settings devtools tab", async ({ page, apiMock }) => {
+  test("settings overlay tab", async ({ page, apiMock }) => {
     await freezeClock(page);
     const scenario = apiMock.scenario().withSetupConfigured().build();
     await apiMock.install(scenario);
 
     const config = new ConfigPage(page);
     await config.navigateToConfig();
-    await page.evaluate(() => {
-      const devtoolsEl = document.querySelector<HTMLDetailsElement>(".settings-devtools-section");
-      if (devtoolsEl) {
-        devtoolsEl.open = true;
-        devtoolsEl.scrollIntoView({ block: "start" });
-      }
-    });
-    await page.waitForFunction(() => {
-      const devtoolsEl = document.querySelector<HTMLDetailsElement>(".settings-devtools-section");
-      return devtoolsEl?.open === true;
-    });
+    await expect(config.overlaySection).toBeVisible();
 
-    await page.waitForTimeout(1000);
-    await applyScreenshotStyles(page);
     await page.waitForTimeout(500);
+    await applyScreenshotStyles(page);
+    await page.waitForTimeout(200);
 
-    await expect(page).toHaveScreenshot("settings-devtools-tab.png", {
-      fullPage: true,
-    });
+    await expect(config.overlaySection).toHaveScreenshot("settings-overlay-tab.png");
   });
 });

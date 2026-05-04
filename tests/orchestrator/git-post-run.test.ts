@@ -56,6 +56,7 @@ function makePolicy(overrides: Partial<MergePolicy> = {}): MergePolicy {
     excludeLabels: [],
     maxChangedFiles: null,
     maxDiffLines: null,
+    mergeMethod: "squash",
     ...overrides,
   };
 }
@@ -171,10 +172,38 @@ describe("executeGitPostRun", () => {
     );
     expect(autoMerge.client.requestAutoMerge).toHaveBeenCalledWith("org", "repo", 99, "squash", "GITHUB_TOKEN");
     expect(autoMerge.logger.info).toHaveBeenCalledWith(
-      { issue_identifier: issue.identifier, pull_request_url: "https://github.com/org/repo/pull/99" },
+      {
+        issue_identifier: issue.identifier,
+        pull_request_url: "https://github.com/org/repo/pull/99",
+        merge_method: "squash",
+      },
       "auto-merge requested",
     );
   });
+
+  it.each(["merge", "rebase"] as const)(
+    "passes the configured mergeMethod=%s through to requestAutoMerge",
+    async (method) => {
+      const workspace = makeWorkspace();
+      const issue = makeIssue({ labels: ["ready"] });
+      const repoMatch = makeRepoMatch();
+      const autoMerge = makeAutoMerge({ policy: { mergeMethod: method } });
+      const gitManager = makeGitManager({
+        pushed: true,
+        prUrl: "https://github.com/org/repo/pull/99",
+        changedFiles: ["src/a.ts"],
+        diffStats: { additions: 1, deletions: 0 },
+      });
+
+      await executeGitPostRun(gitManager, workspace, issue, repoMatch, autoMerge);
+
+      expect(autoMerge.client.requestAutoMerge).toHaveBeenCalledWith("org", "repo", 99, method, "GITHUB_TOKEN");
+      expect(autoMerge.logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ merge_method: method }),
+        "auto-merge requested",
+      );
+    },
+  );
 
   it("logs the blocking reason when policy rejects auto-merge", async () => {
     const workspace = makeWorkspace();

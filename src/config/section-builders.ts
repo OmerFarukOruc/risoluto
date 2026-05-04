@@ -40,6 +40,7 @@ const AGENT_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
   ["auto_retry_on_review_feedback", "autoRetryOnReviewFeedback"],
   ["pr_monitor_interval_ms", "prMonitorIntervalMs"],
   ["auto_merge", "autoMerge"],
+  ["auto_claim", "autoClaim"],
 ];
 
 const MERGE_POLICY_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
@@ -48,6 +49,7 @@ const MERGE_POLICY_ALIAS_REGISTRY: ReadonlyArray<readonly [string, string]> = [
   ["exclude_labels", "excludeLabels"],
   ["max_changed_files", "maxChangedFiles"],
   ["max_diff_lines", "maxDiffLines"],
+  ["merge_method", "mergeMethod"],
 ];
 
 export function normalizeRecord(
@@ -137,6 +139,9 @@ function deriveMergePolicyConfig(raw: Record<string, unknown>): ServiceConfig["a
   const maxChangedFiles = rawMaxFiles !== undefined && rawMaxFiles !== null ? asNumber(rawMaxFiles, 0) : undefined;
   const rawMaxLines = norm.max_diff_lines;
   const maxDiffLines = rawMaxLines !== undefined && rawMaxLines !== null ? asNumber(rawMaxLines, 0) : undefined;
+  const rawMethod = asString(norm.merge_method, "squash");
+  const mergeMethod: ServiceConfig["agent"]["autoMerge"]["mergeMethod"] =
+    rawMethod === "merge" || rawMethod === "rebase" ? rawMethod : "squash";
 
   return {
     enabled: asBoolean(norm.enabled, false),
@@ -145,6 +150,7 @@ function deriveMergePolicyConfig(raw: Record<string, unknown>): ServiceConfig["a
     maxDiffLines,
     requireLabels,
     excludeLabels,
+    mergeMethod,
   };
 }
 
@@ -167,6 +173,7 @@ export function deriveAgentConfig(agent: Record<string, unknown>): ServiceConfig
     autoRetryOnReviewFeedback: asBoolean(norm.auto_retry_on_review_feedback, false),
     prMonitorIntervalMs: asNumber(norm.pr_monitor_interval_ms, 60000),
     autoMerge: deriveMergePolicyConfig(asRecord(norm.auto_merge)),
+    autoClaim: asBoolean(norm.auto_claim, true),
   };
 }
 

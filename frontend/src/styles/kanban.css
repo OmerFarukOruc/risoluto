@@ -211,6 +211,7 @@
 @media (min-width: 1181px) {
   .kanban-column-toggle {
     min-height: 2rem;
+    gap: var(--space-1);
     padding: 0 var(--space-3);
     border-radius: 999px;
     background: linear-gradient(

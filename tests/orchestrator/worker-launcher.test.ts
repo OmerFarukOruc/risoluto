@@ -27,6 +27,7 @@ function makeConfig(overrides: Partial<ServiceConfig["agent"]> = {}): ServiceCon
       maxContinuationAttempts: 5,
       successState: null,
       stallTimeoutMs: 1200000,
+      autoClaim: true,
       ...overrides,
     },
   } as unknown as ServiceConfig;
@@ -80,6 +81,18 @@ describe("canDispatchIssue", () => {
       blockedBy: [{ id: "blk", identifier: "MT-0", state: "In Progress" }],
     });
     // blocker check only applies to todo-state issues
+    expect(canDispatchIssue(issue, config, new Set())).toBe(true);
+  });
+
+  it("skips todo-state issues when autoClaim is disabled", () => {
+    const config = makeConfig({ autoClaim: false });
+    const issue = createIssue({ state: "Todo" });
+    expect(canDispatchIssue(issue, config, new Set())).toBe(false);
+  });
+
+  it("still dispatches non-todo active issues when autoClaim is disabled", () => {
+    const config = makeConfig({ autoClaim: false });
+    const issue = createIssue({ state: "In Progress" });
     expect(canDispatchIssue(issue, config, new Set())).toBe(true);
   });
 });

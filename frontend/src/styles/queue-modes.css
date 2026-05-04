@@ -1,0 +1,470 @@
+/* ============================================
+   QUEUE-MODES — Swimlane / List / Focus renderers.
+   Layered after kanban.css + board-redesign.css.
+   ============================================ */
+
+/* ---------- Swimlane (Status × Repo matrix) ---------- */
+
+.kanban-board[data-view-mode="swimlane"] {
+  display: block;
+}
+
+.queue-swimlane-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) repeat(var(--swimlane-status-count, 5), minmax(220px, 1fr));
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.queue-swimlane-header-row {
+  display: contents;
+}
+
+.queue-swimlane-corner {
+  background: transparent;
+}
+
+.queue-swimlane-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--bg-surface);
+  font-family: var(--font-heading);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.queue-swimlane-status-header[data-header-style="accent"] {
+  background: color-mix(in srgb, var(--text-muted) 10%, var(--bg-surface));
+}
+
+.queue-swimlane-status-header[data-header-style="minimal"] {
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--border-stitch) 38%, transparent);
+}
+
+.queue-swimlane-status-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.queue-swimlane-row {
+  display: contents;
+}
+
+.queue-swimlane-row-label {
+  align-self: stretch;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  border-top: 1px solid color-mix(in srgb, var(--border-stitch) 50%, transparent);
+}
+
+.queue-swimlane-cell {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  min-height: 64px;
+  border-top: 1px solid color-mix(in srgb, var(--border-stitch) 50%, transparent);
+  background: var(--bg-surface);
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.queue-swimlane-cell.is-drag-over {
+  background: color-mix(in srgb, var(--color-copper-500) 10%, var(--bg-elevated));
+  outline: 1px dashed color-mix(in srgb, var(--color-copper-500) 50%, transparent);
+  outline-offset: -2px;
+}
+
+.queue-swimlane-cell.is-drop-reject {
+  background: color-mix(in srgb, var(--status-blocked) 8%, var(--bg-surface));
+}
+
+.queue-swimlane-skeleton {
+  grid-column: 1 / -1;
+}
+
+/* ---------- List ---------- */
+
+.kanban-board[data-view-mode="list"] {
+  display: block;
+}
+
+.queue-list-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.queue-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.queue-list-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.queue-list-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  font-weight: var(--font-semibold);
+}
+
+.queue-list-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.queue-list-sort:hover {
+  color: var(--text-primary);
+}
+
+.queue-list-sort.is-active {
+  color: var(--text-accent);
+}
+
+.queue-list-sort-indicator {
+  font-size: 9px;
+  color: var(--text-accent);
+}
+
+.queue-list-row {
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out-quart);
+}
+
+.queue-list-row:hover {
+  background: var(--bg-elevated);
+}
+
+.queue-list-row.is-selected {
+  background: color-mix(in srgb, var(--color-copper-500) 10%, var(--bg-elevated));
+}
+
+.queue-list-row.is-multi-select {
+  box-shadow: inset 3px 0 0 var(--text-accent);
+}
+
+.queue-list-row td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-stitch) 50%, transparent);
+  vertical-align: middle;
+}
+
+.queue-list-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+}
+
+.queue-list-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.queue-list-row[data-status="running"] .queue-list-status-dot,
+.queue-list-row[data-status="in_progress"] .queue-list-status-dot {
+  background: var(--status-running);
+}
+
+.queue-list-row[data-status="queued"] .queue-list-status-dot,
+.queue-list-row[data-status="todo"] .queue-list-status-dot {
+  background: var(--status-queued);
+}
+
+.queue-list-row[data-status="claimed"] .queue-list-status-dot {
+  background: var(--status-claimed);
+}
+
+.queue-list-row[data-status="blocked"] .queue-list-status-dot {
+  background: var(--status-blocked);
+}
+
+.queue-list-row[data-status="retrying"] .queue-list-status-dot {
+  background: var(--status-retrying);
+}
+
+.queue-list-row[data-status="completed"] .queue-list-status-dot,
+.queue-list-row[data-status="done"] .queue-list-status-dot {
+  background: var(--status-completed, var(--text-muted));
+}
+
+.queue-list-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-accent);
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+}
+
+.queue-list-title {
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.queue-list-repo {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.queue-list-model {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.queue-list-model-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.queue-list-age,
+.queue-list-progress {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.queue-list-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-default);
+}
+
+/* ---------- Focus (running-only expanded feed) ---------- */
+
+.kanban-board[data-view-mode="focus"] {
+  display: block;
+}
+
+.queue-focus-stack {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.queue-focus-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--status-running) 28%, var(--border-stitch));
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.queue-focus-card.is-selected {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+.queue-focus-card-head {
+  display: grid;
+  gap: 4px;
+}
+
+.queue-focus-card-idline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.queue-focus-card-id {
+  color: var(--text-accent);
+  letter-spacing: var(--tracking-wide);
+}
+
+.queue-focus-card-repo {
+  color: var(--text-muted);
+}
+
+.queue-focus-card-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-bold);
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.queue-focus-card-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-stitch) 50%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-stitch) 50%, transparent);
+}
+
+.queue-focus-card-meta dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--text-muted);
+}
+
+.queue-focus-card-meta dd {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.queue-focus-card-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.queue-focus-card-log-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--text-muted);
+}
+
+.queue-focus-card-log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.queue-focus-card-log-line {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.queue-focus-card-log-time {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.queue-focus-card-log-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.queue-focus-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.queue-focus-skeleton {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.queue-focus-empty {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  max-width: 480px;
+  margin: var(--space-6) auto 0;
+}
+
+.queue-focus-empty-headline {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-weight: var(--font-semibold);
+}
+
+.queue-focus-empty-counts {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+}
+
+.queue-focus-empty-link {
+  border: 0;
+  background: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.queue-focus-empty-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Whole-board empty state (any mode) ---------- */
+
+.kanban-board-wrap.is-board-empty .kanban-board {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}

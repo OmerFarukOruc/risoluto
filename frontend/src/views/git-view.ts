@@ -389,7 +389,7 @@ function renderGitContext(page: HTMLElement, data: GitPageData): void {
         "No repositories linked yet",
         "Repositories connect your Linear issues to GitHub. Add one under Settings \u2192 Repositories so Risoluto knows where each issue should commit.",
         "Open repository settings",
-        () => router.navigate("/settings#devtools"),
+        () => router.navigate("/settings#overlay"),
         "default",
         { headingLevel: "h2" },
       ),

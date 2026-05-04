@@ -1,6 +1,4 @@
-import { createEmptyState } from "../components/empty-state";
 import { createKanbanCard, type KanbanCardHandle } from "../components/kanban-card";
-import { router } from "../router";
 import {
   createKanbanColumn,
   applyColumnStage,
@@ -9,7 +7,7 @@ import {
 } from "../components/kanban-column";
 import type { RuntimeIssueView, WorkflowColumn } from "../types/runtime.js";
 import { skeletonColumn } from "../ui/skeleton";
-import { filterColumn, hasActiveFilters, type QueueFilters, type QueueUiState } from "./queue-state";
+import { filterColumn, matchesStatusFilter, type QueueFilters, type QueueUiState } from "./queue-state";
 import type { BoardTweaks } from "../state/tweaks";
 import type { DragStateManager } from "./drag-state";
 
@@ -19,7 +17,6 @@ interface QueueBoardRendererOptions {
   getUi: () => QueueUiState;
   getTweaks: () => BoardTweaks;
   getRouteId: () => string;
-  clearFilters: () => void;
   requestRender: () => void;
   onOpenIssue: (issueId: string, fullPage: boolean) => void;
   onToggleColumnCollapse: (columnKey: string) => void;
@@ -122,8 +119,12 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
     currentColumns = columns;
     const nextIssueIds = new Set<string>();
     const ui = options.getUi();
+    const skipStatusFilter = tweaks.statusFilter === "all";
     const sections = columns.map((column, columnIndex) => {
-      const list = filterColumn(column, options.filters);
+      const filtered = filterColumn(column, options.filters);
+      const list = skipStatusFilter
+        ? filtered
+        : filtered.filter((issue) => matchesStatusFilter(issue, tweaks.statusFilter));
       const handle = getColumnHandle(column.key);
       applyColumnStage(handle, column.key);
       handle.section.dataset.kind = column.kind;
@@ -148,25 +149,7 @@ export function createQueueBoardRenderer(options: QueueBoardRendererOptions): {
       handle.toggle.setAttribute("aria-expanded", String(!collapsed));
 
       if (list.length === 0) {
-        const emptyHint = column.terminal
-          ? "Finished work will collect here as issues complete."
-          : ATTENTION_LANE_KEYS.has(column.key)
-            ? "If work needs a retry, unblock, or decision, it will surface here first."
-            : LIVE_LANE_KEYS.has(column.key)
-              ? "Active work appears here while agents are running."
-              : "Issues will appear here as Linear syncs new work.";
-        const emptyVariant = column.terminal ? "terminal" : ATTENTION_LANE_KEYS.has(column.key) ? "attention" : "queue";
-        const filtersActive = hasActiveFilters(options.filters);
-        handle.body.replaceChildren(
-          createEmptyState(
-            `No issues in ${column.label}`,
-            filtersActive ? `${emptyHint} Try clearing filters to see the full board.` : emptyHint,
-            filtersActive ? "Clear filters" : "Open overview",
-            filtersActive ? options.clearFilters : () => router.navigate("/"),
-            emptyVariant,
-            { headingLevel: "h2", actionVariant: "ghost" },
-          ),
-        );
+        handle.body.replaceChildren();
         return handle.section;
       }
 

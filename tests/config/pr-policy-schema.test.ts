@@ -53,6 +53,20 @@ describe("mergePolicyConfigSchema", () => {
   it("rejects non-integer maxDiffLines", () => {
     expect(() => mergePolicyConfigSchema.parse({ maxDiffLines: 1.2 })).toThrow();
   });
+
+  it("defaults mergeMethod to squash", () => {
+    const result = mergePolicyConfigSchema.parse({});
+    expect(result.mergeMethod).toBe("squash");
+  });
+
+  it.each(["merge", "squash", "rebase"] as const)("accepts mergeMethod=%s", (method) => {
+    const result = mergePolicyConfigSchema.parse({ mergeMethod: method });
+    expect(result.mergeMethod).toBe(method);
+  });
+
+  it("rejects unknown mergeMethod values", () => {
+    expect(() => mergePolicyConfigSchema.parse({ mergeMethod: "fast-forward" })).toThrow();
+  });
 });
 
 describe("agentConfigSchema — new PR/CI fields", () => {
@@ -111,17 +125,29 @@ describe("agentConfigSchema — new PR/CI fields", () => {
     expect(result.autoMerge.excludeLabels).toEqual(["wip"]);
   });
 
-  it("full empty parse includes all three new fields with correct defaults", () => {
+  it("full empty parse includes all new fields with correct defaults", () => {
     const result = agentConfigSchema.parse({});
     expect(result).toMatchObject({
       autoRetryOnReviewFeedback: false,
       prMonitorIntervalMs: 60000,
+      autoClaim: true,
       autoMerge: {
         enabled: false,
         allowedPaths: [],
         requireLabels: [],
         excludeLabels: [],
+        mergeMethod: "squash",
       },
     });
+  });
+
+  it("preserves autoClaim: false", () => {
+    const result = agentConfigSchema.parse({ autoClaim: false });
+    expect(result.autoClaim).toBe(false);
+  });
+
+  it("autoClaim defaults to true to preserve historical behaviour", () => {
+    const result = agentConfigSchema.parse({});
+    expect(result.autoClaim).toBe(true);
   });
 });

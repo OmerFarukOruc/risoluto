@@ -199,7 +199,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
 
   # ── Phase 3: E2E Smoke Tests (parallel, uses cached build) ──────────
   e2e-smoke:

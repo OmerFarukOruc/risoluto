@@ -58,12 +58,12 @@
     "chokidar": "^5.0.0",
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
-    "express-rate-limit": "^8.4.1",
+    "express-rate-limit": "^8.5.1",
     "liquidjs": "^10.25.7",
     "node-cron": "^4.2.1",
     "pino": "^10.3.1",
-    "yaml": "^2.8.3",
-    "zod": "^4.3.6"
+    "yaml": "^2.8.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",

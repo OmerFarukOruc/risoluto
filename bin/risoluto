@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-node "$(dirname "$0")/../dist/cli/index.js" "$@"
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+PACKAGE_ROOT="$(dirname "$(dirname "$SCRIPT_PATH")")"
+
+exec node "$PACKAGE_ROOT/dist/cli/index.js" "$@"

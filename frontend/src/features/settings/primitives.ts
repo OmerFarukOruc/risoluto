@@ -9,8 +9,6 @@
  * persistent side-stripe borders, per DESIGN.md.
  */
 
-export type Tone = "primary" | "ghost" | "danger";
-
 export interface FormRowOptions {
   label: string;
   hint?: string | null;
@@ -293,44 +291,6 @@ export function createTextareaField({
   if (disabled) textarea.disabled = true;
   textarea.addEventListener("input", () => onInput(textarea.value));
   return textarea;
-}
-
-export interface SliderFieldOptions {
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  onInput: (value: number) => void;
-}
-
-export function createSliderField({ value, min, max, step, onInput }: SliderFieldOptions): {
-  wrap: HTMLElement;
-  display: HTMLElement;
-} {
-  const wrap = document.createElement("div");
-  wrap.className = "settings-slider";
-
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.min = String(min);
-  slider.max = String(max);
-  if (step !== undefined) slider.step = String(step);
-  slider.value = String(value);
-
-  const display = document.createElement("span");
-  display.className = "settings-slider-value";
-  display.textContent = String(value);
-
-  slider.addEventListener("input", () => {
-    const parsed = Number(slider.value);
-    if (Number.isFinite(parsed)) {
-      display.textContent = String(parsed);
-      onInput(parsed);
-    }
-  });
-
-  wrap.append(slider, display);
-  return { wrap, display };
 }
 
 export interface ChipListOptions {

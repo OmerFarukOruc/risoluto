@@ -110,27 +110,6 @@ export function modelInitials(model: string | null): string {
   return (letters.slice(0, 2) || "??").toUpperCase();
 }
 
-export function getRetryLabel(issue: RuntimeIssueView): string | null {
-  if (issue.status !== "retrying" || !issue.message) {
-    return null;
-  }
-  return issue.message;
-}
-
-export function sortIssues(issues: RuntimeIssueView[], mode: string): RuntimeIssueView[] {
-  const sorted = [...issues];
-  sorted.sort((left, right) => {
-    if (mode === "priority") {
-      return priorityRank(left.priority) - priorityRank(right.priority);
-    }
-    if (mode === "tokens") {
-      return (right.tokenUsage?.totalTokens ?? 0) - (left.tokenUsage?.totalTokens ?? 0);
-    }
-    return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
-  });
-  return sorted;
-}
-
 export function buildAttentionList(columns: WorkflowColumn[]): RuntimeIssueView[] {
   const issues = columns.flatMap((column) => column.issues ?? []);
   return [...issues]

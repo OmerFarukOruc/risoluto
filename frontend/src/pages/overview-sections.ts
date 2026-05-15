@@ -21,28 +21,6 @@ export function saveCollapsedSections(ids: Set<string>): void {
 }
 
 /**
- * Creates a section header with title and optional kicker.
- */
-export function createSectionHeader(title: string, kicker?: string): HTMLElement {
-  const header = document.createElement("div");
-  header.className = "overview-section-header";
-
-  const titleEl = document.createElement("h2");
-  titleEl.className = "overview-section-title";
-  titleEl.textContent = title;
-  header.append(titleEl);
-
-  if (kicker) {
-    const kickerEl = document.createElement("span");
-    kickerEl.className = "overview-section-kicker";
-    kickerEl.textContent = kicker;
-    header.append(kickerEl);
-  }
-
-  return header;
-}
-
-/**
  * Creates a collapsible section wrapper with a summary line.
  * The section header acts as the disclosure toggle.
  * The summary is shown next to the header when collapsed.

@@ -50,11 +50,6 @@ export interface HealthRunnerOptions {
   probeTimeoutMs?: number;
 }
 
-export interface HealthRunnerStatus {
-  /** Latest checks — always populated; `unknown` until first run. */
-  checks: HealthChecks;
-}
-
 export class HealthRunner {
   private readonly probes: Map<HealthProbeId, HealthProbe>;
   private readonly state = new Map<HealthProbeId, ProbeState>();

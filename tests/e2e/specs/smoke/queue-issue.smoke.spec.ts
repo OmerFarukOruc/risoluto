@@ -33,9 +33,10 @@ test.describe("Queue / Issue Smoke", () => {
     const queue = new QueuePage(page);
     await queue.navigate();
 
-    await expect(page.getByRole("group", { name: "Workflow stages" })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("group", { name: "Priority" })).toBeVisible();
-    await expect(page.getByLabel("Board order")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Queue filters" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("tablist", { name: "Board view mode" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Kanban board" })).toBeVisible();
+    await expect(page.getByRole("tablist", { name: "Status filter" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hide Backlog lane" })).toBeVisible();
   });
 
@@ -66,7 +67,9 @@ test.describe("Queue / Issue Smoke", () => {
     const queue = new QueuePage(page);
     await queue.navigate();
 
-    await expect(queue.issueCardByIdentifier("SYM-42")).toContainText(/8k tokens\s+just now/);
+    const card = queue.issueCardByIdentifier("SYM-42");
+    await expect(card.locator(".kanban-card-foot-tokens")).toHaveText("⚡ 8k");
+    await expect(card.locator(".kanban-card-foot-time")).toHaveText("just now");
   });
 
   test("clicking issue card navigates to issue detail", async ({ page }) => {

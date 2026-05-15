@@ -91,34 +91,6 @@ export function createField(options: FieldOptions, control: HTMLElement): HTMLEl
   return field;
 }
 
-export function createTextInput(options: {
-  type?: string;
-  placeholder?: string;
-  value?: string;
-  required?: boolean;
-  maxLength?: number;
-  minLength?: number;
-  pattern?: string;
-  autocomplete?: AutoFill;
-  className?: string;
-  readOnly?: boolean;
-  disabled?: boolean;
-}): HTMLInputElement {
-  const input = document.createElement("input");
-  input.type = options.type ?? "text";
-  input.className = options.className ?? "mc-input";
-  if (options.placeholder) input.placeholder = options.placeholder;
-  if (options.value) input.value = options.value;
-  if (options.required) input.required = true;
-  if (options.maxLength) input.maxLength = options.maxLength;
-  if (options.minLength) input.minLength = options.minLength;
-  if (options.pattern) input.pattern = options.pattern;
-  if (options.autocomplete) input.autocomplete = options.autocomplete;
-  input.readOnly = options.readOnly ?? false;
-  input.disabled = options.disabled ?? false;
-  return input;
-}
-
 export function createTextareaControl(options: {
   placeholder?: string;
   value?: string;

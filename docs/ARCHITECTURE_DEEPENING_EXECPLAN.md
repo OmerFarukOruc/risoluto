@@ -331,11 +331,11 @@ The first execution wave succeeded, and the second wave now gives the backend a 
 
 What remains is the rest of the multi-cluster migration. Milestone 3 is now effectively complete rather than just de-risked: `Orchestrator` is thinner on both the write side and the read side, retry lifecycle duplication is reduced, helper-level view mutations are behind the coordinator, the worker-outcome stop-signal / terminal-path logic no longer exists in two places, and the largest snapshot/detail assertions now live at the coordinator boundary. Milestone 4 is also effectively complete for page-level runtime-consumer migration: the frontend now has a `runtime-client` source of truth for polling, SSE, reconnect, stale-state handling, snapshot/store fanout, state subscriptions, poll-complete notifications, webhook subscriptions, workspace-event subscriptions, and generic runtime-event subscriptions, and the observability, notifications, logs, issue-inspector, overview, queue, workspaces, containers, git, and Codex admin surfaces now depend on that boundary rather than direct store access, page-local state polling, or raw browser-global runtime listeners. The old `polling.ts` and `event-source.ts` compatibility facades have also been removed, so `RuntimeClient` is now the direct module/interface for the frontend runtime seam. Queue route-awareness also now has a first-class `router.subscribe()` boundary instead of forcing page code to parse navigation custom events directly. The remaining raw browser listeners are concentrated in shared shell compatibility code rather than the main operator pages.
 
-Milestone 5 now has three operator-facing boundaries in place. The Codex admin surface no longer assembles its own dashboard view-model from ten endpoint calls; the backend owns that read model through `src/codex/admin-snapshot.ts` and `/api/v1/codex/admin`, while the frontend depends on `frontend/src/views/codex-admin/codex-admin-client.ts` as the feature-level loader. The mutation side follows the same pattern: `src/codex/admin-service.ts` owns the action vocabulary for account auth, thread actions, MCP operations, and pending-request responses, `src/http/routes/codex.ts` delegates through that service, and the frontend panels no longer mirror the backend with raw `api.postCodex*` calls. Setup is now similarly deep on both sides: the frontend wizard owns the lifecycle through `frontend/src/features/setup/setup-wizard.ts`, while the backend onboarding workflow now routes status, auth, repo routing, project selection, test issue creation, and default-branch detection through `src/setup/setup-service.ts` instead of spreading that concept across route registration and helper-shaped handler modules.
+Milestone 5 now has operator-facing boundaries in place. The Codex admin backend no longer assembles its dashboard view-model across ad hoc route handlers; `src/codex/admin-snapshot.ts` owns the read model for `/api/v1/codex/admin`, and `src/codex/admin-service.ts` owns the action vocabulary for account auth, thread actions, MCP operations, and pending-request responses behind `src/http/routes/codex.ts`. Current frontend source no longer has a dedicated `frontend/src/views/codex-admin/` feature folder, so future Codex admin work should verify the current UI entrypoint before following historical frontend paths. Setup is similarly deep on both sides: the frontend wizard owns the lifecycle through `frontend/src/features/setup/setup-wizard.ts`, while the backend onboarding workflow routes status, auth, repo routing, project selection, test issue creation, and default-branch detection through `src/setup/setup-service.ts` and `src/setup/port.ts` instead of spreading that concept across route registration and helper-shaped handler modules.
 
-The unified settings/config editing surface has now moved further into that same deep-module pattern. `frontend/src/features/settings/settings-workbench.ts` owns the workbench lifecycle for load/save/revert/mode transitions, `frontend/src/features/settings/unified-settings-page.ts` now owns legacy route normalization, deep-link section targeting, credentials/devtools shell composition, and compatibility-state caching, and `frontend/src/views/unified-settings-view.ts` is reduced to a thin export shim. The visible settings cards also expose explicit section-level save/revert actions through that boundary.
+The unified settings/config editing surface has now moved further into that same deep-module pattern. `frontend/src/features/settings/workbench.ts` owns the workbench lifecycle for load/save/revert transitions and shared draft state, while `frontend/src/features/settings/settings-page.ts` owns the current settings page shell and hash-targeted section selection. The old `frontend/src/views/unified-settings-view.ts` compatibility shim is no longer present in current source, so future settings work should start from the feature module rather than from a deleted view seam.
 
-The setup/onboarding workflow now has both halves of its first deepening pass. On the frontend, `frontend/src/features/setup/setup-wizard.ts` owns the wizard's step state, async setup actions, provider/auth branching, device-auth lifecycle, reset behavior, and dashboard handoff, while `frontend/src/views/setup-view.ts` is primarily responsible for rendering the step shells and indicator UI around that feature-owned lifecycle. On the backend, `src/setup/setup-service.ts` now owns the shared onboarding operations for status, key persistence, auth flows, project creation, smoke-test creation, and reset, while the `src/setup/handlers/*.ts` files have become thin request/response adapters and `src/setup/api.ts` now depends on that shared service boundary rather than passing raw deps into each handler.
+The setup/onboarding workflow now has both halves of its first deepening pass. On the frontend, `frontend/src/features/setup/setup-wizard.ts` owns the wizard's step state, async setup actions, provider/auth branching, device-auth lifecycle, reset behavior, and dashboard handoff, while `frontend/src/views/setup-view.ts` is primarily responsible for rendering the step shells and indicator UI around that feature-owned lifecycle. On the backend, `src/setup/setup-service.ts` now owns the shared onboarding operations for status, key persistence, auth flows, project creation, smoke-test creation, and reset behind `src/setup/port.ts`, while the `src/setup/handlers/*.ts` files are thin request/response adapters reached from `src/http/routes/setup.ts`.
 
 What remains in Milestone 5 is therefore the cleanup and proof work around the now-deepened operator workbenches rather than setup-specific backend seams. Unified settings no longer looks like the highest-leverage blocker. Logs/live timeline and queue now both sit behind dedicated controller/workbench boundaries, so the next Milestone 5 move is either to resolve the queue visual-baseline drift or to finish any remaining thin Codex/settings shell cleanup if that offers a better leverage/risk tradeoff.
 
@@ -371,7 +371,7 @@ The important architectural rule is that we are not chasing smaller files. We ar
 
 Milestone 1 is compatibility harnesses. Before deeper refactors, add tests that protect public behavior at the boundary. That now exists for agent-runner lifecycle behavior and for the E2E API mock layer. Keep extending this pattern whenever a shallow module cluster is about to change.
 
-Milestone 2 is the agent-runner lifecycle deepening. This milestone is already partially complete. The stable entrypoint remains `src/agent-runner/index.ts`, but the real lifecycle now lives in `src/agent-runner/attempt-executor.ts`, `src/agent-runner/codex-runtime-port.ts`, and `src/agent-runner/docker-runtime.ts`. Continue this milestone by keeping `AgentRunner` thin, retiring any remaining hollow wrappers, and migrating future tests toward `AttemptExecutor` or `AgentRunner.runAttempt()` boundary scenarios instead of peer-module mocking.
+Milestone 2 is the agent-runner lifecycle deepening. This milestone is already partially complete. The stable entrypoint remains `src/agent-runner/index.ts`, but the real lifecycle now lives in `src/agent-runner/attempt-executor.ts`, `src/agent-runner/session-port.ts`, and `src/agent-runner/docker-runtime.ts`. Continue this milestone by keeping `AgentRunner` thin, retiring any remaining hollow wrappers, and migrating future tests toward `AttemptExecutor`, `AgentSessionPort`, or `AgentRunner.runAttempt()` boundary scenarios instead of peer-module mocking.
 
 Milestone 3 is the orchestrator lifecycle engine, and it is now effectively complete. `src/orchestrator/run-lifecycle-coordinator.ts` owns the stable runtime context, retry coordinator creation, queue refresh, running/retry reconciliation, launch dispatch, recent-event buffering, usage accounting, worker completion plumbing, and the shared runtime read-model boundary for snapshot, issue-detail, and attempt-detail projection. `src/orchestrator/orchestrator.ts` now delegates to that boundary and `src/orchestrator/orchestrator-delegates.ts` is only a compatibility shim.
 
@@ -383,9 +383,9 @@ Any follow-on Milestone 4 work should be treated as shell cleanup rather than fe
 
 Milestone 5 is operator-facing workflow deepening. Unify the settings workbench, queue workbench, logs timeline, setup wizard, and Codex admin surface so each behaves as a deeper feature module with one state model and one API-facing boundary instead of multiple render helpers and ad hoc route glue.
 
-The Codex admin surface now has both halves of that boundary: the read side is behind a single backend snapshot and frontend loader, and the mutation side is behind `src/codex/admin-service.ts` plus `frontend/src/views/codex-admin/codex-admin-client.ts`. The unified settings/config editing slice now has both of its first-pass boundaries: `frontend/src/features/settings/settings-workbench.ts` owns the main workbench lifecycle and section actions, while `frontend/src/features/settings/unified-settings-page.ts` owns the route-aware shell behavior and devtools composition. `frontend/src/views/unified-settings-view.ts` is now only a compatibility export. The setup/onboarding workflow also now has its first frontend boundary: `frontend/src/features/setup/setup-wizard.ts` owns the wizard lifecycle while `frontend/src/views/setup-view.ts` has become the renderer.
+The Codex admin surface now has both halves of that boundary: the read side is behind a single backend snapshot and frontend loader, and the mutation side is behind `src/codex/admin-service.ts` plus the current Codex admin frontend feature modules. The unified settings/config editing slice now has its current boundaries in `frontend/src/features/settings/workbench.ts` for shared settings state and `frontend/src/features/settings/settings-page.ts` for the page shell. The older `frontend/src/views/unified-settings-view.ts`, `settings-workbench.ts`, and `unified-settings-page.ts` names are historical only and are not current source files. The setup/onboarding workflow also has a frontend boundary through the setup view/controller modules and a backend boundary through `src/setup/setup-service.ts` plus `src/setup/port.ts`.
 
-The next highest-leverage Milestone 5 move is to deepen the backend setup/onboarding workflow so the HTTP layer depends on one feature-level service boundary instead of separate route-registration glue and provider-specific handler branches. After the setup backend, the likely next operator-surface targets are logs or queue, depending on which workflow still carries the higher helper/test burden.
+The next Milestone 5 moves should be chosen from fresh current-state evidence. Backend setup/onboarding is already behind `SetupService` and `SetupPort`, so do not re-open that slice unless new repeated ownership appears. Likely follow-on operator-surface targets are logs, queue, or Codex/settings shell cleanup, but only when source and tests show real depth, leverage, or locality gains rather than historical plan momentum.
 
 Milestone 6 is now complete. SQLite adapters are grouped more by domain workflow, verified webhook receiver patterns are shared, notification delivery/history behavior is deeper, workspace lifecycle and config derivation each have explicit implementation boundaries, GitHub transport logic is centralized, and the remaining webhook persistence/runtime ownership now lives behind one runtime surface instead of composition-time helper seams.
 
@@ -415,7 +415,7 @@ When the OpenAPI schema changes, regenerate the checked-in artifact before rerun
 
     node -e "const fs=require('node:fs'); const { getOpenApiSpec } = require('./dist/http/openapi.js'); fs.writeFileSync('docs-site/openapi.json', JSON.stringify(getOpenApiSpec(), null, 2) + '\n');"
 
-The next contributor should keep pushing Milestone 5 rather than returning to runtime transport cleanup. The strongest next move is now the backend setup/onboarding workflow: pull `src/setup/api.ts`, the `src/setup/handlers/*.ts` family, and provider-specific request branches behind a deeper setup service boundary that matches the new frontend wizard lifecycle. Unified settings is now in a good enough state to leave for opportunistic cleanup unless a specific helper seam becomes painful again. Only return to `src/orchestrator/snapshot-builder.ts` if there is a clear cleanup win that does not re-fragment the new coordinator boundary.
+The next contributor should keep pushing Milestone 5 rather than returning to runtime transport cleanup, but must start from fresh current-state evidence. Backend setup/onboarding is already behind `src/setup/setup-service.ts` and `src/setup/port.ts`; do not re-suggest pulling the deleted `src/setup/api.ts` surface behind a service boundary. Unified settings is also in a good enough state to leave for opportunistic cleanup unless a specific helper seam becomes painful again. Only return to `src/orchestrator/snapshot-builder.ts` if there is a clear cleanup win that does not re-fragment the new coordinator boundary.
 
 ## Validation and Acceptance
 
@@ -448,13 +448,14 @@ Important files changed in the first execution wave:
 
 - `src/agent-runner/index.ts`
 - `src/agent-runner/attempt-executor.ts`
-- `src/agent-runner/codex-runtime-port.ts`
+- `src/agent-runner/session-port.ts`
 - `src/agent-runner/docker-runtime.ts`
 - `src/http/response-schemas.ts`
 - `src/codex/admin-service.ts`
 - `src/codex/admin-snapshot.ts`
 - `src/codex/model-catalog.ts`
-- `frontend/src/features/settings/settings-workbench.ts`
+- `frontend/src/features/settings/workbench.ts`
+- `frontend/src/features/settings/settings-page.ts`
 - `src/orchestrator/context.ts`
 - `src/orchestrator/orchestrator.ts`
 - `src/orchestrator/orchestrator-delegates.ts`
@@ -464,8 +465,8 @@ Important files changed in the first execution wave:
 - `tests/agent-runner/attempt-executor.test.ts`
 - `tests/codex/admin-service.test.ts`
 - `tests/e2e/mocks/api-schema-parity.test.ts`
-- `tests/frontend/settings-workbench.test.ts`
-- `tests/frontend/codex-admin-client.test.ts`
+- `tests/frontend/settings-tabs.test.ts`
+- `tests/frontend/api.test.ts`
 - `tests/orchestrator/write-linear-completion.test.ts`
 - `tests/orchestrator/run-lifecycle-coordinator.test.ts`
 - `tests/http/codex-routes.test.ts`
@@ -499,19 +500,21 @@ Revision note (2026-04-14 11:05Z / Codex): updated the plan after stop-signal an
 
 Revision note (2026-04-14 11:20Z / Codex): updated the plan after deleting the remaining stop-signal / terminal-path fallback implementations, replacing them with strict coordinator adapters plus a coordinator-finalizer test harness, and after the Vitest baseline moved to `3703` passing tests as the old seam-heavy helper suites were intentionally collapsed.
 
+Revision note (2026-05-22 14:50Z / Codex): aligned present-tense module/interface guidance with current source after fresh scan. Historical entries still name the old files from the original migration, but future work should use `src/agent-runner/session-port.ts`, `frontend/src/features/settings/workbench.ts`, `frontend/src/features/settings/settings-page.ts`, `src/setup/setup-service.ts`, and `src/setup/port.ts` as the current seams.
+
 ## Interfaces and Dependencies
 
 The current deepened boundary for agent execution must keep these interfaces stable:
 
-In `src/agent-runner/codex-runtime-port.ts`, keep:
+In `src/agent-runner/session-port.ts`, keep:
 
-    export interface CodexRuntimePort {
-      start(input: RuntimeStartInput): Promise<CodexRuntimeSession>;
+    export interface AgentSessionPort {
+      start(input: AgentSessionStartInput): Promise<AgentSession>;
     }
 
-    export interface CodexRuntimeSession {
-      initialize(input: RuntimeInitInput): Promise<RuntimeInitResult>;
-      execute(input: RuntimeExecuteInput): Promise<RunOutcome>;
+    export interface AgentSession {
+      initialize(input: AgentSessionInitializeInput): Promise<AgentSessionInitializeResult>;
+      execute(input: AgentSessionExecuteInput): Promise<RunOutcome>;
       review(threadId: string, signal: AbortSignal, timeoutMs: number): Promise<SelfReviewResult | null>;
       steer(message: string): Promise<boolean>;
       shutdown(signal: AbortSignal): Promise<void>;

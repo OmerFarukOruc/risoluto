@@ -27,6 +27,8 @@
 - 2026-05-22T17:05:22+03:00 Candidate learning: `GitHubPrClient` is not a current strong transport candidate. Fresh source showed it already uses `GitHubTransport`; its remaining implementation is PR-domain behavior, so further extraction would be speculative without repeated ownership evidence.
 - 2026-05-22T17:16:14+03:00 Setup shared helper slice validated. `src/setup/handlers/shared.ts` and `tests/setup/shared-handler.test.ts` were removed because the raw Linear GraphQL helper was dead runtime implementation after setup behavior moved behind `SetupService` and `LinearClient`. Setup handlers now import the `SetupApiDeps` interface from `src/setup/port.ts`, improving locality around the active setup module.
 - 2026-05-22T17:16:14+03:00 Candidate learning: stale tests around dead helper seams are architecture friction when they make a removed implementation look alive. The deletion test is useful here: deleting the helper did not push Linear GraphQL complexity into callers, which proved the deeper setup module already carried the behavior.
+- 2026-05-22T17:21:58+03:00 Setup handler barrel slice validated. `src/setup/setup-handlers.ts` was removed after current search showed it was only a compatibility wrapper with one caller. `src/http/routes/setup.ts` now imports the setup handler module and `SetupApiDeps` interface directly, improving locality without changing setup route behavior.
+- 2026-05-22T17:21:58+03:00 Candidate learning: tiny compatibility barrels are only worth taking when they are adjacent to an active deeper module change and current search proves they have no real adapter variation. Do not generalize this into deleting ordinary directory barrels that the repo guidelines explicitly allow.
 
 ## Durable Architecture Rubric
 
@@ -42,3 +44,4 @@
 - 2026-05-22T16:44:24+03:00 Skipped broadening setup repo URL parsing for GitHub Enterprise. Reason: accepting non-`github.com` URLs would change setup behavior and trust posture, requiring user intent/security authority.
 - 2026-05-22T16:57:21+03:00 Skipped extracting GitHub health result parsing. Reason: the behavior is local to the `GithubProbeHttp` adapter implementation and has no repeated ownership or real adapter variation.
 - 2026-05-22T17:05:22+03:00 Skipped further `GitHubPrClient` transport extraction. Reason: the module already delegates request mechanics to `GitHubTransport`, and remaining PR-specific behavior has stronger locality inside the PR client.
+- 2026-05-22T17:21:58+03:00 Skipped setup handler error-mapping extraction. Reason: repeated `SetupServiceError` handling exists, but fallback status/error-code behavior is endpoint-specific and close to the request adapter implementation; a shared helper would likely be a shallow module with weak leverage.

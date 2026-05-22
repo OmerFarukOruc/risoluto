@@ -4,7 +4,7 @@ import { methodNotAllowed } from "../errors.js";
 import { getSetupService } from "../../setup/setup-service.js";
 import { handleDetectDefaultBranch } from "../../setup/detect-default-branch.js";
 import { handleDeleteRepoRoute, handleGetRepoRoutes, handlePostRepoRoute } from "../../setup/repo-route-handlers.js";
-import type { SetupApiDeps } from "../../setup/setup-handlers.js";
+import type { SetupApiDeps } from "../../setup/port.js";
 import {
   handleGetLinearProjects,
   handleGetPkceAuthStatus,
@@ -20,9 +20,9 @@ import {
   handlePostPkceAuthCancel,
   handlePostPkceAuthStart,
   handlePostReset,
-} from "../../setup/setup-handlers.js";
+} from "../../setup/handlers/index.js";
 
-export type { SetupApiDeps } from "../../setup/setup-handlers.js";
+export type { SetupApiDeps } from "../../setup/port.js";
 
 export function registerSetupApi(app: Express, deps: SetupApiDeps): void {
   const service = getSetupService(deps);

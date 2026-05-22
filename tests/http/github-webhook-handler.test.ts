@@ -7,7 +7,7 @@ import {
   handleWebhookGitHub,
   verifyGitHubSignature,
   type GitHubWebhookHandlerDeps,
-} from "../../src/webhook/http-adapter.js";
+} from "../../src/webhook/github-handler.js";
 import type { WebhookRequest } from "../../src/http/webhook-types.js";
 import { createMockLogger } from "../helpers.js";
 

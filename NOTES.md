@@ -7,6 +7,8 @@
 - 2026-05-22T15:33:15+03:00 Existing `docs/ARCHITECTURE_DEEPENING_EXECPLAN.md` contains prior architecture deepening history. Treat it as context only. Every iteration must re-read current repo state before choosing a candidate.
 - 2026-05-22T15:33:15+03:00 Goal-forge config check reported Codex CLI likely supports `/goal`, the project is trusted, model is `gpt-5.5`, reasoning settings are high/xhigh, and `[features].goals` is true. It also reported autonomous gaps: `model_context_window`, `model_auto_compact_token_limit`, `approval_policy`, and `sandbox_mode` are unset in the inspected config.
 - 2026-05-22T15:34:49+03:00 Full scaffold validation passed with `pnpm run build && pnpm run lint && pnpm run format:check && pnpm test`. Lint emitted existing warning-only inventory; Vitest reported 3771 passing tests and 1 skipped test.
+- 2026-05-22T15:47:00+03:00 First real iteration chose GitHub label provisioning as the strongest safe candidate. Evidence: `src/tracker/github-adapter.ts` still owns raw GitHub HTTP request, token, endpoint, and label readback implementation, while `src/github/issues-client.ts` already owns the GitHub transport interface. The planned depth move is to put label provisioning behind the client interface and keep the tracker adapter focused on tracker provision mapping.
+- 2026-05-22T15:53:11+03:00 GitHub label provisioning slice validated. `GitHubIssuesClient.ensureLabel()` now owns create-vs-existing label status behavior and `GitHubTrackerAdapter` maps that client-owned result into `TrackerProvisionCreateLabelResult`. This improved locality by removing adapter-local GitHub HTTP/auth/header knowledge without changing tracker provision behavior.
 
 ## Durable Architecture Rubric
 

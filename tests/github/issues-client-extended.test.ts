@@ -174,6 +174,47 @@ describe("GitHubIssuesClient (extended coverage)", () => {
     });
   });
 
+  // --- ensureLabel ---
+
+  describe("ensureLabel", () => {
+    it("creates a repository label and returns the normalized label result", async () => {
+      fetchMock.mockResolvedValueOnce(createJsonResponse(201, { id: 9, name: "risoluto" }));
+      const client = createClient();
+
+      const result = await client.ensureLabel({
+        name: "risoluto",
+        color: "2563eb",
+        description: "Risoluto automation marker",
+      });
+
+      const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://api.github.com/repos/acme/widgets/labels");
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body as string)).toEqual({
+        name: "risoluto",
+        color: "2563eb",
+        description: "Risoluto automation marker",
+      });
+      expect(result).toEqual({ id: "9", name: "risoluto", alreadyExists: false });
+    });
+
+    it("reads the existing repository label when creation returns validation failure", async () => {
+      fetchMock
+        .mockResolvedValueOnce(createJsonResponse(422, { message: "already exists" }))
+        .mockResolvedValueOnce(createJsonResponse(200, { id: 9, name: "risoluto" }));
+      const client = createClient();
+
+      const result = await client.ensureLabel({ name: "risoluto", color: "2563eb" });
+
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        "https://api.github.com/repos/acme/widgets/labels/risoluto",
+        expect.objectContaining({ method: "GET" }),
+      );
+      expect(result).toEqual({ id: "9", name: "risoluto", alreadyExists: true });
+    });
+  });
+
   // --- 204 handling ---
 
   describe("204 no-content response", () => {

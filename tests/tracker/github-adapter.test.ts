@@ -97,6 +97,7 @@ function createMockClient(): GitHubIssuesClient {
     reopenIssue: vi.fn().mockResolvedValue(undefined),
     createComment: vi.fn().mockResolvedValue(undefined),
     createIssue: vi.fn().mockResolvedValue(makeRawIssue()),
+    ensureLabel: vi.fn().mockResolvedValue({ id: "9", name: "risoluto", alreadyExists: false }),
     withRetry: vi.fn().mockImplementation((_op: string, fn: () => Promise<void>) => fn()),
   } as unknown as GitHubIssuesClient;
 }
@@ -308,14 +309,6 @@ describe("GitHubTrackerAdapter", () => {
     });
 
     it("creates the risoluto label for GitHub-backed setup", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ id: 9, name: "risoluto" }), {
-          status: 201,
-          headers: { "content-type": "application/json" },
-        }),
-      );
-      vi.stubGlobal("fetch", fetchMock);
-
       const result = await adapter.provision({ type: "create_label" });
 
       expect(result).toEqual({
@@ -324,23 +317,15 @@ describe("GitHubTrackerAdapter", () => {
         labelName: "risoluto",
         alreadyExists: false,
       });
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://api.github.com/repos/acme/awesome/labels",
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(client.ensureLabel).toHaveBeenCalledWith({
+        name: "risoluto",
+        color: "2563eb",
+        description: "Risoluto automation marker",
+      });
     });
 
     it("treats existing GitHub labels as already provisioned", async () => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(new Response(JSON.stringify({ message: "already exists" }), { status: 422 }))
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ id: 9, name: "risoluto" }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-        );
-      vi.stubGlobal("fetch", fetchMock);
+      vi.mocked(client.ensureLabel).mockResolvedValue({ id: "9", name: "risoluto", alreadyExists: true });
 
       const result = await adapter.provision({ type: "create_label" });
 
@@ -350,11 +335,6 @@ describe("GitHubTrackerAdapter", () => {
         labelName: "risoluto",
         alreadyExists: true,
       });
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
-        "https://api.github.com/repos/acme/awesome/labels/risoluto",
-        expect.objectContaining({ method: "GET" }),
-      );
     });
   });
 });

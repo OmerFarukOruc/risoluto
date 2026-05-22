@@ -27,6 +27,23 @@ export interface RawGitHubIssue {
   updated_at: string;
 }
 
+interface RawGitHubLabel {
+  id?: number;
+  name?: string;
+}
+
+export interface GitHubLabelInput {
+  name: string;
+  color: string;
+  description?: string;
+}
+
+export interface GitHubLabelResult {
+  id: string;
+  name: string;
+  alreadyExists: boolean;
+}
+
 /**
  * Map a raw GitHub API issue to Risoluto's canonical {@link Issue} shape.
  * State is determined by the first label that matches an active or terminal
@@ -95,11 +112,10 @@ export class GitHubIssuesClient {
     });
   }
 
-  private async request<T>(path: string, options?: RequestInit): Promise<T> {
+  private async send(path: string, options?: RequestInit): Promise<Response> {
     const url = `${this.getApiBaseUrl()}${path}`;
-    let response: Response;
     try {
-      response = await this.createTransport().send({
+      return await this.createTransport().send({
         pathName: path,
         method: options?.method ?? "GET",
         body: typeof options?.body === "string" ? options.body : undefined,
@@ -112,6 +128,11 @@ export class GitHubIssuesClient {
         cause: error,
       });
     }
+  }
+
+  private async request<T>(path: string, options?: RequestInit): Promise<T> {
+    const url = `${this.getApiBaseUrl()}${path}`;
+    const response = await this.send(path, options);
 
     if (!response.ok) {
       this.logger.error({ status: response.status, statusText: response.statusText, url }, "github api request failed");
@@ -207,4 +228,33 @@ export class GitHubIssuesClient {
       });
     });
   }
+
+  async ensureLabel(input: GitHubLabelInput): Promise<GitHubLabelResult> {
+    const { owner, repo } = this.getOwnerRepo();
+    const path = `/repos/${owner}/${repo}/labels`;
+    const response = await this.send(path, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+
+    if (response.status === 201) {
+      return labelResult((await response.json()) as RawGitHubLabel, false);
+    }
+
+    if (response.status === 422) {
+      const existing = await this.request<RawGitHubLabel>(`${path}/${encodeURIComponent(input.name)}`);
+      return labelResult(existing, true);
+    }
+
+    const body = await response.text().catch(() => "");
+    throw new Error(`GitHub API returned ${response.status}: ${body}`);
+  }
+}
+
+function labelResult(payload: RawGitHubLabel, alreadyExists: boolean): GitHubLabelResult {
+  return {
+    id: payload.id ? String(payload.id) : "",
+    name: payload.name ?? "",
+    alreadyExists,
+  };
 }

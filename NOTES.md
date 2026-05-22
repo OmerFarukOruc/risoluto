@@ -16,6 +16,9 @@
 - 2026-05-22T16:08:50+03:00 Validation note: the first required validation run found only Prettier drift in touched `tests/http/webhook-handler.test.ts`; formatting that file fixed the issue, and the full required validation then passed.
 - 2026-05-22T16:23:17+03:00 Linear setup provisioning slice validated. `LinearClient` now owns setup project listing, project creation, smoke-test issue creation, and label creation behind its Linear GraphQL interface. `LinearTrackerAdapter` no longer owns setup GraphQL implementation; it maps `TrackerPort.provision()` calls into `LinearClient` methods, improving depth, leverage, and locality.
 - 2026-05-22T16:23:17+03:00 Compatibility learning: setup provisioning wants operator-facing transport cause messages like `network offline`, while general `LinearClient` callers already test for the canonical `linear graphql request failed during transport` message. The adapter is the right seam to expose setup-friendly transport causes without changing the deeper client module's error interface.
+- 2026-05-22T16:33:32+03:00 Git context GitHub transport slice validated. `src/http/git-context.ts` now uses the existing `GitHubTransport` module/interface for repo enrichment instead of owning raw GitHub fetch implementation and a hardcoded endpoint. This fixes the docs/runtime disagreement for `github.apiBaseUrl` while preserving `/api/v1/git/context` response shape and graceful degradation.
+- 2026-05-22T16:33:32+03:00 Candidate learning: Linear webhook event processing is currently speculative, not strong. After the provider-local module slice, `src/webhook/linear-handler.ts` has a coherent implementation behind the `handleWebhookLinear` interface; extracting event processing would introduce a hypothetical seam with one adapter and weak leverage.
+- 2026-05-22T16:33:32+03:00 Next scan hint: `src/setup/setup-service.ts` and `src/health/runtime/github-http.ts` still mention GitHub HTTP implementation. Re-read current source and tests before deciding whether either is a real depth candidate or just context-specific setup/health locality.
 
 ## Durable Architecture Rubric
 
@@ -27,4 +30,4 @@
 
 ## Skipped or Blocked Candidates
 
-- None yet. Populate this section when a candidate requires missing user intent, credentials, security authority, dependency approval, schema/migration authority, public-interface authority, unavoidable behavior changes, or unresolved validation failures.
+- 2026-05-22T16:33:32+03:00 Skipped extracting Linear webhook event processing for now. Reason: current evidence is speculative; the module is already provider-local, and a new seam would have one adapter with no proven testability/runtime need.

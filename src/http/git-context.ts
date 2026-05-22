@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 
 import type { ConfigStore } from "../config/store.js";
 import type { RuntimeIssueView, RuntimeSnapshot } from "../core/types.js";
+import { asNumber, asRecord, asString } from "../config/coercion.js";
+import { GitHubTransport } from "../github/transport.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { SecretsPort } from "../secrets/port.js";
 
@@ -63,31 +65,29 @@ interface GitContextResponse {
 /*  GitHub API helpers                                                  */
 /* ------------------------------------------------------------------ */
 
-const GITHUB_API_BASE = "https://api.github.com";
-
 interface GitHubFetchOptions {
   token: string;
+  apiBaseUrl: string;
   fetchImpl?: typeof fetch;
 }
 
 async function githubGet(path: string, options: GitHubFetchOptions): Promise<unknown> {
-  const impl = options.fetchImpl ?? fetch;
-  const response = await impl(`${GITHUB_API_BASE}${path}`, {
-    method: "GET",
-    headers: {
-      authorization: `Bearer ${options.token}`,
+  const transport = new GitHubTransport({
+    fetch: options.fetchImpl,
+    apiBaseUrl: options.apiBaseUrl,
+    authorizationHeaderName: "authorization",
+    defaultHeaders: {
       accept: "application/vnd.github+json",
       "user-agent": "risoluto",
       "x-github-api-version": "2022-11-28",
     },
   });
-  if (!response.ok) {
-    throw new Error(`GitHub API ${path} returned ${response.status}`);
-  }
-  return response.json();
+  return transport.request({
+    pathName: path,
+    method: "GET",
+    token: options.token,
+  });
 }
-
-import { asNumber, asRecord, asString } from "../config/coercion.js";
 
 function parseRepoPulls(raw: unknown): GitPullView[] {
   if (!Array.isArray(raw)) return [];
@@ -221,7 +221,11 @@ export async function handleGitContext(deps: GitContextDeps, _req: Request, res:
   const repoConfigs = config?.repos ?? [];
   const snapshot = deps.orchestrator.getSnapshot();
   const token = resolveGithubToken(deps);
-  const fetchOptions: GitHubFetchOptions = { token: token ?? "", fetchImpl: deps.fetchImpl };
+  const fetchOptions: GitHubFetchOptions = {
+    token: token ?? "",
+    apiBaseUrl: config?.github?.apiBaseUrl ?? "https://api.github.com",
+    fetchImpl: deps.fetchImpl,
+  };
 
   const enrichedRepos = await Promise.all(
     repoConfigs.map((repo) =>

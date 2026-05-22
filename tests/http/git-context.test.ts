@@ -3,6 +3,7 @@ import express from "express";
 import http from "node:http";
 
 import { handleGitContext, type GitContextDeps } from "../../src/http/git-context.js";
+import { createJsonResponse } from "../helpers.js";
 
 function makeOrchestrator() {
   return {
@@ -43,11 +44,12 @@ function makeOrchestrator() {
   };
 }
 
-function makeConfigStore(repos: unknown[] = []) {
+function makeConfigStore(repos: unknown[] = [], github: unknown = null) {
   return {
     getConfig: vi.fn().mockReturnValue({
       repos,
       tracker: {},
+      github,
       polling: { intervalMs: 60_000 },
       workspace: { root: "/tmp", hooks: {} },
       agent: {},
@@ -148,46 +150,37 @@ describe("GET /api/v1/git/context", () => {
       mockFetch.mockImplementation(async (url: string) => {
         const urlStr = String(url);
         if (urlStr.includes("/repos/acme/app/pulls")) {
-          return {
-            ok: true,
-            json: async () => [
-              {
-                number: 42,
-                title: "Fix auth bug",
-                user: { login: "alice" },
-                state: "open",
-                updated_at: "2024-01-01T00:00:00Z",
-                html_url: "https://github.com/acme/app/pull/42",
-                head: { ref: "risoluto/mt-1" },
-              },
-            ],
-          };
+          return createJsonResponse(200, [
+            {
+              number: 42,
+              title: "Fix auth bug",
+              user: { login: "alice" },
+              state: "open",
+              updated_at: "2024-01-01T00:00:00Z",
+              html_url: "https://github.com/acme/app/pull/42",
+              head: { ref: "risoluto/mt-1" },
+            },
+          ]);
         }
         if (urlStr.includes("/repos/acme/app/commits")) {
-          return {
-            ok: true,
-            json: async () => [
-              {
-                sha: "abc1234567890",
-                commit: {
-                  message: "initial commit\n\ndetails here",
-                  author: { name: "Alice", date: "2024-01-01T00:00:00Z" },
-                },
+          return createJsonResponse(200, [
+            {
+              sha: "abc1234567890",
+              commit: {
+                message: "initial commit\n\ndetails here",
+                author: { name: "Alice", date: "2024-01-01T00:00:00Z" },
               },
-            ],
-          };
+            },
+          ]);
         }
         if (urlStr.includes("/repos/acme/app")) {
-          return {
-            ok: true,
-            json: async () => ({
-              description: "The app repo",
-              visibility: "private",
-              open_issues_count: 5,
-            }),
-          };
+          return createJsonResponse(200, {
+            description: "The app repo",
+            visibility: "private",
+            open_issues_count: 5,
+          });
         }
-        return { ok: false, status: 404 };
+        return createJsonResponse(404, { message: "not found" });
       });
 
       const app = createApp({
@@ -240,6 +233,96 @@ describe("GET /api/v1/git/context", () => {
       expect(commits).toHaveLength(1);
       expect(commits[0].sha).toBe("abc1234");
       expect(commits[0].message).toBe("initial commit");
+    });
+  });
+
+  describe("with custom GitHub API base URL", () => {
+    let server: http.Server;
+    let port: number;
+    const mockFetch = vi.fn();
+
+    beforeAll(async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        const urlStr = String(url);
+        if (urlStr.includes("/repos/acme/app/pulls")) {
+          return createJsonResponse(200, [
+            {
+              number: 42,
+              title: "Fix auth bug",
+              user: { login: "alice" },
+              state: "open",
+              updated_at: "2024-01-01T00:00:00Z",
+              html_url: "https://github.com/acme/app/pull/42",
+              head: { ref: "risoluto/mt-1" },
+            },
+          ]);
+        }
+        if (urlStr.includes("/repos/acme/app/commits")) {
+          return createJsonResponse(200, [
+            {
+              sha: "abc1234567890",
+              commit: {
+                message: "initial commit\n\ndetails here",
+                author: { name: "Alice", date: "2024-01-01T00:00:00Z" },
+              },
+            },
+          ]);
+        }
+        if (urlStr.includes("/repos/acme/app")) {
+          return createJsonResponse(200, {
+            description: "The app repo",
+            visibility: "private",
+            open_issues_count: 5,
+          });
+        }
+        return createJsonResponse(404, { message: "not found" });
+      });
+
+      const app = createApp({
+        orchestrator: makeOrchestrator() as never,
+        configStore: makeConfigStore(
+          [
+            {
+              repoUrl: "https://github.com/acme/app.git",
+              defaultBranch: "main",
+              identifierPrefix: "MT",
+              githubOwner: "acme",
+              githubRepo: "app",
+            },
+          ],
+          { token: "ghp_config", apiBaseUrl: "https://github.enterprise.test/api/v3" },
+        ) as never,
+        secretsStore: makeSecretsStore("ghp_test123") as never,
+        fetchImpl: mockFetch as unknown as typeof fetch,
+      });
+      await new Promise<void>((resolve) => {
+        server = app.listen(0, () => {
+          port = (server.address() as { port: number }).port;
+          resolve();
+        });
+      });
+    });
+
+    afterAll(async () => {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    });
+
+    it("returns enriched repo data from GitHub API", async () => {
+      const res = await fetch(`http://127.0.0.1:${port}/api/v1/git/context`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+
+      const repos = body.repos as Array<Record<string, unknown>>;
+      expect(repos).toHaveLength(1);
+      const github = repos[0].github as Record<string, unknown>;
+      expect(github).toMatchObject({ description: "The app repo" });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/github\.enterprise\.test\/api\/v3\/repos\/acme\/app/u),
+        expect.objectContaining({ method: "GET" }),
+      );
     });
   });
 

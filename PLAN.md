@@ -31,24 +31,29 @@ Use this section before editing code in each iteration.
 
 | Candidate | Rank | Evidence | Blockers | Why Now |
 | --- | --- | --- | --- | --- |
-| Extract GitHub webhook handling into a provider-local module | Strong | `src/webhook/http-adapter.ts` owns both Linear replay/signature flow and GitHub signature/header validation, context extraction, repo filtering, issue dispatch, duplicate delivery wiring, and worker stop behavior. Docs in `docs/TRUST_AND_AUTH.md` and tests in `tests/http/github-webhook-handler.test.ts` define a stable GitHub route contract. | Security-sensitive, so keep the slice behavior-preserving and covered by existing route-contract tests. | The previous smaller Strong candidate is committed. This one now has enough route-contract evidence to deepen locality safely. |
-| Extract Linear webhook event processing from `src/webhook/http-adapter.ts` | Worth exploring | Linear handling still combines verification, replay checks, delivery workflow, issue/comment dispatch, and worker stop behavior. | Larger blast radius because Linear has replay-window and previous-secret behavior plus broader tests. | Worth doing after GitHub provider logic is separated. |
+| Move Linear webhook handling into a provider-local module and remove the shallow generic adapter | Strong | After `a7d943c`, `src/webhook/http-adapter.ts` contains only Linear webhook implementation plus old GitHub/signature compatibility exports. Callers in `src/http/routes/webhooks.ts`, `src/webhook/service.ts`, `src/webhook/composition.ts`, `src/webhook/port.ts`, `src/http/route-types.ts`, and tests still depend on the generic adapter name for Linear behavior. Deleting the adapter today would force import knowledge across those callers, proving the seam is shallow and weak on locality. | Security-sensitive, so the slice must be import-shape only: no signature, replay, delivery, or dispatch behavior changes. | The GitHub provider now has a local module. Linear should match that depth and remove the old pass-through seam before deeper Linear event-processing work. |
+| Extract Linear webhook event processing from the Linear handler | Worth exploring | Linear handling still combines verification, replay checks, delivery workflow, issue/comment dispatch, and worker stop behavior. | Larger blast radius because it can accidentally change targeted refresh, broad refresh, previous-secret logging context, or stop-worker behavior. | Reconsider after the provider-local module exists and tests import the intended interface. |
 | Split Docker command assembly phases in `src/docker/spawn.ts` | Speculative | The file is coherent and already has named helper phases; friction is mostly function length. | Would risk aesthetic extraction without stronger caller/test pain. | Defer unless runtime config, auth injection, or mount ownership shows repeated caller friction. |
 
 ### Chosen Candidate
 
-- Candidate: Extract GitHub webhook handling into a provider-local module
-- Reason chosen: Strong current evidence, route-contract tests already exist, no UI behavior, no credentials needed, and the slice improves provider locality while preserving the route interface.
-- Current problem: `src/webhook/http-adapter.ts` is a mixed provider module. The GitHub path has its own interface concerns: `triggers.github_secret`, `X-Hub-Signature-256`, `X-GitHub-Event`, `X-GitHub-Delivery`, durable inbox requirement, repo matching, supported issue actions, targeted refresh, and worker stop behavior. Keeping those beside Linear replay/previous-secret behavior weakens locality and makes the module harder to test through the GitHub interface.
-- Deeper module/interface being created or simplified: Create a `src/webhook/github-handler.ts` module whose interface is `handleWebhookGitHub(deps, req, res)` plus its deps type. Keep the implementation details for validation, context extraction, and GitHub issue dispatch local to that module. Simplify `src/webhook/http-adapter.ts` to own Linear handling and compatibility re-exports only.
+- Candidate: Move Linear webhook handling into a provider-local module and remove the shallow generic adapter
+- Reason chosen: Strong current evidence, no UI behavior, no credentials needed, and the slice improves provider locality by making both webhook providers expose their own handler module. It also removes a shallow seam whose interface is now mostly historical naming.
+- Current problem: `src/webhook/http-adapter.ts` is no longer a real HTTP adapter. It is a Linear webhook handler with old compatibility exports for GitHub and signature helpers. Its interface is less clear than its implementation, and callers/tests must know that "http-adapter" means Linear. That weakens locality and makes the next Linear-specific improvement harder to plan through the intended interface.
+- Deeper module/interface being created or simplified: Create `src/webhook/linear-handler.ts` as the Linear webhook module. Its interface is `handleWebhookLinear(deps, req, res)` plus `WebhookHandlerDeps` and `verifyLinearSignature`. Keep the implementation unchanged behind that provider-local interface. Delete `src/webhook/http-adapter.ts` after updating all source and test imports so the old shallow adapter seam does not remain.
 - Affected files:
-  - `src/webhook/github-handler.ts`
+  - `src/webhook/linear-handler.ts`
   - `src/webhook/http-adapter.ts`
+  - `src/webhook/service.ts`
+  - `src/webhook/composition.ts`
+  - `src/webhook/port.ts`
   - `src/http/routes/webhooks.ts`
-  - `tests/http/github-webhook-handler.test.ts`
+  - `src/http/route-types.ts`
+  - `tests/helpers/http-server-harness.ts`
+  - `tests/http/webhook-handler.test.ts`
   - `PLAN.md`, `ATTEMPTS.md`, `NOTES.md`
-- Compatibility expectations: `/webhooks/github` behavior remains unchanged: signature failures stay `401`, missing event/delivery stay `400`, missing inbox stays `503 webhook_inbox_unavailable`, duplicate deliveries skip dispatch, configured repo mismatches are ignored, supported issue events request targeted refresh, and closed issues stop workers.
-- Tests to add or update: Update `tests/http/github-webhook-handler.test.ts` to import the new module directly. Existing assertions remain the route-contract proof; run the matching GitHub and Linear webhook handler suites to prove no regression.
+- Compatibility expectations: `/webhooks/linear` behavior remains unchanged: missing secrets keep `503` with `Retry-After`, signature failures stay `401`, previous-secret rotation still works, invalid payloads stay `400`, replay rejection stays `401`, missing delivery stays `400`, duplicates still short-circuit through `WebhookDeliveryWorkflow`, issue/comment actions still refresh the same way, and terminal issue states still stop workers. `/webhooks/github` imports remain direct from `github-handler.ts`.
+- Tests to add or update: Update Linear webhook tests and HTTP harness imports to the new module. Existing assertions remain the route-contract proof; run the matching Linear/GitHub route suites to prove no regression.
 - Docs or ADRs to update: None; this is internal architecture with no operator-visible behavior change.
 - Validation commands:
   - `pnpm exec vitest run tests/http/github-webhook-handler.test.ts tests/http/webhook-handler.test.ts tests/http/webhook-routes.test.ts`
@@ -61,6 +66,9 @@ Use this section before editing code in each iteration.
 
 ## Latest Result
 
+- 2026-05-22T16:08:50+03:00: Linear webhook provider-local module slice implemented and validated. Focused validation passed with `pnpm exec vitest run tests/http/webhook-handler.test.ts tests/http/github-webhook-handler.test.ts tests/http/webhook-routes.test.ts` (`31` tests passed), followed by `pnpm run build`. First required validation found formatting drift in `tests/http/webhook-handler.test.ts`; after `pnpm exec prettier --write tests/http/webhook-handler.test.ts`, required validation passed with `pnpm run build && pnpm run lint && pnpm run format:check && pnpm test`; lint emitted existing warning-only inventory, tests passed `3773` with `1` skipped. UI verification was not required because no UI behavior changed.
+- 2026-05-22T16:05:08+03:00: Planning the next slice: move Linear webhook handling into `src/webhook/linear-handler.ts` and remove the shallow `src/webhook/http-adapter.ts` seam after updating imports.
+- 2026-05-22T16:01:16+03:00: GitHub webhook handling extraction committed as `a7d943c`.
 - 2026-05-22T16:01:16+03:00: GitHub webhook handling extraction implemented and validated. Focused validation passed with `pnpm exec vitest run tests/http/github-webhook-handler.test.ts tests/http/webhook-handler.test.ts tests/http/webhook-routes.test.ts` (`31` tests passed). Required validation passed with `pnpm run build && pnpm run lint && pnpm run format:check && pnpm test`; lint emitted existing warning-only inventory, tests passed `3773` with `1` skipped. UI verification was not required because no UI behavior changed.
 - 2026-05-22T15:55:21+03:00: Planning the next slice: GitHub webhook handling extraction.
 - Previous result: GitHub label provisioning slice committed as `cd07db4`.

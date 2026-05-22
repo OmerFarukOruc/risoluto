@@ -17,7 +17,7 @@ import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { TemplateStorePort } from "../prompt/port.js";
 import type { SecretsPort } from "../secrets/port.js";
 import type { TrackerPort } from "../tracker/port.js";
-import type { WebhookHandlerDeps } from "../webhook/http-adapter.js";
+import type { WebhookHandlerDeps } from "../webhook/linear-handler.js";
 import type { WorkspacePort } from "../workspace/port.js";
 
 export interface HttpRouteDeps {

@@ -24,7 +24,7 @@ import { TypedEventBus } from "../../src/core/event-bus.js";
 import type { RisolutoEventMap } from "../../src/core/risoluto-events.js";
 import type { RisolutoLogger } from "../../src/core/types.js";
 import { HttpServer } from "../../src/http/server.js";
-import type { WebhookHandlerDeps } from "../../src/webhook/http-adapter.js";
+import type { WebhookHandlerDeps } from "../../src/webhook/linear-handler.js";
 import type { ConfigOverlayPort } from "../../src/config/overlay.js";
 import type { ConfigStore } from "../../src/config/store.js";
 import type { AttemptStorePort } from "../../src/core/attempt-store-port.js";

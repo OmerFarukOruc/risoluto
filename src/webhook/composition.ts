@@ -5,7 +5,7 @@ import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { SecretsStore } from "../secrets/store.js";
 import type { createTracker } from "../tracker/factory.js";
-import type { WebhookHandlerDeps } from "./http-adapter.js";
+import type { WebhookHandlerDeps } from "./linear-handler.js";
 import { createWebhookRuntime, evaluateWebhookConfig, type WebhookRuntime } from "./runtime.js";
 
 /**

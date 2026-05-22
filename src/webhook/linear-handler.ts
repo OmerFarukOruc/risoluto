@@ -3,7 +3,6 @@ import type { Response } from "express";
 import type { TypedEventBus } from "../core/event-bus.js";
 import type { RisolutoEventMap } from "../core/risoluto-events.js";
 import type { RisolutoLogger } from "../core/types.js";
-import { toErrorString } from "../utils/type-guards.js";
 import type { VerifiedWebhookDeliveryStore } from "./delivery-workflow.js";
 import { WebhookDeliveryWorkflow } from "./delivery-workflow.js";
 import { verifyLinearSignature } from "./signature.js";
@@ -220,6 +219,4 @@ function maybeStopWorker(
   }
 }
 
-export { toErrorString };
-export { handleWebhookGitHub, type GitHubWebhookHandlerDeps } from "./github-handler.js";
-export { verifyGitHubSignature, verifyLinearSignature } from "./signature.js";
+export { verifyLinearSignature } from "./signature.js";

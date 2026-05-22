@@ -8,7 +8,7 @@ import { methodNotAllowed } from "../route-helpers.js";
 import { handleTriggerDispatch } from "../trigger-handler.js";
 import { validateBody } from "../validation.js";
 import type { WebhookRequest } from "../webhook-types.js";
-import { handleWebhookLinear, type WebhookHandlerDeps } from "../../webhook/http-adapter.js";
+import { handleWebhookLinear, type WebhookHandlerDeps } from "../../webhook/linear-handler.js";
 import { handleWebhookGitHub, type GitHubWebhookHandlerDeps } from "../../webhook/github-handler.js";
 
 export function registerWebhookRoutes(app: Express, deps: HttpRouteDeps): void {

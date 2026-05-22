@@ -5,7 +5,11 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import express, { type IncomingMessage, type Response } from "express";
 import rateLimit from "express-rate-limit";
 
-import { handleWebhookLinear, verifyLinearSignature, type WebhookHandlerDeps } from "../../src/webhook/http-adapter.js";
+import {
+  handleWebhookLinear,
+  verifyLinearSignature,
+  type WebhookHandlerDeps,
+} from "../../src/webhook/linear-handler.js";
 import type { WebhookRequest } from "../../src/http/webhook-types.js";
 
 /* ------------------------------------------------------------------ */

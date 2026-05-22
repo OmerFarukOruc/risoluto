@@ -1,5 +1,5 @@
 import type { RisolutoLogger } from "../core/types.js";
-import type { WebhookHandlerDeps } from "./http-adapter.js";
+import type { WebhookHandlerDeps } from "./linear-handler.js";
 import type { OrchestratorPort } from "../orchestrator/port.js";
 import type { WebhookDeliveryRecord, WebhookInboxStats } from "../persistence/sqlite/webhook-inbox.js";
 import type { WebhookHealthState } from "./types.js";

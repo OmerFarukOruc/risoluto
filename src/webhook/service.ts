@@ -4,7 +4,7 @@ import type { RisolutoLogger, WebhookConfig } from "../core/types.js";
 import type { PersistenceRuntime } from "../persistence/sqlite/runtime.js";
 import type { SecretsStore } from "../secrets/store.js";
 import { DefaultWebhookHealthTracker, type WebhookHealthTracker } from "./health-tracker.js";
-import type { WebhookHandlerDeps } from "./http-adapter.js";
+import type { WebhookHandlerDeps } from "./linear-handler.js";
 import type { WebhookPort, WebhookPortSnapshot } from "./port.js";
 import { WebhookRegistrar, type WebhookRegistrationPort } from "./registrar.js";
 

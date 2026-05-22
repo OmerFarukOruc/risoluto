@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 import { isRecord, toErrorString } from "../../utils/type-guards.js";
 import { resolveSetupService, type SetupService } from "../setup-service.js";
-import type { SetupApiDeps } from "./shared.js";
+import type { SetupApiDeps } from "../port.js";
 
 export function handlePostCodexAuth(deps: SetupApiDeps | SetupService) {
   const service = resolveSetupService(deps);

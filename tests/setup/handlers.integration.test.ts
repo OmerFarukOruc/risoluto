@@ -20,7 +20,7 @@ import { ConfigOverlayStore } from "../../src/config/overlay.js";
 import { SecretsStore } from "../../src/secrets/store.js";
 import { handlePostMasterKey } from "../../src/setup/handlers/master-key.js";
 import { handlePostReset } from "../../src/setup/handlers/reset.js";
-import type { SetupApiDeps } from "../../src/setup/handlers/shared.js";
+import type { SetupApiDeps } from "../../src/setup/port.js";
 import { handleGetStatus } from "../../src/setup/handlers/status.js";
 import { buildSilentLogger, buildStubOrchestrator } from "../helpers/http-server-harness.js";
 

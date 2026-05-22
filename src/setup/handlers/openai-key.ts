@@ -8,7 +8,7 @@ import {
   type SetupProviderConfig,
   type SetupService,
 } from "../setup-service.js";
-import type { SetupApiDeps } from "./shared.js";
+import type { SetupApiDeps } from "../port.js";
 
 function parseProviderConfig(body: unknown): SetupProviderConfig {
   const providerBody = isRecord(body) && isRecord(body.provider) ? body.provider : null;

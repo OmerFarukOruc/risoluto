@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 import { getErrorMessage } from "../../utils/type-guards.js";
 import { SetupServiceError, resolveSetupService, type SetupService } from "../setup-service.js";
-import type { SetupApiDeps } from "./shared.js";
+import type { SetupApiDeps } from "../port.js";
 
 export function handlePostCreateTestIssue(deps: SetupApiDeps | SetupService) {
   const service = resolveSetupService(deps);

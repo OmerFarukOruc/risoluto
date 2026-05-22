@@ -32,7 +32,7 @@ vi.mock("../../src/setup/device-auth.js", () => ({
 }));
 
 import { handleGetStatus } from "../../src/setup/handlers/status.js";
-import type { SetupApiDeps } from "../../src/setup/handlers/shared.js";
+import type { SetupApiDeps } from "../../src/setup/port.js";
 
 beforeEach(() => setupBeforeEach(mocks));
 afterEach(setupAfterEach);

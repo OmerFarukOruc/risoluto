@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 import { isRecord, toErrorString } from "../utils/type-guards.js";
 import { SetupServiceError, resolveSetupService, type SetupService } from "./setup-service.js";
-import type { SetupApiDeps } from "./handlers/shared.js";
+import type { SetupApiDeps } from "./port.js";
 
 function parseRepoRouteBody(body: unknown): {
   repoUrl: string | null;

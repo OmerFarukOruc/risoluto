@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 import { getErrorMessage, isRecord } from "../../utils/type-guards.js";
 import { SetupServiceError, resolveSetupService, type SetupService } from "../setup-service.js";
-import type { SetupApiDeps } from "./shared.js";
+import type { SetupApiDeps } from "../port.js";
 
 function parseProjectName(body: unknown): string | null {
   if (!isRecord(body) || typeof body.name !== "string") return null;

@@ -1,4 +1,4 @@
-export type { SetupApiDeps } from "./shared.js";
+export type { SetupApiDeps } from "../port.js";
 
 export { handleGetStatus } from "./status.js";
 export { handlePostMasterKey } from "./master-key.js";

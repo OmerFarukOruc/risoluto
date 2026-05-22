@@ -41,4 +41,18 @@ describe("GitHubTransport", () => {
     expect(headers.authorization).toBeUndefined();
     expect(headers.accept).toBe("application/vnd.github+json");
   });
+
+  it("forwards abort signals to fetch", async () => {
+    const controller = new AbortController();
+    const transport = new GitHubTransport({
+      fetch: fetchMock as unknown as typeof fetch,
+    });
+
+    await transport.send({ pathName: "/user", method: "GET", token: "ghp_valid", signal: controller.signal });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/user",
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
 });

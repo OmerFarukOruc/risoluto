@@ -19,6 +19,7 @@ export interface GitHubTransportRequest {
   allowMissingToken?: boolean;
   authorizationScheme?: string;
   omitAuthorization?: boolean;
+  signal?: AbortSignal;
 }
 
 export class GitHubApiError extends Error {
@@ -96,6 +97,7 @@ export class GitHubTransport {
       method: request.method,
       headers: this.buildHeaders(request),
       body: request.body,
+      signal: request.signal,
     });
   }
 

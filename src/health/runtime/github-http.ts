@@ -1,4 +1,5 @@
 import type { GithubHttpResult, GithubProbeHttp, GithubRateLimitResult } from "../probes/github-probe.js";
+import { GitHubTransport } from "../../github/transport.js";
 
 /**
  * Concrete GitHub probe HTTP adapter using `globalThis.fetch`. Resolves
@@ -14,8 +15,15 @@ export interface GithubHttpAdapterDeps {
 }
 
 export function createGithubHttpAdapter(deps: GithubHttpAdapterDeps): GithubProbeHttp {
-  const baseUrl = deps.baseUrl ?? "https://api.github.com";
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  const transport = new GitHubTransport({
+    fetch: fetchImpl,
+    apiBaseUrl: deps.baseUrl,
+    defaultHeaders: {
+      accept: "application/vnd.github+json",
+      "user-agent": "risoluto-health-probe/1",
+    },
+  });
 
   async function call(path: string, signal: AbortSignal): Promise<GithubHttpResult> {
     const token = deps.resolveToken();
@@ -23,13 +31,11 @@ export function createGithubHttpAdapter(deps: GithubHttpAdapterDeps): GithubProb
       return { status: 0, scopes: [], bodyExcerpt: "no GitHub token configured" };
     }
     try {
-      const response = await fetchImpl(`${baseUrl}${path}`, {
+      const response = await transport.send({
+        pathName: path,
+        method: "GET",
         signal,
-        headers: {
-          accept: "application/vnd.github+json",
-          authorization: `Bearer ${token}`,
-          "user-agent": "risoluto-health-probe/1",
-        },
+        token,
       });
       const scopes = parseScopes(response.headers.get("x-oauth-scopes"));
       const bodyExcerpt = await readBodyExcerpt(response);

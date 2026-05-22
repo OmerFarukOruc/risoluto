@@ -21,6 +21,8 @@
 - 2026-05-22T16:33:32+03:00 Next scan hint: `src/setup/setup-service.ts` and `src/health/runtime/github-http.ts` still mention GitHub HTTP implementation. Re-read current source and tests before deciding whether either is a real depth candidate or just context-specific setup/health locality.
 - 2026-05-22T16:44:24+03:00 Setup GitHub transport slice validated. `GitHubTransport` now owns setup's request mechanics for GitHub token validation and default-branch detection through a deeper interface that supports `token` authorization and anonymous public requests. Setup keeps workflow behavior: validate token, store only valid tokens, try authenticated default-branch lookup first, then public lookup, and fall back to `main` at the handler.
 - 2026-05-22T16:44:24+03:00 Compatibility learning: preserving historical setup error messages while mapping from `GitHubApiError` should still keep the original cause attached. The lint rule caught this and the final implementation preserves both setup compatibility and error locality.
+- 2026-05-22T16:57:21+03:00 GitHub health transport slice validated. `GitHubTransport` now owns health probe request mechanics through its existing interface plus abort-signal forwarding. `GithubProbeHttp` remains the probe adapter module and keeps its implementation locality for missing-token status `0`, network failure mapping, scope parsing, body excerpt truncation, and rate-limit parsing.
+- 2026-05-22T16:57:21+03:00 Candidate learning: splitting health probe result parsing into another module remains speculative. The parsing logic is specific to the single `GithubProbeHttp` adapter, so extracting it would create a hypothetical seam with weak leverage and worse locality.
 
 ## Durable Architecture Rubric
 
@@ -34,3 +36,4 @@
 
 - 2026-05-22T16:33:32+03:00 Skipped extracting Linear webhook event processing for now. Reason: current evidence is speculative; the module is already provider-local, and a new seam would have one adapter with no proven testability/runtime need.
 - 2026-05-22T16:44:24+03:00 Skipped broadening setup repo URL parsing for GitHub Enterprise. Reason: accepting non-`github.com` URLs would change setup behavior and trust posture, requiring user intent/security authority.
+- 2026-05-22T16:57:21+03:00 Skipped extracting GitHub health result parsing. Reason: the behavior is local to the `GithubProbeHttp` adapter implementation and has no repeated ownership or real adapter variation.

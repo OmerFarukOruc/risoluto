@@ -468,8 +468,3 @@ export function getRuntimeClient(): RuntimeClient {
   singleton ??= createRuntimeClient();
   return singleton;
 }
-
-export function resetRuntimeClientForTesting(): void {
-  singleton?.stop();
-  singleton = null;
-}

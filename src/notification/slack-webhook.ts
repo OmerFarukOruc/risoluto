@@ -7,7 +7,7 @@ import {
   shouldDeliverByMinSeverity,
   shouldDeliverByVerbosity,
 } from "./channel.js";
-import { toErrorString } from "../utils/type-guards.js";
+import { deliverWebhookJson } from "./webhook-delivery.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -134,37 +134,15 @@ export class SlackWebhookChannel implements NotificationChannel {
       return;
     }
 
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => {
-      abortController.abort();
-    }, this.timeoutMs);
-
-    try {
-      const response = await this.fetchImpl(this.options.webhookUrl, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-        },
-        body: JSON.stringify(buildSlackPayload(event)),
-        signal: abortController.signal,
-      });
-      if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new Error(`slack webhook request failed with status ${response.status}: ${body}`);
-      }
-    } catch (error) {
-      this.options.logger?.error(
-        {
-          channel: this.name,
-          eventType: event.type,
-          issueIdentifier: event.issue.identifier,
-          error: toErrorString(error),
-        },
-        "notification delivery failed",
-      );
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-    }
+    await deliverWebhookJson({
+      channelName: this.name,
+      url: this.options.webhookUrl,
+      payload: buildSlackPayload(event),
+      failureLabel: "slack webhook",
+      event,
+      timeoutMs: this.timeoutMs,
+      fetchImpl: this.fetchImpl,
+      logger: this.options.logger,
+    });
   }
 }

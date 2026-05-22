@@ -1,7 +1,7 @@
 import type { RisolutoLogger } from "../core/types.js";
 import type { NotificationSeverity } from "../core/notification-types.js";
 import { type NotificationChannel, type NotificationEvent, shouldDeliverByMinSeverity } from "./channel.js";
-import { toErrorString } from "../utils/type-guards.js";
+import { deliverWebhookJson } from "./webhook-delivery.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -50,38 +50,16 @@ export class WebhookChannel implements NotificationChannel {
       return;
     }
 
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => {
-      abortController.abort();
-    }, this.timeoutMs);
-
-    try {
-      const response = await this.fetchImpl(this.options.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-          ...(this.options.headers ?? {}),
-        },
-        body: JSON.stringify(buildPayload(event)),
-        signal: abortController.signal,
-      });
-      if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new Error(`webhook request failed with status ${response.status}: ${body}`);
-      }
-    } catch (error) {
-      this.options.logger?.error(
-        {
-          channel: this.name,
-          eventType: event.type,
-          issueIdentifier: event.issue.identifier,
-          error: toErrorString(error),
-        },
-        "notification delivery failed",
-      );
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-    }
+    await deliverWebhookJson({
+      channelName: this.name,
+      url: this.options.url,
+      payload: buildPayload(event),
+      failureLabel: "webhook",
+      event,
+      headers: this.options.headers,
+      timeoutMs: this.timeoutMs,
+      fetchImpl: this.fetchImpl,
+      logger: this.options.logger,
+    });
   }
 }

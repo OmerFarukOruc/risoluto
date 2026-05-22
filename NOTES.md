@@ -23,6 +23,8 @@
 - 2026-05-22T16:44:24+03:00 Compatibility learning: preserving historical setup error messages while mapping from `GitHubApiError` should still keep the original cause attached. The lint rule caught this and the final implementation preserves both setup compatibility and error locality.
 - 2026-05-22T16:57:21+03:00 GitHub health transport slice validated. `GitHubTransport` now owns health probe request mechanics through its existing interface plus abort-signal forwarding. `GithubProbeHttp` remains the probe adapter module and keeps its implementation locality for missing-token status `0`, network failure mapping, scope parsing, body excerpt truncation, and rate-limit parsing.
 - 2026-05-22T16:57:21+03:00 Candidate learning: splitting health probe result parsing into another module remains speculative. The parsing logic is specific to the single `GithubProbeHttp` adapter, so extracting it would create a hypothetical seam with weak leverage and worse locality.
+- 2026-05-22T17:05:22+03:00 Notification webhook delivery slice validated. `deliverWebhookJson()` now owns shared outbound webhook implementation for Slack and generic webhook notification adapters: timeout/abort setup, JSON POST construction, content/custom headers, non-2xx body reads, delivery logging, and cleanup. Slack and generic webhook modules keep adapter locality for event filtering and payload shape.
+- 2026-05-22T17:05:22+03:00 Candidate learning: `GitHubPrClient` is not a current strong transport candidate. Fresh source showed it already uses `GitHubTransport`; its remaining implementation is PR-domain behavior, so further extraction would be speculative without repeated ownership evidence.
 
 ## Durable Architecture Rubric
 
@@ -37,3 +39,4 @@
 - 2026-05-22T16:33:32+03:00 Skipped extracting Linear webhook event processing for now. Reason: current evidence is speculative; the module is already provider-local, and a new seam would have one adapter with no proven testability/runtime need.
 - 2026-05-22T16:44:24+03:00 Skipped broadening setup repo URL parsing for GitHub Enterprise. Reason: accepting non-`github.com` URLs would change setup behavior and trust posture, requiring user intent/security authority.
 - 2026-05-22T16:57:21+03:00 Skipped extracting GitHub health result parsing. Reason: the behavior is local to the `GithubProbeHttp` adapter implementation and has no repeated ownership or real adapter variation.
+- 2026-05-22T17:05:22+03:00 Skipped further `GitHubPrClient` transport extraction. Reason: the module already delegates request mechanics to `GitHubTransport`, and remaining PR-specific behavior has stronger locality inside the PR client.

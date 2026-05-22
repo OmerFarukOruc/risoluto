@@ -420,4 +420,165 @@ describe("LinearClient", () => {
       "linear candidate issue fallback could not resolve workflow states",
     );
   });
+
+  it("lists setup projects with team keys", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          projects: {
+            nodes: [
+              {
+                id: "project-1",
+                name: "Ops",
+                slugId: "ops",
+                teams: { nodes: [{ key: "ENG" }] },
+              },
+            ],
+          },
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => createConfig(), createLogger());
+
+    await expect(client.listProjects()).resolves.toEqual([
+      { id: "project-1", name: "Ops", slugId: "ops", teamKey: "ENG" },
+    ]);
+  });
+
+  it("creates setup projects with the first Linear team", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            teams: {
+              nodes: [{ id: "team-1", key: "ENG" }],
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            projectCreate: {
+              success: true,
+              project: {
+                id: "project-1",
+                name: "Ops",
+                slugId: "ops",
+                url: "https://linear.app/project/ops",
+                teams: { nodes: [{ key: "ENG" }] },
+              },
+            },
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => createConfig(), createLogger());
+
+    await expect(client.createProject("Ops")).resolves.toEqual({
+      id: "project-1",
+      name: "Ops",
+      slugId: "ops",
+      url: "https://linear.app/project/ops",
+      teamKey: "ENG",
+    });
+    expect(getRequestBody(fetchMock, 1).variables).toEqual({ name: "Ops", teamIds: ["team-1"] });
+  });
+
+  it("creates setup smoke test issues in the In Progress state", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => projectLookupPayload("team-1"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            team: {
+              states: {
+                nodes: [{ id: "state-1", name: "In Progress" }],
+              },
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                identifier: "MT-77",
+                url: "https://linear.app/team/issue/MT-77",
+              },
+            },
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => createConfig(), createLogger());
+
+    await expect(client.createSetupTestIssue()).resolves.toEqual({
+      issueIdentifier: "MT-77",
+      issueUrl: "https://linear.app/team/issue/MT-77",
+    });
+    expect(getRequestBody(fetchMock, 2).variables).toMatchObject({
+      projectId: "project-1",
+      stateId: "state-1",
+      teamId: "team-1",
+      title: "Risoluto smoke test",
+    });
+  });
+
+  it("treats duplicate setup labels as already provisioned", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => projectLookupPayload("team-1"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          data: null,
+          errors: [{ message: "Duplicate label name" }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new LinearClient(() => createConfig(), createLogger());
+
+    await expect(client.ensureRisolutoLabel()).resolves.toEqual({
+      labelId: "",
+      labelName: "risoluto",
+      alreadyExists: true,
+    });
+  });
 });

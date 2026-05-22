@@ -36,6 +36,23 @@ function createMockClient(): LinearClient {
       identifier: "NIN-77",
       url: "https://linear.app/team/issue/NIN-77",
     }),
+    listProjects: vi.fn().mockResolvedValue([{ id: "project-1", name: "Ops", slugId: "ops", teamKey: "ENG" }]),
+    createProject: vi.fn().mockResolvedValue({
+      id: "project-1",
+      name: "Ops",
+      slugId: "ops",
+      url: "https://linear.app/project/ops",
+      teamKey: "ENG",
+    }),
+    createSetupTestIssue: vi.fn().mockResolvedValue({
+      issueIdentifier: "NIN-77",
+      issueUrl: "https://linear.app/team/issue/NIN-77",
+    }),
+    ensureRisolutoLabel: vi.fn().mockResolvedValue({
+      labelId: "label-1",
+      labelName: "risoluto",
+      alreadyExists: false,
+    }),
   } as unknown as LinearClient;
 }
 
@@ -161,7 +178,7 @@ describe("LinearTrackerAdapter", () => {
 
     it("logs transition failures when a logger is provided", async () => {
       const logger = createMockLogger();
-      const adapterWithLogger = new LinearTrackerAdapter(client, undefined, logger);
+      const adapterWithLogger = new LinearTrackerAdapter(client, logger);
       vi.mocked(client.updateIssueStateStrict).mockRejectedValue(new Error("Linear API error"));
 
       await expect(adapterWithLogger.transitionIssue("issue-abc", "state-done")).resolves.toEqual({ success: false });
@@ -185,6 +202,61 @@ describe("LinearTrackerAdapter", () => {
       await adapter.transitionIssue("issue-xyz", "state-123");
 
       expect(client.updateIssueStateStrict).toHaveBeenCalledWith("issue-xyz", "state-123");
+    });
+  });
+
+  describe("provision", () => {
+    it("delegates project listing to client.listProjects", async () => {
+      const result = await adapter.provision({ type: "list_projects" });
+
+      expect(client.listProjects).toHaveBeenCalledOnce();
+      expect(result).toEqual({ projects: [{ id: "project-1", name: "Ops", slugId: "ops", teamKey: "ENG" }] });
+    });
+
+    it("returns ok for selected projects without touching Linear", async () => {
+      const result = await adapter.provision({ type: "select_project", slugId: "ops" });
+
+      expect(result).toEqual({ ok: true });
+      expect(client.listProjects).not.toHaveBeenCalled();
+    });
+
+    it("delegates project creation to client.createProject", async () => {
+      const result = await adapter.provision({ type: "create_project", name: "Ops" });
+
+      expect(client.createProject).toHaveBeenCalledWith("Ops");
+      expect(result).toEqual({
+        ok: true,
+        project: {
+          id: "project-1",
+          name: "Ops",
+          slugId: "ops",
+          url: "https://linear.app/project/ops",
+          teamKey: "ENG",
+        },
+      });
+    });
+
+    it("delegates smoke test issue creation to client.createSetupTestIssue", async () => {
+      const result = await adapter.provision({ type: "create_test_issue" });
+
+      expect(client.createSetupTestIssue).toHaveBeenCalledOnce();
+      expect(result).toEqual({
+        ok: true,
+        issueIdentifier: "NIN-77",
+        issueUrl: "https://linear.app/team/issue/NIN-77",
+      });
+    });
+
+    it("delegates label provisioning to client.ensureRisolutoLabel", async () => {
+      const result = await adapter.provision({ type: "create_label" });
+
+      expect(client.ensureRisolutoLabel).toHaveBeenCalledOnce();
+      expect(result).toEqual({
+        ok: true,
+        labelId: "label-1",
+        labelName: "risoluto",
+        alreadyExists: false,
+      });
     });
   });
 });

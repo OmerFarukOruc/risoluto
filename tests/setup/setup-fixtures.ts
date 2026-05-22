@@ -89,7 +89,7 @@ function createSetupTracker(secretsStore: SecretsStore, configOverlayStore: Conf
       github: { token: secretsStore.get("GITHUB_TOKEN") ?? process.env.GITHUB_TOKEN ?? "", apiBaseUrl: "" },
     }) as ServiceConfig;
 
-  return new LinearTrackerAdapter(new LinearClient(getConfig, logger), getConfig);
+  return new LinearTrackerAdapter(new LinearClient(getConfig, logger));
 }
 
 function createAttemptStoreMock(): AttemptStorePort {

@@ -10,6 +10,9 @@ import {
   buildIssuesByStatesQuery,
   buildProjectLookupQuery,
   buildCreateIssueMutation,
+  buildCreateLabelMutation,
+  buildCreateProjectMutation,
+  buildTeamsQuery,
   buildWebhooksQuery,
   buildWebhookCreateMutation,
   buildWebhookUpdateMutation,
@@ -57,6 +60,31 @@ export interface LinearIssueLookup {
   stateName: string | null;
 }
 
+export interface LinearProjectOption {
+  id: unknown;
+  name: unknown;
+  slugId: unknown;
+  teamKey: string | null;
+}
+
+export interface LinearProjectRecord {
+  id?: string;
+  name?: string;
+  slugId?: string;
+  url: string | null;
+  teamKey: string | null;
+}
+
+interface LinearTeam {
+  id: string;
+  key: string;
+}
+
+const RISOLUTO_SETUP_ISSUE_TITLE = "Risoluto smoke test";
+const RISOLUTO_SETUP_ISSUE_DESCRIPTION =
+  "This issue was created automatically to verify your Risoluto setup. " +
+  "Risoluto should pick it up within one poll cycle and run a sandboxed agent.";
+
 function buildWorkflowStateLookupQuery(includeTeamFilter: boolean): string {
   return `
     query RisolutoWorkflowStates${includeTeamFilter ? "($teamId: ID)" : ""} {
@@ -85,6 +113,10 @@ function assertIssueTransitionSucceeded(payload: { data?: Record<string, unknown
   if (asBooleanOrNull(issueUpdate.success) !== true) {
     throw new LinearClientError("linear_unknown_payload", "linear issue transition was not confirmed");
   }
+}
+
+function graphQLErrorMessages(errors: unknown[] | undefined): string[] {
+  return (errors ?? []).map((error) => asStringOrNull(asRecord(error).message) ?? "Linear GraphQL error");
 }
 
 export class LinearClient {
@@ -375,6 +407,117 @@ export class LinearClient {
     return { issueId, identifier, url };
   }
 
+  async listProjects(): Promise<LinearProjectOption[]> {
+    const payload = await this.runGraphQL(
+      "{ projects(first: 50) { nodes { id name slugId teams { nodes { key } } } } }",
+      {},
+    );
+    const nodes = asArray(asRecord(asRecord(payload.data).projects).nodes).map((node) => asRecord(node));
+
+    return nodes.map((node) => {
+      const teams = asArray(asRecord(node.teams).nodes).map((team) => asRecord(team));
+      return {
+        id: node.id,
+        name: node.name,
+        slugId: node.slugId,
+        teamKey: asStringOrNull(teams[0]?.key) ?? null,
+      };
+    });
+  }
+
+  async createProject(name: string): Promise<LinearProjectRecord> {
+    const teams = await this.readTeams();
+    if (teams.length === 0) {
+      throw new Error("No teams found in your Linear workspace");
+    }
+
+    const payload = await this.runGraphQL(buildCreateProjectMutation(), {
+      name,
+      teamIds: [teams[0].id],
+    });
+    const result = asRecord(asRecord(payload.data).projectCreate);
+    const project = asRecord(result.project);
+    const slugId = asStringOrNull(project.slugId);
+    if (asBooleanOrNull(result.success) !== true || !slugId) {
+      throw new Error("Linear did not confirm project creation");
+    }
+
+    return {
+      id: asStringOrNull(project.id) ?? undefined,
+      name: asStringOrNull(project.name) ?? undefined,
+      slugId,
+      url: asStringOrNull(project.url),
+      teamKey: asStringOrNull(asRecord(asArray(asRecord(project.teams).nodes).at(0)).key) ?? teams[0].key,
+    };
+  }
+
+  async createSetupTestIssue(): Promise<{ issueIdentifier: string; issueUrl: string }> {
+    const project = await this.resolveRequiredProjectContext();
+    if (!project.teamId) {
+      throw new Error("No team found for the selected project");
+    }
+
+    const stateId = await this.resolveRequiredTeamStateId(project.teamId, "In Progress");
+    const payload = await this.runGraphQL(buildCreateIssueMutation(), {
+      teamId: project.teamId,
+      projectId: project.projectId,
+      title: RISOLUTO_SETUP_ISSUE_TITLE,
+      description: RISOLUTO_SETUP_ISSUE_DESCRIPTION,
+      stateId,
+    });
+    const result = asRecord(asRecord(payload.data).issueCreate);
+    const issue = asRecord(result.issue);
+    const identifier = asStringOrNull(issue.identifier);
+    const url = asStringOrNull(issue.url);
+    if (asBooleanOrNull(result.success) !== true || !identifier || !url) {
+      throw new Error("Linear did not confirm issue creation");
+    }
+
+    return {
+      issueIdentifier: identifier,
+      issueUrl: url,
+    };
+  }
+
+  async ensureRisolutoLabel(): Promise<{ labelId: string; labelName: string; alreadyExists: boolean }> {
+    const project = await this.resolveRequiredProjectContext();
+    if (!project.teamId) {
+      throw new Error("No team found for the selected project");
+    }
+
+    const payload = await this.requestGraphQL(buildCreateLabelMutation(), {
+      teamId: project.teamId,
+      name: "risoluto",
+      color: "#2563eb",
+    });
+    const errorMessages = graphQLErrorMessages(payload.errors);
+    if (errorMessages.some((message) => message.toLowerCase().includes("duplicate"))) {
+      return {
+        labelId: "",
+        labelName: "risoluto",
+        alreadyExists: true,
+      };
+    }
+    if (errorMessages.length > 0) {
+      this.logger.error({ errors: payload.errors }, "linear graphql response contained errors");
+      throw new LinearClientError("linear_graphql_error", "linear graphql response contained errors");
+    }
+
+    const result = asRecord(asRecord(payload.data).issueLabelCreate);
+    const label = asRecord(result.issueLabel);
+    const labelId = asStringOrNull(label.id);
+    const labelName = asStringOrNull(label.name);
+    if (asBooleanOrNull(result.success) !== true || !labelId || !labelName) {
+      throw new Error("Linear did not confirm label creation");
+    }
+
+    return {
+      labelId,
+      labelName,
+      alreadyExists: false,
+    };
+  }
+
   async findAttachmentsForUrl(url: string): Promise<LinearAttachmentLookup[]> {
     const payload = await this.runGraphQL(buildAttachmentsForUrlQuery(), { url });
     const nodes = asArray(asRecord(asRecord(payload.data).attachmentsForURL).nodes).map((entry) => asRecord(entry));
@@ -462,6 +605,21 @@ export class LinearClient {
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<{ data?: Record<string, unknown>; errors?: unknown[] }> {
+    const payload = await this.requestGraphQL(query, variables);
+
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      this.logger.error({ errors: payload.errors }, "linear graphql response contained errors");
+      throw new LinearClientError("linear_graphql_error", "linear graphql response contained errors");
+    }
+
+    if (Object.hasOwn(payload, "data") === false || typeof payload.data !== "object" || payload.data === null) {
+      throw new LinearClientError("linear_unknown_payload", "linear graphql response missing data object");
+    }
+
+    return payload;
+  }
+
+  private async requestGraphQL(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse> {
     const config = this.getConfig();
     let response: Response;
     try {
@@ -489,29 +647,59 @@ export class LinearClient {
       });
     }
 
-    const payload = await readJsonResponse(response);
     if (!response.ok) {
+      const body = typeof response.text === "function" ? await response.text().catch(() => "") : "";
       this.logger.error(
         {
           status: response.status,
           statusText: response.statusText,
-          errors: payload.errors ?? null,
+          body,
         },
         "linear graphql request failed",
       );
-      throw new LinearClientError("linear_http_error", `linear graphql request failed with status ${response.status}`);
+      throw new LinearClientError("linear_http_error", `Linear API returned ${response.status}: ${body}`);
     }
 
-    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
-      this.logger.error({ errors: payload.errors }, "linear graphql response contained errors");
-      throw new LinearClientError("linear_graphql_error", "linear graphql response contained errors");
-    }
-
-    if (Object.hasOwn(payload, "data") === false || typeof payload.data !== "object" || payload.data === null) {
-      throw new LinearClientError("linear_unknown_payload", "linear graphql response missing data object");
-    }
-
+    const payload = await readJsonResponse(response);
     return payload;
+  }
+
+  private async readTeams(): Promise<LinearTeam[]> {
+    const payload = await this.runGraphQL(buildTeamsQuery(), {});
+    return asArray(asRecord(asRecord(payload.data).teams).nodes)
+      .map((team) => asRecord(team))
+      .map((team) => ({
+        id: asStringOrNull(team.id) ?? "",
+        key: asStringOrNull(team.key) ?? "",
+      }))
+      .filter((team): team is LinearTeam => team.id.length > 0 && team.key.length > 0);
+  }
+
+  private async resolveRequiredProjectContext(): Promise<{ projectId: string; teamId: string | null }> {
+    const config = this.getConfig();
+    if (!config.tracker.projectSlug) {
+      throw new Error("No Linear project selected");
+    }
+
+    const payload = await this.runGraphQL(buildProjectLookupQuery(), { projectSlug: config.tracker.projectSlug });
+    const project = asRecord(asArray(asRecord(asRecord(payload.data).projects).nodes).at(0));
+    const projectId = asStringOrNull(project.id);
+    if (!projectId) {
+      throw new Error(`Project "${config.tracker.projectSlug}" not found`);
+    }
+
+    return {
+      projectId,
+      teamId: asStringOrNull(asRecord(asArray(asRecord(project.teams).nodes).at(0)).id),
+    };
+  }
+
+  private async resolveRequiredTeamStateId(teamId: string, stateName: string): Promise<string> {
+    const stateId = await this.resolveTeamStateId(teamId, stateName);
+    if (!stateId) {
+      throw new Error(`No "${stateName}" state found for the team`);
+    }
+    return stateId;
   }
 
   private async resolveProjectContext(

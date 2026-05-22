@@ -1,3 +1,5 @@
+import { getRuntimeClient } from "../state/runtime-client.js";
+
 let outletEl: HTMLElement | null = null;
 let routeAnnouncerEl: HTMLElement | null = null;
 
@@ -32,11 +34,7 @@ export function initShell(root: HTMLElement): { sidebarEl: HTMLElement; headerEl
   bannerDismiss.textContent = "\u2715";
   bannerDismiss.setAttribute("aria-label", "Dismiss stale state banner");
   bannerDismiss.addEventListener("click", () => {
-    import("../state/polling.js")
-      .then((m) => m.dismissStaleBanner())
-      .catch(() => {
-        bannerEl.hidden = true;
-      });
+    getRuntimeClient().dismissStaleBanner();
   });
 
   bannerEl.append(bannerMsg, bannerDismiss);

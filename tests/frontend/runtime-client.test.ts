@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StateStore } from "../../frontend/src/state/store";
-import { createRuntimeClient } from "../../frontend/src/state/runtime-client";
+import { createRuntimeClient, type AgentEventPayload } from "../../frontend/src/state/runtime-client";
 import { createSnapshot, installDomHarness } from "./helpers";
 
 interface FakeEventSource {
@@ -20,22 +20,44 @@ function createFakeEventSource(): FakeEventSource {
   };
 }
 
+function createDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve = (_value: T): void => undefined;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
 }
 
+function makePayload(overrides: Partial<AgentEventPayload> = {}): AgentEventPayload {
+  return {
+    issueId: "id-1",
+    identifier: "ENG-1",
+    type: "tool_use",
+    message: "Running tests",
+    sessionId: null,
+    ...overrides,
+  };
+}
+
 describe("RuntimeClient", () => {
+  let dom: ReturnType<typeof installDomHarness> | null = null;
   let restoreDom: (() => void) | null = null;
 
   beforeEach(() => {
     vi.useFakeTimers();
     const harness = installDomHarness();
+    dom = harness;
     restoreDom = () => harness.restore();
   });
 
   afterEach(() => {
     restoreDom?.();
+    dom = null;
     restoreDom = null;
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -82,6 +104,81 @@ describe("RuntimeClient", () => {
     client.stop();
   });
 
+  it("skips state polling while the tab is hidden and refreshes when visible again", async () => {
+    dom?.setHidden(true);
+
+    const getState = vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z"));
+    const client = createRuntimeClient({
+      api: { getState },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+
+    client.startPolling();
+
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(getState).not.toHaveBeenCalled();
+
+    dom?.setHidden(false);
+    dom?.dispatchVisibilityChange();
+    await flushMicrotasks();
+
+    expect(getState).toHaveBeenCalledTimes(1);
+
+    client.stop();
+  });
+
+  it("does not start a second state poll while the previous request is still running", async () => {
+    const deferred = createDeferred<ReturnType<typeof createSnapshot>>();
+    const getState = vi.fn().mockImplementation(() => deferred.promise);
+    const client = createRuntimeClient({
+      api: { getState },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+
+    client.startPolling();
+
+    await flushMicrotasks();
+    expect(getState).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(getState).toHaveBeenCalledTimes(1);
+
+    deferred.resolve(createSnapshot("2026-03-20T00:00:00.000Z"));
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(getState).toHaveBeenCalledTimes(2);
+
+    client.stop();
+  });
+
+  it("dismisses the stale banner through the runtime boundary", () => {
+    const banner = {
+      hidden: false,
+      classList: {
+        contains: vi.fn((value: string) => value === "is-visible"),
+        remove: vi.fn(),
+      },
+    } as unknown as HTMLElement;
+    vi.spyOn(dom!.document, "getElementById").mockReturnValue(banner);
+    const client = createRuntimeClient({
+      api: { getState: vi.fn().mockRejectedValue(new Error("offline")) },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+
+    client.dismissStaleBanner();
+
+    expect(banner.hidden).toBe(true);
+    expect(banner.classList.remove).toHaveBeenCalledWith("is-visible");
+  });
+
   it("reconnects the SSE stream through the same runtime client after an error", async () => {
     const firstSource = createFakeEventSource();
     const secondSource = createFakeEventSource();
@@ -114,6 +211,23 @@ describe("RuntimeClient", () => {
     client.stop();
   });
 
+  it("appends the stored read token to the SSE URL", () => {
+    const eventSource = createFakeEventSource();
+    const eventSourceFactory = vi.fn(() => eventSource);
+    const client = createRuntimeClient({
+      api: { getState: vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z")) },
+      buildReadTokenQueryParam: () => "read_token=read-secret",
+      eventSourceFactory,
+      store: new StateStore(),
+    });
+
+    client.connectEventSource();
+
+    expect(eventSourceFactory).toHaveBeenCalledWith("/api/v1/events?read_token=read-secret");
+
+    client.stop();
+  });
+
   it("subscribes to state updates and optional heartbeats through the runtime boundary", () => {
     const client = createRuntimeClient({
       api: { getState: vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z")) },
@@ -128,6 +242,58 @@ describe("RuntimeClient", () => {
     window.dispatchEvent(new CustomEvent("state:heartbeat", { detail: client.getAppState() }));
 
     expect(handler).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+  });
+
+  it("subscribes to agent events by issue identifier through the runtime boundary", () => {
+    const client = createRuntimeClient({
+      api: { getState: vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z")) },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+    const handler = vi.fn();
+
+    const unsubscribe = client.subscribeIssueEvents("ENG-1", handler);
+    window.dispatchEvent(new CustomEvent("risoluto:agent-event", { detail: makePayload({ identifier: "ENG-1" }) }));
+    window.dispatchEvent(new CustomEvent("risoluto:agent-event", { detail: makePayload({ identifier: "ENG-2" }) }));
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith(makePayload({ identifier: "ENG-1" }));
+
+    unsubscribe();
+    window.dispatchEvent(new CustomEvent("risoluto:agent-event", { detail: makePayload({ identifier: "ENG-1" }) }));
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("subscribes to filtered runtime events by issue identifier through the runtime boundary", () => {
+    const client = createRuntimeClient({
+      api: { getState: vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z")) },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+    const handler = vi.fn();
+
+    const unsubscribe = client.subscribeAllEvents("ENG-1", handler);
+    window.dispatchEvent(
+      new CustomEvent("risoluto:any-event", {
+        detail: { type: "issue.started", payload: { identifier: "ENG-1", status: "running" } },
+      }),
+    );
+    window.dispatchEvent(
+      new CustomEvent("risoluto:any-event", {
+        detail: { type: "issue.started", payload: { identifier: "ENG-2", status: "running" } },
+      }),
+    );
+    window.dispatchEvent(new CustomEvent("risoluto:any-event", { detail: { type: "issue.started" } }));
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith({
+      type: "issue.started",
+      payload: { identifier: "ENG-1", status: "running" },
+    });
 
     unsubscribe();
   });
@@ -174,6 +340,26 @@ describe("RuntimeClient", () => {
 
     unsubscribeHealth();
     unsubscribeReceipt();
+  });
+
+  it("subscribes to notification updates through the runtime boundary", () => {
+    const client = createRuntimeClient({
+      api: { getState: vi.fn().mockResolvedValue(createSnapshot("2026-03-20T00:00:00.000Z")) },
+      buildReadTokenQueryParam: () => "",
+      eventSourceFactory: () => createFakeEventSource(),
+      store: new StateStore(),
+    });
+    const handler = vi.fn();
+
+    const unsubscribe = client.subscribeNotificationUpdates(handler);
+    window.dispatchEvent(new CustomEvent("risoluto:notification-created"));
+    window.dispatchEvent(new CustomEvent("risoluto:notification-updated"));
+
+    expect(handler).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    window.dispatchEvent(new CustomEvent("risoluto:notification-created"));
+    expect(handler).toHaveBeenCalledTimes(2);
   });
 
   it("subscribes to workspace events through the runtime boundary", () => {

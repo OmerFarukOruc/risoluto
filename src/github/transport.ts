@@ -4,6 +4,7 @@ export interface GitHubTransportDeps {
   apiBaseUrl?: string;
   defaultTokenEnv?: string;
   authorizationHeaderName?: string;
+  authorizationScheme?: string;
   defaultHeaders?: Record<string, string>;
   allowMissingToken?: boolean;
 }
@@ -16,6 +17,8 @@ export interface GitHubTransportRequest {
   token?: string;
   tokenEnvName?: string;
   allowMissingToken?: boolean;
+  authorizationScheme?: string;
+  omitAuthorization?: boolean;
 }
 
 export class GitHubApiError extends Error {
@@ -72,6 +75,7 @@ export class GitHubTransport {
   private readonly graphqlEndpoint: string;
   private readonly defaultTokenEnv: string;
   private readonly authorizationHeaderName: string;
+  private readonly authorizationScheme: string;
   private readonly defaultHeaders: Record<string, string>;
   private readonly allowMissingToken: boolean;
 
@@ -82,6 +86,7 @@ export class GitHubTransport {
     this.graphqlEndpoint = buildGraphqlEndpoint(this.apiBaseUrl);
     this.defaultTokenEnv = deps.defaultTokenEnv ?? "GITHUB_TOKEN";
     this.authorizationHeaderName = deps.authorizationHeaderName ?? "authorization";
+    this.authorizationScheme = deps.authorizationScheme ?? "Bearer";
     this.defaultHeaders = deps.defaultHeaders ?? {};
     this.allowMissingToken = deps.allowMissingToken ?? false;
   }
@@ -127,15 +132,25 @@ export class GitHubTransport {
   }
 
   private buildHeaders(
-    request: Pick<GitHubTransportRequest, "token" | "tokenEnvName" | "headers" | "allowMissingToken">,
+    request: Pick<
+      GitHubTransportRequest,
+      "token" | "tokenEnvName" | "headers" | "allowMissingToken" | "authorizationScheme" | "omitAuthorization"
+    >,
   ): Record<string, string> {
+    const authorizationHeaders = request.omitAuthorization
+      ? {}
+      : {
+          [this.authorizationHeaderName]:
+            `${request.authorizationScheme ?? this.authorizationScheme} ${this.resolveToken(
+              request.token,
+              request.tokenEnvName,
+              request.allowMissingToken,
+            )}`,
+        };
+
     return {
       ...this.defaultHeaders,
-      [this.authorizationHeaderName]: `Bearer ${this.resolveToken(
-        request.token,
-        request.tokenEnvName,
-        request.allowMissingToken,
-      )}`,
+      ...authorizationHeaders,
       ...request.headers,
     };
   }

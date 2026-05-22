@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 
 import { normalizeCodexAuthJson } from "../codex/auth-file.js";
+import { GitHubApiError, GitHubTransport } from "../github/transport.js";
 import {
   checkAuthEndpointReachable,
   createPkceSession,
@@ -34,7 +35,6 @@ function stripTrailingSlashes(value: string): string {
   return value.slice(0, end);
 }
 
-const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_BRANCH_FALLBACK = "main";
 
 export function trimOptionalNonEmptyString(value: unknown): string | null {
@@ -148,37 +148,37 @@ export async function fetchDefaultBranch(
   token: string | null,
   fetchImpl: typeof fetch,
 ): Promise<string> {
-  const headers: Record<string, string> = {
-    accept: "application/vnd.github+json",
-    "user-agent": "risoluto",
-    "x-github-api-version": "2022-11-28",
-  };
+  const transport = new GitHubTransport({
+    fetch: fetchImpl,
+    defaultHeaders: {
+      accept: "application/vnd.github+json",
+      "user-agent": "risoluto",
+      "x-github-api-version": "2022-11-28",
+    },
+  });
+  const pathName = `/repos/${owner}/${repo}`;
 
   if (token) {
     try {
-      const response = await fetchImpl(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
-        method: "GET",
-        headers: { ...headers, authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = (await response.json()) as Record<string, unknown>;
-        if (typeof data.default_branch === "string") {
-          return data.default_branch;
-        }
+      const data = await transport.request({ pathName, method: "GET", token });
+      const record = data as Record<string, unknown>;
+      if (typeof record.default_branch === "string") {
+        return record.default_branch;
       }
     } catch {
       // Fall through to the unauthenticated request for public repos.
     }
   }
 
-  const response = await fetchImpl(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
-    method: "GET",
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(`GitHub API returned ${response.status}`);
+  let data: Record<string, unknown>;
+  try {
+    data = (await transport.request({ pathName, method: "GET", omitAuthorization: true })) as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof GitHubApiError) {
+      throw new Error(`GitHub API returned ${error.status}`, { cause: error });
+    }
+    throw error;
   }
-  const data = (await response.json()) as Record<string, unknown>;
   if (typeof data.default_branch === "string") {
     return data.default_branch;
   }
@@ -379,9 +379,11 @@ class SetupServiceImpl implements SetupPort {
   async saveGithubToken(token: string): Promise<{ valid: boolean }> {
     let valid: boolean;
     try {
-      const ghResponse = await fetch("https://api.github.com/user", {
-        headers: { authorization: `token ${token}`, "user-agent": "Risoluto" },
+      const transport = new GitHubTransport({
+        authorizationScheme: "token",
+        defaultHeaders: { "user-agent": "Risoluto" },
       });
+      const ghResponse = await transport.send({ pathName: "/user", method: "GET", token });
       valid = ghResponse.ok;
     } catch {
       valid = false;

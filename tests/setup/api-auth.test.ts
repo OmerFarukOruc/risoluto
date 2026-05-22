@@ -79,9 +79,13 @@ describe("registerSetupApi — auth & tokens", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ valid: true });
-    expect(getExternalFetchMock()).toHaveBeenCalledWith("https://api.github.com/user", {
-      headers: { authorization: "token ghp_valid", "user-agent": "Risoluto" },
-    });
+    expect(getExternalFetchMock()).toHaveBeenCalledWith(
+      "https://api.github.com/user",
+      expect.objectContaining({
+        method: "GET",
+        headers: { authorization: "token ghp_valid", "user-agent": "Risoluto" },
+      }),
+    );
     expect(secretsStore.set).toHaveBeenCalledWith("GITHUB_TOKEN", "ghp_valid");
     expect(process.env.GITHUB_TOKEN).toBeUndefined();
   });

@@ -19,6 +19,8 @@
 - 2026-05-22T16:33:32+03:00 Git context GitHub transport slice validated. `src/http/git-context.ts` now uses the existing `GitHubTransport` module/interface for repo enrichment instead of owning raw GitHub fetch implementation and a hardcoded endpoint. This fixes the docs/runtime disagreement for `github.apiBaseUrl` while preserving `/api/v1/git/context` response shape and graceful degradation.
 - 2026-05-22T16:33:32+03:00 Candidate learning: Linear webhook event processing is currently speculative, not strong. After the provider-local module slice, `src/webhook/linear-handler.ts` has a coherent implementation behind the `handleWebhookLinear` interface; extracting event processing would introduce a hypothetical seam with one adapter and weak leverage.
 - 2026-05-22T16:33:32+03:00 Next scan hint: `src/setup/setup-service.ts` and `src/health/runtime/github-http.ts` still mention GitHub HTTP implementation. Re-read current source and tests before deciding whether either is a real depth candidate or just context-specific setup/health locality.
+- 2026-05-22T16:44:24+03:00 Setup GitHub transport slice validated. `GitHubTransport` now owns setup's request mechanics for GitHub token validation and default-branch detection through a deeper interface that supports `token` authorization and anonymous public requests. Setup keeps workflow behavior: validate token, store only valid tokens, try authenticated default-branch lookup first, then public lookup, and fall back to `main` at the handler.
+- 2026-05-22T16:44:24+03:00 Compatibility learning: preserving historical setup error messages while mapping from `GitHubApiError` should still keep the original cause attached. The lint rule caught this and the final implementation preserves both setup compatibility and error locality.
 
 ## Durable Architecture Rubric
 
@@ -31,3 +33,4 @@
 ## Skipped or Blocked Candidates
 
 - 2026-05-22T16:33:32+03:00 Skipped extracting Linear webhook event processing for now. Reason: current evidence is speculative; the module is already provider-local, and a new seam would have one adapter with no proven testability/runtime need.
+- 2026-05-22T16:44:24+03:00 Skipped broadening setup repo URL parsing for GitHub Enterprise. Reason: accepting non-`github.com` URLs would change setup behavior and trust posture, requiring user intent/security authority.

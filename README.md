@@ -1,3 +1,15 @@
+# Risoluto Legacy
+
+This repository is the pre-v1 legacy implementation of Risoluto.
+
+The canonical v1 repository is now:
+
+https://github.com/risolutohq/risoluto
+
+This legacy repository is preserved for historical context only. It is not the active product repository.
+
+---
+
 <p align="center">
   <h1 align="center">🎵 Risoluto</h1>
   <p align="center">
